@@ -1322,6 +1322,10 @@ bool __init early_init_dt_verify(void *dt_virt, phys_addr_t dt_phys)
 	initial_boot_params_pa = dt_phys;
 	of_fdt_crc32 = crc32_be(~0, initial_boot_params,
 				fdt_totalsize(initial_boot_params));
+
+	/* Initialize {size,address}-cells info */
+	early_init_dt_scan_root();
+
 	return true;
 }
 
@@ -1329,9 +1333,6 @@ bool __init early_init_dt_verify(void *dt_virt, phys_addr_t dt_phys)
 void __init early_init_dt_scan_nodes(void)
 {
 	int rc;
-
-	/* Initialize {size,address}-cells info */
-	early_init_dt_scan_root();
 
 	/* Retrieve various information from the /chosen node */
 	rc = early_init_dt_scan_chosen(boot_command_line);
