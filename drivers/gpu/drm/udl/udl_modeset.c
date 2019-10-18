@@ -27,6 +27,9 @@
 
 #include "udl_drv.h"
 #include "udl_proto.h"
+#include "udl_cursor.h"
+
+#define UDL_COLOR_DEPTH_16BPP	0
 
 /*
  * All DisplayLink bulk operations start with 0xaf (UDL_MSG_BULK), followed by
@@ -205,6 +208,7 @@ static int udl_handle_damage(struct drm_framebuffer *fb,
 			     const struct drm_rect *clip)
 {
 	struct drm_device *dev = fb->dev;
+	struct udl_device *udl = to_udl(dev);
 	void *vaddr = map->vaddr; /* TODO: Use mapping abstraction properly */
 	int i, ret;
 	char *cmd;
@@ -226,9 +230,12 @@ static int udl_handle_damage(struct drm_framebuffer *fb,
 		const int byte_offset = line_offset + (clip->x1 << log_bpp);
 		const int dev_byte_offset = (fb->width * i + clip->x1) << log_bpp;
 		const int byte_width = drm_rect_width(clip) << log_bpp;
+		struct udl_cursor_hline cursor_hline;
+
+		udl_cursor_get_hline(&udl->cursor, clip->x1, i, &cursor_hline);
 		ret = udl_render_hline(dev, log_bpp, &urb, (char *)vaddr,
 				       &cmd, byte_offset, dev_byte_offset,
-				       byte_width);
+				       byte_width, &cursor_hline);
 		if (ret)
 			return ret;
 	}
