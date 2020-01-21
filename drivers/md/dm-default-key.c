@@ -9,6 +9,8 @@
 
 #define DM_MSG_PREFIX		"default-key"
 
+#define DM_DEFAULT_KEY_MAX_KEY_SIZE	64
+
 static const struct dm_default_key_cipher {
 	const char *name;
 	enum blk_crypto_mode_num mode_num;
