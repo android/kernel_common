@@ -48,6 +48,17 @@ struct prelim_drm_i915_pxp_set_session_status_params {
 } __attribute__((packed));
 
 /*
+ * struct pxp_tee_io_message_params - Params to send/receive message to/from TEE.
+ */
+struct prelim_drm_i915_pxp_tee_io_message_params {
+	__u64 msg_in; /* in - pointer to buffer containing input message */
+	__u32 msg_in_size; /* in - input message size */
+	__u64 msg_out; /* in - pointer to buffer to store the output message */
+	__u32 msg_out_buf_size; /* in -  provided output message buffer size */
+	__u32 msg_out_ret_size; /* out- output message actual size returned from TEE */
+} __attribute__((packed));
+
+/*
  * DRM_I915_PXP_OPS -
  *
  * PXP is an i915 componment, that helps user space to establish the hardware
@@ -62,6 +73,7 @@ struct prelim_drm_i915_pxp_set_session_status_params {
 struct prelim_drm_i915_pxp_ops {
 	__u32 action; /* in - specified action of this operation */
 #define PRELIM_DRM_I915_PXP_ACTION_SET_SESSION_STATUS 0
+#define PRELIM_DRM_I915_PXP_ACTION_TEE_IO_MESSAGE 1
 
 	__u32 status; /* out - status output for this operation */
 #define PRELIM_DRM_I915_PXP_OP_STATUS_SUCCESS 0

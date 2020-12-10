@@ -588,6 +588,34 @@ static int pxp_set_session_status(struct intel_pxp *pxp,
 	return ret;
 }
 
+static int pxp_send_tee_msg(struct intel_pxp *pxp,
+			    struct prelim_drm_i915_pxp_ops *pxp_ops,
+			    struct drm_file *drmfile)
+{
+	struct drm_i915_private *i915 = pxp->ctrl_gt->i915;
+	struct prelim_drm_i915_pxp_tee_io_message_params params;
+	struct prelim_drm_i915_pxp_tee_io_message_params __user *uparams =
+		u64_to_user_ptr(pxp_ops->params);
+	int ret = 0;
+
+	if (copy_from_user(&params, uparams, sizeof(params)) != 0)
+		return -EFAULT;
+
+	ret = intel_pxp_tee_ioctl_io_message(pxp, &params);
+	if (ret >= 0) {
+		pxp_ops->status = ret;
+
+		if (copy_to_user(uparams, &params, sizeof(params)))
+			ret = -EFAULT;
+		else
+			ret = 0;
+	} else {
+		drm_dbg(&i915->drm, "Failed to send user TEE IO message\n");
+	}
+
+	return ret;
+}
+
 int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmfile)
 {
 	int ret = 0;
@@ -628,8 +656,12 @@ int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmf
 	case PRELIM_DRM_I915_PXP_ACTION_SET_SESSION_STATUS:
 		ret = pxp_set_session_status(pxp, pxp_ops, drmfile);
 		break;
+	case PRELIM_DRM_I915_PXP_ACTION_TEE_IO_MESSAGE:
+		ret = pxp_send_tee_msg(pxp, pxp_ops, drmfile);
+		break;
 	default:
 		ret = -EINVAL;
+		break;
 	}
 
 out_unlock:
