@@ -266,6 +266,7 @@ void intel_pxp_fini(struct drm_i915_private *i915)
 void intel_pxp_mark_termination_in_progress(struct intel_pxp *pxp)
 {
 	pxp->arb_session.is_valid = false;
+	pxp->arb_session.tag = 0;
 	reinit_completion(&pxp->termination);
 }
 
@@ -553,10 +554,13 @@ static int pxp_set_session_status(struct intel_pxp *pxp,
 	struct prelim_drm_i915_pxp_set_session_status_params params;
 	struct prelim_drm_i915_pxp_set_session_status_params __user *uparams =
 		u64_to_user_ptr(pxp_ops->params);
+	u32 session_id;
 	int ret = 0;
 
 	if (copy_from_user(&params, uparams, sizeof(params)) != 0)
 		return -EFAULT;
+
+	session_id = params.pxp_tag & PRELIM_DRM_I915_PXP_TAG_SESSION_ID_MASK;
 
 	switch (params.req_session_state) {
 	case PRELIM_DRM_I915_PXP_REQ_SESSION_ID_INIT:
@@ -566,11 +570,11 @@ static int pxp_set_session_status(struct intel_pxp *pxp,
 		break;
 	case PRELIM_DRM_I915_PXP_REQ_SESSION_IN_PLAY:
 		ret = intel_pxp_sm_ioctl_mark_session_in_play(pxp, drmfile,
-							      params.pxp_tag);
+							      session_id);
 		break;
 	case PRELIM_DRM_I915_PXP_REQ_SESSION_TERMINATE:
 		ret = intel_pxp_sm_ioctl_terminate_session(pxp, drmfile,
-							   params.pxp_tag);
+							   session_id);
 		break;
 	default:
 		ret = -EINVAL;
@@ -611,6 +615,30 @@ static int pxp_send_tee_msg(struct intel_pxp *pxp,
 			ret = 0;
 	} else {
 		drm_dbg(&i915->drm, "Failed to send user TEE IO message\n");
+	}
+
+	return ret;
+}
+
+static int pxp_query_tag(struct intel_pxp *pxp, struct prelim_drm_i915_pxp_ops *pxp_ops)
+{
+	struct prelim_drm_i915_pxp_query_tag params;
+	struct prelim_drm_i915_pxp_query_tag __user *uparams =
+		u64_to_user_ptr(pxp_ops->params);
+	int ret = 0;
+
+	if (copy_from_user(&params, uparams, sizeof(params)) != 0)
+		return -EFAULT;
+
+	ret = intel_pxp_sm_ioctl_query_pxp_tag(pxp, &params.session_is_alive,
+					       &params.pxp_tag);
+	if (ret >= 0) {
+		pxp_ops->status = ret;
+
+		if (copy_to_user(uparams, &params, sizeof(params)))
+			ret = -EFAULT;
+		else
+			ret = 0;
 	}
 
 	return ret;
@@ -658,6 +686,9 @@ int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmf
 		break;
 	case PRELIM_DRM_I915_PXP_ACTION_TEE_IO_MESSAGE:
 		ret = pxp_send_tee_msg(pxp, pxp_ops, drmfile);
+		break;
+	case PRELIM_DRM_I915_PXP_ACTION_QUERY_PXP_TAG:
+		ret = pxp_query_tag(pxp, pxp_ops);
 		break;
 	default:
 		ret = -EINVAL;

@@ -59,6 +59,33 @@ struct prelim_drm_i915_pxp_tee_io_message_params {
 } __attribute__((packed));
 
 /*
+ * struct drm_i915_pxp_query_tag - Params to query the PXP tag of specified
+ * session id and whether the session is alive from PXP state machine.
+ */
+struct prelim_drm_i915_pxp_query_tag {
+	__u32 session_is_alive;
+
+	/*
+	 * in  - Session ID, out pxp tag.
+	 * Tag format:
+	 * bits   0-6: session id
+	 * bit      7: rsvd
+	 * bits  8-15: instance id
+	 * bit     16: session enabled
+	 * bit     17: mode hm
+	 * bit     18: rsvd
+	 * bit     19: mode sm
+	 * bits 20-31: rsvd
+	 */
+	__u32 pxp_tag;
+#define PRELIM_DRM_I915_PXP_TAG_SESSION_ID_MASK		(0x7f)
+#define PRELIM_DRM_I915_PXP_TAG_INSTANCE_ID_MASK	(0xff << 8)
+#define PRELIM_DRM_I915_PXP_TAG_SESSION_ENABLED		(0x1 << 16)
+#define PRELIM_DRM_I915_PXP_TAG_SESSION_HM		(0x1 << 17)
+#define PRELIM_DRM_I915_PXP_TAG_SESSION_SM		(0x1 << 19)
+} __attribute__((packed));
+
+/*
  * DRM_I915_PXP_OPS -
  *
  * PXP is an i915 componment, that helps user space to establish the hardware
@@ -74,6 +101,7 @@ struct prelim_drm_i915_pxp_ops {
 	__u32 action; /* in - specified action of this operation */
 #define PRELIM_DRM_I915_PXP_ACTION_SET_SESSION_STATUS 0
 #define PRELIM_DRM_I915_PXP_ACTION_TEE_IO_MESSAGE 1
+#define PRELIM_DRM_I915_PXP_ACTION_QUERY_PXP_TAG 2
 
 	__u32 status; /* out - status output for this operation */
 #define PRELIM_DRM_I915_PXP_OP_STATUS_SUCCESS 0

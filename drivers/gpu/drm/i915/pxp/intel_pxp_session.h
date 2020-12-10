@@ -25,7 +25,10 @@ int intel_pxp_sm_ioctl_mark_session_in_play(struct intel_pxp *pxp,
 					    u32 session_id);
 int intel_pxp_sm_ioctl_terminate_session(struct intel_pxp *pxp,
 					 struct drm_file *drmfile,
-					 int session_id);
+					 u32 session_id);
+
+int intel_pxp_sm_ioctl_query_pxp_tag(struct intel_pxp *pxp,
+				     u32 *session_is_alive, u32 *pxp_tag);
 
 bool intel_pxp_session_is_in_play(struct intel_pxp *pxp, u32 id);
 
@@ -59,7 +62,7 @@ static inline int intel_pxp_sm_ioctl_mark_session_in_play(struct intel_pxp *pxp,
 
 static inline int intel_pxp_sm_ioctl_terminate_session(struct intel_pxp *pxp,
 						       struct drm_file *drmfile,
-						       int session_id)
+						       u32 session_id)
 {
 	return 0;
 }
@@ -67,6 +70,12 @@ static inline int intel_pxp_sm_ioctl_terminate_session(struct intel_pxp *pxp,
 static inline bool intel_pxp_session_is_in_play(struct intel_pxp *pxp, u32 id)
 {
 	return false;
+}
+
+static inline int intel_pxp_sm_ioctl_query_pxp_tag(struct intel_pxp *pxp,
+						   u32 *session_is_alive, u32 *pxp_tag)
+{
+	return 0;
 }
 #endif
 

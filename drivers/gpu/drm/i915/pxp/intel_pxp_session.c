@@ -13,6 +13,42 @@
 #include "intel_pxp_types.h"
 #include "intel_pxp_regs.h"
 
+static u8 get_next_instance_id(struct intel_pxp *pxp, u32 id)
+{
+	u8 next_id = ++pxp->next_tag_id[id];
+
+	if  (!next_id)
+		next_id = ++pxp->next_tag_id[id];
+
+	return next_id;
+}
+
+static u32 set_pxp_tag(struct intel_pxp *pxp, int session_idx, int protection_mode)
+{
+	u32 pxp_tag = 0;
+
+	switch (protection_mode) {
+	case PRELIM_DRM_I915_PXP_MODE_LM:
+		break;
+	case PRELIM_DRM_I915_PXP_MODE_HM:
+		pxp_tag |= PRELIM_DRM_I915_PXP_TAG_SESSION_HM;
+		break;
+	case PRELIM_DRM_I915_PXP_MODE_SM:
+		pxp_tag |= PRELIM_DRM_I915_PXP_TAG_SESSION_HM;
+		pxp_tag |= PRELIM_DRM_I915_PXP_TAG_SESSION_SM;
+		break;
+	default:
+		MISSING_CASE(protection_mode);
+	}
+
+	pxp_tag |= PRELIM_DRM_I915_PXP_TAG_SESSION_ENABLED;
+	pxp_tag |= FIELD_PREP(PRELIM_DRM_I915_PXP_TAG_INSTANCE_ID_MASK,
+			      get_next_instance_id(pxp, session_idx));
+	pxp_tag |= FIELD_PREP(PRELIM_DRM_I915_PXP_TAG_SESSION_ID_MASK, session_idx);
+
+	return pxp_tag;
+}
+
 bool intel_pxp_session_is_in_play(struct intel_pxp *pxp, u32 id)
 {
 	struct intel_uncore *uncore = pxp->ctrl_gt->uncore;
@@ -70,7 +106,8 @@ static bool is_hwdrm_session_attacked(struct intel_pxp *pxp)
 	return regval & KCR_STATUS_1_ATTACK_MASK;
 }
 
-static void __init_session_entry(struct intel_pxp_session *session,
+static void __init_session_entry(struct intel_pxp *pxp,
+				 struct intel_pxp_session *session,
 				 struct drm_file *drmfile,
 				 int protection_mode, int session_index)
 {
@@ -78,6 +115,7 @@ static void __init_session_entry(struct intel_pxp_session *session,
 	session->index = session_index;
 	session->is_valid = false;
 	session->drmfile = drmfile;
+	session->tag = set_pxp_tag(pxp, session_index, protection_mode);
 }
 
 /**
@@ -101,7 +139,7 @@ static int create_session_entry(struct intel_pxp *pxp, struct drm_file *drmfile,
 	if (!session)
 		return -ENOMEM;
 
-	__init_session_entry(session, drmfile, protection_mode, session_index);
+	__init_session_entry(pxp, session, drmfile, protection_mode, session_index);
 
 	pxp->hwdrm_sessions[session_index] = session;
 	set_bit(session_index, pxp->reserved_sessions);
@@ -120,7 +158,8 @@ static void free_session_entry(struct intel_pxp *pxp, int session_index)
 
 static void pxp_init_arb_session(struct intel_pxp *pxp)
 {
-	__init_session_entry(&pxp->arb_session, NULL, PRELIM_DRM_I915_PXP_MODE_HM, ARB_SESSION);
+	__init_session_entry(pxp, &pxp->arb_session, NULL, PRELIM_DRM_I915_PXP_MODE_HM,
+			     ARB_SESSION);
 	pxp->hwdrm_sessions[ARB_SESSION] = &pxp->arb_session;
 	set_bit(ARB_SESSION, pxp->reserved_sessions);
 }
@@ -170,7 +209,7 @@ int intel_pxp_sm_ioctl_reserve_session(struct intel_pxp *pxp, struct drm_file *d
 
 	ret = create_session_entry(pxp, drmfile,
 				   protection_mode, idx);
-	*pxp_tag = idx;
+	*pxp_tag = pxp->hwdrm_sessions[idx]->tag;
 
 	return ret;
 }
@@ -179,13 +218,13 @@ int intel_pxp_sm_ioctl_reserve_session(struct intel_pxp *pxp, struct drm_file *d
  * intel_pxp_sm_ioctl_terminate_session - To terminate an active HW session and free its entry.
  * @pxp: pointer to pxp struct.
  * @drmfile: drm_file of the app issuing the termination
- * @session_id: Session identifier of the session, containing type and index info
+ * @session_id: Session identifier of the session
  *
  * Return: 0 means terminate is successful, or didn't find the desired session.
  */
 int intel_pxp_sm_ioctl_terminate_session(struct intel_pxp *pxp,
 					 struct drm_file *drmfile,
-					 int session_id)
+					 u32 session_id)
 {
 	int ret;
 
@@ -209,11 +248,37 @@ int intel_pxp_sm_ioctl_terminate_session(struct intel_pxp *pxp,
 	return 0;
 }
 
+int intel_pxp_sm_ioctl_query_pxp_tag(struct intel_pxp *pxp,
+				     u32 *session_is_alive, u32 *pxp_tag)
+{
+	int session_id = 0;
+
+	if (!session_is_alive || !pxp_tag)
+		return -EINVAL;
+
+	session_id = *pxp_tag & PRELIM_DRM_I915_PXP_TAG_SESSION_ID_MASK;
+	if (session_id >= INTEL_PXP_MAX_HWDRM_SESSIONS)
+		return -EINVAL;
+
+	if (!pxp->hwdrm_sessions[session_id]) {
+		*pxp_tag = 0;
+		*session_is_alive = 0;
+		return 0;
+	}
+
+	*pxp_tag = pxp->hwdrm_sessions[session_id]->tag;
+
+	if (session_is_alive)
+		*session_is_alive = pxp->hwdrm_sessions[session_id]->is_valid;
+
+	return 0;
+}
+
 /**
  * intel_pxp_sm_ioctl_mark_session_in_play - Put an reserved session to "in_play" state
  * @pxp: pointer to pxp struct
  * @drmfile: drm_file of the app marking the session as in play
- * @session_id: Session identifier of the session, containing type and index info
+ * @session_id: Session identifier of the session
  *
  * Return: status. 0 means update is successful.
  */
@@ -268,6 +333,7 @@ static int pxp_create_arb_session(struct intel_pxp *pxp)
 	if (!++pxp->key_instance)
 		++pxp->key_instance;
 
+	pxp->arb_session.tag = set_pxp_tag(pxp, ARB_SESSION, PRELIM_DRM_I915_PXP_MODE_HM);
 	pxp->arb_session.is_valid = true;
 
 	return 0;
