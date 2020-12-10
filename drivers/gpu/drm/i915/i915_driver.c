@@ -943,6 +943,7 @@ static void i915_driver_postclose(struct drm_device *dev, struct drm_file *file)
 
 	/* Catch up with all the deferred frees from "this" client */
 	i915_gem_flush_free_objects(to_i915(dev));
+	intel_pxp_close(to_i915(dev)->pxp, file);
 }
 
 void i915_driver_shutdown(struct drm_i915_private *i915)

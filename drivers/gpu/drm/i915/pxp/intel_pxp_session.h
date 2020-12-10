@@ -30,6 +30,8 @@ int intel_pxp_sm_ioctl_terminate_session(struct intel_pxp *pxp,
 int intel_pxp_sm_ioctl_query_pxp_tag(struct intel_pxp *pxp,
 				     u32 *session_is_alive, u32 *pxp_tag);
 
+void intel_pxp_file_close(struct intel_pxp *pxp, struct drm_file *drmfile);
+
 bool intel_pxp_session_is_in_play(struct intel_pxp *pxp, u32 id);
 
 #else

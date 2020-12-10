@@ -302,6 +302,27 @@ int intel_pxp_sm_ioctl_mark_session_in_play(struct intel_pxp *pxp,
 	return 0;
 }
 
+void intel_pxp_file_close(struct intel_pxp *pxp, struct drm_file *drmfile)
+{
+	int idx, ret;
+
+	lockdep_assert_held(&pxp->session_mutex);
+
+	for_each_set_bit(idx, pxp->reserved_sessions, INTEL_PXP_MAX_HWDRM_SESSIONS) {
+		if (pxp->hwdrm_sessions[idx]->drmfile == drmfile) {
+			ret = intel_pxp_terminate_session(pxp, idx);
+			if (ret)
+				drm_err(&pxp->ctrl_gt->i915->drm,
+					"failed to correctly close PXP session %u\n",
+					idx);
+
+			free_session_entry(pxp, idx);
+		}
+	}
+
+	return;
+}
+
 static int pxp_create_arb_session(struct intel_pxp *pxp)
 {
 	struct intel_gt *gt = pxp->ctrl_gt;

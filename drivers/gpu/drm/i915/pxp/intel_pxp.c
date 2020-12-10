@@ -703,7 +703,22 @@ out_pm:
 	return ret;
 }
 
+void intel_pxp_close(struct intel_pxp *pxp, struct drm_file *drmfile)
+{
+	if (!intel_pxp_is_enabled(pxp) || !drmfile)
+		return;
+
+	mutex_lock(&pxp->session_mutex);
+	intel_pxp_file_close(pxp, drmfile);
+	mutex_unlock(&pxp->session_mutex);
+}
+
 #else
+
+void intel_pxp_close(struct intel_pxp *pxp, struct drm_file *drmfile)
+{
+}
+
 int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmfile)
 {
 	return -ENODEV;

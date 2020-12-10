@@ -40,5 +40,6 @@ int intel_pxp_key_check(struct intel_pxp *pxp,
 
 void intel_pxp_invalidate(struct intel_pxp *pxp);
 int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmfile);
+void intel_pxp_close(struct intel_pxp *pxp, struct drm_file *drmfile);
 
 #endif /* __INTEL_PXP_H__ */
