@@ -72,7 +72,7 @@ void intel_pxp_runtime_suspend(struct intel_pxp *pxp)
 	if (!intel_pxp_is_enabled(pxp))
 		return;
 
-	pxp->arb_is_valid = false;
+	pxp->arb_session.is_valid = false;
 
 	intel_pxp_fini_hw(pxp);
 

@@ -13,9 +13,7 @@
 #include "intel_pxp_types.h"
 #include "intel_pxp_regs.h"
 
-#define ARB_SESSION I915_PROTECTED_CONTENT_DEFAULT_SESSION /* shorter define */
-
-static bool intel_pxp_session_is_in_play(struct intel_pxp *pxp, u32 id)
+bool intel_pxp_session_is_in_play(struct intel_pxp *pxp, u32 id)
 {
 	struct intel_uncore *uncore = pxp->ctrl_gt->uncore;
 	intel_wakeref_t wakeref;
@@ -51,12 +49,200 @@ static int pxp_wait_for_session_state(struct intel_pxp *pxp, u32 id, bool in_pla
 	return ret;
 }
 
+/**
+ * is_hwdrm_session_attacked - To check if hwdrm active sessions are attacked.
+ * @pxp: pointer pxp struct
+ *
+ * Return: true if hardware sessions is attacked, false otherwise.
+ */
+static bool is_hwdrm_session_attacked(struct intel_pxp *pxp)
+{
+	u32 regval = 0;
+	intel_wakeref_t wakeref;
+	struct intel_uncore *uncore = pxp->ctrl_gt->uncore;
+
+	if (pxp->hw_state_invalidated)
+		return true;
+
+	with_intel_runtime_pm(uncore->rpm, wakeref)
+		regval = intel_uncore_read(uncore, KCR_STATUS_1(pxp->kcr_base));
+
+	return regval & KCR_STATUS_1_ATTACK_MASK;
+}
+
+static void __init_session_entry(struct intel_pxp_session *session,
+				 struct drm_file *drmfile,
+				 int protection_mode, int session_index)
+{
+	session->protection_mode = protection_mode;
+	session->index = session_index;
+	session->is_valid = false;
+	session->drmfile = drmfile;
+}
+
+/**
+ * create_session_entry - Create a new session entry with provided info.
+ * @pxp: pointer to pxp struct
+ * @drmfile: pointer to drm_file
+ * @protection_mode: session protection mode type
+ * @session_index: Numeric session identifier.
+ *
+ * Return: status. 0 means creation is successful.
+ */
+static int create_session_entry(struct intel_pxp *pxp, struct drm_file *drmfile,
+				int protection_mode, int session_index)
+{
+	struct intel_pxp_session *session = NULL;
+
+	if (pxp->hwdrm_sessions[session_index])
+		return -EEXIST;
+
+	session = kzalloc(sizeof(*session), GFP_KERNEL);
+	if (!session)
+		return -ENOMEM;
+
+	__init_session_entry(session, drmfile, protection_mode, session_index);
+
+	pxp->hwdrm_sessions[session_index] = session;
+	set_bit(session_index, pxp->reserved_sessions);
+
+	return 0;
+}
+
+static void free_session_entry(struct intel_pxp *pxp, int session_index)
+{
+	if (!pxp->hwdrm_sessions[session_index])
+		return;
+
+	clear_bit(session_index, pxp->reserved_sessions);
+	kfree(fetch_and_zero(&pxp->hwdrm_sessions[session_index]));
+}
+
+static void pxp_init_arb_session(struct intel_pxp *pxp)
+{
+	__init_session_entry(&pxp->arb_session, NULL, PRELIM_DRM_I915_PXP_MODE_HM, ARB_SESSION);
+	pxp->hwdrm_sessions[ARB_SESSION] = &pxp->arb_session;
+	set_bit(ARB_SESSION, pxp->reserved_sessions);
+}
+
+static void pxp_fini_arb_session(struct intel_pxp *pxp)
+{
+	pxp->hwdrm_sessions[ARB_SESSION] = NULL;
+	clear_bit(ARB_SESSION, pxp->reserved_sessions);
+}
+
+/**
+ * intel_pxp_sm_ioctl_reserve_session - To reserve an available protected session.
+ * @pxp: pointer to pxp struct
+ * @drmfile: pointer to drm_file.
+ * @protection_mode: session protection mode type
+ * @pxp_tag: Numeric session identifier returned back to caller.
+ *
+ * Return: status. 0 means reserve is successful.
+ */
+int intel_pxp_sm_ioctl_reserve_session(struct intel_pxp *pxp, struct drm_file *drmfile,
+				       int protection_mode, u32 *pxp_tag)
+{
+	int ret;
+	int idx = 0;
+
+	if (!drmfile || !pxp_tag)
+		return -EINVAL;
+
+	lockdep_assert_held(&pxp->session_mutex);
+
+	/* check if sessions are under attack. if so, don't allow creation */
+	if (is_hwdrm_session_attacked(pxp))
+		return -EPERM;
+
+	if (protection_mode < PRELIM_DRM_I915_PXP_MODE_LM ||
+	    protection_mode > PRELIM_DRM_I915_PXP_MODE_SM)
+		return -EINVAL;
+
+	idx = find_first_zero_bit(pxp->reserved_sessions,
+				  INTEL_PXP_MAX_HWDRM_SESSIONS);
+	if (idx >= INTEL_PXP_MAX_HWDRM_SESSIONS)
+		return PRELIM_DRM_I915_PXP_OP_STATUS_SESSION_NOT_AVAILABLE;
+
+	ret = pxp_wait_for_session_state(pxp, idx, false);
+	if (ret)
+		return PRELIM_DRM_I915_PXP_OP_STATUS_RETRY_REQUIRED;
+
+	ret = create_session_entry(pxp, drmfile,
+				   protection_mode, idx);
+	*pxp_tag = idx;
+
+	return ret;
+}
+
+/**
+ * intel_pxp_sm_ioctl_terminate_session - To terminate an active HW session and free its entry.
+ * @pxp: pointer to pxp struct.
+ * @drmfile: drm_file of the app issuing the termination
+ * @session_id: Session identifier of the session, containing type and index info
+ *
+ * Return: 0 means terminate is successful, or didn't find the desired session.
+ */
+int intel_pxp_sm_ioctl_terminate_session(struct intel_pxp *pxp,
+					 struct drm_file *drmfile,
+					 int session_id)
+{
+	int ret;
+
+	lockdep_assert_held(&pxp->session_mutex);
+
+	if (session_id >= INTEL_PXP_MAX_HWDRM_SESSIONS)
+		return -EINVAL;
+
+	if (!pxp->hwdrm_sessions[session_id])
+		return 0;
+
+	if (pxp->hwdrm_sessions[session_id]->drmfile != drmfile)
+		return -EPERM;
+
+	ret = intel_pxp_terminate_session(pxp, session_id);
+	if (ret)
+		return ret;
+
+	free_session_entry(pxp, session_id);
+
+	return 0;
+}
+
+/**
+ * intel_pxp_sm_ioctl_mark_session_in_play - Put an reserved session to "in_play" state
+ * @pxp: pointer to pxp struct
+ * @drmfile: drm_file of the app marking the session as in play
+ * @session_id: Session identifier of the session, containing type and index info
+ *
+ * Return: status. 0 means update is successful.
+ */
+int intel_pxp_sm_ioctl_mark_session_in_play(struct intel_pxp *pxp,
+					    struct drm_file *drmfile,
+					    u32 session_id)
+{
+	lockdep_assert_held(&pxp->session_mutex);
+
+	if (session_id >= INTEL_PXP_MAX_HWDRM_SESSIONS)
+		return -EINVAL;
+
+	if (!pxp->hwdrm_sessions[session_id])
+		return -EINVAL;
+
+	if (pxp->hwdrm_sessions[session_id]->drmfile != drmfile)
+		return -EPERM;
+
+	pxp->hwdrm_sessions[session_id]->is_valid = true;
+
+	return 0;
+}
+
 static int pxp_create_arb_session(struct intel_pxp *pxp)
 {
 	struct intel_gt *gt = pxp->ctrl_gt;
 	int ret;
 
-	pxp->arb_is_valid = false;
+	pxp->arb_session.is_valid = false;
 
 	if (intel_pxp_session_is_in_play(pxp, ARB_SESSION)) {
 		drm_err(&gt->i915->drm, "arb session already in play at creation time\n");
@@ -82,30 +268,65 @@ static int pxp_create_arb_session(struct intel_pxp *pxp)
 	if (!++pxp->key_instance)
 		++pxp->key_instance;
 
-	pxp->arb_is_valid = true;
+	pxp->arb_session.is_valid = true;
 
 	return 0;
 }
 
-static int pxp_terminate_arb_session_and_global(struct intel_pxp *pxp)
+static int pxp_terminate_all_sessions(struct intel_pxp *pxp)
+{
+	int ret;
+	u32 idx;
+	long mask = 0;
+
+	if (!intel_pxp_is_enabled(pxp))
+		return 0;
+
+	lockdep_assert_held(&pxp->session_mutex);
+
+	for_each_set_bit(idx, pxp->reserved_sessions, INTEL_PXP_MAX_HWDRM_SESSIONS) {
+		pxp->hwdrm_sessions[idx]->is_valid = false;
+		mask |= BIT(idx);
+	}
+
+	if (mask) {
+		ret = intel_pxp_terminate_sessions(pxp, mask);
+		if (ret)
+			return ret;
+	}
+
+	for_each_set_bit(idx, pxp->reserved_sessions, INTEL_PXP_MAX_HWDRM_SESSIONS) {
+		/* we don't want to free the arb session! */
+		if (idx == ARB_SESSION)
+			continue;
+
+		free_session_entry(pxp, idx);
+	}
+
+	return 0;
+}
+
+static int pxp_terminate_all_sessions_and_global(struct intel_pxp *pxp)
 {
 	int ret;
 	struct intel_gt *gt = pxp->ctrl_gt;
 
 	/* must mark termination in progress calling this function */
-	GEM_WARN_ON(pxp->arb_is_valid);
+	GEM_WARN_ON(pxp->arb_session.is_valid);
+
+	mutex_lock(&pxp->session_mutex);
 
 	/* terminate the hw sessions */
-	ret = intel_pxp_terminate_session(pxp, ARB_SESSION);
+	ret = pxp_terminate_all_sessions(pxp);
 	if (ret) {
 		drm_err(&gt->i915->drm, "Failed to submit session termination\n");
-		return ret;
+		goto out;
 	}
 
 	ret = pxp_wait_for_session_state(pxp, ARB_SESSION, false);
 	if (ret) {
 		drm_err(&gt->i915->drm, "Session state did not clear\n");
-		return ret;
+		goto out;
 	}
 
 	intel_uncore_write(gt->uncore, KCR_GLOBAL_TERMINATE(pxp->kcr_base), 1);
@@ -115,6 +336,8 @@ static int pxp_terminate_arb_session_and_global(struct intel_pxp *pxp)
 	else
 		intel_pxp_tee_end_arb_fw_session(pxp, ARB_SESSION);
 
+out:
+	mutex_unlock(&pxp->session_mutex);
 	return ret;
 }
 
@@ -129,7 +352,7 @@ void intel_pxp_terminate(struct intel_pxp *pxp, bool post_invalidation_needs_res
 	 * it to complete. PXP will be marked as non-active until the next
 	 * termination is issued.
 	 */
-	ret = pxp_terminate_arb_session_and_global(pxp);
+	ret = pxp_terminate_all_sessions_and_global(pxp);
 	if (ret)
 		complete_all(&pxp->termination);
 }
@@ -183,8 +406,15 @@ static void pxp_session_work(struct work_struct *work)
 	intel_runtime_pm_put(gt->uncore->rpm, wakeref);
 }
 
+void intel_pxp_session_management_fini(struct intel_pxp *pxp)
+{
+	pxp_fini_arb_session(pxp);
+}
+
 void intel_pxp_session_management_init(struct intel_pxp *pxp)
 {
 	mutex_init(&pxp->arb_mutex);
 	INIT_WORK(&pxp->session_work, pxp_session_work);
+	mutex_init(&pxp->session_mutex);
+	pxp_init_arb_session(pxp);
 }
