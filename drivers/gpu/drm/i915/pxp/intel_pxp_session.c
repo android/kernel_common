@@ -204,8 +204,16 @@ int intel_pxp_sm_ioctl_reserve_session(struct intel_pxp *pxp, struct drm_file *d
 		return PRELIM_DRM_I915_PXP_OP_STATUS_SESSION_NOT_AVAILABLE;
 
 	ret = pxp_wait_for_session_state(pxp, idx, false);
-	if (ret)
-		return PRELIM_DRM_I915_PXP_OP_STATUS_RETRY_REQUIRED;
+	if (ret) {
+		/* force termination of old reservation */
+		ret = intel_pxp_terminate_session(pxp, idx);
+		if (ret)
+			return PRELIM_DRM_I915_PXP_OP_STATUS_RETRY_REQUIRED;
+		/* wait again for HW state */
+		ret = pxp_wait_for_session_state(pxp, idx, false);
+		if (ret)
+			return PRELIM_DRM_I915_PXP_OP_STATUS_RETRY_REQUIRED;
+	}
 
 	ret = create_session_entry(pxp, drmfile,
 				   protection_mode, idx);
@@ -378,7 +386,7 @@ int intel_pxp_terminate_session(struct intel_pxp *pxp, u32 id)
 	return ret;
 }
 
-static int pxp_terminate_all_sessions(struct intel_pxp *pxp)
+static int pxp_terminate_all_sessions(struct intel_pxp *pxp, u32 active_hw_slots)
 {
 	int ret;
 	u32 idx;
@@ -393,6 +401,14 @@ static int pxp_terminate_all_sessions(struct intel_pxp *pxp)
 		pxp->hwdrm_sessions[idx]->is_valid = false;
 		mask |= BIT(idx);
 	}
+	/*
+	 * if a user-space (multi-session client) reserved a session but
+	 * timed out on pxp_wait_for_session_state, its possible that SW
+	 * state of pxp->reserved_sessions maybe out of sync with HW.
+	 * So lets combine active_hw_slots in for termination which would
+	 * normally match pxp->reserved_sessions
+	 */
+	mask |= active_hw_slots;
 
 	if (mask) {
 		ret = intel_pxp_terminate_sessions(pxp, mask);
@@ -425,7 +441,7 @@ static int pxp_terminate_all_sessions_and_global(struct intel_pxp *pxp)
 	active_sip_slots = intel_uncore_read(gt->uncore, KCR_SIP(pxp->kcr_base));
 
 	/* terminate the hw sessions */
-	ret = pxp_terminate_all_sessions(pxp);
+	ret = pxp_terminate_all_sessions(pxp, active_sip_slots);
 	if (ret) {
 		drm_err(&gt->i915->drm, "Failed to submit session termination\n");
 		goto out;
