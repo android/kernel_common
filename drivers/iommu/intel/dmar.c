@@ -994,6 +994,9 @@ static int map_iommu(struct intel_iommu *iommu, struct dmar_drhd_unit *drhd)
 		warn_invalid_dmar(phys_addr, " returns all ones");
 		goto unmap;
 	}
+#ifdef CONFIG_PKVM_INTEL
+	pkvm_update_iommu_virtual_caps(&iommu->cap, &iommu->ecap);
+#endif
 
 	/* the registers might be more than one page */
 	map_size = max_t(int, ecap_max_iotlb_offset(iommu->ecap),
