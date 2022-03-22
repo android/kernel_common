@@ -277,7 +277,8 @@ static __init void init_host_state_area(struct pkvm_host_vcpu *vcpu)
 
 	_init_host_state_area(pcpu);
 
-	/*TODO: add HOST_RIP */
+	/*host RIP*/
+	vmcs_writel(HOST_RIP, (unsigned long)__pkvm_vmx_vmexit);
 }
 
 static __init void init_execution_control(struct vcpu_vmx *vmx,
