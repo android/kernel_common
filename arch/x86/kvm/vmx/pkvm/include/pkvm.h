@@ -11,6 +11,12 @@
 
 #define STACK_SIZE SZ_16K
 
+struct pkvm_pgtable_cap {
+	int level;
+	int allowed_pgsz;
+	u64 table_prot;
+};
+
 struct idt_page {
 	gate_desc idt[IDT_ENTRIES];
 } __aligned(PAGE_SIZE);
