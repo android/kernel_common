@@ -5,6 +5,7 @@
 #ifndef _PKVM_VMX_OPS_H_
 #define _PKVM_VMX_OPS_H_
 
+#include "memory.h"
 #include "debug.h"
 
 static __always_inline unsigned long __vmcs_readl(unsigned long field)
@@ -154,14 +155,14 @@ static __always_inline void vmcs_set_bits(unsigned long field, u32 mask)
 
 static inline void vmcs_clear(struct vmcs *vmcs)
 {
-	u64 phys_addr = __pa(vmcs);
+	u64 phys_addr = __pkvm_pa(vmcs);
 
 	vmx_asm1(vmclear, "m"(phys_addr), vmcs, phys_addr);
 }
 
 static inline void vmcs_load(struct vmcs *vmcs)
 {
-	u64 phys_addr = __pa(vmcs);
+	u64 phys_addr = __pkvm_pa(vmcs);
 
 	vmx_asm1(vmptrld, "m"(phys_addr), vmcs, phys_addr);
 }

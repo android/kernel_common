@@ -440,6 +440,21 @@ static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
 	return ret;
 }
 
+static __init int pkvm_init_mmu(void)
+{
+	/*
+	 * __page_base_offset stores the offset for pkvm
+	 * to translate VA to a PA.
+	 *
+	 * __symbol_base_offset stores the offset for pkvm
+	 * to translate its symbole's VA to a PA.
+	 */
+	pkvm_sym(__page_base_offset) = (unsigned long)__va(0);
+	pkvm_sym(__symbol_base_offset) = (unsigned long)__pkvm_text_start - __pa_symbol(__pkvm_text_start);
+
+	return 0;
+}
+
 static __init void init_gdt(struct pkvm_pcpu *pcpu)
 {
 	pcpu->gdt_page = pkvm_gdt_page;
@@ -690,6 +705,10 @@ __init int pkvm_init(void)
 	}
 
 	ret = pkvm_host_check_and_setup_vmx_cap(pkvm);
+	if (ret)
+		goto out_free_pkvm;
+
+	ret = pkvm_init_mmu();
 	if (ret)
 		goto out_free_pkvm;
 
