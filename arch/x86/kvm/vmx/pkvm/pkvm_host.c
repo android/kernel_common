@@ -8,6 +8,8 @@
 #include <asm/trapnr.h>
 #include <asm/kvm_pkvm.h>
 
+#include <mmu.h>
+#include <mmu/spte.h>
 #include <pkvm.h>
 #include "pkvm_constants.h"
 
@@ -433,8 +435,23 @@ static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
 	return ret;
 }
 
-static __init int pkvm_init_mmu(void)
+static __init int pkvm_init_mmu(struct pkvm_hyp *pkvm)
 {
+	int pgsz_mask = (1 << PG_LEVEL_2M) | (1 << PG_LEVEL_4K);
+
+	if (boot_cpu_has(X86_FEATURE_GBPAGES))
+		pgsz_mask |= 1 << PG_LEVEL_1G;
+
+	/* record mmu pgtable cap for later mmu pgtable build */
+	pkvm->mmu_cap.level = pgtable_l5_enabled() ? 5 : 4;
+	pkvm->mmu_cap.allowed_pgsz = pgsz_mask;
+	pkvm->mmu_cap.table_prot = (u64)_KERNPG_TABLE_NOENC;
+
+	/* record ept pgtable cap for later ept pgtable build */
+	pkvm->ept_cap.level = pkvm->vmx_cap.ept & VMX_EPT_PAGE_WALK_4_BIT ? 4 : 5;
+	pkvm->ept_cap.allowed_pgsz = pgsz_mask;
+	pkvm->ept_cap.table_prot = VMX_EPT_RWX_MASK;
+
 	/*
 	 * __page_base_offset stores the offset for pkvm
 	 * to translate VA to a PA.
@@ -710,7 +727,7 @@ __init int pkvm_init(void)
 	if (ret)
 		goto out;
 
-	ret = pkvm_init_mmu();
+	ret = pkvm_init_mmu(pkvm);
 	if (ret)
 		goto out;
 

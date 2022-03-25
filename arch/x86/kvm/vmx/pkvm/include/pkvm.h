@@ -45,6 +45,9 @@ struct pkvm_hyp {
 	struct vmx_capability vmx_cap;
 	struct vmcs_config vmcs_config;
 
+	struct pkvm_pgtable_cap mmu_cap;
+	struct pkvm_pgtable_cap ept_cap;
+
 	struct pkvm_pcpu *pcpus[CONFIG_NR_CPUS];
 
 	struct pkvm_host_vm host_vm;
