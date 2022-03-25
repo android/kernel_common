@@ -5,6 +5,8 @@
 #ifndef __ASM_x86_PKVM_IMAGE_VARS_H
 #define __ASM_x86_PKVM_IMAGE_VARS_H
 
+#ifndef CONFIG_PKVM_INTEL_DEBUG
+
 #ifdef CONFIG_DYNAMIC_PHYSICAL_MASK
 PKVM_ALIAS(physical_mask);
 #endif
@@ -14,5 +16,7 @@ PKVM_ALIAS(sme_me_mask);
 #endif
 
 PKVM_ALIAS(__default_kernel_pte_mask);
+
+#endif
 
 #endif

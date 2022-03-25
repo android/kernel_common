@@ -100,14 +100,24 @@ static int create_mmu_mapping(const struct pkvm_section sections[],
 				 int section_sz)
 {
 	unsigned long nr_pages = pkvm_mmu_pgtable_pages();
+	int ret;
+#ifndef CONFIG_PKVM_INTEL_DEBUG
 	struct memblock_region *reg;
-	int ret, i;
+	int i;
+#endif
 
 	ret = pkvm_early_mmu_init(&pkvm_hyp->mmu_cap,
 			pkvm_mmu_pgt_base, nr_pages);
 	if (ret)
 		return ret;
 
+#ifdef CONFIG_PKVM_INTEL_DEBUG
+	/*
+	 * clone host CR3 page mapping from __page_base_offset, it covers both
+	 * direct mapping and symbol mapping for pkvm (same mapping as kernel)
+	 */
+	pkvm_mmu_clone_host(pkvm_hyp->mmu_cap.level, __page_base_offset);
+#else
 	/*
 	 * Create mapping for the memory in memblocks.
 	 * This will include all the memory host kernel can see, as well
@@ -135,6 +145,7 @@ static int create_mmu_mapping(const struct pkvm_section sections[],
 		if (ret)
 			return ret;
 	}
+#endif
 
 	ret = pkvm_back_vmemmap(__pkvm_pa(pkvm_vmemmap_base));
 	if (ret)

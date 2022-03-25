@@ -169,7 +169,15 @@ static int fix_pgtable_refcnt(void)
 	 * Calculate the max address space, then walk the [0, size) address
 	 * range to fixup refcount of every used page.
 	 */
+#ifdef CONFIG_PKVM_INTEL_DEBUG
+	/*
+	 * only fix vmmemap range for debug mode, now for 64T memory,
+	 * could be extended if physical memory is bigger than 64T
+	 */
+	size = (SZ_64T / PAGE_SIZE) * sizeof(struct hyp_page);
+#else
 	size = pgt_ops->pgt_level_to_size(hyp_mmu.level + 1);
+#endif
 
 	return pgtable_walk(&hyp_mmu, 0, size, &walker);
 }
@@ -228,3 +236,16 @@ int pkvm_later_mmu_init(void *mmu_pool_base, unsigned long mmu_pool_pages)
 	 */
 	return fix_pgtable_refcnt();
 }
+
+#ifdef CONFIG_PKVM_INTEL_DEBUG
+void pkvm_mmu_clone_host(int level, unsigned long start_vaddr)
+{
+	int i = mmu_entry_to_index(start_vaddr, level);
+	u64 *ptep = __va(hyp_mmu.root_pa);
+	u64 *host_cr3 = __va(__read_cr3() & PAGE_MASK);
+
+	for (; i < PTRS_PER_PTE; i++)
+		ptep[i] = host_cr3[i];
+
+}
+#endif

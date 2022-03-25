@@ -10,7 +10,7 @@
 
 #include <asm/kvm_pkvm.h>
 
-static struct memblock_region *hyp_memory = pkvm_sym(hyp_memory);
+static struct memblock_region *_hyp_memory = pkvm_sym(hyp_memory);
 static unsigned int *hyp_memblock_nr_ptr = &pkvm_sym(hyp_memblock_nr);
 
 phys_addr_t hyp_mem_base;
@@ -26,7 +26,7 @@ static int cmp_hyp_memblock(const void *p1, const void *p2)
 
 static void __init sort_memblock_regions(void)
 {
-	sort(hyp_memory,
+	sort(_hyp_memory,
 	     *hyp_memblock_nr_ptr,
 	     sizeof(struct memblock_region),
 	     cmp_hyp_memblock,
@@ -41,7 +41,7 @@ static int __init register_memblock_regions(void)
 		if (*hyp_memblock_nr_ptr >= HYP_MEMBLOCK_REGIONS)
 			return -ENOMEM;
 
-		hyp_memory[*hyp_memblock_nr_ptr] = *reg;
+		_hyp_memory[*hyp_memblock_nr_ptr] = *reg;
 		(*hyp_memblock_nr_ptr)++;
 	}
 	sort_memblock_regions();

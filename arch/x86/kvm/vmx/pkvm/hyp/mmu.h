@@ -16,4 +16,10 @@ int pkvm_early_mmu_init(struct pkvm_pgtable_cap *cap,
 
 int pkvm_later_mmu_init(void *mmu_pool_base, unsigned long mmu_pool_pages);
 
+#ifdef CONFIG_PKVM_INTEL_DEBUG
+void pkvm_mmu_clone_host(int level, unsigned long start_vaddr);
+#else
+static inline void pkvm_mmu_clone_host(int level, unsigned long start_vaddr) {}
+#endif
+
 #endif

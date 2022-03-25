@@ -6,14 +6,15 @@ ccflags-y += -fno-stack-protector
 ccflags-y += -D__DISABLE_EXPORTS
 ccflags-y += -D__PKVM_HYP__
 
-lib-dir		:= lib
-
 pkvm-hyp-y	:= vmx_asm.o vmexit.o memory.o page_alloc.o early_alloc.o pgtable.o mmu.o pkvm.o \
 		   init_finalise.o ept.o
 
+ifndef CONFIG_PKVM_INTEL_DEBUG
+lib-dir		:= lib
 pkvm-hyp-y	+= $(lib-dir)/memset_64.o
 pkvm-hyp-$(CONFIG_MITIGATION_RETPOLINE)	+= $(lib-dir)/retpoline.o
 pkvm-hyp-$(CONFIG_LIST_HARDENED)	+= $(lib-dir)/list_debug.o
+endif
 
 pkvm-obj 	:= $(patsubst %.o,%.pkvm.o,$(pkvm-hyp-y))
 obj-$(CONFIG_PKVM_INTEL)	+= pkvm.o
@@ -35,7 +36,11 @@ $(obj)/pkvm.o: $(obj)/pkvm.tmp.o FORCE
 	$(call if_changed,pkvmcopy)
 
 quiet_cmd_pkvmcopy = PKVMPCOPY $@
+ifdef CONFIG_PKVM_INTEL_DEBUG
+      cmd_pkvmcopy = $(OBJCOPY) --prefix-symbols= $< $@
+else
       cmd_pkvmcopy = $(OBJCOPY) --prefix-symbols=__pkvm_ --remove-section=.retpoline_sites --remove-section=.return_sites $< $@
+endif
 
 # Remove ftrace, Shadow Call Stack, and CFI CFLAGS.
 # This is equivalent to the 'notrace', '__noscs', and '__nocfi' annotations.
