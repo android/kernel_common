@@ -229,6 +229,18 @@ static bool is_host_fields(unsigned long field)
 	return (((field) >> 10U) & 0x3U) == 3U;
 }
 
+static bool is_emulated_fields(unsigned long field_encoding)
+{
+	int i;
+
+	for (i = 0; i < max_emulated_fields; i++) {
+		if ((unsigned long)emulated_fields[i].encoding == field_encoding)
+			return true;
+	}
+
+	return false;
+}
+
 static void nested_vmx_result(enum VMXResult result, int error_number)
 {
 	u64 rflags = vmcs_readl(GUEST_RFLAGS);
@@ -665,6 +677,132 @@ int handle_vmclear(struct kvm_vcpu *vcpu)
 					&zero, sizeof(zero));
 
 			nested_vmx_result(VMsucceed, 0);
+		}
+	}
+
+	return 0;
+}
+
+int handle_vmwrite(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *cur_shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+	struct vmcs12 *vmcs12 = (struct vmcs12 *)cur_shadow_vcpu->cached_vmcs12;
+	u32 instr_info = vmcs_read32(VMX_INSTRUCTION_INFO);
+	struct x86_exception e;
+	unsigned long field;
+	short offset;
+	gva_t gva;
+	int r, reg;
+	u64 value = 0;
+
+	if (check_vmx_permission(vcpu)) {
+		if (vmx->nested.current_vmptr == INVALID_GPA) {
+			nested_vmx_result(VMfailInvalid, 0);
+		} else {
+			if (instr_info & BIT(10)) {
+				reg = ((instr_info) >> 3) & 0xf;
+				value = vcpu->arch.regs[reg];
+			} else {
+				if (get_vmx_mem_address(vcpu, vmx->exit_qualification,
+							instr_info, &gva))
+					return 1;
+
+				r = read_gva(vcpu, gva, &value, 8, &e);
+				if (r < 0) {
+					/*TODO: handle memory failure exception */
+					return r;
+				}
+			}
+
+			reg = ((instr_info) >> 28) & 0xf;
+			field = vcpu->arch.regs[reg];
+
+			offset = get_vmcs12_field_offset(field);
+			if (offset < 0) {
+				nested_vmx_result(VMfailInvalid, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
+				return 0;
+			}
+
+			/*TODO: check vcpu supports "VMWRITE to any supported field in the VMCS"*/
+			if (vmcs_field_readonly(field)) {
+				nested_vmx_result(VMfailInvalid, VMXERR_VMWRITE_READ_ONLY_VMCS_COMPONENT);
+				return 0;
+			}
+
+			/*
+			 * Some Intel CPUs intentionally drop the reserved bits of the AR byte
+			 * fields on VMWRITE.  Emulate this behavior to ensure consistent KVM
+			 * behavior regardless of the underlying hardware, e.g. if an AR_BYTE
+			 * field is intercepted for VMWRITE but not VMREAD (in L1), then VMREAD
+			 * from L1 will return a different value than VMREAD from L2 (L1 sees
+			 * the stripped down value, L2 sees the full value as stored by KVM).
+			 */
+			if (field >= GUEST_ES_AR_BYTES && field <= GUEST_TR_AR_BYTES)
+				value &= 0x1f0ff;
+
+			vmcs12_write_any(vmcs12, field, offset, value);
+
+			if (is_emulated_fields(field)) {
+				vmx->nested.dirty_vmcs12 = true;
+				nested_vmx_result(VMsucceed, 0);
+			} else if (is_host_fields(field)) {
+				nested_vmx_result(VMsucceed, 0);
+			} else {
+				pkvm_err("%s: not include emulated fields 0x%lx, please add!\n",
+						__func__, field);
+				nested_vmx_result(VMfailInvalid, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
+			}
+		}
+	}
+
+	return 0;
+}
+
+int handle_vmread(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *cur_shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+	struct vmcs12 *vmcs12 = (struct vmcs12 *)cur_shadow_vcpu->cached_vmcs12;
+	u32 instr_info = vmcs_read32(VMX_INSTRUCTION_INFO);
+	struct x86_exception e;
+	unsigned long field;
+	short offset;
+	gva_t gva = 0;
+	int r, reg;
+	u64 value;
+
+	if (check_vmx_permission(vcpu)) {
+		if (vmx->nested.current_vmptr == INVALID_GPA) {
+			nested_vmx_result(VMfailInvalid, 0);
+		} else {
+			/* Decode instruction info and find the field to read */
+			reg = ((instr_info) >> 28) & 0xf;
+			field = vcpu->arch.regs[reg];
+
+			offset = get_vmcs12_field_offset(field);
+			if (offset < 0) {
+				nested_vmx_result(VMfailInvalid, VMXERR_UNSUPPORTED_VMCS_COMPONENT);
+			} else {
+				value = vmcs12_read_any(vmcs12, field, offset);
+				if (instr_info & BIT(10)) {
+					reg = ((instr_info) >> 3) & 0xf;
+					vcpu->arch.regs[reg] = value;
+				} else {
+					if (get_vmx_mem_address(vcpu, vmx->exit_qualification,
+								instr_info, &gva))
+						return 1;
+
+					r = write_gva(vcpu, gva, &value, 8, &e);
+					if (r < 0) {
+						/*TODO: handle memory failure exception */
+						return r;
+					}
+				}
+				nested_vmx_result(VMsucceed, 0);
+			}
 		}
 	}
 
