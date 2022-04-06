@@ -280,6 +280,63 @@ static __init void init_host_state_area(struct pkvm_host_vcpu *vcpu)
 	/*TODO: add HOST_RIP */
 }
 
+static __init void init_execution_control(struct vcpu_vmx *vmx,
+			    struct vmcs_config *vmcs_config_ptr,
+			    struct vmx_capability *vmx_cap)
+{
+	u32 cpu_based_exec_ctrl = vmcs_config_ptr->cpu_based_exec_ctrl;
+	u32 cpu_based_2nd_exec_ctrl = vmcs_config_ptr->cpu_based_2nd_exec_ctrl;
+
+	pin_controls_set(vmx, vmcs_config_ptr->pin_based_exec_ctrl);
+
+	/*
+	 * CR3 LOAD/STORE EXITING are not used by pkvm
+	 * INTR/NMI WINDOW EXITING are toggled dynamically
+	 */
+	cpu_based_exec_ctrl &= ~(CPU_BASED_CR3_LOAD_EXITING |
+				CPU_BASED_CR3_STORE_EXITING |
+				CPU_BASED_INTR_WINDOW_EXITING |
+				CPU_BASED_NMI_WINDOW_EXITING);
+	exec_controls_set(vmx, cpu_based_exec_ctrl);
+
+	/* disable EPT/VPID first, enable after EPT pgtable created */
+	cpu_based_2nd_exec_ctrl &= ~(SECONDARY_EXEC_ENABLE_EPT |
+				SECONDARY_EXEC_ENABLE_VPID);
+	secondary_exec_controls_set(vmx, cpu_based_2nd_exec_ctrl);
+
+	/* guest owns cr3 */
+	vmcs_write32(CR3_TARGET_COUNT, 0);
+
+	/* guest handles exception directly */
+	vmcs_write32(EXCEPTION_BITMAP, 0);
+
+	vmcs_write64(MSR_BITMAP, __pa(vmx->vmcs01.msr_bitmap));
+
+	/*
+	 * guest owns cr0, and owns cr4 except VMXE bit.
+	 * does not care about IA32_VMX_CRx_FIXED0/1 setting, so if guest modify
+	 * cr0/cr4 conflicting with FIXED0/1, just let #GP happen.
+	 * For example, as pKVM does not enable unrestricted guest, cr0.PE/PG
+	 * must keep as 1 in guest.
+	 */
+	vmcs_writel(CR0_GUEST_HOST_MASK, 0);
+	vmcs_writel(CR4_GUEST_HOST_MASK, X86_CR4_VMXE);
+}
+
+static __init void init_vmexit_control(struct vcpu_vmx *vmx, struct vmcs_config *vmcs_config_ptr)
+{
+	vm_exit_controls_set(vmx, vmcs_config_ptr->vmexit_ctrl);
+	vmcs_write32(VM_EXIT_MSR_STORE_COUNT, 0);
+}
+
+static __init void init_vmentry_control(struct vcpu_vmx *vmx, struct vmcs_config *vmcs_config_ptr)
+{
+	vm_entry_controls_set(vmx, vmcs_config_ptr->vmentry_ctrl);
+	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, 0);
+	vmcs_write32(VM_ENTRY_MSR_LOAD_COUNT, 0);
+	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, 0);
+}
+
 static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *vcpu, int cpu)
 {
 	struct vcpu_vmx *vmx = &vcpu->vmx;
@@ -305,6 +362,9 @@ static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *vcpu, int cpu)
 
 	init_guest_state_area(vcpu, cpu);
 	init_host_state_area(vcpu);
+	init_execution_control(vmx, &pkvm->vmcs_config, &pkvm->vmx_cap);
+	init_vmexit_control(vmx, &pkvm->vmcs_config);
+	init_vmentry_control(vmx, &pkvm->vmcs_config);
 
 	return ret;
 }
