@@ -58,4 +58,8 @@ extern unsigned long pkvm_sym(__symbol_base_offset);
 PKVM_DECLARE(void, __pkvm_vmx_vmexit(void));
 PKVM_DECLARE(int, pkvm_main(struct kvm_vcpu *vcpu));
 
+PKVM_DECLARE(void *, pkvm_early_alloc_contig(unsigned int nr_pages));
+PKVM_DECLARE(void *, pkvm_early_alloc_page(void));
+PKVM_DECLARE(void, pkvm_early_alloc_init(void *virt, unsigned long size));
+
 #endif

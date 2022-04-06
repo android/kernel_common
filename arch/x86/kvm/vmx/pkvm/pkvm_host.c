@@ -43,22 +43,12 @@ u64 hyp_total_reserve_pages(void)
 	return total;
 }
 
-static void *pkvm_early_alloc_contig(int pages)
-{
-	return alloc_pages_exact(pages << PAGE_SHIFT, GFP_KERNEL | __GFP_ZERO);
-}
-
-static void pkvm_early_free(void *ptr, int pages)
-{
-	free_pages_exact(ptr, pages << PAGE_SHIFT);
-}
-
 static struct vmcs *pkvm_alloc_vmcs(struct vmcs_config *vmcs_config_ptr)
 {
 	struct vmcs *vmcs;
 	int pages = ALIGN(vmx_basic_vmcs_size(vmcs_config_ptr->basic), PAGE_SIZE) >> PAGE_SHIFT;
 
-	vmcs = pkvm_early_alloc_contig(pages);
+	vmcs = pkvm_sym(pkvm_early_alloc_contig)(pages);
 	if (!vmcs)
 		return NULL;
 
@@ -66,13 +56,6 @@ static struct vmcs *pkvm_alloc_vmcs(struct vmcs_config *vmcs_config_ptr)
 	vmcs->hdr.revision_id = vmx_basic_vmcs_revision_id(vmcs_config_ptr->basic); /* vmcs revision id */
 
 	return vmcs;
-}
-
-static void pkvm_free_vmcs(void *vmcs, struct vmcs_config *vmcs_config_ptr)
-{
-	int pages = ALIGN(vmcs_config_ptr->size, PAGE_SIZE) >> PAGE_SHIFT;
-
-	pkvm_early_free(vmcs, pages);
 }
 
 static inline void vmxon_setup_revid(void *vmxon_region)
@@ -136,7 +119,7 @@ static __init int pkvm_enable_vmx(struct pkvm_host_vcpu *vcpu)
 {
 	u64 phys_addr;
 
-	vcpu->vmxarea = pkvm_early_alloc_contig(1);
+	vcpu->vmxarea = pkvm_sym(pkvm_early_alloc_page)();
 	if (!vcpu->vmxarea)
 		return -ENOMEM;
 
@@ -366,7 +349,7 @@ static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *vcpu, int cpu)
 	if (!vmx->vmcs01.vmcs)
 		return -ENOMEM;
 
-	vmx->vmcs01.msr_bitmap = pkvm_early_alloc_contig(1);
+	vmx->vmcs01.msr_bitmap = pkvm_sym(pkvm_early_alloc_page)();
 	if (!vmx->vmcs01.msr_bitmap) {
 		pr_err("%s: No page for msr_bitmap\n", __func__);
 		return -ENOMEM;
@@ -390,15 +373,11 @@ static __init void pkvm_host_deinit_vmx(struct pkvm_host_vcpu *vcpu)
 
 	pkvm_cpu_vmxoff();
 
-	if (vmx->vmcs01.vmcs) {
-		pkvm_free_vmcs(vmx->vmcs01.vmcs, &pkvm->vmcs_config);
+	if (vmx->vmcs01.vmcs)
 		vmx->vmcs01.vmcs = NULL;
-	}
 
-	if (vmx->vmcs01.msr_bitmap) {
-		pkvm_early_free(vmx->vmcs01.msr_bitmap, 1);
+	if (vmx->vmcs01.msr_bitmap)
 		vmx->vmcs01.msr_bitmap = NULL;
-	}
 }
 
 static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
@@ -520,7 +499,7 @@ static __init int pkvm_setup_pcpu(struct pkvm_hyp *pkvm, int cpu)
 	if (cpu >= CONFIG_NR_CPUS)
 		return -ENOMEM;
 
-	pcpu = pkvm_early_alloc_contig(PKVM_PCPU_PAGES);
+	pcpu = pkvm_sym(pkvm_early_alloc_contig)(PKVM_PCPU_PAGES);
 	if (!pcpu)
 		return -ENOMEM;
 
@@ -543,7 +522,7 @@ static __init int pkvm_host_setup_vcpu(struct pkvm_hyp *pkvm, int cpu)
 	if (cpu >= CONFIG_NR_CPUS)
 		return -ENOMEM;
 
-	pkvm_host_vcpu = pkvm_early_alloc_contig(PKVM_HOST_VCPU_PAGES);
+	pkvm_host_vcpu = pkvm_sym(pkvm_early_alloc_contig)(PKVM_HOST_VCPU_PAGES);
 	if (!pkvm_host_vcpu)
 		return -ENOMEM;
 
@@ -712,7 +691,16 @@ __init int pkvm_init(void)
 {
 	int ret = 0, cpu;
 
-	pkvm = pkvm_early_alloc_contig(PKVM_PAGES);
+	if (!hyp_mem_base) {
+		pr_err("pkvm required memory not get reserved!");
+		ret = -ENOMEM;
+		goto out;
+	}
+	pkvm_sym(pkvm_early_alloc_init)(__va(hyp_mem_base),
+			pkvm_data_struct_pages(PKVM_PAGES, PKVM_PERCPU_PAGES,
+				num_possible_cpus()) << PAGE_SHIFT);
+
+	pkvm = pkvm_sym(pkvm_early_alloc_contig)(PKVM_PAGES);
 	if (!pkvm) {
 		ret = -ENOMEM;
 		goto out;
@@ -720,42 +708,29 @@ __init int pkvm_init(void)
 
 	ret = pkvm_host_check_and_setup_vmx_cap(pkvm);
 	if (ret)
-		goto out_free_pkvm;
+		goto out;
 
 	ret = pkvm_init_mmu();
 	if (ret)
-		goto out_free_pkvm;
+		goto out;
 
 	for_each_possible_cpu(cpu) {
 		ret = pkvm_setup_pcpu(pkvm, cpu);
 		if (ret)
-			goto out_free_cpu;
+			goto out;
 		ret = pkvm_host_setup_vcpu(pkvm, cpu);
 		if (ret)
-			goto out_free_cpu;
+			goto out;
 	}
 
 	ret = pkvm_host_deprivilege_cpus(pkvm);
 	if (ret)
-		goto out_free_cpu;
+		goto out;
 
 	pkvm->num_cpus = num_possible_cpus();
 
 	return 0;
 
-out_free_cpu:
-	for_each_possible_cpu(cpu) {
-		if (pkvm->host_vm.host_vcpus[cpu]) {
-			pkvm_early_free(pkvm->host_vm.host_vcpus[cpu], PKVM_HOST_VCPU_PAGES);
-			pkvm->host_vm.host_vcpus[cpu] = NULL;
-		}
-		if (pkvm->pcpus[cpu]) {
-			pkvm_early_free(pkvm->pcpus[cpu], PKVM_PCPU_PAGES);
-			pkvm->pcpus[cpu] = NULL;
-		}
-	}
-out_free_pkvm:
-	pkvm_early_free(pkvm, PKVM_PAGES);
 out:
 	return ret;
 }
