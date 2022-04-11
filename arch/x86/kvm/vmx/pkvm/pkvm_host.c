@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/dmar.h>
 #include <../drivers/iommu/intel/iommu.h>
+#include <linux/pci.h>
 #include <asm/trapnr.h>
 #include <asm/kvm_pkvm.h>
 
@@ -43,6 +44,35 @@ static struct gdt_page pkvm_gdt_page = {
 	},
 };
 
+static int check_pci_device_count(void)
+{
+	struct pci_dev *pdev = NULL;
+	int devs = 0, devs_with_pasid = 0;
+
+	/*
+	 * pkvm has reserved the memory for IOMMU during early boot, and that
+	 * memory is estimated with PKVM_MAX_PDEV_NUM and PKVM_MAX_PASID_PDEV_NUM.
+	 * The actual number larger than this may cause IOMMU fail to create
+	 * translation tables.
+	 */
+	for_each_pci_dev(pdev) {
+		if (pdev->pasid_cap)
+			devs_with_pasid++;
+		else
+			devs++;
+	}
+
+	if (devs > PKVM_MAX_PDEV_NUM ||
+		devs_with_pasid > PKVM_MAX_PASID_PDEV_NUM) {
+		pr_err("pkvm: Too many pdevs detected, actual %d %d max %d %d\n",
+			devs, devs_with_pasid, PKVM_MAX_PDEV_NUM,
+			PKVM_MAX_PASID_PDEV_NUM);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int check_and_init_iommu(struct pkvm_hyp *pkvm)
 {
 	struct pkvm_iommu_info *info;
@@ -52,12 +82,15 @@ static int check_and_init_iommu(struct pkvm_hyp *pkvm)
 	void __iomem *addr;
 	u64 reg_size;
 	u64 cap, ecap;
-	int index = 0;
+	int index = 0, ret;
 
 /* matches with IOMMU cap SAGAW bits */
 #define PGT_4LEVEL	BIT(2)
 #define PGT_5LEVEL	BIT(3)
 
+	ret = check_pci_device_count();
+	if (ret)
+		return ret;
 	/*
 	 * IOMMU will use nested translation which reuse EPT
 	 * as the second-level page table. So IOMMU and EPT

@@ -11,6 +11,8 @@
 
 #define STACK_SIZE SZ_16K
 #define PKVM_MAX_IOMMU_NUM	32
+#define PKVM_MAX_PASID_PDEV_NUM	32
+#define PKVM_MAX_PDEV_NUM	512
 
 struct pkvm_pgtable_cap {
 	int level;
