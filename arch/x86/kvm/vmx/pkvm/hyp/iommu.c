@@ -152,3 +152,18 @@ unsigned long pkvm_access_iommu(bool is_read, int len, unsigned long phys, unsig
 
 	return ret;
 }
+
+bool is_mem_range_overlap_iommu(unsigned long start, unsigned long end)
+{
+	struct pkvm_iommu *iommu;
+
+	for_each_valid_iommu(iommu) {
+		if (end < iommu->iommu.reg_phys ||
+			start > (iommu->iommu.reg_phys + iommu->iommu.reg_size - 1))
+			continue;
+
+		return true;
+	}
+
+	return false;
+}

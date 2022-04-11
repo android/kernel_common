@@ -18,6 +18,7 @@
 #include "pgtable.h"
 #include "ept.h"
 #include "memory.h"
+#include "iommu.h"
 #include "vmx.h"
 #include "mem_protect.h"
 #include "debug.h"
@@ -306,11 +307,11 @@ int handle_host_ept_violation(unsigned long gpa)
 		cur.end = cur.start + size - 1;
 		/*
 		 * TODO:
-		 * check if this MMIO belongs to pkvm owned devices (e.g. IOMMU)
 		 * check if this MMIO belongs to a secure VM pass-through device.
 		 */
 		if ((1 << level & host_ept.allowed_pgsz) &&
-				mem_range_included(&cur, &range))
+				mem_range_included(&cur, &range) &&
+				!is_mem_range_overlap_iommu(cur.start, cur.end))
 			break;
 		level--;
 	} while (level != PG_LEVEL_NONE);
