@@ -54,6 +54,10 @@ enum sm_level {
 #define IOMMU_MAX_VADDR_LEN	(BUS_SHIFT + BUS_BITS)
 #define IOMMU_MAX_VADDR		BIT(IOMMU_MAX_VADDR_LEN)
 
+#define DMAR_GSTS_EN_BITS	(DMA_GCMD_TE | DMA_GCMD_EAFL | \
+				 DMA_GCMD_QIE | DMA_GCMD_IRE | \
+				 DMA_GCMD_CFI)
+
 struct pasid_dir_entry {
 	u64 val;
 };

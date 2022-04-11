@@ -465,6 +465,9 @@ int pkvm_init_iommu(unsigned long mem_base, unsigned long nr_pages)
 
 		piommu->iommu.cap = readq(piommu->iommu.reg + DMAR_CAP_REG);
 		piommu->iommu.ecap = readq(piommu->iommu.reg + DMAR_ECAP_REG);
+		/* cache the enabled features from Global Status register */
+		piommu->iommu.gcmd = readl(piommu->iommu.reg + DMAR_GSTS_REG) &
+				     DMAR_GSTS_EN_BITS;
 
 		ret = pkvm_host_ept_unmap((unsigned long)info->reg_phys,
 				     (unsigned long)info->reg_phys,
