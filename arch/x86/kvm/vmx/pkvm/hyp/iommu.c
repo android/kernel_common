@@ -843,6 +843,189 @@ static int create_qi_desc(struct pkvm_iommu *iommu)
 	return 0;
 }
 
+static int qi_check_fault(struct pkvm_iommu *iommu, int wait_index)
+{
+	u32 fault;
+	struct q_inval *qi = &iommu->qi;
+
+	if (qi->desc_status[wait_index] == QI_ABORT)
+		return -EAGAIN;
+
+	fault = readl(iommu->iommu.reg + DMAR_FSTS_REG);
+
+	/*
+	 * If IQE happens, the head points to the descriptor associated
+	 * with the error. No new descriptors are fetched until the IQE
+	 * is cleared.
+	 */
+	if (fault & DMA_FSTS_IQE) {
+		writel(DMA_FSTS_IQE, iommu->iommu.reg + DMAR_FSTS_REG);
+		pkvm_dbg("pkvm: Invalidation Queue Error (IQE) cleared\n");
+	}
+
+	/*
+	 * If ITE happens, all pending wait_desc commands are aborted.
+	 * No new descriptors are fetched until the ITE is cleared.
+	 */
+	if (fault & DMA_FSTS_ITE) {
+		writel(DMA_FSTS_ITE, iommu->iommu.reg + DMAR_FSTS_REG);
+		pkvm_dbg("pkvm: Invalidation Time-out Error (ITE) cleared\n");
+	}
+
+	if (fault & DMA_FSTS_ICE) {
+		writel(DMA_FSTS_ICE, iommu->iommu.reg + DMAR_FSTS_REG);
+		pkvm_dbg("pkvm: Invalidation Completion Error (ICE) cleared\n");
+	}
+
+	return 0;
+}
+
+static void submit_qi(struct pkvm_iommu *iommu, struct qi_desc *base, int count)
+{
+	int len = IQ_DESC_LEN(iommu->piommu_iqa), i, wait_index;
+	int shift = IQ_DESC_SHIFT(iommu->piommu_iqa);
+	struct q_inval *qi = &iommu->qi;
+	struct qi_desc *to, *from;
+	int required_cnt = count + 2;
+	void *desc = qi->desc;
+	int *desc_status, rc;
+
+	pkvm_spin_lock(&iommu->qi_lock);
+	/*
+	 * Detect if the free descriptor count is enough or not
+	 */
+	while (qi->free_cnt < required_cnt) {
+		u64 head = readq(iommu->iommu.reg + DMAR_IQH_REG) >> shift;
+		int busy_cnt = (READ_ONCE(qi->free_head) + len - head) % len;
+		int free_cnt = len - busy_cnt;
+
+		if (free_cnt >= required_cnt) {
+			qi->free_cnt = free_cnt;
+			break;
+		}
+		pkvm_spin_unlock(&iommu->qi_lock);
+		cpu_relax();
+		pkvm_spin_lock(&iommu->qi_lock);
+	}
+
+	for (i = 0; i < count; i++) {
+		from = base + i;
+		to = qi->desc + (((qi->free_head + i) % len) << shift);
+		to->qw0 = from->qw0;
+		to->qw1 = from->qw1;
+	}
+
+	wait_index = (qi->free_head + count) % len;
+	/* setup wait descriptor */
+	to = desc + (wait_index << shift);
+	to->qw0 = QI_IWD_STATUS_DATA(QI_DONE) |
+		  QI_IWD_STATUS_WRITE | QI_IWD_TYPE;
+
+	desc_status = &qi->desc_status[wait_index];
+	WRITE_ONCE(*desc_status, QI_IN_USE);
+	to->qw1 = pkvm_virt_to_phys(desc_status);
+
+	/* submit to hardware with wait descriptor */
+	qi->free_cnt -= count + 1;
+	qi->free_head = (qi->free_head + count + 1) % len;
+	writel(qi->free_head << shift, iommu->iommu.reg + DMAR_IQT_REG);
+
+	while (READ_ONCE(*desc_status) != QI_DONE) {
+		rc = qi_check_fault(iommu, wait_index);
+		if (rc)
+			break;
+		pkvm_spin_unlock(&iommu->qi_lock);
+		cpu_relax();
+		pkvm_spin_lock(&iommu->qi_lock);
+	}
+
+	if (*desc_status != QI_DONE)
+		pkvm_err("pkvm: %s: failed with status %d\n",
+			 __func__, *desc_status);
+
+	/* release the free_cnt */
+	qi->free_cnt += count + 1;
+
+	pkvm_spin_unlock(&iommu->qi_lock);
+}
+
+static void flush_context_cache(struct pkvm_iommu *iommu, u16 did,
+				u16 sid, u8 fm, u64 type)
+{
+	struct qi_desc desc = {.qw1 = 0, .qw2 = 0, .qw3 = 0};
+
+	desc.qw0 = QI_CC_FM(fm) | QI_CC_SID(sid) | QI_CC_DID(did) |
+		   QI_CC_GRAN(type) | QI_CC_TYPE;
+
+	submit_qi(iommu, &desc, 1);
+}
+
+static void flush_pasid_cache(struct pkvm_iommu *iommu, u16 did,
+			      u64 granu, u32 pasid)
+{
+	struct qi_desc desc = {.qw1 = 0, .qw2 = 0, .qw3 = 0};
+
+	desc.qw0 = QI_PC_PASID(pasid) | QI_PC_DID(did) |
+		   QI_PC_GRAN(granu) | QI_PC_TYPE;
+
+	submit_qi(iommu, &desc, 1);
+}
+
+static void flush_iotlb(struct pkvm_iommu *iommu, u16 did, u64 addr,
+			unsigned int size_order, u64 type)
+{
+	u8 dw = 0, dr = 0;
+	struct qi_desc desc = {.qw2 = 0, .qw3 = 0};
+	int ih = 0;
+
+	if (cap_write_drain(iommu->iommu.cap))
+		dw = 1;
+
+	if (cap_read_drain(iommu->iommu.cap))
+		dr = 1;
+
+	desc.qw0 = QI_IOTLB_DID(did) | QI_IOTLB_DR(dr) | QI_IOTLB_DW(dw) |
+		   QI_IOTLB_GRAN(type) | QI_IOTLB_TYPE;
+	desc.qw1 = QI_IOTLB_ADDR(addr) | QI_IOTLB_IH(ih) | QI_IOTLB_AM(size_order);
+
+	submit_qi(iommu, &desc, 1);
+}
+
+static void set_root_table(struct pkvm_iommu *iommu)
+{
+	u64 val = iommu->pgt.root_pa;
+	void __iomem *reg = iommu->iommu.reg;
+	u32 sts;
+
+	/* Set scalable mode */
+	val |= DMA_RTADDR_SMT;
+
+	writeq(val, reg + DMAR_RTADDR_REG);
+
+	/*
+	 * The shadow root table provides identical remapping results comparing
+	 * with the previous guest root table, so it is allowed to switch if
+	 * Translation Enable Status is still 1 according to IOMMU spec 6.6:
+	 *
+	 *  "
+	 *  If software sets the root-table pointer while remapping hardware is
+	 *  active (TES=1 in Global Status register), software must ensure the
+	 *  structures referenced by the new root-table pointer provide identical
+	 *  remapping results as the structures referenced by the previous root-table
+	 *  pointer so that inflight requests are properly translated.
+	 *  "
+	 *
+	 *  So don't need to turn off TE first before switching.
+	 */
+	writel(iommu->iommu.gcmd | DMA_GCMD_SRTP, reg + DMAR_GCMD_REG);
+
+	PKVM_IOMMU_WAIT_OP(reg + DMAR_GSTS_REG, readl, (sts & DMA_GSTS_RTPS), sts);
+
+	flush_context_cache(iommu, 0, 0, 0, DMA_CCMD_GLOBAL_INVL);
+	flush_pasid_cache(iommu, 0, QI_PC_GLOBAL, 0);
+	flush_iotlb(iommu, 0, 0, 0, DMA_TLB_GLOBAL_FLUSH);
+}
+
 static int activate_iommu(struct pkvm_iommu *iommu)
 {
 	unsigned long vaddr = 0, vaddr_end = IOMMU_MAX_VADDR;
@@ -868,6 +1051,8 @@ static int activate_iommu(struct pkvm_iommu *iommu)
 	ret = create_qi_desc(iommu);
 	if (ret)
 		goto free_shadow;
+
+	set_root_table(iommu);
 
 	iommu->activated = true;
 	root_tbl_walk(iommu);
