@@ -13,6 +13,14 @@ MODULE_LICENSE("GPL");
 
 static struct pkvm_hyp *pkvm;
 
+struct pkvm_deprivilege_param {
+	struct pkvm_hyp *pkvm;
+	int ret;
+};
+
+#define is_aligned(POINTER, BYTE_COUNT) \
+		(((uintptr_t)(const void *)(POINTER)) % (BYTE_COUNT) == 0)
+
 /* only need GDT entries for KERNEL_CS & KERNEL_DS as pKVM only use these two */
 static struct gdt_page pkvm_gdt_page = {
 	.gdt = {
@@ -29,6 +37,91 @@ static void *pkvm_early_alloc_contig(int pages)
 static void pkvm_early_free(void *ptr, int pages)
 {
 	free_pages_exact(ptr, pages << PAGE_SHIFT);
+}
+
+static inline void vmxon_setup_revid(void *vmxon_region)
+{
+	u32 rev_id = 0;
+	u32 msr_high_value = 0;
+
+	rdmsr(MSR_IA32_VMX_BASIC, rev_id, msr_high_value);
+
+	memcpy(vmxon_region, &rev_id, 4);
+}
+
+static inline void cr4_set_vmxe(void)
+{
+	unsigned long cr4_value;
+
+	cr4_value = __read_cr4();
+	__write_cr4(cr4_value | X86_CR4_VMXE);
+}
+
+static inline void cr4_clear_vmxe(void)
+{
+	unsigned long cr4_value;
+
+	cr4_value = __read_cr4();
+	__write_cr4(cr4_value & ~(X86_CR4_VMXE));
+}
+
+static __init int pkvm_cpu_vmxon(u64 vmxon_pointer)
+{
+	u64 msr;
+
+	cr4_set_vmxe();
+	asm goto("1: vmxon %[vmxon_pointer]\n\t"
+			  _ASM_EXTABLE(1b, %l[fault])
+			  : : [vmxon_pointer] "m"(vmxon_pointer)
+			  : : fault);
+	return 0;
+
+fault:
+	WARN_ONCE(1, "VMXON faulted, MSR_IA32_FEAT_CTL (0x3a) = 0x%llx\n",
+		  rdmsrl_safe(MSR_IA32_FEAT_CTL, &msr) ? 0xdeadbeef : msr);
+	cr4_clear_vmxe();
+	return -EFAULT;
+}
+
+static __init int pkvm_cpu_vmxoff(void)
+{
+	asm goto("1: vmxoff\n\t"
+			  _ASM_EXTABLE(1b, %l[fault])
+			  ::: "cc", "memory" : fault);
+	cr4_clear_vmxe();
+	return 0;
+
+fault:
+	cr4_clear_vmxe();
+	return -EFAULT;
+}
+
+static __init int pkvm_enable_vmx(struct pkvm_host_vcpu *vcpu)
+{
+	u64 phys_addr;
+
+	vcpu->vmxarea = pkvm_early_alloc_contig(1);
+	if (!vcpu->vmxarea)
+		return -ENOMEM;
+
+	phys_addr = __pa(vcpu->vmxarea);
+	if (!is_aligned(phys_addr, PAGE_SIZE))
+		return -ENOMEM;
+
+	/*setup revision id in vmxon region*/
+	vmxon_setup_revid(vcpu->vmxarea);
+
+	return pkvm_cpu_vmxon(phys_addr);
+}
+
+static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *vcpu)
+{
+	return pkvm_enable_vmx(vcpu);
+}
+
+static __init void pkvm_host_deinit_vmx(struct pkvm_host_vcpu *vcpu)
+{
+	pkvm_cpu_vmxoff();
 }
 
 static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
@@ -168,6 +261,76 @@ static __init int pkvm_host_setup_vcpu(struct pkvm_hyp *pkvm, int cpu)
 	pkvm->host_vm.host_vcpus[cpu] = pkvm_host_vcpu;
 
 	return 0;
+}
+
+static inline void enable_feature_control(void)
+{
+	u64 old, test_bits;
+
+	rdmsrl(MSR_IA32_FEAT_CTL, old);
+	test_bits = FEAT_CTL_LOCKED;
+	test_bits |= FEAT_CTL_VMX_ENABLED_OUTSIDE_SMX;
+
+	if ((old & test_bits) != test_bits)
+		wrmsrl(MSR_IA32_FEAT_CTL, old | test_bits);
+}
+
+static __init void pkvm_host_deprivilege_cpu(void *data)
+{
+	struct pkvm_deprivilege_param *p = data;
+	unsigned long flags;
+	int cpu = get_cpu(), ret;
+	struct pkvm_host_vcpu *vcpu =
+		p->pkvm->host_vm.host_vcpus[cpu];
+
+	local_irq_save(flags);
+
+	enable_feature_control();
+
+	ret = pkvm_host_init_vmx(vcpu);
+	if (ret) {
+		pr_err("%s: init vmx failed\n", __func__);
+		goto out;
+	}
+
+	/* TODO:KICK to RUN vcpu. let's directly go with out(return failure) now */
+
+out:
+	p->ret = -ENOTSUPP;
+	pkvm_host_deinit_vmx(vcpu);
+	pr_err("%s: failed to deprivilege CPU%d\n", __func__, cpu);
+
+	local_irq_restore(flags);
+
+	put_cpu();
+}
+
+/*
+ * Used in root mode to deprivilege CPUs
+ */
+static __init int pkvm_host_deprivilege_cpus(struct pkvm_hyp *pkvm)
+{
+	struct pkvm_deprivilege_param p = {
+		.pkvm = pkvm,
+		.ret = 0,
+	};
+
+	on_each_cpu(pkvm_host_deprivilege_cpu, &p, 1);
+	if (p.ret) {
+		/*
+		 * TODO:
+		 * We are here because some CPUs failed to be deprivileged, so
+		 * the failed CPU will stay in root mode. But the others already
+		 * in the non-root mode. In this case, we should let non-root mode
+		 * CPUs go back to root mode, then the system can still run natively
+		 * without pKVM enabled.
+		 */
+		pr_err("%s: WARNING - failed to deprivilege all CPUs!\n", __func__);
+	} else {
+		pr_info("%s: all cpus are in guest mode!\n", __func__);
+	}
+
+	return p.ret;
 }
 
 __init int pkvm_init(void)

@@ -25,6 +25,7 @@ struct pkvm_pcpu {
 struct pkvm_host_vcpu {
 	struct vcpu_vmx vmx;
 	struct pkvm_pcpu *pcpu;
+	struct vmcs *vmxarea;
 };
 
 struct pkvm_host_vm {
