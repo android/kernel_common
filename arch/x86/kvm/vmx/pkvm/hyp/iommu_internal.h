@@ -195,4 +195,6 @@ static inline bool pasid_copy_entry(struct pasid_entry *to, struct pasid_entry *
 	return updated;
 }
 
+extern void root_tbl_walk(struct pkvm_iommu *iommu);
+
 #endif

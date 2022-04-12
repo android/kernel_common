@@ -754,7 +754,7 @@ static int activate_iommu(struct pkvm_iommu *iommu)
 		goto out;
 
 	iommu->activated = true;
-
+	root_tbl_walk(iommu);
 out:
 	pkvm_spin_unlock(&iommu->lock);
 	return ret;
