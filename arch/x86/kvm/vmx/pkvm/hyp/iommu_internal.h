@@ -13,8 +13,16 @@
 #define PKVM_QI_DESC_ALIGNED_SIZE		ALIGN(QI_LENGTH * sizeof(struct qi_desc), PAGE_SIZE)
 #define PKVM_QI_DESC_STATUS_ALIGNED_SIZE	ALIGN(QI_LENGTH * sizeof(int), PAGE_SIZE)
 
+struct viommu_reg {
+	u64 iq_head;
+	u64 iq_tail;
+	u64 iqa;
+};
+
 struct pkvm_viommu {
 	struct pkvm_pgtable pgt;
+	struct viommu_reg vreg;
+	u64 iqa;
 };
 
 struct pkvm_iommu {
@@ -23,6 +31,10 @@ struct pkvm_iommu {
 	bool activated;
 	struct pkvm_pgtable pgt;
 	struct pkvm_viommu viommu;
+
+	struct q_inval qi;
+	pkvm_spinlock_t qi_lock;
+	u64 piommu_iqa;
 };
 
 enum sm_level {
@@ -60,6 +72,24 @@ enum sm_level {
 #define DMAR_GSTS_EN_BITS	(DMA_GCMD_TE | DMA_GCMD_EAFL | \
 				 DMA_GCMD_QIE | DMA_GCMD_IRE | \
 				 DMA_GCMD_CFI)
+
+#define PKVM_IOMMU_WAIT_OP(offset, op, cond, sts)			\
+do {									\
+	while (1) {							\
+		sts = op(offset);					\
+		if (cond)						\
+			break;						\
+		cpu_relax();						\
+	}								\
+} while (0)
+
+#define IQ_DESC_BASE_PHYS(reg)		(reg & ~0xfff)
+#define IQ_DESC_DW(reg)			((reg >> 11) & 1)
+#define IQ_DESC_QS(reg)			(reg & GENMASK_ULL(2, 0))
+#define IQ_DESC_LEN(reg)		(1 << (7 + IQ_DESC_QS(reg) + !IQ_DESC_DW(reg)))
+#define IQ_DESC_SHIFT(reg)		(4 + IQ_DESC_DW(reg))
+
+#define QI_DESC_TYPE(qw)		(qw & GENMASK_ULL(3, 0))
 
 struct pasid_dir_entry {
 	u64 val;

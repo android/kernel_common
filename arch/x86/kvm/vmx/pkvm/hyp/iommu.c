@@ -71,6 +71,11 @@ struct pgt_sync_data {
 	struct pkvm_pgtable *spgt;
 };
 
+static inline void *iommu_zalloc_pages(size_t size)
+{
+	return hyp_alloc_pages(&iommu_pool, get_order(size));
+}
+
 static void *iommu_zalloc_page(void)
 {
 	return hyp_alloc_pages(&iommu_pool, 0);
@@ -734,6 +739,110 @@ retry:
 	return ret;
 }
 
+static void enable_qi(struct pkvm_iommu *iommu)
+{
+	void *desc = iommu->qi.desc;
+	int dw, qs;
+	u32 sts;
+
+	dw = !!ecap_smts(iommu->iommu.ecap);
+	qs = fls(iommu->qi.free_cnt >> (7 + !dw)) - 1;
+
+	/* Disable QI */
+	sts = readl(iommu->iommu.reg + DMAR_GSTS_REG);
+	if (sts & DMA_GSTS_QIES) {
+		iommu->iommu.gcmd &= ~DMA_GCMD_QIE;
+		writel(iommu->iommu.gcmd, iommu->iommu.reg + DMAR_GCMD_REG);
+		PKVM_IOMMU_WAIT_OP(iommu->iommu.reg + DMAR_GSTS_REG,
+				   readl, !(sts & DMA_GSTS_QIES), sts);
+	}
+
+	/* Set tail to 0 */
+	writel(0, iommu->iommu.reg + DMAR_IQT_REG);
+
+	/* Set IQA */
+	iommu->piommu_iqa = pkvm_virt_to_phys(desc) | (dw << 11) | qs;
+	writeq(iommu->piommu_iqa, iommu->iommu.reg + DMAR_IQA_REG);
+
+	/* Enable QI */
+	iommu->iommu.gcmd |= DMA_GCMD_QIE;
+	writel(iommu->iommu.gcmd, iommu->iommu.reg + DMAR_GCMD_REG);
+	PKVM_IOMMU_WAIT_OP(iommu->iommu.reg + DMAR_GSTS_REG,
+			   readl, (sts & DMA_GSTS_QIES), sts);
+}
+
+static int create_qi_desc(struct pkvm_iommu *iommu)
+{
+	struct pkvm_viommu *viommu = &iommu->viommu;
+	struct q_inval *qi = &iommu->qi;
+	void __iomem *reg = iommu->iommu.reg;
+
+	pkvm_spin_lock_init(&iommu->qi_lock);
+	/*
+	 * Before switching the descriptor, need to wait any pending
+	 * invalidation descriptor completed. According to spec 6.5.2,
+	 * The invalidation queue is considered quiesced when the queue
+	 * is empty (head and tail registers equal) and the last
+	 * descriptor completed is an Invalidation Wait Descriptor
+	 * (which indicates no invalidation requests are pending in hardware).
+	 */
+	while (readq(reg + DMAR_IQH_REG) !=
+		readq(reg + DMAR_IQT_REG))
+		cpu_relax();
+
+	viommu->vreg.iqa = viommu->iqa = readq(reg + DMAR_IQA_REG);
+	viommu->vreg.iq_head = readq(reg + DMAR_IQH_REG);
+	viommu->vreg.iq_tail = readq(reg + DMAR_IQT_REG);
+
+	if (readq(reg + DMAR_GSTS_REG) & DMA_GSTS_QIES) {
+		struct qi_desc *wait_desc;
+		u64 iqa = viommu->iqa;
+		int shift = IQ_DESC_SHIFT(iqa);
+		int offset = ((viommu->vreg.iq_head >> shift) +
+			      IQ_DESC_LEN(iqa) - 1) % IQ_DESC_LEN(iqa);
+		int *desc_status;
+
+		/* Find out the last descriptor */
+		wait_desc = pkvm_phys_to_virt(IQ_DESC_BASE_PHYS(iqa)) + (offset << shift);
+
+		pkvm_dbg("pkvm: viommu iqa 0x%llx head 0x%llx tail 0x%llx qw0 0x%llx qw1 0x%llx",
+				viommu->vreg.iqa, viommu->vreg.iq_head, viommu->vreg.iq_tail,
+				wait_desc->qw0, wait_desc->qw1);
+
+		if (QI_DESC_TYPE(wait_desc->qw0) != QI_IWD_TYPE) {
+			pkvm_err("pkvm: %s: expect wait desc but 0x%llx\n",
+				 __func__, wait_desc->qw0);
+			return -EINVAL;
+		}
+
+		desc_status = pkvm_phys_to_virt(wait_desc->qw1);
+		/*
+		 * Wait until the wait descriptor is completed.
+		 *
+		 * The desc_status is from host. Checking this in pkvm
+		 * is relying on host IOMMU driver won't release the
+		 * desc_status after it is completed, and this is guarantee
+		 * by the current Linux IOMMU driver.
+		 */
+		while (READ_ONCE(*desc_status) == QI_IN_USE)
+			cpu_relax();
+	}
+
+	qi->free_cnt = PKVM_QI_DESC_ALIGNED_SIZE / sizeof(struct qi_desc);
+	qi->desc = iommu_zalloc_pages(PKVM_QI_DESC_ALIGNED_SIZE);
+	if (!qi->desc)
+		return -ENOMEM;
+
+	qi->desc_status = iommu_zalloc_pages(PKVM_QI_DESC_STATUS_ALIGNED_SIZE);
+	if (!qi->desc_status) {
+		iommu_put_page(qi->desc);
+		return -ENOMEM;
+	}
+
+	enable_qi(iommu);
+	return 0;
+}
+
 static int activate_iommu(struct pkvm_iommu *iommu)
 {
 	unsigned long vaddr = 0, vaddr_end = IOMMU_MAX_VADDR;
@@ -756,10 +865,120 @@ static int activate_iommu(struct pkvm_iommu *iommu)
 	if (ret)
 		goto out;
 
+	ret = create_qi_desc(iommu);
+	if (ret)
+		goto free_shadow;
+
 	iommu->activated = true;
 	root_tbl_walk(iommu);
+
+	pkvm_spin_unlock(&iommu->lock);
+	return 0;
+
+free_shadow:
+	free_shadow(iommu, vaddr, vaddr_end);
 out:
 	pkvm_spin_unlock(&iommu->lock);
+	return ret;
+}
+
+static int handle_descriptor(struct pkvm_iommu *iommu, void *desc)
+{
+	return 0;
+}
+
+static void handle_qi_submit(struct pkvm_iommu *iommu, void *vdesc, int vhead, int count)
+{
+	struct pkvm_viommu *viommu = &iommu->viommu;
+	int vlen = IQ_DESC_LEN(viommu->iqa);
+	int vshift = IQ_DESC_SHIFT(viommu->iqa);
+	int len = IQ_DESC_LEN(iommu->piommu_iqa);
+	int shift = IQ_DESC_SHIFT(iommu->piommu_iqa);
+	struct q_inval *qi = &iommu->qi;
+	struct qi_desc *to, *from;
+	int required_cnt = count + 1, i;
+
+	pkvm_spin_lock(&iommu->qi_lock);
+	/*
+	 * Detect if the free descriptor count is enough or not
+	 */
+	while (qi->free_cnt < required_cnt) {
+		u64 head = readq(iommu->iommu.reg + DMAR_IQH_REG) >> shift;
+		int busy_cnt = (READ_ONCE(qi->free_head) + len - head) % len;
+		int free_cnt = len - busy_cnt;
+
+		if (free_cnt >= required_cnt) {
+			qi->free_cnt = free_cnt;
+			break;
+		}
+		pkvm_spin_unlock(&iommu->qi_lock);
+		cpu_relax();
+		pkvm_spin_lock(&iommu->qi_lock);
+	}
+
+	for (i = 0; i < count; i++) {
+		from = vdesc + (((vhead + i) % vlen) << vshift);
+		to = qi->desc + (((qi->free_head + i) % len) << shift);
+
+		to->qw0 = from->qw0;
+		to->qw1 = from->qw1;
+	}
+
+	/*
+	 * Reuse the desc_status from host so that host can poll
+	 * the desc_status itself instead of waiting in pkvm.
+	 */
+	qi->free_cnt -= count;
+	qi->free_head = (qi->free_head + count) % len;
+	writel(qi->free_head << shift, iommu->iommu.reg + DMAR_IQT_REG);
+
+	pkvm_spin_unlock(&iommu->qi_lock);
+}
+
+static int handle_qi_invalidation(struct pkvm_iommu *iommu, unsigned long val)
+{
+	struct pkvm_viommu *viommu = &iommu->viommu;
+	u64 viommu_iqa = viommu->iqa;
+	struct qi_desc *wait_desc;
+	int len = IQ_DESC_LEN(viommu_iqa);
+	int shift = IQ_DESC_SHIFT(viommu_iqa);
+	int head = viommu->vreg.iq_head >> shift;
+	int count, i, ret = 0;
+	int *desc_status;
+	void *desc;
+
+	viommu->vreg.iq_tail = val;
+	desc = pkvm_phys_to_virt(IQ_DESC_BASE_PHYS(viommu_iqa));
+	count = ((val >> shift) + len - head) % len;
+
+	for (i = 0; i < count; i++) {
+		viommu->vreg.iq_head = ((head + i) % len) << shift;
+		ret = handle_descriptor(iommu, desc + viommu->vreg.iq_head);
+		if (ret)
+			break;
+	}
+	/* update iq_head */
+	viommu->vreg.iq_head = val;
+
+	if (likely(!ret)) {
+		/*
+		 * Submit the descriptor to hardware. The desc_status
+		 * will be taken cared by hardware.
+		 */
+		handle_qi_submit(iommu, desc, head, count);
+	} else {
+		pkvm_err("pkvm: %s: failed with ret %d\n", __func__, ret);
+		/*
+		 * The descriptor seems invalid. Mark the desc_status as
+		 * QI_ABORT to make sure host driver won't be blocked.
+		 */
+		wait_desc = desc + (((head + count - 1) % len) << shift);
+		if (QI_DESC_TYPE(wait_desc->qw0) == QI_IWD_TYPE) {
+			desc_status = pkvm_phys_to_virt(wait_desc->qw1);
+			WRITE_ONCE(*desc_status, QI_ABORT);
+		}
+	}
+
 	return ret;
 }
 
@@ -811,6 +1030,7 @@ static unsigned long access_iommu_mmio(struct pkvm_iommu *iommu, bool is_read,
 				       int len, unsigned long phys,
 				       unsigned long val)
 {
+	struct pkvm_viommu *viommu = &iommu->viommu;
 	unsigned long offset = phys - iommu->iommu.reg_phys;
 	unsigned long ret = 0;
 
@@ -820,6 +1040,22 @@ static unsigned long access_iommu_mmio(struct pkvm_iommu *iommu, bool is_read,
 
 	/* Only need to emulate part of the MMIO */
 	switch (offset) {
+	case DMAR_IQA_REG:
+		if (is_read)
+			ret = viommu->vreg.iqa;
+		else
+			viommu->vreg.iqa = val;
+		break;
+	case DMAR_IQH_REG:
+		if (is_read)
+			ret = viommu->vreg.iq_head;
+		break;
+	case DMAR_IQT_REG:
+		if (is_read)
+			ret = viommu->vreg.iq_tail;
+		else
+			ret = handle_qi_invalidation(iommu, val);
+		break;
 	default:
 		/* Not emulated MMIO can directly goes to hardware */
 		ret = direct_access_iommu_mmio(iommu, is_read, len, phys, val);
