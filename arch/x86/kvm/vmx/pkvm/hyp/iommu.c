@@ -1091,9 +1091,142 @@ out:
 	return ret;
 }
 
-static int handle_descriptor(struct pkvm_iommu *iommu, void *desc)
+static int context_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc)
 {
-	return 0;
+	u16 sid = QI_DESC_CC_SID(desc->qw0);
+	u64 granu = QI_DESC_CC_GRANU(desc->qw0) << DMA_CCMD_INVL_GRANU_OFFSET;
+	unsigned long start, end;
+	int ret;
+
+	switch (granu) {
+	case DMA_CCMD_GLOBAL_INVL:
+		start = 0;
+		end = IOMMU_MAX_VADDR;
+		pkvm_dbg("pkvm: %s: iommu%d: global\n", __func__, iommu->iommu.seq_id);
+		ret = sync_shadow(iommu, start, end, 0);
+		break;
+	case DMA_CCMD_DOMAIN_INVL:
+		/*
+		 * Domain selective invalidation which is processed by
+		 * hardware as global invalidations for scalable mode
+		 * according to spec 6.5.2.1
+		 */
+		start = 0;
+		end = IOMMU_MAX_VADDR;
+		pkvm_dbg("pkvm: %s: iommu%d: domain selective\n",
+			 __func__, iommu->iommu.seq_id);
+		ret = sync_shadow(iommu, start, end, 0);
+		break;
+	case DMA_CCMD_DEVICE_INVL:
+		start = (unsigned long)sid << DEVFN_SHIFT;
+		end = ((unsigned long)sid + 1) << DEVFN_SHIFT;
+		pkvm_dbg("pkvm: %s: iommu%d: device selective sid 0x%x\n",
+			 __func__, iommu->iommu.seq_id, sid);
+		ret = sync_shadow(iommu, start, end, 0);
+		break;
+	default:
+		pkvm_err("pkvm: %s: iommu%d: invalidate granu %lld\n",
+			__func__, iommu->iommu.seq_id, granu >> DMA_CCMD_INVL_GRANU_OFFSET);
+		ret = -EINVAL;
+		break;
+	}
+
+	if (ret)
+		pkvm_err("pkvm: %s: iommu%d: granularity %lld failed with ret %d\n",
+			__func__, iommu->iommu.seq_id, granu >> DMA_CCMD_INVL_GRANU_OFFSET, ret);
+	return ret;
+}
+
+static int pasid_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc)
+{
+	int pasid = QI_DESC_PC_PASID(desc->qw0);
+	u16 did = QI_DESC_PC_DID(desc->qw0);
+	int granu = QI_DESC_PC_GRANU(desc->qw0);
+	unsigned long start, end;
+	int ret;
+
+	switch (granu) {
+	case QI_PC_ALL_PASIDS:
+		/*
+		 * This is more like a global invalidation but to check
+		 * if matching with a specific DID.
+		 */
+		pkvm_dbg("pkvm: %s: iommu%d: ALL_PASID did %d\n",
+			 __func__, iommu->iommu.seq_id, did);
+		start = 0;
+		end = IOMMU_MAX_VADDR;
+		ret = sync_shadow(iommu, start, end, did);
+		break;
+	case QI_PC_PASID_SEL: {
+		/*
+		 * Sync specific PASID entry for all contexts
+		 */
+		u64 bdf, end_bdf = 0x10000;
+
+		pkvm_dbg("pkvm: %s: iommu%d: PASID_SEL did %d pasid 0x%x\n",
+			 __func__, iommu->iommu.seq_id, did, pasid);
+		for (bdf = 0; bdf < end_bdf; bdf++) {
+			start = (bdf << DEVFN_SHIFT) + pasid;
+			end = start + 1;
+			ret = sync_shadow(iommu, start, end, did);
+			if (ret)
+				break;
+		}
+		break;
+	}
+	case QI_PC_GLOBAL:
+		start = 0;
+		end = IOMMU_MAX_VADDR;
+		pkvm_dbg("pkvm: %s: iommu%d: global\n", __func__, iommu->iommu.seq_id);
+		ret = sync_shadow(iommu, start, end, 0);
+		break;
+	default:
+		pkvm_err("pkvm: %s: iommu%d: invalid granularity %d 0x%llx\n",
+			 __func__, iommu->iommu.seq_id, granu, desc->qw0);
+		ret = -EINVAL;
+		break;
+	}
+
+	if (ret)
+		pkvm_err("pkvm: %s: iommu%d: granularity %d failed with ret %d\n",
+			 __func__, iommu->iommu.seq_id, granu, ret);
+
+	return ret;
+}
+
+static int handle_descriptor(struct pkvm_iommu *iommu, struct qi_desc *desc)
+{
+	int type = QI_DESC_TYPE(desc->qw0);
+	int ret = 0;
+
+	switch (type) {
+	/*
+	 * TODO: is it necessary to intercept the
+	 * PGRP_RESP & PSTRM_RESP?
+	 */
+	case QI_PGRP_RESP_TYPE:
+	case QI_PSTRM_RESP_TYPE:
+	case QI_IOTLB_TYPE:
+	case QI_DIOTLB_TYPE:
+	case QI_DEIOTLB_TYPE:
+	case QI_IEC_TYPE:
+	case QI_IWD_TYPE:
+	case QI_EIOTLB_TYPE:
+		break;
+	case QI_CC_TYPE:
+		ret = context_cache_invalidate(iommu, desc);
+		break;
+	case QI_PC_TYPE:
+		ret = pasid_cache_invalidate(iommu, desc);
+		break;
+	default:
+		pkvm_err("pkvm: %s: iommu%d: invalid type %d desc addr 0x%llx val 0x%llx\n",
+			 __func__, iommu->iommu.seq_id, type, (u64)desc, desc->qw0);
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
 }
 
 static void handle_qi_submit(struct pkvm_iommu *iommu, void *vdesc, int vhead, int count)

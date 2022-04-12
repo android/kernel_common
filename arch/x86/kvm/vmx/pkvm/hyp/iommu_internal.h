@@ -90,6 +90,13 @@ do {									\
 #define IQ_DESC_SHIFT(reg)		(4 + IQ_DESC_DW(reg))
 
 #define QI_DESC_TYPE(qw)		(qw & GENMASK_ULL(3, 0))
+#define QI_DESC_CC_GRANU(qw)		((qw & GENMASK_ULL(5, 4)) >> 4)
+#define QI_DESC_CC_DID(qw)		((qw & GENMASK_ULL(31, 16)) >> 16)
+#define QI_DESC_CC_SID(qw)		((qw & GENMASK_ULL(47, 32)) >> 32)
+
+#define QI_DESC_PC_GRANU(qw)		((qw & GENMASK_ULL(5, 4)) >> 4)
+#define QI_DESC_PC_DID(qw)		((qw & GENMASK_ULL(31, 16)) >> 16)
+#define QI_DESC_PC_PASID(qw)		((qw & GENMASK_ULL(51, 32)) >> 32)
 
 struct pasid_dir_entry {
 	u64 val;
