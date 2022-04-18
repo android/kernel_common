@@ -39,6 +39,28 @@ static void pkvm_early_free(void *ptr, int pages)
 	free_pages_exact(ptr, pages << PAGE_SHIFT);
 }
 
+static struct vmcs *pkvm_alloc_vmcs(struct vmcs_config *vmcs_config_ptr)
+{
+	struct vmcs *vmcs;
+	int pages = ALIGN(vmx_basic_vmcs_size(vmcs_config_ptr->basic), PAGE_SIZE) >> PAGE_SHIFT;
+
+	vmcs = pkvm_early_alloc_contig(pages);
+	if (!vmcs)
+		return NULL;
+
+	memset(vmcs, 0, vmx_basic_vmcs_size(vmcs_config_ptr->basic));
+	vmcs->hdr.revision_id = vmx_basic_vmcs_revision_id(vmcs_config_ptr->basic); /* vmcs revision id */
+
+	return vmcs;
+}
+
+static void pkvm_free_vmcs(void *vmcs, struct vmcs_config *vmcs_config_ptr)
+{
+	int pages = ALIGN(vmcs_config_ptr->size, PAGE_SIZE) >> PAGE_SHIFT;
+
+	pkvm_early_free(vmcs, pages);
+}
+
 static inline void vmxon_setup_revid(void *vmxon_region)
 {
 	u32 rev_id = 0;
@@ -116,12 +138,42 @@ static __init int pkvm_enable_vmx(struct pkvm_host_vcpu *vcpu)
 
 static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *vcpu)
 {
-	return pkvm_enable_vmx(vcpu);
+	struct vcpu_vmx *vmx = &vcpu->vmx;
+	int ret;
+
+	ret = pkvm_enable_vmx(vcpu);
+	if (ret)
+		return ret;
+
+	/* vmcs01: host vmcs in pKVM */
+	vmx->vmcs01.vmcs = pkvm_alloc_vmcs(&pkvm->vmcs_config);
+	if (!vmx->vmcs01.vmcs)
+		return -ENOMEM;
+
+	vmx->vmcs01.msr_bitmap = pkvm_early_alloc_contig(1);
+	if (!vmx->vmcs01.msr_bitmap) {
+		pr_err("%s: No page for msr_bitmap\n", __func__);
+		return -ENOMEM;
+	}
+
+	return ret;
 }
 
 static __init void pkvm_host_deinit_vmx(struct pkvm_host_vcpu *vcpu)
 {
+	struct vcpu_vmx *vmx = &vcpu->vmx;
+
 	pkvm_cpu_vmxoff();
+
+	if (vmx->vmcs01.vmcs) {
+		pkvm_free_vmcs(vmx->vmcs01.vmcs, &pkvm->vmcs_config);
+		vmx->vmcs01.vmcs = NULL;
+	}
+
+	if (vmx->vmcs01.msr_bitmap) {
+		pkvm_early_free(vmx->vmcs01.msr_bitmap, 1);
+		vmx->vmcs01.msr_bitmap = NULL;
+	}
 }
 
 static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
