@@ -21,6 +21,7 @@ extern void pkvm_init_debugfs(void);
 MODULE_LICENSE("GPL");
 
 static struct pkvm_hyp *pkvm;
+static bool legacy_iommu;
 
 struct pkvm_deprivilege_param {
 	struct pkvm_hyp *pkvm;
@@ -127,7 +128,7 @@ static int check_and_init_iommu(struct pkvm_hyp *pkvm)
 		 * pkvm requires host IOMMU driver to work in scalable mode with
 		 * first-level translation.
 		 */
-		if ((readl(drhd->iommu->reg + DMAR_GSTS_REG) & DMA_GSTS_TES) &&
+		if (!legacy_iommu && (readl(drhd->iommu->reg + DMAR_GSTS_REG) & DMA_GSTS_TES) &&
 			(readq(drhd->iommu->reg + DMAR_RTADDR_REG) &
 			 GENMASK_ULL(11, 10)) != DMA_RTADDR_SMT) {
 			pr_err("pkvm: drhd reg_base 0x%llx: scalable mode not enabled\n",
@@ -146,6 +147,15 @@ static int check_and_init_iommu(struct pkvm_hyp *pkvm)
 		cap = readq(addr + DMAR_CAP_REG);
 		ecap = readq(addr + DMAR_ECAP_REG);
 		iounmap(addr);
+
+		if (legacy_iommu) {
+			info->reg_phys = drhd->reg_base_addr;
+			reg_size = max_t(u64, ecap_max_iotlb_offset(ecap),
+					 cap_max_fault_reg_offset(cap));
+			info->reg_size = max_t(u64, reg_size, VTD_PAGE_SIZE);
+			index++;
+			continue;
+		}
 
 		/* pkvm requires to use nested translation */
 		if (!ecap_nest(ecap)) {
@@ -1015,7 +1025,8 @@ static __init int pkvm_init_finalise(void)
 					       NULL, true);
 	}
 
-	ret = kvm_hypercall0(PKVM_HC_ACTIVATE_IOMMU);
+	if (!legacy_iommu)
+		ret = kvm_hypercall0(PKVM_HC_ACTIVATE_IOMMU);
 out:
 	put_cpu();
 
@@ -1203,3 +1214,21 @@ out:
 	pkvm_sym(pkvm_hyp) = NULL;
 	return ret;
 }
+
+static int __init pkvm_setup(char *str)
+{
+	if (!str)
+		return -EINVAL;
+
+	while (*str) {
+		if (!strncmp(str, "legacy_iommu", 12))
+			legacy_iommu = true;
+
+		str += strcspn(str, ",");
+		while (*str == ',')
+			str++;
+	}
+
+	return 1;
+}
+__setup("pkvm=", pkvm_setup);
