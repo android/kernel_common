@@ -24,6 +24,8 @@ static struct hyp_pool host_ept_pool;
 static struct pkvm_pgtable host_ept;
 static pkvm_spinlock_t host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
+static struct hyp_pool shadow_ept_pool;
+
 static void flush_tlb_noop(void) { };
 static void *host_ept_zalloc_page(void)
 {
@@ -220,4 +222,11 @@ int handle_host_ept_violation(unsigned long gpa)
 out:
 	pkvm_spin_unlock(&host_ept_lock);
 	return ret;
+}
+
+int pkvm_shadow_ept_pool_init(void *ept_pool_base, unsigned long ept_pool_pages)
+{
+	unsigned long pfn = __pkvm_pa(ept_pool_base) >> PAGE_SHIFT;
+
+	return hyp_pool_init(&shadow_ept_pool, pfn, ept_pool_pages, 0);
 }
