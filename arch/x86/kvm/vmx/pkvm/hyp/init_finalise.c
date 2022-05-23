@@ -19,6 +19,7 @@
 #include "vmx.h"
 #include "nested.h"
 #include "debug.h"
+#include "mem_protect.h"
 
 void *pkvm_mmu_pgt_base;
 void *pkvm_vmemmap_base;
@@ -182,8 +183,7 @@ static int create_host_ept_mapping(void)
 	/*
 	 * Create EPT mapping for memory with WB + RWX property
 	 */
-	entry_prot = HOST_EPT_DEF_MEM_PROT;
-
+	entry_prot = pkvm_mkstate(HOST_EPT_DEF_MEM_PROT, PKVM_PAGE_OWNED);
 	for (i = 0; i < hyp_memblock_nr; i++) {
 		reg = &hyp_memory[i];
 		ret = pkvm_host_ept_map((unsigned long)reg->base,
@@ -198,7 +198,7 @@ static int create_host_ept_mapping(void)
 	 * The holes in memblocks are treated as MMIO with the
 	 * mapping UC + RWX.
 	 */
-	entry_prot = HOST_EPT_DEF_MMIO_PROT;
+	entry_prot = pkvm_mkstate(HOST_EPT_DEF_MMIO_PROT, PKVM_PAGE_OWNED);
 	for (i = 0; i < hyp_memblock_nr; i++, phys = reg->base + reg->size) {
 		reg = &hyp_memory[i];
 		ret = pkvm_host_ept_map(phys, phys, (unsigned long)reg->base - phys,

@@ -19,6 +19,7 @@
 #include "ept.h"
 #include "memory.h"
 #include "vmx.h"
+#include "mem_protect.h"
 #include "debug.h"
 
 static struct hyp_pool host_ept_pool;
@@ -217,7 +218,7 @@ int handle_host_ept_violation(unsigned long gpa)
 	unsigned long hpa;
 	struct mem_range range, cur;
 	bool is_memory = find_mem_range(gpa, &range);
-	u64 prot = HOST_EPT_DEF_MMIO_PROT;
+	u64 prot = pkvm_mkstate(HOST_EPT_DEF_MMIO_PROT, PKVM_PAGE_OWNED);
 	int level;
 	int ret;
 
