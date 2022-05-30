@@ -6,6 +6,8 @@
 #ifndef __PKVM_VMX_H
 #define __PKVM_VMX_H
 
+#include "pkvm_hyp.h"
+
 static inline bool vmx_ept_capability_check(u32 bit)
 {
 	struct vmx_capability *vmx_cap = &pkvm_hyp->vmx_cap;
@@ -31,6 +33,11 @@ static inline bool vmx_ept_has_mt_wb(void)
 static inline bool vmx_has_invept_context(void)
 {
 	return vmx_ept_capability_check(VMX_EPT_EXTENT_CONTEXT_BIT);
+}
+
+static inline bool vmx_has_ept_execute_only(void)
+{
+	return vmx_ept_capability_check(VMX_EPT_EXECUTE_ONLY_BIT);
 }
 
 static inline u64 pkvm_construct_eptp(unsigned long root_hpa, int level)

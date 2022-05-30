@@ -26,6 +26,7 @@ static struct pkvm_pgtable host_ept;
 static pkvm_spinlock_t host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
 static struct hyp_pool shadow_ept_pool;
+static struct rsvd_bits_validate ept_zero_check;
 
 static void flush_tlb_noop(void) { };
 static void *host_ept_zalloc_page(void)
@@ -151,15 +152,61 @@ int pkvm_host_ept_unmap(unsigned long vaddr_start, unsigned long phys_start,
 	return pkvm_pgtable_unmap(&host_ept, vaddr_start, phys_start, size);
 }
 
+static void reset_rsvds_bits_mask_ept(struct rsvd_bits_validate *rsvd_check,
+				      u64 pa_bits_rsvd, bool execonly,
+				      int huge_page_level)
+{
+	u64 high_bits_rsvd = pa_bits_rsvd & rsvd_bits(0, 51);
+	u64 large_1g_rsvd = 0, large_2m_rsvd = 0;
+	u64 bad_mt_xwr;
+
+	if (huge_page_level < PG_LEVEL_1G)
+		large_1g_rsvd = rsvd_bits(7, 7);
+	if (huge_page_level < PG_LEVEL_2M)
+		large_2m_rsvd = rsvd_bits(7, 7);
+
+	rsvd_check->rsvd_bits_mask[0][4] = high_bits_rsvd | rsvd_bits(3, 7);
+	rsvd_check->rsvd_bits_mask[0][3] = high_bits_rsvd | rsvd_bits(3, 7);
+	rsvd_check->rsvd_bits_mask[0][2] = high_bits_rsvd | rsvd_bits(3, 6) | large_1g_rsvd;
+	rsvd_check->rsvd_bits_mask[0][1] = high_bits_rsvd | rsvd_bits(3, 6) | large_2m_rsvd;
+	rsvd_check->rsvd_bits_mask[0][0] = high_bits_rsvd;
+
+	/* large page */
+	rsvd_check->rsvd_bits_mask[1][4] = rsvd_check->rsvd_bits_mask[0][4];
+	rsvd_check->rsvd_bits_mask[1][3] = rsvd_check->rsvd_bits_mask[0][3];
+	rsvd_check->rsvd_bits_mask[1][2] = high_bits_rsvd | rsvd_bits(12, 29) | large_1g_rsvd;
+	rsvd_check->rsvd_bits_mask[1][1] = high_bits_rsvd | rsvd_bits(12, 20) | large_2m_rsvd;
+	rsvd_check->rsvd_bits_mask[1][0] = rsvd_check->rsvd_bits_mask[0][0];
+
+	bad_mt_xwr = 0xFFull << (2 * 8);	/* bits 3..5 must not be 2 */
+	bad_mt_xwr |= 0xFFull << (3 * 8);	/* bits 3..5 must not be 3 */
+	bad_mt_xwr |= 0xFFull << (7 * 8);	/* bits 3..5 must not be 7 */
+	bad_mt_xwr |= REPEAT_BYTE(1ull << 2);	/* bits 0..2 must not be 010 */
+	bad_mt_xwr |= REPEAT_BYTE(1ull << 6);	/* bits 0..2 must not be 110 */
+	if (!execonly) {
+		/* bits 0..2 must not be 100 unless VMX capabilities allow it */
+		bad_mt_xwr |= REPEAT_BYTE(1ull << 4);
+	}
+	rsvd_check->bad_mt_xwr = bad_mt_xwr;
+}
+
 int pkvm_host_ept_init(struct pkvm_pgtable_cap *cap,
 		void *ept_pool_base, unsigned long ept_pool_pages)
 {
 	unsigned long pfn = __pkvm_pa(ept_pool_base) >> PAGE_SHIFT;
 	int ret;
+	u8 pa_bits;
 
 	ret = hyp_pool_init(&host_ept_pool, pfn, ept_pool_pages, 0);
 	if (ret)
 		return ret;
+
+	pa_bits = get_max_physaddr_bits();
+	if (!pa_bits)
+		return -EINVAL;
+	reset_rsvds_bits_mask_ept(&ept_zero_check, rsvd_bits(pa_bits, 63),
+				  vmx_has_ept_execute_only(),
+				  fls(cap->allowed_pgsz) - 1);
 
 	pkvm_hyp->host_vm.ept = &host_ept;
 	return pkvm_pgtable_init(&host_ept, &host_ept_mm_ops, &ept_ops, cap, true);
