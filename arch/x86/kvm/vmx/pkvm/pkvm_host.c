@@ -380,6 +380,8 @@ static __init void pkvm_host_setup_nested_vmx_cap(struct pkvm_hyp *pkvm)
 	rdmsr(MSR_IA32_VMX_ENTRY_CTLS,
 		msrs->entry_ctls_low,
 		msrs->entry_ctls_high);
+
+	rdmsr(MSR_IA32_VMX_MISC, msrs->misc_low, msrs->misc_high);
 }
 
 static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
