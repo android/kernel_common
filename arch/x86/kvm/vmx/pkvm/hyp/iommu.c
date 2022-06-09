@@ -10,13 +10,9 @@
 #include "memory.h"
 #include "mmu.h"
 #include "ept.h"
+#include "pgtable.h"
+#include "iommu_internal.h"
 #include "debug.h"
-
-struct pkvm_iommu {
-	struct intel_iommu iommu;
-	pkvm_spinlock_t lock;
-	bool activated;
-};
 
 #define for_each_valid_iommu(p)					\
 	for (p = iommus; p < iommus + PKVM_MAX_IOMMU_NUM; p++)	\
@@ -27,6 +23,169 @@ struct pkvm_iommu {
 static struct pkvm_iommu iommus[PKVM_MAX_IOMMU_NUM];
 
 static struct hyp_pool iommu_pool;
+
+static void *iommu_zalloc_page(void)
+{
+	return hyp_alloc_pages(&iommu_pool, 0);
+}
+
+static void iommu_get_page(void *vaddr)
+{
+	hyp_get_page(&iommu_pool, vaddr);
+}
+
+static void iommu_put_page(void *vaddr)
+{
+	hyp_put_page(&iommu_pool, vaddr);
+}
+
+static struct pkvm_mm_ops viommu_mm_ops = {
+	.phys_to_virt = host_gpa2hva,
+};
+
+static struct pkvm_mm_ops iommu_mm_ops = {
+	.phys_to_virt = pkvm_phys_to_virt,
+	.virt_to_phys = pkvm_virt_to_phys,
+	.zalloc_page = iommu_zalloc_page,
+	.get_page = iommu_get_page,
+	.put_page = iommu_put_page,
+	.page_count = hyp_page_count,
+};
+
+static bool iommu_paging_entry_present(void *ptep)
+{
+	u64 val;
+
+	val = *(u64 *)ptep;
+	return !!(val & 1);
+}
+
+static unsigned long iommu_paging_entry_to_phys(void *ptep)
+{
+	u64 val = *(u64 *)ptep;
+
+	return val & VTD_PAGE_MASK;
+}
+
+static int iommu_paging_entry_to_index(unsigned long vaddr, int level)
+{
+	switch (level) {
+	case IOMMU_PASID_TABLE:
+		return vaddr & (BIT(PASIDDIR_BITS) - 1);
+	case IOMMU_PASID_DIR:
+		return (vaddr >> PASIDDIR_SHIFT) & (BIT(PASIDDIR_BITS) - 1);
+	case IOMMU_SM_CONTEXT:
+		return (vaddr >> DEVFN_SHIFT) & (BIT(SM_DEVFN_BITS) - 1);
+	case IOMMU_SM_ROOT:
+		return (vaddr >> SM_BUS_SHIFT) & (BIT(SM_BUS_BITS) - 1);
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+static bool iommu_paging_entry_is_leaf(void *ptep, int level)
+{
+	if (level == IOMMU_PASID_TABLE ||
+		!iommu_paging_entry_present(ptep))
+		return true;
+
+	return false;
+}
+
+static int iommu_paging_level_entry_size(int level)
+{
+	switch (level) {
+	case IOMMU_PASID_TABLE:
+		return sizeof(struct pasid_entry);
+	case IOMMU_PASID_DIR:
+		return sizeof(struct pasid_dir_entry);
+	case IOMMU_SM_CONTEXT:
+		/* scalable mode requires 32bytes for context */
+		return sizeof(struct context_entry) * 2;
+	case IOMMU_SM_ROOT:
+		return sizeof(u64);
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+static int iommu_paging_level_to_entries(int level)
+{
+	switch (level) {
+	case IOMMU_PASID_TABLE:
+		return 1 << PASIDTAB_BITS;
+	case IOMMU_PASID_DIR:
+		return 1 << PASIDDIR_BITS;
+	case IOMMU_SM_CONTEXT:
+		return 1 << SM_DEVFN_BITS;
+	case IOMMU_SM_ROOT:
+		return 1 << SM_BUS_BITS;
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+static unsigned long iommu_paging_level_to_size(int level)
+{
+	switch (level) {
+	case IOMMU_PASID_TABLE:
+		return 1;
+	case IOMMU_PASID_DIR:
+		return 1 << PASIDDIR_SHIFT;
+	case IOMMU_SM_CONTEXT:
+		return 1 << DEVFN_SHIFT;
+	case IOMMU_SM_ROOT:
+		return 1 << SM_BUS_SHIFT;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+struct pkvm_pgtable_ops iommu_paging_ops = {
+	.pgt_entry_present = iommu_paging_entry_present,
+	.pgt_entry_to_phys = iommu_paging_entry_to_phys,
+	.pgt_entry_to_index = iommu_paging_entry_to_index,
+	.pgt_entry_is_leaf = iommu_paging_entry_is_leaf,
+	.pgt_level_entry_size = iommu_paging_level_entry_size,
+	.pgt_level_to_entries = iommu_paging_level_to_entries,
+	.pgt_level_to_size = iommu_paging_level_to_size,
+};
+
+static int initialize_iommu_pgt(struct pkvm_iommu *iommu)
+{
+	struct pkvm_pgtable *pgt = &iommu->pgt;
+	struct pkvm_pgtable *vpgt = &iommu->viommu.pgt;
+	struct pkvm_pgtable_cap cap;
+	u64 grt_pa = readq(iommu->iommu.reg + DMAR_RTADDR_REG) & VTD_PAGE_MASK;
+	int ret;
+
+	cap.level = IOMMU_SM_ROOT;
+
+	vpgt->root_pa = grt_pa;
+	ret = pkvm_pgtable_init(vpgt, &viommu_mm_ops, &iommu_paging_ops, &cap, false);
+	if (ret)
+		return ret;
+
+	ret = pkvm_pgtable_init(pgt, &iommu_mm_ops, &iommu_paging_ops, &cap, true);
+	if (!ret) {
+		/*
+		 * Hold additional reference count to make
+		 * sure root page won't be freed
+		 */
+		void *root = pgt->mm_ops->phys_to_virt(pgt->root_pa);
+
+		pgt->mm_ops->get_page(root);
+	}
+	return ret;
+}
 
 int pkvm_init_iommu(unsigned long mem_base, unsigned long nr_pages)
 {
@@ -62,6 +221,10 @@ int pkvm_init_iommu(unsigned long mem_base, unsigned long nr_pages)
 		ret = pkvm_host_ept_unmap((unsigned long)info->reg_phys,
 				     (unsigned long)info->reg_phys,
 				     info->reg_size);
+		if (ret)
+			return ret;
+
+		ret = initialize_iommu_pgt(piommu);
 		if (ret)
 			return ret;
 	}
