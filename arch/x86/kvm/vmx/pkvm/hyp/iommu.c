@@ -24,6 +24,52 @@ static struct pkvm_iommu iommus[PKVM_MAX_IOMMU_NUM];
 
 static struct hyp_pool iommu_pool;
 
+/*
+ * Guest page table walking parameter.
+ * pkvm IOMMU driver walks the guest page table when syncing
+ * with the shadow page table.
+ */
+struct pgt_sync_walk_data {
+	struct pkvm_iommu *iommu;
+	/*
+	 * Used to hold shadow page table physical address
+	 * which is used for sync shadow entries at each
+	 * page table level.
+	 */
+	u64 shadow_pa[IOMMU_SM_LEVEL_NUM];
+	/*
+	 * Used when just syncing a part of shadow
+	 * page table entries which match with this did if
+	 * it is set as a non-zero did value.
+	 */
+	u16 did;
+};
+
+#define DEFINE_PGT_SYNC_WALK_DATA(name, iommu, domain_id)	\
+	struct pgt_sync_walk_data name = {			\
+		.iommu = iommu,					\
+		.shadow_pa = {0},				\
+		.did = (domain_id),				\
+	}
+
+/*
+ * Used to config a shadow page table entry in root/context/pasid
+ * level.
+ */
+struct pgt_sync_data {
+	union {
+		u64 root_entry;
+		struct context_entry ct_entry;
+		struct pasid_dir_entry pd_entry;
+		struct pasid_entry p_entry;
+	};
+	void *guest_ptep;
+	void *shadow_ptep;
+	int level;
+	u64 iommu_ecap;
+	u64 shadow_pa;
+};
+
 static void *iommu_zalloc_page(void)
 {
 	return hyp_alloc_pages(&iommu_pool, 0);
@@ -159,6 +205,164 @@ struct pkvm_pgtable_ops iommu_paging_ops = {
 	.pgt_level_to_size = iommu_paging_level_to_size,
 };
 
+static int iommu_pgtable_walk(struct pkvm_pgtable *pgt, unsigned long vaddr,
+		       unsigned long vaddr_end, struct pkvm_pgtable_walker *walker)
+{
+	if (!pgt->root_pa)
+		return 0;
+
+	return pgtable_walk(pgt, vaddr, vaddr_end - vaddr, false, walker);
+}
+
+/* present root entry when shadow_pa valid, otherwise un-present it */
+static bool sync_root_entry(struct pgt_sync_data *sdata)
+{
+	u64 *sre = sdata->shadow_ptep;
+	u64 sre_val = sdata->shadow_pa ? (sdata->shadow_pa | 1) : 0;
+
+	if (READ_ONCE(*sre) != sre_val) {
+		WRITE_ONCE(*sre, sre_val);
+		return true;
+	}
+
+	return false;
+}
+
+/* sync context entry when guest_ptep & shadow_pa valid, otherwise un-present it */
+static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
+{
+	struct context_entry *shadow_ce = sdata->shadow_ptep, tmp = {0};
+	bool updated = false;
+
+	if (sdata->guest_ptep && sdata->shadow_pa) {
+		struct context_entry *guest_ce = sdata->guest_ptep;
+
+		tmp.hi = guest_ce->hi;
+		tmp.lo = sdata->shadow_pa | (guest_ce->lo & 0xfff);
+	}
+
+	if (READ_ONCE(shadow_ce->hi) != tmp.hi) {
+		WRITE_ONCE(shadow_ce->hi, tmp.hi);
+		updated = true;
+	}
+
+	if (READ_ONCE(shadow_ce->lo) != tmp.lo) {
+		WRITE_ONCE(shadow_ce->lo, tmp.lo);
+		updated = true;
+	}
+
+	return updated;
+}
+
+/* sync pasid dir entry when guest_ptep & shadow_pa valid, otherwise un-present it */
+static bool sync_shadow_pasid_dir_entry(struct pgt_sync_data *sdata)
+{
+	struct pasid_dir_entry *shadow_pde = sdata->shadow_ptep;
+	u64 val = 0;
+
+	if (sdata->guest_ptep && sdata->shadow_pa) {
+		struct pasid_dir_entry *guest_pde = sdata->guest_ptep;
+
+		val = guest_pde->val & (PASID_PTE_FPD | PASID_PTE_PRESENT);
+		val |= sdata->shadow_pa;
+	}
+
+	if (READ_ONCE(shadow_pde->val) != val) {
+		WRITE_ONCE(shadow_pde->val, val);
+		return true;
+	}
+
+	return false;
+}
+
+/* sync pasid table entry when guest_ptep valid, otherwise un-present it */
+static bool sync_shadow_pasid_table_entry(struct pgt_sync_data *sdata)
+{
+	struct pasid_entry *shadow_pte = sdata->shadow_ptep, tmp_pte = {0};
+	struct pasid_entry *guest_pte;
+	u64 type, aw;
+
+	if (!sdata->guest_ptep) {
+		if (pasid_pte_is_present(shadow_pte)) {
+			pasid_clear_entry(shadow_pte);
+			return true;
+		}
+
+		return false;
+	}
+
+	guest_pte = sdata->guest_ptep;
+	type = pasid_pte_get_pgtt(guest_pte);
+	if (type == PASID_ENTRY_PGTT_FL_ONLY)
+		/*
+		 * When host IOMMU driver is using first-level only
+		 * translation, pkvm IOMMU will actually use nested
+		 * translation to add one more layer translation to
+		 * guarantee the protection. This one more layer is the
+		 * EPT.
+		 */
+		type = PASID_ENTRY_PGTT_NESTED;
+	else if (type == PASID_ENTRY_PGTT_PT)
+		/*
+		 * When host IOMMU driver is using pass-through mode, pkvm
+		 * IOMMU will actually use the second-level only translation
+		 * to guarantee the protection. This second-level is als
+		 * the EPT.
+		 */
+		type = PASID_ENTRY_PGTT_SL_ONLY;
+	else {
+		/*
+		 * As the host IOMMU driver in the pkvm enabled kernel has
+		 * already been configured to use first-level only or
+		 * pass-through mode, it will not to use any other mode. But
+		 * in case this happened, just clear the shadow entry and not
+		 * to support it.
+		 */
+		pkvm_err("pkvm: unsupported pasid type %lld\n", type);
+		pasid_clear_entry(shadow_pte);
+		return true;
+	}
+
+	memcpy(&tmp_pte, guest_pte, sizeof(struct pasid_entry));
+
+	pasid_set_page_snoop(&tmp_pte, !!ecap_smpwc(sdata->iommu_ecap));
+	if (ecap_sc_support(sdata->iommu_ecap))
+		pasid_set_pgsnp(&tmp_pte);
+
+	/*
+	 * Modify the second-level related bits:
+	 * Set PGTT/SLPTR/AW.
+	 * Clear SLADE/SLEE
+	 * Reuse FPD/P
+	 */
+	pasid_set_translation_type(&tmp_pte, type);
+	pasid_set_slptr(&tmp_pte, sdata->shadow_pa);
+	aw = (pkvm_hyp->ept_iommu_pgt_level == 4) ? 2 : 3;
+	pasid_set_address_width(&tmp_pte, aw);
+	pasid_set_ssade(&tmp_pte, 0);
+	pasid_set_ssee(&tmp_pte, 0);
+
+	return pasid_copy_entry(shadow_pte, &tmp_pte);
+}
+
+static bool iommu_paging_sync_entry(struct pgt_sync_data *sdata)
+{
+	switch (sdata->level) {
+	case IOMMU_PASID_TABLE:
+		return sync_shadow_pasid_table_entry(sdata);
+	case IOMMU_PASID_DIR:
+		return sync_shadow_pasid_dir_entry(sdata);
+	case IOMMU_SM_CONTEXT:
+		return sync_shadow_context_entry(sdata);
+	case IOMMU_SM_ROOT:
+		return sync_root_entry(sdata);
+	default:
+		break;
+	}
+
+	return false;
+}
+
 static int initialize_iommu_pgt(struct pkvm_iommu *iommu)
 {
 	struct pkvm_pgtable *pgt = &iommu->pgt;
@@ -223,13 +427,291 @@ int pkvm_init_iommu(unsigned long mem_base, unsigned long nr_pages)
 				     info->reg_size);
 		if (ret)
 			return ret;
-
-		ret = initialize_iommu_pgt(piommu);
-		if (ret)
-			return ret;
 	}
 
 	return 0;
+}
+
+static int free_shadow_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
+			  unsigned long vaddr_end, int level, void *ptep,
+			  unsigned long flags, struct pgt_flush_data *flush_data,
+			  void *const arg)
+{
+	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
+	struct pkvm_mm_ops *mm_ops = pgt->mm_ops;
+	struct pgt_sync_data sync_data = {0};
+	void *child_ptep;
+
+	/* Doesn't need to do anything if the shadow entry is not present */
+	if (!pgt_ops->pgt_entry_present(ptep))
+		return 0;
+
+	sync_data.shadow_ptep = ptep;
+	sync_data.level = level;
+
+	/* Un-present a present PASID Table entry */
+	if (level == IOMMU_PASID_TABLE) {
+		iommu_paging_sync_entry(&sync_data);
+		mm_ops->put_page(ptep);
+		return 0;
+	}
+
+	/*
+	 * it's a present entry for PASID DIR, context or root.
+	 * its child ptep shall already be freed (the refcnt == 1), if so, we
+	 * can un-present itself as well now.
+	 */
+	child_ptep = mm_ops->phys_to_virt(pgt_ops->pgt_entry_to_phys(ptep));
+	if (mm_ops->page_count(child_ptep) == 1) {
+		iommu_paging_sync_entry(&sync_data);
+		mm_ops->put_page(ptep);
+		mm_ops->put_page(child_ptep);
+	}
+
+	return 0;
+}
+
+/* sync_data != NULL, data != NULL */
+static int init_sync_data(struct pgt_sync_data *sync_data,
+		struct pgt_sync_walk_data *data,
+		struct pkvm_iommu *iommu, void *guest_ptep,
+		unsigned long vaddr, int level)
+{
+	struct pkvm_pgtable *spgt = &iommu->pgt;
+	int idx = spgt->pgt_ops->pgt_entry_to_index(vaddr, level);
+	int entry_size = spgt->pgt_ops->pgt_level_entry_size(level);
+
+	switch (level) {
+	case IOMMU_PASID_TABLE:
+		sync_data->p_entry = *((struct pasid_entry *)guest_ptep);
+		sync_data->guest_ptep = &sync_data->p_entry;
+		break;
+	case IOMMU_PASID_DIR:
+		sync_data->pd_entry = *((struct pasid_dir_entry *)guest_ptep);
+		sync_data->guest_ptep = &sync_data->pd_entry;
+		break;
+	case IOMMU_SM_CONTEXT:
+		sync_data->ct_entry = *((struct context_entry *)guest_ptep);
+		sync_data->guest_ptep = &sync_data->ct_entry;
+		break;
+	case IOMMU_SM_ROOT:
+		sync_data->root_entry = *((u64 *)guest_ptep);
+		sync_data->guest_ptep = &sync_data->root_entry;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/* shadow_pa of current level must be there */
+	if (!data->shadow_pa[level])
+		return -EINVAL;
+
+	/* get current shadow_ptep */
+	sync_data->shadow_ptep = spgt->mm_ops->phys_to_virt(data->shadow_pa[level]);
+	sync_data->shadow_ptep += idx * entry_size;
+
+	sync_data->level = level;
+	sync_data->iommu_ecap = iommu->iommu.ecap;
+	sync_data->shadow_pa = 0;
+
+	return 0;
+}
+
+static int free_shadow(struct pkvm_iommu *iommu, unsigned long vaddr,
+		       unsigned long vaddr_end);
+static int sync_shadow_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
+			  unsigned long vaddr_end, int level, void *ptep,
+			  unsigned long flags, struct pgt_flush_data *flush_data,
+			  void *const arg)
+{
+	struct pkvm_pgtable_ops *vpgt_ops = vpgt->pgt_ops;
+	struct pgt_sync_walk_data *data = arg;
+	struct pkvm_iommu *iommu = data->iommu;
+	struct pkvm_pgtable *spgt = &iommu->pgt;
+	struct pgt_sync_data sync_data;
+	void *shadow_ptep, *guest_ptep;
+	bool shadow_p, guest_p;
+	int ret = init_sync_data(&sync_data, data, iommu, ptep, vaddr, level);
+
+	if (ret < 0)
+		return ret;
+
+	guest_ptep = sync_data.guest_ptep;
+	shadow_ptep = sync_data.shadow_ptep;
+
+	/*
+	 * WALK_TABLE_PRE is for non leaf, WALK_LEAF is for leaf
+	 * if not match, it means guest changed it, return -EAGAIN
+	 * to re-walk the page table.
+	 */
+	if ((flags == PKVM_PGTABLE_WALK_TABLE_PRE &&
+		vpgt_ops->pgt_entry_is_leaf(guest_ptep, level)) ||
+		(flags == PKVM_PGTABLE_WALK_LEAF &&
+		!vpgt_ops->pgt_entry_is_leaf(guest_ptep, level)))
+		return -EAGAIN;
+
+	shadow_p = spgt->pgt_ops->pgt_entry_present(shadow_ptep);
+	guest_p = vpgt_ops->pgt_entry_present(guest_ptep);
+	if (!guest_p) {
+		if (shadow_p) {
+			/*
+			 * For the case that guest not present but shadow present, just
+			 * simply free the shadow to make them consistent.
+			 */
+			unsigned long new_vaddr_end = spgt->pgt_ops->pgt_level_to_size(level) +
+						      vaddr;
+			/*
+			 * Get a reference count before free to make sure the current page
+			 * of this level and the pages of its parent levels won't be freed.
+			 * As here we only want to free its specific sub-level.
+			 */
+			spgt->mm_ops->get_page(shadow_ptep);
+			free_shadow(iommu, vaddr, new_vaddr_end);
+			spgt->mm_ops->put_page(shadow_ptep);
+		}
+		/*
+		 * As now both guest and shadow are not
+		 * present, don't need to do anything more.
+		 */
+		return ret;
+	}
+
+	if (level == IOMMU_PASID_TABLE) {
+		/*
+		 * For PASID_TABLE, cache invalidation may want to
+		 * sync specific PASID with did matched. So do the
+		 * check before sync the entry.
+		 *
+		 * According to vt-d spec 6.2.2.1, software must not
+		 * use domain-id value of 0 on when programming
+		 * context-entries on implementations reporting CM=1
+		 * in the Capability register.
+		 *
+		 * So non-zero DID means a real DID from host software.
+		 */
+		if (data->did && (pasid_get_domain_id(guest_ptep) != data->did))
+			return ret;
+
+		/*
+		 * The PASID table entry always require to use EPT
+		 * for the second-level translation no matter in nested
+		 * transltion mode or second-level only mode. So get the
+		 * EPT physical address for the leaf entry, which is the
+		 * pasid table entry.
+		 */
+		sync_data.shadow_pa = pkvm_hyp->host_vm.ept->root_pa;
+	} else if (!shadow_p) {
+		/*
+		 * For a non-present non-leaf (which may be root/context/pasid
+		 * dir) entry, needs to allocate a new page to make this entry
+		 * present. Root and context page are always one page with 4K
+		 * size. As we fixed the pasid only support 15bits, which makes
+		 * the pasid dir is also one page with 4K size.
+		 */
+		void *shadow = spgt->mm_ops->zalloc_page();
+
+		if (!shadow)
+			return -ENOMEM;
+		/* Get the shadow page physical address of the child level */
+		sync_data.shadow_pa = spgt->mm_ops->virt_to_phys(shadow);
+	} else
+		/*
+		 * For a present non-leaf (which is probably root/context/pasid dir)
+		 * entry, get the shadow page physical address of its child level.
+		 */
+		sync_data.shadow_pa = spgt->pgt_ops->pgt_entry_to_phys(shadow_ptep);
+
+	if (iommu_paging_sync_entry(&sync_data)) {
+		if (!shadow_p)
+			/*
+			 * A non-present to present changing require to get
+			 * a new reference count for the shadow page.
+			 */
+			spgt->mm_ops->get_page(shadow_ptep);
+	}
+
+	if ((flags == PKVM_PGTABLE_WALK_TABLE_PRE) && (level > IOMMU_PASID_TABLE)) {
+		/*
+		 * As guest page table walking will go to the child level, pass
+		 * the shadow page physical address of the child level to sync.
+		 */
+		data->shadow_pa[level - 1] = sync_data.shadow_pa;
+	}
+
+	return ret;
+}
+
+static int free_shadow(struct pkvm_iommu *iommu, unsigned long vaddr,
+		       unsigned long vaddr_end)
+{
+	struct pkvm_pgtable_walker walker = {
+		.cb = free_shadow_cb,
+		.flags = PKVM_PGTABLE_WALK_LEAF |
+			 PKVM_PGTABLE_WALK_TABLE_POST,
+	};
+
+	/*
+	 * To free the shadow IOMMU page table, walks the shadow IOMMU
+	 * page table.
+	 */
+	return iommu_pgtable_walk(&iommu->pgt, vaddr, vaddr_end, &walker);
+}
+
+static int sync_shadow(struct pkvm_iommu *iommu, unsigned long vaddr,
+		       unsigned long vaddr_end, u16 did)
+{
+	DEFINE_PGT_SYNC_WALK_DATA(arg, iommu, did);
+	struct pkvm_pgtable_walker walker = {
+		.cb = sync_shadow_cb,
+		.flags = PKVM_PGTABLE_WALK_TABLE_PRE |
+			 PKVM_PGTABLE_WALK_LEAF,
+		.arg = &arg,
+	};
+	int ret, retry_cnt = 0;
+
+	if (!iommu->viommu.pgt.root_pa)
+		return 0;
+
+retry:
+	arg.shadow_pa[IOMMU_SM_ROOT] = iommu->pgt.root_pa;
+	/*
+	 * To sync the shadow IOMMU page table, walks the guest IOMMU
+	 * page table
+	 */
+	ret = iommu_pgtable_walk(&iommu->viommu.pgt, vaddr, vaddr_end, &walker);
+	if ((ret == -EAGAIN) && (retry_cnt++ < 5))
+		goto retry;
+
+	return ret;
+}
+
+static int activate_iommu(struct pkvm_iommu *iommu)
+{
+	unsigned long vaddr = 0, vaddr_end = IOMMU_MAX_VADDR;
+	int ret;
+
+	pkvm_dbg("%s: iommu%d\n", __func__, iommu->iommu.seq_id);
+
+	pkvm_spin_lock(&iommu->lock);
+
+	if (!ecap_nest(iommu->iommu.ecap)) {
+		ret = -ENODEV;
+		goto out;
+	}
+
+	ret = initialize_iommu_pgt(iommu);
+	if (ret)
+		goto out;
+
+	ret = sync_shadow(iommu, vaddr, vaddr_end, 0);
+	if (ret)
+		goto out;
+
+	iommu->activated = true;
+
+out:
+	pkvm_spin_unlock(&iommu->lock);
+	return ret;
 }
 
 static struct pkvm_iommu *find_iommu_by_reg_phys(unsigned long phys)
@@ -314,6 +796,20 @@ unsigned long pkvm_access_iommu(bool is_read, int len, unsigned long phys, unsig
 	pkvm_spin_unlock(&pkvm_iommu->lock);
 
 	return ret;
+}
+
+int pkvm_activate_iommu(void)
+{
+	struct pkvm_iommu *iommu;
+	int ret = 0;
+
+	for_each_valid_iommu(iommu) {
+		ret = activate_iommu(iommu);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
 }
 
 bool is_mem_range_overlap_iommu(unsigned long start, unsigned long end)
