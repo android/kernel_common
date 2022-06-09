@@ -9,6 +9,7 @@
 #include <buddy_memory.h>
 #include <pkvm.h>
 #include "hyp/pkvm_hyp.h"
+#include "hyp/iommu_internal.h"
 
 int main(void)
 {
@@ -18,6 +19,7 @@ int main(void)
 	DEFINE(PKVM_IOMMU_NUM, PKVM_MAX_IOMMU_NUM);
 	DEFINE(PKVM_PASIDDEV_NUM, PKVM_MAX_PASID_PDEV_NUM);
 	DEFINE(PKVM_PDEV_NUM, PKVM_MAX_PDEV_NUM);
+	DEFINE(PKVM_IOMMU_QI_SIZE, PKVM_QI_DESC_ALIGNED_SIZE + PKVM_QI_DESC_STATUS_ALIGNED_SIZE);
 	DEFINE(PKVM_MAX_VM_NUM, PKVM_MAX_NORMAL_VM_NUM + PKVM_MAX_PROTECTED_VM_NUM);
 	return 0;
 }

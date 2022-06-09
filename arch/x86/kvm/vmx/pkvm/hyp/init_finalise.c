@@ -20,6 +20,7 @@
 #include "nested.h"
 #include "debug.h"
 #include "iommu.h"
+#include "iommu_internal.h"
 #include "mem_protect.h"
 #include "lapic.h"
 
@@ -55,7 +56,8 @@ static int divide_memory_pool(phys_addr_t phys, unsigned long size)
 		return -ENOMEM;
 
 	nr_pages = pkvm_iommu_pages(PKVM_MAX_PASID, PKVM_MAX_PASID_PDEV_NUM,
-				    PKVM_MAX_PDEV_NUM, PKVM_MAX_IOMMU_NUM);
+				    PKVM_MAX_PDEV_NUM, PKVM_MAX_IOMMU_NUM,
+				    PKVM_QI_DESC_ALIGNED_SIZE + PKVM_QI_DESC_STATUS_ALIGNED_SIZE);
 	iommu_mem_base = pkvm_early_alloc_contig(nr_pages);
 	if (!iommu_mem_base)
 		return -ENOMEM;
@@ -253,7 +255,9 @@ static int protect_pkvm_pages(const struct pkvm_section sections[],
 static int create_iommu(void)
 {
 	int nr_pages = pkvm_iommu_pages(PKVM_MAX_PASID, PKVM_MAX_PASID_PDEV_NUM,
-					PKVM_MAX_PDEV_NUM, PKVM_MAX_IOMMU_NUM);
+					PKVM_MAX_PDEV_NUM, PKVM_MAX_IOMMU_NUM,
+					(PKVM_QI_DESC_ALIGNED_SIZE +
+					 PKVM_QI_DESC_STATUS_ALIGNED_SIZE));
 
 	return pkvm_init_iommu(pkvm_virt_to_phys(iommu_mem_base), nr_pages);
 }

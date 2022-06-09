@@ -10,6 +10,9 @@
 #include <asm/pkvm_spinlock.h>
 #include "pgtable.h"
 
+#define PKVM_QI_DESC_ALIGNED_SIZE		ALIGN(QI_LENGTH * sizeof(struct qi_desc), PAGE_SIZE)
+#define PKVM_QI_DESC_STATUS_ALIGNED_SIZE	ALIGN(QI_LENGTH * sizeof(int), PAGE_SIZE)
+
 struct pkvm_viommu {
 	struct pkvm_pgtable pgt;
 };
