@@ -23,8 +23,12 @@
 #define PKVM_GHC_SHARE_MEM		PKVM_GHC_NUM(1)
 #define PKVM_GHC_UNSHARE_MEM		PKVM_GHC_NUM(2)
 
-/* 15bits for PASID */
-#define PKVM_MAX_PASID	0x8000
+/*
+ * 15bits for PASID, DO NOT change it, based on it,
+ * the size of PASID DIR table can kept as one page
+ */
+#define PKVM_MAX_PASID_BITS	15
+#define PKVM_MAX_PASID		(1 << PKVM_MAX_PASID_BITS)
 
 #ifdef CONFIG_PKVM_INTEL
 DECLARE_PER_CPU_READ_MOSTLY(bool, pkvm_enabled);
@@ -79,7 +83,9 @@ static inline void pkvm_update_iommu_virtual_caps(u64 *cap, u64 *ecap)
 		 */
 		*cap |= 1 << 7;
 
-	if (ecap)
+	if (ecap) {
+		u64 tmp;
+
 		/*
 		 * Some IOMMU capabilities cannot be directly used by the linux
 		 * IOMMU driver after the linux is deprivileged, which is because after
@@ -101,6 +107,12 @@ static inline void pkvm_update_iommu_virtual_caps(u64 *cap, u64 *ecap)
 		 * So disable SLTS and Nest.
 		 */
 		*ecap &= ~((1UL << 46) | (1UL << 26));
+
+		/* limit PASID to reduce the memory consumptions */
+		tmp = min_t(u64, (PKVM_MAX_PASID_BITS - 1),
+			    (*ecap & GENMASK_ULL(39, 35)) >> 35);
+		*ecap = (*ecap & ~GENMASK_ULL(39, 35)) | (tmp << 35);
+	}
 }
 #endif
 
