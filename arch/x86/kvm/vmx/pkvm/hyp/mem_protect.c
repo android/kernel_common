@@ -12,7 +12,8 @@
 #include "ept.h"
 
 struct check_walk_data {
-	enum pkvm_page_state	desired;
+	int 			nstate;
+	enum pkvm_page_state	*desired;
 };
 
 enum pkvm_component_id {
@@ -95,15 +96,21 @@ __check_page_state_walker(struct pkvm_pgtable *pgt, unsigned long vaddr,
 			  void *const arg)
 {
 	struct check_walk_data *data = arg;
+	int i;
 
-	return pkvm_getstate(*(u64 *)ptep) == data->desired ? 0 : -EPERM;
+	for (i = 0; i < data->nstate; i++)
+		if (pkvm_getstate(*(u64 *)ptep) == data->desired[i])
+			return 0;
+
+	return -EPERM;
 }
 
 static int check_page_state_range(struct pkvm_pgtable *pgt, u64 addr, u64 size,
-				  enum pkvm_page_state state)
+				  enum pkvm_page_state *states, int nstate)
 {
 	struct check_walk_data data = {
-		.desired		= state,
+		.nstate			= nstate,
+		.desired		= states,
 	};
 	struct pkvm_pgtable_walker walker = {
 		.cb		= __check_page_state_walker,
@@ -117,7 +124,8 @@ static int check_page_state_range(struct pkvm_pgtable *pgt, u64 addr, u64 size,
 static int __host_check_page_state_range(u64 addr, u64 size,
 					 enum pkvm_page_state state)
 {
-	return check_page_state_range(pkvm_hyp->host_vm.ept, addr, size, state);
+	return check_page_state_range(pkvm_hyp->host_vm.ept, addr,
+				      size, &state, 1);
 }
 
 static pkvm_id pkvm_guest_id(struct pkvm_pgtable *pgt)
@@ -155,7 +163,7 @@ static int __guest_check_page_state_range(struct pkvm_pgtable *pgt,
 					  u64 addr, u64 size,
 					  enum pkvm_page_state state)
 {
-	return check_page_state_range(pgt, addr, size, state);
+	return check_page_state_range(pgt, addr, size, &state, 1);
 }
 
 static int host_request_donation(const struct pkvm_mem_transition *tx)
@@ -170,17 +178,29 @@ static int guest_request_donation(const struct pkvm_mem_transition *tx)
 {
 	u64 addr = tx->initiator.guest.addr;
 	u64 size = tx->size;
+	enum pkvm_page_state states[] = { PKVM_PAGE_OWNED,
+					  PKVM_PAGE_SHARED_OWNED,
+					};
 
-	return __guest_check_page_state_range(tx->initiator.guest.pgt, addr,
-					      size, PKVM_PAGE_OWNED);
+	/*
+	 * When destroy vm, there may be multiple page state in the guest ept.
+	 * In this case, both page state is ok to be reclaimed back by host.
+	 */
+	return check_page_state_range(tx->initiator.guest.pgt,
+				      addr, size, states, ARRAY_SIZE(states));
 }
 
 static int host_ack_donation(const struct pkvm_mem_transition *tx)
 {
 	u64 addr = tx->completer.host.addr;
 	u64 size = tx->size;
+	enum pkvm_page_state states[] = { PKVM_NOPAGE,
+					  PKVM_PAGE_SHARED_BORROWED,
+					};
 
-	return __host_check_page_state_range(addr, size, PKVM_NOPAGE);
+	/* Same as guest_request_donation. */
+	return check_page_state_range(pkvm_hyp->host_vm.ept, addr, size,
+				      states, ARRAY_SIZE(states));
 }
 
 static int guest_ack_donation(const struct pkvm_mem_transition *tx)
