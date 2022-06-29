@@ -61,4 +61,13 @@ static inline void pkvm_spin_unlock(pkvm_spinlock_t *lock)
 
 }
 
+/*
+ * Redefine for virt/kvm/pkvm/page_alloc.c usage
+ * TODO: unify the API name: pkvm_ vs. hyp_ ?
+ */
+#define hyp_spinlock_t pkvm_spinlock_t
+#define hyp_spin_lock_init pkvm_spin_lock_init
+#define hyp_spin_lock pkvm_spin_lock
+#define hyp_spin_unlock pkvm_spin_unlock
+
 #endif
