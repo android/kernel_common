@@ -3,7 +3,7 @@
 ccflags-y += -I $(srctree)/arch/x86/kvm
 ccflags-y += -I $(srctree)/arch/x86/kvm/vmx/pkvm/include
 
-pkvm-obj		:= pkvm_host.o
+pkvm-obj		:= pkvm_host.o pkvm.o
 
 obj-$(CONFIG_PKVM_INTEL)	+= $(pkvm-obj)
 obj-$(CONFIG_PKVM_INTEL)	+= hyp/

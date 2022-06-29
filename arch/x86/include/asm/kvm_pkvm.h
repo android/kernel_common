@@ -27,6 +27,11 @@ unsigned long pkvm_virt_to_phys(void *virt);
 #define __hyp_pa __pkvm_pa
 #define __hyp_va __pkvm_va
 
+extern phys_addr_t hyp_mem_base;
+extern phys_addr_t hyp_mem_size;
+
+void __init kvm_hyp_reserve(void);
+
 static inline unsigned long __pkvm_pgtable_max_pages(unsigned long nr_pages)
 {
 	unsigned long total = 0, i;
@@ -111,7 +116,16 @@ static inline unsigned long pkvm_data_struct_pages(unsigned long global_pgs,
 	return (percpu_pgs * num_cpus + global_pgs);
 }
 
+static inline int hyp_pre_reserve_check(void)
+{
+	/* no necessary check yet*/
+	return 0;
+}
+
 u64 hyp_total_reserve_pages(void);
+
+#else
+static inline void kvm_hyp_reserve(void) {}
 #endif
 
 #endif
