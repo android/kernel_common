@@ -50,6 +50,27 @@ static inline void vmx_enable_irq_window(struct vcpu_vmx *vmx)
 	exec_controls_setbit(vmx, CPU_BASED_INTR_WINDOW_EXITING);
 }
 
+static inline void vmcs_load_track(struct vcpu_vmx *vmx, struct vmcs *vmcs)
+{
+	struct pkvm_host_vcpu *pkvm_host_vcpu = vmx_to_pkvm_hvcpu(vmx);
+
+	pkvm_host_vcpu->current_vmcs = vmcs;
+	barrier();
+	vmcs_load(vmcs);
+}
+
+static inline void vmcs_clear_track(struct vcpu_vmx *vmx, struct vmcs *vmcs)
+{
+	struct pkvm_host_vcpu *pkvm_host_vcpu = vmx_to_pkvm_hvcpu(vmx);
+
+	/* vmcs_clear might clear non-current vmcs */
+	if (pkvm_host_vcpu->current_vmcs == vmcs)
+		pkvm_host_vcpu->current_vmcs = NULL;
+
+	barrier();
+	vmcs_clear(vmcs);
+}
+
 void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu);
 
 #endif
