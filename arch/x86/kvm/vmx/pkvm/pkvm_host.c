@@ -708,6 +708,11 @@ __init int pkvm_init(void)
 {
 	int ret = 0, cpu;
 
+	if (pkvm_sym(pkvm_hyp)) {
+		pr_err("pkvm hypervisor is running!");
+		return -EBUSY;
+	}
+
 	if (!hyp_mem_base) {
 		pr_err("pkvm required memory not get reserved!");
 		ret = -ENOMEM;
@@ -717,7 +722,8 @@ __init int pkvm_init(void)
 			pkvm_data_struct_pages(PKVM_PAGES, PKVM_PERCPU_PAGES,
 				num_possible_cpus()) << PAGE_SHIFT);
 
-	pkvm = pkvm_sym(pkvm_early_alloc_contig)(PKVM_PAGES);
+	/* pkvm hypervisor keeps same VA mapping as deprivileged host */
+	pkvm = pkvm_sym(pkvm_hyp) = pkvm_sym(pkvm_early_alloc_contig)(PKVM_PAGES);
 	if (!pkvm) {
 		ret = -ENOMEM;
 		goto out;
@@ -749,5 +755,6 @@ __init int pkvm_init(void)
 	return 0;
 
 out:
+	pkvm_sym(pkvm_hyp) = NULL;
 	return ret;
 }

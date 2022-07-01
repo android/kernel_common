@@ -63,6 +63,7 @@ extern char __pkvm_text_start[], __pkvm_text_end[];
 
 extern unsigned long pkvm_sym(__page_base_offset);
 extern unsigned long pkvm_sym(__symbol_base_offset);
+extern struct pkvm_hyp *pkvm_sym(pkvm_hyp);
 
 PKVM_DECLARE(void, __pkvm_vmx_vmexit(void));
 PKVM_DECLARE(int, pkvm_main(struct kvm_vcpu *vcpu));
