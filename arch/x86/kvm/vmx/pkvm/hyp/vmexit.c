@@ -9,6 +9,7 @@
 #include "vmexit.h"
 #include "ept.h"
 #include "pkvm_hyp.h"
+#include "nested.h"
 #include "debug.h"
 
 #define CR4	4
@@ -168,6 +169,7 @@ int pkvm_main(struct kvm_vcpu *vcpu)
 
 		vcpu->arch.cr2 = native_read_cr2();
 		vcpu->arch.cr3 = vmcs_readl(GUEST_CR3);
+		vcpu->arch.regs[VCPU_REGS_RSP] = vmcs_readl(GUEST_RSP);
 
 		vmx->exit_reason.full = vmcs_read32(VM_EXIT_REASON);
 		vmx->exit_qualification = vmcs_readl(EXIT_QUALIFICATION);
@@ -192,6 +194,16 @@ int pkvm_main(struct kvm_vcpu *vcpu)
 			pkvm_dbg("CPU%d vmexit_reason: MSR_WRITE 0x%lx\n",
 					vcpu->cpu, vcpu->arch.regs[VCPU_REGS_RCX]);
 			handle_write_msr(vcpu);
+			skip_instruction = true;
+			break;
+		case EXIT_REASON_VMON:
+			pkvm_dbg("CPU%d vmexit reason: VMXON.\n", vcpu->cpu);
+			handle_vmxon(vcpu);
+			skip_instruction = true;
+			break;
+		case EXIT_REASON_VMOFF:
+			pkvm_dbg("CPU%d vmexit reason: VMXOFF.\n", vcpu->cpu);
+			handle_vmxoff(vcpu);
 			skip_instruction = true;
 			break;
 		case EXIT_REASON_XSETBV:
