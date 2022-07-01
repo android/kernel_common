@@ -50,4 +50,6 @@ static inline void vmx_enable_irq_window(struct vcpu_vmx *vmx)
 	exec_controls_setbit(vmx, CPU_BASED_INTR_WINDOW_EXITING);
 }
 
+void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu);
+
 #endif

@@ -98,6 +98,7 @@ extern struct pkvm_hyp *pkvm_sym(pkvm_hyp);
 
 PKVM_DECLARE(void, __pkvm_vmx_vmexit(void));
 PKVM_DECLARE(int, pkvm_main(struct kvm_vcpu *vcpu));
+PKVM_DECLARE(void, pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu));
 
 PKVM_DECLARE(void *, pkvm_early_alloc_contig(unsigned int nr_pages));
 PKVM_DECLARE(void *, pkvm_early_alloc_page(void));
