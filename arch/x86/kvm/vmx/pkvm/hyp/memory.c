@@ -19,6 +19,16 @@ static u8 max_physaddr_bits;
 unsigned int hyp_memblock_nr;
 struct memblock_region hyp_memory[HYP_MEMBLOCK_REGIONS];
 
+void *pkvm_iophys_to_virt(unsigned long phys)
+{
+	unsigned long iova = PKVM_IOVA_OFFSET + phys;
+
+	if (iova >= __page_base_offset)
+		return (void *)INVALID_ADDR;
+
+	return (void *)iova;
+}
+
 void *pkvm_phys_to_virt(unsigned long phys)
 {
 	return (void *)__page_base_offset + phys;
@@ -26,7 +36,13 @@ void *pkvm_phys_to_virt(unsigned long phys)
 
 unsigned long pkvm_virt_to_phys(void *virt)
 {
-	return (unsigned long)virt - __page_base_offset;
+	/* this api only take care direct & io mapping */
+	if ((unsigned long)virt < PKVM_IOVA_OFFSET)
+		return INVALID_ADDR;
+
+	return ((unsigned long)virt >= __page_base_offset) ?
+		(unsigned long)virt - __page_base_offset :
+		(unsigned long)virt - PKVM_IOVA_OFFSET;
 }
 
 unsigned long pkvm_virt_to_symbol_phys(void *virt)

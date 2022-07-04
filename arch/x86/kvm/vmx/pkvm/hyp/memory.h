@@ -9,8 +9,17 @@
 
 #define INVALID_ADDR (~0UL)
 
+/*
+ * simply define IOVA offset from bit 43 to avoid
+ * canonical addressing check for the linear address
+ * as max linear address bits usually >= 47
+ */
+#define PKVM_IOVA_OFFSET	0x0000080000000000
+
 unsigned long pkvm_virt_to_symbol_phys(void *virt);
 #define __pkvm_pa_symbol(x) pkvm_virt_to_symbol_phys((void *)x)
+
+void *pkvm_iophys_to_virt(unsigned long phys);
 
 struct mem_range {
 	unsigned long start;

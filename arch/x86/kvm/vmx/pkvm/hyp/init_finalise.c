@@ -84,6 +84,9 @@ static int pkvm_back_vmemmap(phys_addr_t back_pa)
 
 		end = reg->base + reg->size;
 		end_va = ALIGN((unsigned long)hyp_phys_to_page(end), PAGE_SIZE);
+		/* vmemmap va shall below PKVM_IOVA_OFFSET*/
+		if (end_va >= PKVM_IOVA_OFFSET)
+			return -ENOMEM;
 		if (start_va >= end_va)
 			continue;
 
