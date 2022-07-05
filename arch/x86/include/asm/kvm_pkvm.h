@@ -12,25 +12,10 @@
 
 #include <linux/memblock.h>
 #include <asm/pkvm_image.h>
+#include <asm/pkvm.h>
 
 #define HYP_MEMBLOCK_REGIONS   128
 #define PKVM_PGTABLE_MAX_LEVELS		5U
-
-/* PKVM Hypercalls */
-#define PKVM_HC_INIT_FINALISE		1
-#define PKVM_HC_INIT_SHADOW_VM		2
-#define PKVM_HC_INIT_SHADOW_VCPU	3
-#define PKVM_HC_TEARDOWN_SHADOW_VM	4
-#define PKVM_HC_TEARDOWN_SHADOW_VCPU	5
-#define PKVM_HC_TLB_REMOTE_FLUSH_RANGE	8
-
-/* PKVM provided hypercalls for guest use. */
-#define PKVM_GHC_NUM(x)	(x + KVM_HC_PKVM_OP)
-
-#define PKVM_GHC_SHARE_MEM		PKVM_GHC_NUM(1)
-#define PKVM_GHC_UNSHARE_MEM		PKVM_GHC_NUM(2)
-
-DECLARE_PER_CPU_READ_MOSTLY(bool, pkvm_enabled);
 
 extern struct memblock_region pkvm_sym(hyp_memory)[];
 extern unsigned int pkvm_sym(hyp_memblock_nr);
