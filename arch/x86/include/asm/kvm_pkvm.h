@@ -30,6 +30,8 @@
 #define PKVM_GHC_SHARE_MEM		PKVM_GHC_NUM(1)
 #define PKVM_GHC_UNSHARE_MEM		PKVM_GHC_NUM(2)
 
+DECLARE_PER_CPU_READ_MOSTLY(bool, pkvm_enabled);
+
 extern struct memblock_region pkvm_sym(hyp_memory)[];
 extern unsigned int pkvm_sym(hyp_memblock_nr);
 
