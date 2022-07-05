@@ -58,6 +58,12 @@ static void host_ept_flush_tlb(struct pkvm_pgtable *pgt)
 	}
 }
 
+static void host_ept_flush_cache(void *vaddr, unsigned int size)
+{
+	if (!pkvm_hyp->iommu_coherent)
+		pkvm_clflush_cache_range(vaddr, size);
+}
+
 struct pkvm_mm_ops host_ept_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
@@ -66,6 +72,7 @@ struct pkvm_mm_ops host_ept_mm_ops = {
 	.put_page = host_ept_put_page,
 	.page_count = hyp_page_count,
 	.flush_tlb = host_ept_flush_tlb,
+	.flush_cache = host_ept_flush_cache,
 };
 
 static bool ept_entry_present(void *ptep)

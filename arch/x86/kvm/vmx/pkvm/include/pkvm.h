@@ -79,6 +79,8 @@ struct pkvm_hyp {
 	 */
 	int ept_iommu_pgt_level;
 	int ept_iommu_pgsz_mask;
+
+	bool iommu_coherent;
 };
 
 static inline struct pkvm_host_vcpu *vmx_to_pkvm_hvcpu(struct vcpu_vmx *vmx)

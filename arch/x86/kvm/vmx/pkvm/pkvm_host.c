@@ -109,6 +109,7 @@ static int check_and_init_iommu(struct pkvm_hyp *pkvm)
 	if ((pkvm->vmx_cap.ept & VMX_EPT_1GB_PAGE_BIT))
 		pgsz_mask |= 1 << PG_LEVEL_1G;
 
+	pkvm->iommu_coherent = true;
 	for_each_drhd_unit(drhd) {
 		int level = 0, mask = 1 << PG_LEVEL_4K;
 
@@ -152,6 +153,13 @@ static int check_and_init_iommu(struct pkvm_hyp *pkvm)
 				drhd->reg_base_addr);
 			return -EINVAL;
 		}
+
+		/*
+		 * pkvm IOMMU works in scalable mode so check SMPWC for the coherent
+		 * of the paging structure accessed through pasid table entry.
+		 */
+		if (!ecap_smpwc(ecap))
+			pkvm->iommu_coherent = false;
 
 		info->reg_phys = drhd->reg_base_addr;
 		reg_size = max_t(u64, ecap_max_iotlb_offset(ecap),
