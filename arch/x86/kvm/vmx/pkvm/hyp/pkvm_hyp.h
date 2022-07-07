@@ -15,6 +15,9 @@ struct shadow_ept_desc {
 	/* shadow EPTP value configured by pkvm */
 	u64 shadow_eptp;
 
+	/* Save the last guest EPTP value configured by kvm high */
+	u64 last_guest_eptp;
+
 	struct pkvm_pgtable sept;
 };
 

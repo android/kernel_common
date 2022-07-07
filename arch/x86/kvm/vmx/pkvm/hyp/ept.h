@@ -32,6 +32,7 @@ void pkvm_guest_ept_init(struct shadow_vcpu_state *shadow_vcpu, u64 guest_eptp);
 void pkvm_guest_ept_deinit(struct shadow_vcpu_state *shadow_vcpu);
 enum sept_handle_ret
 pkvm_handle_shadow_ept_violation(struct shadow_vcpu_state *shadow_vcpu, u64 l2_gpa, u64 exit_quali);
+void pkvm_invalidate_shadow_ept(struct shadow_ept_desc *desc);
 
 static inline bool is_valid_eptp(u64 eptp)
 {
