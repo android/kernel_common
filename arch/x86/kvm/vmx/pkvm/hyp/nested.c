@@ -729,6 +729,56 @@ static void setup_guest_ept(struct shadow_vcpu_state *shadow_vcpu, u64 guest_ept
 		pkvm_invalidate_shadow_ept(&vm->sept_desc);
 }
 
+static int __do_handle_invept(struct pkvm_shadow_vm *vm, void *data)
+{
+	if (data) {
+		/*
+		 * Single context invalidate with specific guest eptp
+		 */
+		u64 guest_eptp = *(u64 *)data;
+		struct shadow_vcpu_state *vcpu;
+		struct vmcs12 *vmcs12;
+		s64 shadow_vcpu_handle;
+		int i;
+
+		pkvm_spin_lock(&vm->lock);
+
+		for (i = 0; i < vm->created_vcpus; i++) {
+			shadow_vcpu_handle = to_shadow_vcpu_handle(vm->shadow_vm_handle, i);
+			vcpu = get_shadow_vcpu(shadow_vcpu_handle);
+			if (!vcpu)
+				continue;
+			vmcs12 = (struct vmcs12 *)vcpu->cached_vmcs12;
+			if (vmcs12->ept_pointer == guest_eptp) {
+				put_shadow_vcpu(shadow_vcpu_handle);
+				break;
+			}
+			put_shadow_vcpu(shadow_vcpu_handle);
+		}
+
+		pkvm_spin_unlock(&vm->lock);
+
+		/* No vCPU is using this guest eptp so no need invalidate */
+		if (i == vm->created_vcpus)
+			goto done;
+	}
+
+	/*
+	 * Gloable context invalidation directly went here.
+	 */
+	pkvm_invalidate_shadow_ept(&vm->sept_desc);
+done:
+	return data ? 1 : 0;
+}
+
+static void do_handle_invept(u64 *guest_eptp)
+{
+	if (guest_eptp && !is_valid_eptp(*guest_eptp))
+		return;
+
+	for_each_valid_shadow_vm(__do_handle_invept, guest_eptp);
+}
+
 int handle_vmxon(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -1016,6 +1066,62 @@ int handle_vmlaunch(struct kvm_vcpu *vcpu)
 	if (check_vmx_permission(vcpu))
 		nested_vmx_run(vcpu, true);
 
+	return 0;
+}
+
+int handle_invept(struct kvm_vcpu *vcpu)
+{
+	struct vmx_capability *vmx_cap = &pkvm_hyp->vmx_cap;
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	u32 vmx_instruction_info, types;
+	unsigned long type;
+	int gpr_index;
+
+	if (!vmx_has_invept())
+		/* TODO: inject #UD */
+		return -EINVAL;
+
+	if (!check_vmx_permission(vcpu))
+		return 0;
+
+	vmx_instruction_info = vmcs_read32(VMX_INSTRUCTION_INFO);
+	gpr_index = vmx_get_instr_info_reg2(vmx_instruction_info);
+	type = vcpu->arch.regs[gpr_index];
+	types = (vmx_cap->ept >> VMX_EPT_EXTENT_SHIFT) & 6;
+
+	if (type >= 32 || !(types & (1 << type))) {
+		nested_vmx_result(VMfailValid, VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+		return 0;
+	}
+
+	switch (type) {
+	case VMX_EPT_EXTENT_CONTEXT: {
+		struct x86_exception e;
+		gva_t gva;
+		struct {
+			u64 eptp, gpa;
+		} operand;
+
+		if (get_vmx_mem_address(vcpu, vmx->exit_qualification,
+					vmx_instruction_info, &gva))
+			/* TODO: handle the decode failure */
+			return -EINVAL;
+
+		if (read_gva(vcpu, gva, &operand, sizeof(operand), &e) < 0)
+			/*TODO: handle memory failure exception */
+			return -EINVAL;
+
+		do_handle_invept(&operand.eptp);
+		break;
+	}
+	case VMX_EPT_EXTENT_GLOBAL:
+		do_handle_invept(NULL);
+		break;
+	default:
+		break;
+	}
+
+	nested_vmx_result(VMsucceed, 0);
 	return 0;
 }
 

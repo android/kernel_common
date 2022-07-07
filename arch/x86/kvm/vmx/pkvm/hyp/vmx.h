@@ -15,6 +15,11 @@ static inline bool vmx_ept_capability_check(u32 bit)
 	return vmx_cap->ept & bit;
 }
 
+static inline bool vmx_has_invept(void)
+{
+	return vmx_ept_capability_check(VMX_EPT_INVEPT_BIT);
+}
+
 static inline bool vmx_ept_has_4levels(void)
 {
 	return vmx_ept_capability_check(VMX_EPT_PAGE_WALK_4_BIT);

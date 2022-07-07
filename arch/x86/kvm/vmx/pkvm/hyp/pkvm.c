@@ -355,3 +355,30 @@ unsigned long __pkvm_teardown_shadow_vcpu(s64 shadow_vcpu_handle)
 	memset(shadow_vcpu, 0, sizeof(struct shadow_vcpu_state));
 	return pkvm_virt_to_phys(shadow_vcpu);
 }
+
+int for_each_valid_shadow_vm(int (*fn)(struct pkvm_shadow_vm *vm, void *data),
+			     void *data)
+{
+	struct pkvm_shadow_vm *vm;
+	int i, ret;
+
+	pkvm_spin_lock(&shadow_vms_lock);
+	for (i = HANDLE_OFFSET; i < MAX_SHADOW_VMS; i++) {
+		if (!test_bit(i, shadow_vms_bitmap))
+			continue;
+
+		vm = get_shadow_vm(i);
+		if (!vm)
+			continue;
+
+		ret = fn(vm, data);
+
+		put_shadow_vm(i);
+
+		if (ret)
+			break;
+	}
+	pkvm_spin_unlock(&shadow_vms_lock);
+
+	return ret < 0 ? ret : 0;
+}
