@@ -82,4 +82,22 @@ int __pkvm_host_donate_hyp(u64 hpa, u64 size);
  */
 int __pkvm_hyp_donate_host(u64 hpa, u64 size);
 
+/*
+ * __pkvm_host_share_guest() - Share pages between host and guest. Host still
+ * ownes the page and guest will have temporary access to these pages.
+ *
+ * @hpa:	Start hpa of being shared pages, must be continuous.
+ * @guest_pgt:	The guest ept pagetable.
+ * @gpa:	Start gpa that will be used for mapping into the guest ept.
+ * @size:	The size of pages to be shared.
+ * @prot:	The prot that will be used for creating mapping for guest ept.
+ *
+ * A range of pages [hpa, hpa + size) in host ept that their page state
+ * will be modified from PAGE_OWNED to PAGE_SHARED_OWNED. There will be
+ * mapping from gfn to pfn to be created in guest ept. The @prot
+ * and PAGE_SHARED_BORROWED will be used to create such mapping.
+ */
+int __pkvm_host_share_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
+			    u64 gpa, u64 size, u64 prot);
+
 #endif

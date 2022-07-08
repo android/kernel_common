@@ -17,6 +17,7 @@ struct check_walk_data {
 enum pkvm_component_id {
 	PKVM_ID_HYP,
 	PKVM_ID_HOST,
+	PKVM_ID_GUEST,
 };
 
 struct pkvm_mem_trans_desc {
@@ -29,6 +30,12 @@ struct pkvm_mem_trans_desc {
 		struct {
 			u64	addr;
 		} hyp;
+
+		struct {
+			struct pkvm_pgtable	*pgt;
+			u64			addr;
+			u64			phys;
+		} guest;
 	};
 	u64			prot;
 };
@@ -116,6 +123,13 @@ static pkvm_id __pkvm_owner_id(const struct pkvm_mem_trans_desc *desc)
 static pkvm_id completer_owner_id(const struct pkvm_mem_transition *tx)
 {
 	return __pkvm_owner_id(&tx->completer);
+}
+
+static int __guest_check_page_state_range(struct pkvm_pgtable *pgt,
+					  u64 addr, u64 size,
+					  enum pkvm_page_state state)
+{
+	return check_page_state_range(pgt, addr, size, state);
 }
 
 static int host_request_donation(const struct pkvm_mem_transition *tx)
@@ -293,6 +307,147 @@ int __pkvm_hyp_donate_host(u64 hpa, u64 size)
 	host_ept_lock();
 
 	ret = do_donate(&donation);
+
+	host_ept_unlock();
+
+	return ret;
+}
+
+static int host_request_share(const struct pkvm_mem_transition *tx)
+{
+	u64 addr = tx->initiator.host.addr;
+	u64 size = tx->size;
+
+	return __host_check_page_state_range(addr, size, PKVM_PAGE_OWNED);
+}
+
+static int guest_ack_share(const struct pkvm_mem_transition *tx)
+{
+	u64 addr = tx->completer.guest.addr;
+	u64 size = tx->size;
+
+	return __guest_check_page_state_range(tx->completer.guest.pgt, addr,
+					      size, PKVM_NOPAGE);
+}
+
+static int check_share(const struct pkvm_mem_transition *tx)
+{
+	int ret;
+
+	switch (tx->initiator.id) {
+	case PKVM_ID_HOST:
+		ret = host_request_share(tx);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	if (ret)
+		return ret;
+
+	switch (tx->completer.id) {
+	case PKVM_ID_GUEST:
+		ret = guest_ack_share(tx);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int host_initiate_share(const struct pkvm_mem_transition *tx)
+{
+	u64 addr = tx->initiator.host.addr;
+	u64 size = tx->size;
+	u64 prot = pkvm_mkstate(tx->initiator.prot, PKVM_PAGE_SHARED_OWNED);
+
+	return host_ept_create_idmap_locked(addr, size, 0, prot);
+}
+
+static int guest_complete_share(const struct pkvm_mem_transition *tx)
+{
+	struct pkvm_pgtable *pgt = tx->completer.guest.pgt;
+	u64 addr = tx->completer.guest.addr;
+	u64 size = tx->size;
+	u64 phys = tx->completer.guest.phys;
+	u64 prot = tx->completer.prot;
+
+	prot = pkvm_mkstate(prot, PKVM_PAGE_SHARED_BORROWED);
+	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot);
+}
+
+static int __do_share(const struct pkvm_mem_transition *tx)
+{
+	int ret;
+
+	switch (tx->initiator.id) {
+	case PKVM_ID_HOST:
+		ret = host_initiate_share(tx);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	if (ret)
+		return ret;
+
+	switch (tx->completer.id) {
+	case PKVM_ID_GUEST:
+		ret = guest_complete_share(tx);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+/*
+ * do_share() - The page owner grants access to another component with a given
+ * set of permissions.
+ *
+ * Initiator: OWNED	=> SHARED_OWNED
+ * Completer: NOPAGE	=> SHARED_BORROWED
+ */
+static int do_share(const struct pkvm_mem_transition *share)
+{
+	int ret;
+
+	ret = check_share(share);
+	if (ret)
+		return ret;
+
+	return WARN_ON(__do_share(share));
+}
+
+int __pkvm_host_share_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
+			    u64 gpa, u64 size, u64 prot)
+{
+	int ret;
+	struct pkvm_mem_transition share = {
+		.size		= size,
+		.initiator	= {
+			.id	= PKVM_ID_HOST,
+			.host	= {
+				.addr	= hpa,
+			},
+			.prot	= HOST_EPT_DEF_MEM_PROT,
+		},
+		.completer	= {
+			.id	= PKVM_ID_GUEST,
+			.guest	= {
+				.pgt	= guest_pgt,
+				.addr	= gpa,
+				.phys	= hpa,
+			},
+			.prot	= prot,
+		},
+	};
+
+	host_ept_lock();
+
+	ret = do_share(&share);
 
 	host_ept_unlock();
 
