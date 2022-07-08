@@ -24,7 +24,7 @@
 
 static struct hyp_pool host_ept_pool;
 static struct pkvm_pgtable host_ept;
-static pkvm_spinlock_t host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
+static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
 static struct hyp_pool shadow_ept_pool;
 static struct rsvd_bits_validate ept_zero_check;
@@ -153,6 +153,16 @@ int pkvm_host_ept_unmap(unsigned long vaddr_start, unsigned long phys_start,
 	return pkvm_pgtable_unmap_safe(&host_ept, vaddr_start, phys_start, size);
 }
 
+void host_ept_lock(void)
+{
+	pkvm_spin_lock(&_host_ept_lock);
+}
+
+void host_ept_unlock(void)
+{
+	pkvm_spin_unlock(&_host_ept_lock);
+}
+
 static void reset_rsvds_bits_mask_ept(struct rsvd_bits_validate *rsvd_check,
 				      u64 pa_bits_rsvd, bool execonly,
 				      int huge_page_level)
@@ -227,7 +237,7 @@ int handle_host_ept_violation(unsigned long gpa)
 		return -EPERM;
 	}
 
-	pkvm_spin_lock(&host_ept_lock);
+	pkvm_spin_lock(&_host_ept_lock);
 
 	pkvm_pgtable_lookup(&host_ept, gpa, &hpa, NULL, &level);
 	if (hpa != INVALID_ADDR) {
@@ -269,7 +279,7 @@ int handle_host_ept_violation(unsigned long gpa)
 			 __func__, gpa);
 	}
 out:
-	pkvm_spin_unlock(&host_ept_lock);
+	pkvm_spin_unlock(&_host_ept_lock);
 	return ret;
 }
 
