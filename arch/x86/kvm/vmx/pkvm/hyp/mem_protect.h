@@ -68,4 +68,18 @@ typedef u32 pkvm_id;
  */
 int __pkvm_host_donate_hyp(u64 hpa, u64 size);
 
+/*
+ * __pkvm_hyp_donate_host() - Donate pages from hyp to host, then host can
+ * access these pages.
+ *
+ * @hpa:	Start hpa of being donated pages, must be continuous.
+ * @size:	The size of memory to be donated.
+ *
+ * A range of pages [hpa, hpa + size) will be donated from hyp to host. This
+ * will create mapping in host ept for these pages, and nothing to do with hyp
+ * mmu. This is paired with __pkvm_host_donate_hyp(), and same as host reclaiming
+ * these pages back.
+ */
+int __pkvm_hyp_donate_host(u64 hpa, u64 size);
+
 #endif
