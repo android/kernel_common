@@ -185,6 +185,16 @@ static void ept_mk_nopresent(struct pkvm_pgtable *pgt, void *ptep)
 	pgt->pgt_ops->pgt_set_entry(ptep, val);
 }
 
+static void ept_remap_with_newprot(struct pkvm_pgtable *pgt, int level, void *ptep, u64 new_prot)
+{
+	u64 new_pte;
+
+	new_pte = (READ_ONCE(*(u64 *)ptep) & ~EPT_PROT_MASK) | new_prot;
+	if (level != PG_LEVEL_4K)
+		pgt->pgt_ops->pgt_entry_mkhuge(&new_pte);
+	pgt->pgt_ops->pgt_set_entry(ptep, new_pte);
+}
+
 static void reset_rsvds_bits_mask_ept(struct rsvd_bits_validate *rsvd_check,
 				      u64 pa_bits_rsvd, bool execonly,
 				      int huge_page_level)
@@ -345,18 +355,61 @@ static int pkvm_shadow_ept_map_leaf(struct pkvm_pgtable *pgt, unsigned long vadd
 	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
 	unsigned long level_size = pgt_ops->pgt_level_to_size(level);
 	unsigned long map_phys = data->phys & PAGE_MASK;
+	struct pkvm_shadow_vm *vm = sept_to_shadow_vm(pgt);
 	int ret;
 
 	/*
 	 * It is possible that another CPU just created same mapping when
 	 * multiple EPT violations happen on different CPUs.
 	 */
-	if (!pgt_ops->pgt_entry_present(ptep)) {
+	if (pgt_ops->pgt_entry_present(ptep))
+		goto out;
+
+	switch (vm->vm_type) {
+	case KVM_X86_DEFAULT_VM:
 		ret = __pkvm_host_share_guest(map_phys, pgt, vaddr, level_size, data->prot);
-		if (ret)
-			return ret;
+		break;
+	case KVM_X86_PROTECTED_VM:
+		if (owned_this_page(ptep)) {
+			unsigned long phys = pgt_ops->pgt_entry_to_phys(ptep);
+
+			/*
+			 * pkvm doesn't allow changing the final page mapping
+			 * in shadow EPT if this page has been used by protected
+			 * VM. This is due to security concern. So before reusing
+			 * the mapping, do a sanity check and report an error if
+			 * not the same.
+			 */
+			if (phys != map_phys) {
+				pkvm_err("%s: gpa 0x%lx @level%d old_phys 0x%lx != new_phys 0x%lx\n",
+						__func__, vaddr, level, phys, map_phys);
+				ret = -EPERM;
+			} else {
+				/*
+				 * Invept has invalid this entry for protected VM but keep
+				 * the phys address remained. Re-use this phys address and
+				 * its page state to create the mapping with new property
+				 * bits.
+				 */
+				ept_remap_with_newprot(pgt, level, ptep, data->prot);
+				ret = 0;
+			}
+		} else {
+			ret = __pkvm_host_donate_guest(map_phys, pgt, vaddr, level_size, data->prot);
+		}
+		break;
+	default:
+		ret = -EINVAL;
+		break;
 	}
 
+	if (ret) {
+		pkvm_err("%s failed: ret %d vm_type %d L2 GPA 0x%lx level %d HPA 0x%lx prot 0x%llx\n",
+			 __func__, ret, vm->vm_type, vaddr, level, map_phys, data->prot);
+		return ret;
+	}
+
+out:
 	/* Increase the physical address for the next mapping */
 	data->phys += level_size;
 
