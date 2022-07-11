@@ -151,6 +151,15 @@ static int host_request_donation(const struct pkvm_mem_transition *tx)
 	return __host_check_page_state_range(addr, size, PKVM_PAGE_OWNED);
 }
 
+static int guest_request_donation(const struct pkvm_mem_transition *tx)
+{
+	u64 addr = tx->initiator.guest.addr;
+	u64 size = tx->size;
+
+	return __guest_check_page_state_range(tx->initiator.guest.pgt, addr,
+					      size, PKVM_PAGE_OWNED);
+}
+
 static int host_ack_donation(const struct pkvm_mem_transition *tx)
 {
 	u64 addr = tx->completer.host.addr;
@@ -178,6 +187,9 @@ static int check_donation(const struct pkvm_mem_transition *tx)
 		break;
 	case PKVM_ID_HYP:
 		ret = 0;
+		break;
+	case PKVM_ID_GUEST:
+		ret = guest_request_donation(tx);
 		break;
 	default:
 		ret = -EINVAL;
@@ -215,6 +227,15 @@ static int host_initiate_donation(const struct pkvm_mem_transition *tx)
 		return host_ept_set_owner_locked(addr, size, owner_id);
 }
 
+static int guest_initiate_donation(const struct pkvm_mem_transition *tx)
+{
+	u64 addr = tx->initiator.guest.addr;
+	u64 phys = tx->initiator.guest.phys;
+	u64 size = tx->size;
+
+	return pkvm_pgtable_unmap_safe(tx->initiator.guest.pgt, addr, phys, size, NULL);
+}
+
 static int host_complete_donation(const struct pkvm_mem_transition *tx)
 {
 	u64 addr = tx->completer.host.addr;
@@ -246,6 +267,9 @@ static int __do_donate(const struct pkvm_mem_transition *tx)
 		break;
 	case PKVM_ID_HYP:
 		ret = 0;
+		break;
+	case PKVM_ID_GUEST:
+		ret = guest_initiate_donation(tx);
 		break;
 	default:
 		ret = -EINVAL;
@@ -371,6 +395,38 @@ int __pkvm_host_donate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
 				.phys	= hpa,
 			},
 			.prot	= prot,
+		},
+	};
+
+	host_ept_lock();
+
+	ret = do_donate(&donation);
+
+	host_ept_unlock();
+
+	return ret;
+}
+
+int __pkvm_host_undonate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
+			       u64 gpa, u64 size)
+{
+	int ret;
+	struct pkvm_mem_transition donation = {
+		.size		= size,
+		.initiator	= {
+			.id	= PKVM_ID_GUEST,
+			.guest	= {
+				.addr	= gpa,
+				.phys	= hpa,
+				.pgt	= guest_pgt,
+			},
+		},
+		.completer	= {
+			.id	= PKVM_ID_HOST,
+			.host	= {
+				.addr	= hpa,
+			},
+			.prot	= HOST_EPT_DEF_MEM_PROT,
 		},
 	};
 

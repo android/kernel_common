@@ -133,4 +133,20 @@ int __pkvm_host_unshare_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
  */
 int __pkvm_host_donate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
 			     u64 gpa, u64 size, u64 prot);
+
+/*
+ * __pkvm_host_undoate_guest() - Host reclaim these pages donated to guest.
+ * Then guest can't access these pages and host can access.
+ *
+ * @hpa:	Start hpa of being donated pages, must be continues.
+ * @guest_pgt:	The guest ept pagetable.
+ * @gpa:	Start gpa of donated pages that will be unmapped in guest ept.
+ * @size:	The size of pages to being donated.
+ *
+ * A range of pages [hpa, hpa + size) will be donated from guest to host. And
+ * this will unmap these pages [gpa, gpa + size) from guest ept. In the same
+ * time, the identity mapping for hpa will be created in host ept.
+ */
+int __pkvm_host_undonate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
+			       u64 gpa, u64 size);
 #endif
