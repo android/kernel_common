@@ -4,13 +4,14 @@
  */
 
 #include <pkvm.h>
-
+#include <asm/kvm_pkvm.h>
 #include "pkvm_hyp.h"
 #include "nested.h"
 #include "cpu.h"
 #include "vmx.h"
 #include "ept.h"
 #include "debug.h"
+#include "mem_protect.h"
 
 /*
  * Not support shadow vmcs & vmfunc;
@@ -1175,7 +1176,44 @@ static bool nested_handle_ept_violation(struct shadow_vcpu_state *shadow_vcpu,
 	return handled;
 }
 
-int nested_vmexit(struct kvm_vcpu *vcpu)
+static bool nested_handle_vmcall(struct kvm_vcpu *vcpu)
+{
+	u64 nr, a0, a1, a2, a3;
+	struct shadow_vcpu_state *shadow_vcpu = to_pkvm_hvcpu(vcpu)->current_shadow_vcpu;
+	struct pkvm_pgtable *guest_pgt = &shadow_vcpu->vm->sept_desc.sept;
+	bool handled = false;
+	int ret = 0;
+
+	/* All normal guest's vmcall should be handled by KVM. */
+	if (shadow_vcpu->vm->vm_type == KVM_X86_DEFAULT_VM)
+		return false;
+
+	nr = vcpu->arch.regs[VCPU_REGS_RAX];
+	a0 = vcpu->arch.regs[VCPU_REGS_RBX];
+	a1 = vcpu->arch.regs[VCPU_REGS_RCX];
+	a2 = vcpu->arch.regs[VCPU_REGS_RDX];
+	a3 = vcpu->arch.regs[VCPU_REGS_RSI];
+
+	switch (nr) {
+	case PKVM_GHC_SHARE_MEM:
+		ret = __pkvm_guest_share_host(guest_pgt, a0, a1);
+		handled = true;
+		break;
+	case PKVM_GHC_UNSHARE_MEM:
+		ret = __pkvm_guest_unshare_host(guest_pgt, a0, a1);
+		handled = true;
+		break;
+	default:
+		break;
+	}
+
+	if (handled)
+		vcpu->arch.regs[VCPU_REGS_RAX] = ret;
+
+	return handled;
+}
+
+int nested_vmexit(struct kvm_vcpu *vcpu, bool *skip_instruction)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
@@ -1183,12 +1221,23 @@ int nested_vmexit(struct kvm_vcpu *vcpu)
 	struct vmcs *vmcs02 = (struct vmcs *)cur_shadow_vcpu->vmcs02;
 	struct vmcs12 *vmcs12 = (struct vmcs12 *)cur_shadow_vcpu->cached_vmcs12;
 
-	if ((vmx->exit_reason.full == EXIT_REASON_EPT_VIOLATION) &&
-		nested_handle_ept_violation(cur_shadow_vcpu,
-					    vmcs_read64(GUEST_PHYSICAL_ADDRESS),
-					    vmx->exit_qualification))
+	switch (vmx->exit_reason.full) {
+	case EXIT_REASON_EPT_VIOLATION:
 		/* EPT violation can be handled by pkvm, no need back to kvm-high */
-		return 0;
+		if (nested_handle_ept_violation(cur_shadow_vcpu,
+						vmcs_read64(GUEST_PHYSICAL_ADDRESS),
+						vmx->exit_qualification))
+			return 0;
+		break;
+	case EXIT_REASON_VMCALL:
+		if (nested_handle_vmcall(vcpu)) {
+			*skip_instruction = true;
+			return 0;
+		}
+		break;
+	default:
+		break;
+	}
 
 	/* clear guest mode if need switch back to host */
 	vcpu->arch.hflags &= ~HF_GUEST_MASK;

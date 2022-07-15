@@ -175,7 +175,7 @@ int pkvm_main(struct kvm_vcpu *vcpu)
 
 		if (is_guest_mode(vcpu)) {
 			guest_exit = true;
-			nested_vmexit(vcpu);
+			nested_vmexit(vcpu, &skip_instruction);
 		} else {
 			switch (vmx->exit_reason.full) {
 			case EXIT_REASON_CPUID:

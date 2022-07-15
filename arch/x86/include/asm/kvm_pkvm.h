@@ -23,6 +23,12 @@
 #define PKVM_HC_TEARDOWN_SHADOW_VM	4
 #define PKVM_HC_TEARDOWN_SHADOW_VCPU	5
 
+/* PKVM provided hypercalls for guest use. */
+#define PKVM_GHC_NUM(x)	(x + KVM_HC_PKVM_OP)
+
+#define PKVM_GHC_SHARE_MEM		PKVM_GHC_NUM(1)
+#define PKVM_GHC_UNSHARE_MEM		PKVM_GHC_NUM(2)
+
 extern struct memblock_region pkvm_sym(hyp_memory)[];
 extern unsigned int pkvm_sym(hyp_memblock_nr);
 
