@@ -110,27 +110,47 @@ int gva2gpa(struct kvm_vcpu *vcpu, gva_t gva, gpa_t *gpa,
 	return check_translation(vcpu, _gpa, prot, access, exception);
 }
 
+static inline int __copy_gpa(struct kvm_vcpu *vcpu, void *addr, gpa_t gpa,
+			     unsigned int size, unsigned int pg_size,
+			     bool from_guest)
+{
+	unsigned int len, offset_in_pg;
+	void *hva;
+
+	offset_in_pg = (unsigned int)gpa & (pg_size - 1);
+	len = (size > (pg_size - offset_in_pg)) ? (pg_size - offset_in_pg) : size;
+
+	hva = host_gpa2hva(gpa);
+	if (from_guest)
+		memcpy(addr, hva, len);
+	else
+		memcpy(hva, addr, len);
+
+	return len;
+}
+
 /* only support host VM now */
 static int copy_gva(struct kvm_vcpu *vcpu, gva_t gva, void *addr,
 		unsigned int bytes, struct x86_exception *exception, bool from_guest)
 {
 	u32 access = VMX_AR_DPL(vmcs_read32(GUEST_SS_AR_BYTES)) == 3 ? PFERR_USER_MASK : 0;
 	gpa_t gpa;
-	void *hva;
-	int ret;
+	unsigned int len;
+	int ret = 0;
 
-	/*FIXME: need check the gva per page granularity */
-	ret = gva2gpa(vcpu, gva, &gpa, access, exception);
-	if (ret)
-		return ret;
+	while ((bytes > 0) && (ret == 0)) {
+		ret = gva2gpa(vcpu, gva, &gpa, access, exception);
+		if (ret >= 0) {
+			len = __copy_gpa(vcpu, addr, gpa, bytes, PAGE_SIZE, from_guest);
+			if (len == 0)
+				return -EINVAL;
+			gva += len;
+			addr += len;
+			bytes -= len;
+		}
+	}
 
-	hva = host_gpa2hva(gpa);
-	if (from_guest)
-		memcpy(addr, hva, bytes);
-	else
-		memcpy(hva, addr, bytes);
-
-	return bytes;
+	return ret;
 }
 
 int read_gva(struct kvm_vcpu *vcpu, gva_t gva, void *addr,
@@ -149,15 +169,18 @@ int write_gva(struct kvm_vcpu *vcpu, gva_t gva, void *addr,
 static int copy_gpa(struct kvm_vcpu *vcpu, gpa_t gpa, void *addr,
 		unsigned int bytes, bool from_guest)
 {
-	void *hva;
+	unsigned int len;
 
-	hva = host_gpa2hva(gpa);
-	if (from_guest)
-		memcpy(addr, hva, bytes);
-	else
-		memcpy(hva, addr, bytes);
+	while (bytes > 0) {
+		len = __copy_gpa(vcpu, addr, gpa, bytes, PAGE_SIZE, from_guest);
+		if (len == 0)
+			return -EINVAL;
+		gpa += len;
+		addr += len;
+		bytes -= len;
+	}
 
-	return bytes;
+	return 0;
 }
 
 int read_gpa(struct kvm_vcpu *vcpu, gpa_t gpa, void *addr, unsigned int bytes)
