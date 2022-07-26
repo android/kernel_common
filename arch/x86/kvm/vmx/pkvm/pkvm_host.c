@@ -836,6 +836,8 @@ int pkvm_init_shadow_vm(struct kvm *kvm)
 	void *shadow_addr;
 	int ret;
 
+	INIT_LIST_HEAD(&kvm->pkvm.pinned_pages);
+
 	shadow_sz = PAGE_ALIGN(PKVM_SHADOW_VM_SIZE);
 	shadow_addr = alloc_pages_exact(shadow_sz, GFP_KERNEL_ACCOUNT);
 	if (!shadow_addr)
@@ -857,6 +859,7 @@ free_page:
 void pkvm_teardown_shadow_vm(struct kvm *kvm)
 {
 	struct kvm_protected_vm *pkvm = &kvm->pkvm;
+	struct kvm_pinned_page *ppage, *n;
 	unsigned long pa;
 
 	pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VM, pkvm->shadow_vm_handle);
@@ -864,6 +867,15 @@ void pkvm_teardown_shadow_vm(struct kvm *kvm)
 		return;
 
 	free_pages_exact(__va(pa), PAGE_ALIGN(PKVM_SHADOW_VM_SIZE));
+
+	if (list_empty(&pkvm->pinned_pages))
+		return;
+
+	list_for_each_entry_safe(ppage, n, &pkvm->pinned_pages, list) {
+		list_del(&ppage->list);
+		put_page(ppage->page);
+		kfree(ppage);
+	}
 }
 
 int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)

@@ -1880,8 +1880,16 @@ struct kvm_arch_async_pf {
 };
 
 #if IS_ENABLED(CONFIG_PKVM_INTEL)
+struct kvm_pinned_page {
+	struct list_head list;
+	struct page *page;
+};
+
 struct kvm_protected_vm {
 	int shadow_vm_handle;
+
+	struct list_head pinned_pages;
+	spinlock_t pinned_page_lock;
 };
 #endif
 
