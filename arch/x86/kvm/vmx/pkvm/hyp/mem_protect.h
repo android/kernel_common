@@ -115,4 +115,22 @@ int __pkvm_host_share_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
 int __pkvm_host_unshare_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
 			      u64 gpa, u64 size);
 
+/*
+ * __pkvm_host_donate_guest() - Host donate pages to guest. Then host can't
+ * access these pages and guest can access.
+ *
+ * @hpa:	Start hpa of being donated pages, must be continues.
+ * @guest_pgt:	The guest ept pagetable.
+ * @gpa:	Start gpa of donated pages that will be mapped in guest ept.
+ * @size:	The size of pages to being donated.
+ * @prot:	The prot that will be used for creating mapping in guest ept.
+ *
+ * A range of pages [hpa, hpa + size) will be donated from host to guest. And
+ * this will unmap these pages from host ept and set the page owner as guest_id
+ * in the pte in host ept. The guest_id is equal to the vm's shadow_handle+1. In
+ * the same time, the mapping gpa -> hpa with @size will be created in guest ept
+ * with @prot.
+ */
+int __pkvm_host_donate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
+			     u64 gpa, u64 size, u64 prot);
 #endif

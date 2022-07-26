@@ -4,8 +4,9 @@
  */
 #include <linux/bitfield.h>
 #include <pkvm.h>
-#include <gfp.h>
+
 #include "pkvm_hyp.h"
+#include "gfp.h"
 #include "mem_protect.h"
 #include "pgtable.h"
 #include "ept.h"
@@ -109,11 +110,21 @@ static int __host_check_page_state_range(u64 addr, u64 size,
 	return check_page_state_range(pkvm_hyp->host_vm.ept, addr, size, state);
 }
 
+static pkvm_id pkvm_guest_id(struct pkvm_pgtable *pgt)
+{
+	struct pkvm_shadow_vm *shadow_vm = sept_to_shadow_vm(pgt);
+
+	/* Using the shadow_vm_handle as guest_id. */
+	return shadow_vm->shadow_vm_handle;
+}
+
 static pkvm_id __pkvm_owner_id(const struct pkvm_mem_trans_desc *desc)
 {
 	switch (desc->id) {
 	case PKVM_ID_HYP:
 		return OWNER_ID_HYP;
+	case PKVM_ID_GUEST:
+		return pkvm_guest_id(desc->guest.pgt);
 	default:
 		WARN_ON(1);
 		return OWNER_ID_INV;
@@ -148,6 +159,15 @@ static int host_ack_donation(const struct pkvm_mem_transition *tx)
 	return __host_check_page_state_range(addr, size, PKVM_NOPAGE);
 }
 
+static int guest_ack_donation(const struct pkvm_mem_transition *tx)
+{
+	u64 addr = tx->completer.guest.addr;
+	u64 size = tx->size;
+
+	return __guest_check_page_state_range(tx->completer.guest.pgt, addr,
+					      size, PKVM_NOPAGE);
+}
+
 static int check_donation(const struct pkvm_mem_transition *tx)
 {
 	int ret;
@@ -172,6 +192,9 @@ static int check_donation(const struct pkvm_mem_transition *tx)
 		break;
 	case PKVM_ID_HYP:
 		ret = 0;
+		break;
+	case PKVM_ID_GUEST:
+		ret = guest_ack_donation(tx);
 		break;
 	default:
 		ret = -EINVAL;
@@ -201,6 +224,18 @@ static int host_complete_donation(const struct pkvm_mem_transition *tx)
 	return host_ept_create_idmap_locked(addr, size, 0, prot);
 }
 
+static int guest_complete_donation(const struct pkvm_mem_transition *tx)
+{
+	struct pkvm_pgtable *pgt = tx->completer.guest.pgt;
+	u64 addr = tx->completer.guest.addr;
+	u64 size = tx->size;
+	u64 phys = tx->completer.guest.phys;
+	u64 prot = tx->completer.prot;
+
+	prot = pkvm_mkstate(prot, PKVM_PAGE_OWNED);
+	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot, NULL);
+}
+
 static int __do_donate(const struct pkvm_mem_transition *tx)
 {
 	int ret;
@@ -225,6 +260,9 @@ static int __do_donate(const struct pkvm_mem_transition *tx)
 		break;
 	case PKVM_ID_HYP:
 		ret = 0;
+		break;
+	case PKVM_ID_GUEST:
+		ret = guest_complete_donation(tx);
 		break;
 	default:
 		ret = -EINVAL;
@@ -301,6 +339,38 @@ int __pkvm_hyp_donate_host(u64 hpa, u64 size)
 				.addr	= hpa,
 			},
 			.prot	= HOST_EPT_DEF_MEM_PROT,
+		},
+	};
+
+	host_ept_lock();
+
+	ret = do_donate(&donation);
+
+	host_ept_unlock();
+
+	return ret;
+}
+
+int __pkvm_host_donate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
+			     u64 gpa, u64 size, u64 prot)
+{
+	int ret;
+	struct pkvm_mem_transition donation = {
+		.size		= size,
+		.initiator	= {
+			.id	= PKVM_ID_HOST,
+			.host	= {
+				.addr	= hpa,
+			},
+		},
+		.completer	= {
+			.id	= PKVM_ID_GUEST,
+			.guest	= {
+				.pgt	= guest_pgt,
+				.addr	= gpa,
+				.phys	= hpa,
+			},
+			.prot	= prot,
 		},
 	};
 

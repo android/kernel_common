@@ -109,7 +109,11 @@ struct pkvm_shadow_vm {
 	pkvm_spinlock_t lock;
 } __aligned(PAGE_SIZE);
 
+#define sept_to_shadow_ept_desc(_sept)	container_of(_sept, struct shadow_ept_desc, sept)
+
 #define sept_desc_to_shadow_vm(desc) container_of(desc, struct pkvm_shadow_vm, sept_desc)
+
+#define sept_to_shadow_vm(_sept) sept_desc_to_shadow_vm(sept_to_shadow_ept_desc(_sept))
 
 int __pkvm_init_shadow_vm(unsigned long kvm_va, unsigned long shadow_pa,
 			  size_t shadow_size);
