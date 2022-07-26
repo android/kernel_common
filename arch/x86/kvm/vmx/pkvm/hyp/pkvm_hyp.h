@@ -7,6 +7,9 @@
 
 #include <asm/pkvm_spinlock.h>
 
+#define PKVM_MAX_NORMAL_VM_NUM		8
+#define PKVM_MAX_PROTECTED_VM_NUM	2
+
 /*
  * A container for the vcpu state that hyp needs to maintain for protected VMs.
  */

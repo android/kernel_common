@@ -10,7 +10,7 @@
 
 struct pkvm_hyp *pkvm_hyp;
 
-#define MAX_SHADOW_VMS	255
+#define MAX_SHADOW_VMS	(PKVM_MAX_NORMAL_VM_NUM + PKVM_MAX_PROTECTED_VM_NUM)
 #define HANDLE_OFFSET 1
 
 #define to_shadow_vm_handle(vcpu_handle)	((s64)(vcpu_handle) >> SHADOW_VM_HANDLE_SHIFT)
