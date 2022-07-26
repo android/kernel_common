@@ -28,6 +28,11 @@ static inline bool vmx_ept_has_mt_wb(void)
 	return vmx_ept_capability_check(VMX_EPTP_WB_BIT);
 }
 
+static inline bool vmx_has_invept_context(void)
+{
+	return vmx_ept_capability_check(VMX_EPT_EXTENT_CONTEXT_BIT);
+}
+
 static inline u64 pkvm_construct_eptp(unsigned long root_hpa, int level)
 {
 	u64 eptp = 0;
@@ -69,6 +74,14 @@ static inline void vmcs_clear_track(struct vcpu_vmx *vmx, struct vmcs *vmcs)
 
 	barrier();
 	vmcs_clear(vmcs);
+}
+
+static inline void flush_ept(u64 eptp)
+{
+	if (vmx_has_invept_context())
+		__invept(VMX_EPT_EXTENT_CONTEXT, eptp, 0);
+	else
+		__invept(VMX_EPT_EXTENT_GLOBAL, 0, 0);
 }
 
 void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu);

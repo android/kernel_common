@@ -18,6 +18,7 @@
 #include "pgtable.h"
 #include "ept.h"
 #include "memory.h"
+#include "vmx.h"
 #include "debug.h"
 
 static struct hyp_pool host_ept_pool;
@@ -229,4 +230,70 @@ int pkvm_shadow_ept_pool_init(void *ept_pool_base, unsigned long ept_pool_pages)
 	unsigned long pfn = __pkvm_pa(ept_pool_base) >> PAGE_SHIFT;
 
 	return hyp_pool_init(&shadow_ept_pool, pfn, ept_pool_pages, 0);
+}
+
+static void *shadow_ept_zalloc_page(void)
+{
+	return hyp_alloc_pages(&shadow_ept_pool, 0);
+}
+
+static void shadow_ept_get_page(void *vaddr)
+{
+	hyp_get_page(&shadow_ept_pool, vaddr);
+}
+
+static void shadow_ept_put_page(void *vaddr)
+{
+	hyp_put_page(&shadow_ept_pool, vaddr);
+}
+
+/*TODO: add tlb flush support for shadow ept */
+static struct pkvm_mm_ops shadow_ept_mm_ops = {
+	.phys_to_virt = pkvm_phys_to_virt,
+	.virt_to_phys = pkvm_virt_to_phys,
+	.zalloc_page = shadow_ept_zalloc_page,
+	.get_page = shadow_ept_get_page,
+	.put_page = shadow_ept_put_page,
+	.page_count = hyp_page_count,
+	.flush_tlb = flush_tlb_noop,
+};
+
+void pkvm_shadow_ept_deinit(struct shadow_ept_desc *desc)
+{
+	struct pkvm_pgtable *sept = &desc->sept;
+	struct pkvm_shadow_vm *vm = sept_desc_to_shadow_vm(desc);
+
+	pkvm_spin_lock(&vm->lock);
+
+	if (desc->shadow_eptp) {
+		pkvm_pgtable_destroy(sept);
+
+		flush_ept(desc->shadow_eptp);
+
+		memset(sept, 0, sizeof(struct pkvm_pgtable));
+		desc->shadow_eptp = 0;
+	}
+
+	pkvm_spin_unlock(&vm->lock);
+}
+
+int pkvm_shadow_ept_init(struct shadow_ept_desc *desc)
+{
+	struct pkvm_pgtable_cap cap = {
+		.level = pkvm_hyp->ept_cap.level,
+		.allowed_pgsz = pkvm_hyp->ept_cap.allowed_pgsz,
+		.table_prot = pkvm_hyp->ept_cap.table_prot,
+	};
+	int ret;
+
+	memset(desc, 0, sizeof(struct shadow_ept_desc));
+
+	ret = pkvm_pgtable_init(&desc->sept, &shadow_ept_mm_ops, &ept_ops, &cap, true);
+	if (ret)
+		return ret;
+
+	desc->shadow_eptp = pkvm_construct_eptp(desc->sept.root_pa, cap.level);
+	flush_ept(desc->shadow_eptp);
+
+	return 0;
 }

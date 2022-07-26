@@ -7,7 +7,7 @@
 #include <linux/bug.h>
 #include <vdso/limits.h>
 #include <buddy_memory.h>
-#include <vmx/vmx.h>
+#include <pkvm.h>
 #include "hyp/pkvm_hyp.h"
 
 int main(void)
