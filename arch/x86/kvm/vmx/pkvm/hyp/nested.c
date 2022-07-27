@@ -572,6 +572,14 @@ static void sync_vmcs12_dirty_fields_to_vmcs02(struct vcpu_vmx *vmx, struct vmcs
 	if (vmx->nested.dirty_vmcs12) {
 		for (i = 0; i < max_emulated_fields; i++) {
 			field = emulated_fields[i];
+			if (field.encoding == EPT_POINTER)
+				/*
+				 * EPTP is configured as shadow EPTP when the first
+				 * time the vmcs02 is loaded. As shadow EPTP is not
+				 * changed at the runtime, also cannot use the virtual
+				 * EPT from KVM high, no need to sync to vmcs02 again.
+				 */
+				continue;
 			val = vmcs12_read_any(vmcs12, field.encoding, field.offset);
 			phys_val = emulate_field_for_vmcs02(vmx, field.encoding, val);
 			__vmcs_writel(field.encoding, phys_val);
@@ -860,6 +868,15 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 						vmcs_load_track(vmx, vmcs02);
 						pkvm_init_host_state_area(pkvm_hvcpu->pcpu, vcpu->cpu);
 						vmcs_writel(HOST_RIP, (unsigned long)__pkvm_vmx_vmexit);
+						/*
+						 * EPTP is mantained by pKVM and configured with
+						 * shadow EPTP from its corresponding shadow VM.
+						 * As shadow EPTP is not changed at runtime, set
+						 * it to EPTP when the first time this vmcs02 is
+						 * loading.
+						 */
+						vmcs_write64(EPT_POINTER,
+							     shadow_vcpu->vm->sept_desc.shadow_eptp);
 						shadow_vcpu->last_cpu = vcpu->cpu;
 						shadow_vcpu->vmcs02_inited = true;
 					} else {
