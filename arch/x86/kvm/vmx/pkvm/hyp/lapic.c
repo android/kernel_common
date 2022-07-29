@@ -120,3 +120,39 @@ void pkvm_apic_base_msr_write(struct kvm_vcpu *vcpu, u64 apicbase)
 
 	pkvm_wrmsrl(MSR_IA32_APICBASE, apicbase);
 }
+
+int pkvm_x2apic_msr_write(struct kvm_vcpu *vcpu, u32 msr, u64 val)
+{
+	struct pkvm_pcpu *pcpu = to_pkvm_hvcpu(vcpu)->pcpu;
+	struct pkvm_lapic *lapic = pcpu->lapic;
+	u32 reg = (msr - APIC_BASE_MSR) << 4;
+
+	/*
+	 * MSR is accessed before the init finalizing phase
+	 * so pkvm not setup lapic yet. In this case, let the
+	 * wrmsr directly go to the hardware.
+	 */
+	if (!is_lapic_setup(pcpu)) {
+		pkvm_wrmsrl(msr, val);
+		return 0;
+	}
+
+	/* Ensure lapic is in x2apic mode */
+	if (!lapic->x2apic)
+		return -EINVAL;
+
+	switch (reg) {
+	case APIC_ID:
+		/*
+		 * Not allow primary VM to modify the lapic ID which
+		 * can result in pkvm failed to kick.
+		 */
+		PKVM_ASSERT(lapic->apic_id == (u32)val);
+		break;
+	default:
+		break;
+	}
+
+	pkvm_wrmsrl(msr, val);
+	return 0;
+}

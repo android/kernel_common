@@ -7,4 +7,5 @@
 
 int pkvm_setup_lapic(struct pkvm_pcpu *pcpu, int cpu);
 void pkvm_apic_base_msr_write(struct kvm_vcpu *vcpu, u64 apicbase);
+int pkvm_x2apic_msr_write(struct kvm_vcpu *vcpu, u32 msr, u64 val);
 #endif

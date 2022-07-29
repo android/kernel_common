@@ -20,6 +20,7 @@ static unsigned int emulated_ro_guest_msrs[] = {
 
 static unsigned int emulated_wo_guest_msrs[] = {
 	MSR_IA32_APICBASE,
+	(APIC_BASE_MSR + (APIC_ID >> 4)),
 };
 
 static void enable_msr_interception(u8 *bitmap, unsigned int msr_arg, unsigned int mode)
@@ -82,6 +83,7 @@ int handle_write_msr(struct kvm_vcpu *vcpu)
 	unsigned long msr = vcpu->arch.regs[VCPU_REGS_RCX];
 	u32 low, high;
 	u64 val;
+	int ret = 0;
 
 	low = vcpu->arch.regs[VCPU_REGS_RAX];
 	high = vcpu->arch.regs[VCPU_REGS_RDX];
@@ -91,11 +93,14 @@ int handle_write_msr(struct kvm_vcpu *vcpu)
 	case MSR_IA32_APICBASE:
 		pkvm_apic_base_msr_write(vcpu, val);
 		break;
+	case APIC_BASE_MSR ... APIC_BASE_MSR + 0xff:
+		ret = pkvm_x2apic_msr_write(vcpu, msr, val);
+		break;
 	default:
 		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 void init_msr_emulation(struct vcpu_vmx *vmx)
