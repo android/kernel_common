@@ -9,6 +9,7 @@
 #include "pkvm_hyp.h"
 #include "ept.h"
 #include "mem_protect.h"
+#include "lapic.h"
 
 struct pkvm_hyp *pkvm_hyp;
 
@@ -430,4 +431,12 @@ int for_each_valid_shadow_vm(int (*fn)(struct pkvm_shadow_vm *vm, void *data),
 	pkvm_spin_unlock(&shadow_vms_lock);
 
 	return ret < 0 ? ret : 0;
+}
+
+void pkvm_kick_vcpu(struct kvm_vcpu *vcpu)
+{
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	struct pkvm_pcpu *pcpu = hvcpu->pcpu;
+
+	pkvm_lapic_send_init(pcpu);
 }

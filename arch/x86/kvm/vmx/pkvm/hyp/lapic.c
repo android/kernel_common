@@ -8,6 +8,7 @@
 #include "mmu.h"
 #include "pgtable.h"
 #include "bug.h"
+#include "pkvm_hyp.h"
 
 struct pkvm_lapic {
 	bool x2apic;
@@ -30,6 +31,45 @@ static u32 __pkvm_lapic_read(struct pkvm_lapic *lapic, u32 reg)
 		val = readl(lapic->apic_base_va + reg);
 
 	return (u32)val;
+}
+
+static u64 __pkvm_lapic_icr_read(struct pkvm_lapic *lapic)
+{
+	u64 val;
+
+	if (lapic->x2apic)
+		pkvm_rdmsrl(APIC_BASE_MSR + (APIC_ICR >> 4), val);
+	else {
+		u64 icr2;
+
+		icr2 = readl(lapic->apic_base_va + APIC_ICR2);
+		val = readl(lapic->apic_base_va + APIC_ICR);
+		val |= icr2 << 32;
+	}
+
+	return val;
+}
+
+static void __pkvm_wait_icr_idle(struct pkvm_lapic *lapic)
+{
+	/* x2apic mode doesn't have delivery status bit */
+	if (lapic->x2apic)
+		return;
+
+	while (__pkvm_lapic_icr_read(lapic) & APIC_ICR_BUSY)
+		cpu_relax();
+}
+
+static void __pkvm_lapic_icr_write(struct pkvm_lapic *lapic, u32 low, u32 id)
+{
+	if (lapic->x2apic)
+		pkvm_wrmsrl(APIC_BASE_MSR + (APIC_ICR >> 4),
+			    low | ((u64)id << 32));
+	else {
+		writel(id, lapic->apic_base_va + APIC_ICR2);
+		writel(low, lapic->apic_base_va + APIC_ICR);
+		__pkvm_wait_icr_idle(lapic);
+	}
 }
 
 static int __pkvm_setup_lapic(struct pkvm_lapic *lapic, u64 apicbase)
@@ -104,6 +144,7 @@ int pkvm_setup_lapic(struct pkvm_pcpu *pcpu, int cpu)
 void pkvm_apic_base_msr_write(struct kvm_vcpu *vcpu, u64 apicbase)
 {
 	struct pkvm_pcpu *pcpu = to_pkvm_hvcpu(vcpu)->pcpu;
+	struct pkvm_lapic *lapic = pcpu->lapic;
 
 	/*
 	 * MSR is accessed before the init finalizing phase
@@ -116,7 +157,7 @@ void pkvm_apic_base_msr_write(struct kvm_vcpu *vcpu, u64 apicbase)
 	}
 
 	/* A fatal error when is running at runtime */
-	PKVM_ASSERT(__pkvm_setup_lapic(pcpu->lapic, apicbase) == 0);
+	PKVM_ASSERT(__pkvm_setup_lapic(lapic, apicbase) == 0);
 
 	pkvm_wrmsrl(MSR_IA32_APICBASE, apicbase);
 }
@@ -155,4 +196,27 @@ int pkvm_x2apic_msr_write(struct kvm_vcpu *vcpu, u32 msr, u64 val)
 
 	pkvm_wrmsrl(msr, val);
 	return 0;
+}
+
+void pkvm_lapic_send_init(struct pkvm_pcpu *dst_pcpu)
+{
+	u32 icrlow = APIC_INT_ASSERT | APIC_DM_INIT;
+	int cpu_id = get_pcpu_id();
+	struct pkvm_pcpu *pcpu = pkvm_hyp->pcpus[cpu_id];
+	struct pkvm_lapic *dst_lapic = dst_pcpu->lapic;
+
+	/* Not to send INIT to self */
+	if (pcpu == dst_pcpu)
+		return;
+	/*
+	 * If the lapic is not setup yet, which is during the finalizing
+	 * phase, cannot send INIT. Also not necessary to use INIT for tlb
+	 * shoot down as when isolating some memory from the primary VM in
+	 * the finalizing phase, as we can flush ept tlbs at the end of
+	 * finalizing for each CPU.
+	 */
+	if (unlikely(!is_lapic_setup(pcpu) || !is_lapic_setup(dst_pcpu)))
+		return;
+
+	__pkvm_lapic_icr_write(pcpu->lapic, icrlow, dst_lapic->apic_id);
 }

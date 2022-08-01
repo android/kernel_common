@@ -131,6 +131,7 @@ s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa);
 
 int for_each_valid_shadow_vm(int (*fn)(struct pkvm_shadow_vm *vm, void *data),
 			     void *data);
+void pkvm_kick_vcpu(struct kvm_vcpu *vcpu);
 
 extern struct pkvm_hyp *pkvm_hyp;
 
