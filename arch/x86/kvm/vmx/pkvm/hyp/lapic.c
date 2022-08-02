@@ -80,14 +80,43 @@ done:
 	return 0;
 }
 
+static inline bool is_lapic_setup(struct pkvm_pcpu *pcpu)
+{
+	return !!pcpu->lapic;
+}
+
 int pkvm_setup_lapic(struct pkvm_pcpu *pcpu, int cpu)
 {
 	struct pkvm_lapic *lapic = &pkvm_lapic[cpu];
 	u64 apicbase;
+
+	/* Nothing needs to be done if already setup */
+	if (is_lapic_setup(pcpu))
+		return 0;
 
 	pkvm_rdmsrl(MSR_IA32_APICBASE, apicbase);
 
 	pcpu->lapic = lapic;
 
 	return __pkvm_setup_lapic(lapic, apicbase);
+}
+
+void pkvm_apic_base_msr_write(struct kvm_vcpu *vcpu, u64 apicbase)
+{
+	struct pkvm_pcpu *pcpu = to_pkvm_hvcpu(vcpu)->pcpu;
+
+	/*
+	 * MSR is accessed before the init finalizing phase
+	 * so pkvm not setup lapic yet. In this case, let the
+	 * wrmsr directly go to the hardware.
+	 */
+	if (!is_lapic_setup(pcpu)) {
+		pkvm_wrmsrl(MSR_IA32_APICBASE, apicbase);
+		return;
+	}
+
+	/* A fatal error when is running at runtime */
+	PKVM_ASSERT(__pkvm_setup_lapic(pcpu->lapic, apicbase) == 0);
+
+	pkvm_wrmsrl(MSR_IA32_APICBASE, apicbase);
 }

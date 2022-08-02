@@ -6,6 +6,7 @@
 #include <pkvm.h>
 #include "cpu.h"
 #include "nested.h"
+#include "lapic.h"
 #include "debug.h"
 
 #define INTERCEPT_DISABLE		(0U)
@@ -15,6 +16,10 @@
 
 static unsigned int emulated_ro_guest_msrs[] = {
 	LIST_OF_VMX_MSRS,
+};
+
+static unsigned int emulated_wo_guest_msrs[] = {
+	MSR_IA32_APICBASE,
 };
 
 static void enable_msr_interception(u8 *bitmap, unsigned int msr_arg, unsigned int mode)
@@ -74,7 +79,22 @@ int handle_read_msr(struct kvm_vcpu *vcpu)
 
 int handle_write_msr(struct kvm_vcpu *vcpu)
 {
-	/*No emulation for msr write now*/
+	unsigned long msr = vcpu->arch.regs[VCPU_REGS_RCX];
+	u32 low, high;
+	u64 val;
+
+	low = vcpu->arch.regs[VCPU_REGS_RAX];
+	high = vcpu->arch.regs[VCPU_REGS_RDX];
+	val = low | ((u64)high << 32);
+
+	switch (msr) {
+	case MSR_IA32_APICBASE:
+		pkvm_apic_base_msr_write(vcpu, val);
+		break;
+	default:
+		break;
+	}
+
 	return 0;
 }
 
@@ -85,4 +105,7 @@ void init_msr_emulation(struct vcpu_vmx *vmx)
 
 	for (i = 0; i < ARRAY_SIZE(emulated_ro_guest_msrs); i++)
 		enable_msr_interception(bitmap, emulated_ro_guest_msrs[i], INTERCEPT_READ);
+
+	for (i = 0; i < ARRAY_SIZE(emulated_wo_guest_msrs); i++)
+		enable_msr_interception(bitmap, emulated_wo_guest_msrs[i], INTERCEPT_WRITE);
 }
