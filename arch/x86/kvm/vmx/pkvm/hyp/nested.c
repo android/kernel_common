@@ -679,6 +679,15 @@ static void nested_release_vmcs12(struct kvm_vcpu *vcpu)
 	vmx->nested.current_vmptr = INVALID_GPA;
 	pkvm_hvcpu->current_shadow_vcpu = NULL;
 
+	WRITE_ONCE(cur_shadow_vcpu->vcpu, NULL);
+	/*
+	 * Flush the current used shadow EPT to make sure
+	 * nested_flush_shadow_ept() won't miss any flushing due to vmclear.
+	 * See commints in nested_flush_shadow_ept().
+	 */
+	pkvm_flush_shadow_ept(&cur_shadow_vcpu->vm->sept_desc);
+	kvm_clear_request(PKVM_REQ_TLB_FLUSH_SHADOW_EPT, vcpu);
+
 	put_shadow_vcpu(cur_shadow_vcpu->shadow_vcpu_handle);
 }
 
@@ -863,6 +872,7 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 					read_gpa(vcpu, vmptr, vmcs12, VMCS12_SIZE);
 					vmx->nested.dirty_vmcs12 = true;
 
+					WRITE_ONCE(shadow_vcpu->vcpu, vcpu);
 					if (!shadow_vcpu->vmcs02_inited) {
 						memset(vmcs02, 0, vmx_basic_vmcs_size(pkvm_hyp->vmcs_config.basic));
 						vmcs02->hdr.revision_id = vmx_basic_vmcs_revision_id(pkvm_hyp->vmcs_config.basic);
@@ -878,6 +888,12 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 						 */
 						vmcs_write64(EPT_POINTER,
 							     shadow_vcpu->vm->sept_desc.shadow_eptp);
+						/*
+						 * Flush the shadow eptp in case there are stale
+						 * entries which are not flushed when destroying
+						 * this shadow EPTP at last time.
+						 */
+						pkvm_flush_shadow_ept(&shadow_vcpu->vm->sept_desc);
 						shadow_vcpu->last_cpu = vcpu->cpu;
 						shadow_vcpu->vmcs02_inited = true;
 					} else {
@@ -1268,6 +1284,27 @@ int nested_vmexit(struct kvm_vcpu *vcpu, bool *skip_instruction)
 	prepare_vmcs01_guest_state(vmx, vmcs12);
 
 	return 0;
+}
+
+void nested_flush_shadow_ept(struct kvm_vcpu *vcpu)
+{
+	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *cur_shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+
+	/*
+	 * If the shadow vcpu is released from this CPU, no need to
+	 * worry about its TLB as it is already flushed during release.
+	 */
+	if (!cur_shadow_vcpu)
+		return;
+
+	/*
+	 * And probably the shadow EPT is not the one want to be flushed
+	 * if another shadow vcpu is loaded after kick, and cannot tell
+	 * this case without additional hints. So always do the shadow
+	 * ept flushing.
+	 */
+	pkvm_flush_shadow_ept(&cur_shadow_vcpu->vm->sept_desc);
 }
 
 void pkvm_init_nest(void)

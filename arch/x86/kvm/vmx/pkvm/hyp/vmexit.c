@@ -150,6 +150,8 @@ static void handle_pending_events(struct kvm_vcpu *vcpu)
 
 	if (kvm_check_request(PKVM_REQ_TLB_FLUSH_HOST_EPT, vcpu))
 		pkvm_flush_host_ept();
+	if (kvm_check_request(PKVM_REQ_TLB_FLUSH_SHADOW_EPT, vcpu))
+		nested_flush_shadow_ept(vcpu);
 }
 
 static inline void set_vcpu_mode(struct kvm_vcpu *vcpu, int mode)

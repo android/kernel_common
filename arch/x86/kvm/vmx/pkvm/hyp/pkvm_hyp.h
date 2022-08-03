@@ -56,6 +56,9 @@ struct shadow_vcpu_state {
 
 	/* The last cpu this vmcs02 runs with */
 	int last_cpu;
+
+	/* point to the kvm_vcpu associated with this shadow_vcpu */
+	struct kvm_vcpu *vcpu;
 } __aligned(PAGE_SIZE);
 
 #define SHADOW_VM_HANDLE_SHIFT		32
@@ -134,6 +137,7 @@ int for_each_valid_shadow_vm(int (*fn)(struct pkvm_shadow_vm *vm, void *data),
 void pkvm_kick_vcpu(struct kvm_vcpu *vcpu);
 
 #define PKVM_REQ_TLB_FLUSH_HOST_EPT			KVM_ARCH_REQ(0)
+#define PKVM_REQ_TLB_FLUSH_SHADOW_EPT			KVM_ARCH_REQ(1)
 
 extern struct pkvm_hyp *pkvm_hyp;
 

@@ -29,7 +29,6 @@ static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 static struct hyp_pool shadow_ept_pool;
 static struct rsvd_bits_validate ept_zero_check;
 
-static void flush_tlb_noop(struct pkvm_pgtable *pgt) { };
 static void *host_ept_zalloc_page(void)
 {
 	return hyp_alloc_pages(&host_ept_pool, 0);
@@ -360,7 +359,40 @@ static void shadow_ept_put_page(void *vaddr)
 	hyp_put_page(&shadow_ept_pool, vaddr);
 }
 
-/*TODO: add tlb flush support for shadow ept */
+static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt)
+{
+	struct pkvm_shadow_vm *shadow_vm = sept_to_shadow_vm(pgt);
+	struct shadow_vcpu_state *shadow_vcpu;
+	struct kvm_vcpu *vcpu;
+	s64 shadow_vcpu_handle;
+	int i, shadow_vm_handle = shadow_vm->shadow_vm_handle;
+
+	for (i = 0; i < shadow_vm->created_vcpus; i++) {
+		shadow_vcpu_handle = to_shadow_vcpu_handle(shadow_vm_handle, i);
+		shadow_vcpu = get_shadow_vcpu(shadow_vcpu_handle);
+		/*
+		 * For a shadow_vcpu which is already teardown, no need to kick
+		 * it as its shadow EPT tlb entries are already flushed when
+		 * this shadow vcpu is doing vmclear before teardown.
+		 */
+		if (!shadow_vcpu)
+			continue;
+
+		/*
+		 * If this shadow_vcpu is not loaded then there is vcpu
+		 * pointer for it, so can skip this remote tlb flushing.
+		 */
+		vcpu = READ_ONCE(shadow_vcpu->vcpu);
+		if (!vcpu)
+			goto next;
+
+		kvm_make_request(PKVM_REQ_TLB_FLUSH_SHADOW_EPT, vcpu);
+		pkvm_kick_vcpu(vcpu);
+next:
+		put_shadow_vcpu(shadow_vcpu_handle);
+	}
+}
+
 static struct pkvm_mm_ops shadow_ept_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
@@ -368,7 +400,7 @@ static struct pkvm_mm_ops shadow_ept_mm_ops = {
 	.get_page = shadow_ept_get_page,
 	.put_page = shadow_ept_put_page,
 	.page_count = hyp_page_count,
-	.flush_tlb = flush_tlb_noop,
+	.flush_tlb = shadow_ept_flush_tlb,
 };
 
 static int pkvm_shadow_ept_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
@@ -570,8 +602,6 @@ void pkvm_invalidate_shadow_ept(struct shadow_ept_desc *desc)
 		goto out;
 
 	pkvm_pgtable_unmap(sept, 0, size, pkvm_shadow_ept_invalidate_leaf);
-
-	flush_ept(desc->shadow_eptp);
 out:
 	pkvm_spin_unlock(&vm->lock);
 }
@@ -585,9 +615,6 @@ void pkvm_shadow_ept_deinit(struct shadow_ept_desc *desc)
 
 	if (desc->shadow_eptp) {
 		pkvm_pgtable_destroy(sept, pkvm_shadow_ept_free_leaf);
-
-		flush_ept(desc->shadow_eptp);
-
 		memset(sept, 0, sizeof(struct pkvm_pgtable));
 		desc->shadow_eptp = 0;
 	}
@@ -709,4 +736,12 @@ pkvm_handle_shadow_ept_violation(struct shadow_vcpu_state *shadow_vcpu, u64 l2_g
 out:
 	pkvm_spin_unlock(&vm->lock);
 	return ret;
+}
+
+void pkvm_flush_shadow_ept(struct shadow_ept_desc *desc)
+{
+	if (!is_valid_eptp(desc->shadow_eptp))
+		return;
+
+	flush_ept(desc->shadow_eptp);
 }
