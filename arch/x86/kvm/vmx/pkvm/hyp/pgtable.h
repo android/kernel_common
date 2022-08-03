@@ -20,6 +20,7 @@ struct pkvm_mm_ops {
 
 struct pkvm_pgtable_ops {
 	bool (*pgt_entry_present)(void *pte);
+	bool (*pgt_entry_mapped)(void *pte);
 	bool (*pgt_entry_huge)(void *pte);
 	void (*pgt_entry_mkhuge)(void *ptep);
 	unsigned long (*pgt_entry_to_phys)(void *pte);

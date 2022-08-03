@@ -116,6 +116,7 @@ static u64 mmu_level_page_mask(int level)
 
 struct pkvm_pgtable_ops mmu_ops = {
 	.pgt_entry_present = mmu_entry_present,
+	.pgt_entry_mapped = mmu_entry_present,
 	.pgt_entry_huge = mmu_entry_huge,
 	.pgt_entry_mkhuge = mmu_entry_mkhuge,
 	.pgt_entry_to_phys = mmu_entry_to_phys,

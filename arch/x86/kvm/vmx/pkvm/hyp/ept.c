@@ -63,6 +63,18 @@ static bool ept_entry_present(void *ptep)
 	return !!(val & VMX_EPT_RWX_MASK);
 }
 
+static bool ept_entry_mapped(void *ptep)
+{
+	/*
+	 * Both present and non-present (shadow)EPT entry is counted as a
+	 * mapped entry because a non-present entry with non-zero value may
+	 * contain page state and ownership information created through map
+	 * operation. So simply count non-zero entry as mapped to cover both
+	 * cases.
+	 */
+	return !!(*(u64 *)ptep);
+}
+
 static bool ept_entry_huge(void *ptep)
 {
 	return is_large_pte(*(u64 *)ptep);
@@ -128,6 +140,7 @@ static void ept_set_entry(void *sptep, u64 spte)
 
 struct pkvm_pgtable_ops ept_ops = {
 	.pgt_entry_present = ept_entry_present,
+	.pgt_entry_mapped = ept_entry_mapped,
 	.pgt_entry_huge = ept_entry_huge,
 	.pgt_entry_mkhuge = ept_entry_mkhuge,
 	.pgt_entry_to_phys = ept_entry_to_phys,
