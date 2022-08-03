@@ -36,7 +36,7 @@ static void mmu_put_page(void *vaddr)
 	hyp_put_page(&mmu_pool, vaddr);
 }
 
-static void flush_tlb_noop(void) { };
+static void flush_tlb_noop(struct pkvm_pgtable *pgt) { };
 
 static struct pkvm_mm_ops mmu_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,

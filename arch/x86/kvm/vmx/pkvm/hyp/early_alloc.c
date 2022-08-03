@@ -51,7 +51,7 @@ void *pkvm_early_alloc_page(void)
 
 static void pkvm_early_alloc_get_page(void *addr) { }
 static void pkvm_early_alloc_put_page(void *addr) { }
-static void pkvm_early_flush_tlb(void) { }
+static void pkvm_early_flush_tlb(struct pkvm_pgtable *pgt) { }
 
 static int pkvm_early_page_count(void *vaddr)
 {

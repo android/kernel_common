@@ -15,7 +15,7 @@ struct pkvm_mm_ops {
 	int (*page_count)(void *vaddr);
 	void (*get_page)(void *vaddr);
 	void (*put_page)(void *vaddr);
-	void (*flush_tlb)(void);
+	void (*flush_tlb)(struct pkvm_pgtable *pgt);
 };
 
 struct pkvm_pgtable_ops {
