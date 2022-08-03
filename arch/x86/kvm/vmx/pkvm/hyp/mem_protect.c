@@ -118,7 +118,7 @@ static int check_page_state_range(struct pkvm_pgtable *pgt, u64 addr, u64 size,
 		.arg		= &data,
 	};
 
-	return pgtable_walk(pgt, addr, size, &walker);
+	return pgtable_walk(pgt, addr, size, true, &walker);
 }
 
 static int __host_check_page_state_range(u64 addr, u64 size,

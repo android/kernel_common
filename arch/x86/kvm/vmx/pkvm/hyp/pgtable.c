@@ -498,9 +498,13 @@ static int _pgtable_walk(struct pgt_walk_data *data, void *ptep, int level)
 }
 
 int pgtable_walk(struct pkvm_pgtable *pgt, unsigned long vaddr,
-			unsigned long size, struct pkvm_pgtable_walker *walker)
+			unsigned long size, bool page_aligned,
+			struct pkvm_pgtable_walker *walker)
 {
-	unsigned long aligned_vaddr = ALIGN_DOWN(vaddr, PAGE_SIZE);
+	unsigned long aligned_vaddr =
+		page_aligned ? ALIGN_DOWN(vaddr, PAGE_SIZE) : vaddr;
+	unsigned long aligned_size =
+		page_aligned ? ALIGN(size, PAGE_SIZE) : size;
 	struct pgt_walk_data data = {
 		.pgt = pgt,
 		.flush_data = {
@@ -508,7 +512,7 @@ int pgtable_walk(struct pkvm_pgtable *pgt, unsigned long vaddr,
 			.free_list = LIST_HEAD_INIT(data.flush_data.free_list),
 		},
 		.vaddr = aligned_vaddr,
-		.vaddr_end = aligned_vaddr + ALIGN(size, PAGE_SIZE),
+		.vaddr_end = aligned_vaddr + aligned_size,
 		.walker = walker,
 	};
 	struct pkvm_mm_ops *mm_ops = pgt->mm_ops;
@@ -577,7 +581,7 @@ static int __pkvm_pgtable_map(struct pkvm_pgtable *pgt, unsigned long vaddr_star
 		.flags = PKVM_PGTABLE_WALK_LEAF,
 	};
 
-	return pgtable_walk(pgt, vaddr_start, size, &walker);
+	return pgtable_walk(pgt, vaddr_start, size, true, &walker);
 }
 
 int pkvm_pgtable_map(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
@@ -601,7 +605,7 @@ int pkvm_pgtable_unmap(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 		.flags = PKVM_PGTABLE_WALK_LEAF | PKVM_PGTABLE_WALK_TABLE_POST,
 	};
 
-	return pgtable_walk(pgt, vaddr_start, size, &walker);
+	return pgtable_walk(pgt, vaddr_start, size, true, &walker);
 }
 
 int pkvm_pgtable_unmap_safe(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
@@ -618,7 +622,7 @@ int pkvm_pgtable_unmap_safe(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 		.flags = PKVM_PGTABLE_WALK_LEAF | PKVM_PGTABLE_WALK_TABLE_POST,
 	};
 
-	return pgtable_walk(pgt, vaddr_start, size, &walker);
+	return pgtable_walk(pgt, vaddr_start, size, true, &walker);
 }
 
 void pkvm_pgtable_lookup(struct pkvm_pgtable *pgt, unsigned long vaddr,
@@ -635,7 +639,7 @@ void pkvm_pgtable_lookup(struct pkvm_pgtable *pgt, unsigned long vaddr,
 	int ret, retry_cnt = 0;
 
 retry:
-	ret = pgtable_walk(pgt, vaddr, PAGE_SIZE, &walker);
+	ret = pgtable_walk(pgt, vaddr, PAGE_SIZE, true, &walker);
 	/*
 	 * we give 5 times chance to re-walk pgtable if others change the
 	 * PTE during above pgtable walk.
@@ -668,7 +672,7 @@ void pkvm_pgtable_destroy(struct pkvm_pgtable *pgt, pgtable_leaf_ov_fn_t free_le
 	pgt_ops = pgt->pgt_ops;
 	size = pgt_ops->pgt_level_to_size(pgt->level + 1);
 
-	pgtable_walk(pgt, 0, size, &walker);
+	pgtable_walk(pgt, 0, size, true, &walker);
 	virt_root = pgt->mm_ops->phys_to_virt(pgt->root_pa);
 	pgt->mm_ops->put_page(virt_root);
 }

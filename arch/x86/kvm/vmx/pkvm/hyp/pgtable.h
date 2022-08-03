@@ -103,7 +103,8 @@ struct pkvm_pgtable_walker {
 };
 
 int pgtable_walk(struct pkvm_pgtable *pgt, unsigned long vaddr,
-		unsigned long size, struct pkvm_pgtable_walker *walker);
+		unsigned long size, bool page_aligned,
+		struct pkvm_pgtable_walker *walker);
 int pkvm_pgtable_init(struct pkvm_pgtable *pgt,
 		struct pkvm_mm_ops *mm_ops,
 		struct pkvm_pgtable_ops *pgt_ops,

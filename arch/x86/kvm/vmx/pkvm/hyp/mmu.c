@@ -181,7 +181,7 @@ static int fix_pgtable_refcnt(void)
 	size = pgt_ops->pgt_level_to_size(hyp_mmu.level + 1);
 #endif
 
-	return pgtable_walk(&hyp_mmu, 0, size, &walker);
+	return pgtable_walk(&hyp_mmu, 0, size, true, &walker);
 }
 
 int pkvm_mmu_map(unsigned long vaddr_start, unsigned long phys_start,
