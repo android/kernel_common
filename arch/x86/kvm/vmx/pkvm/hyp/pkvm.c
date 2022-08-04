@@ -3,6 +3,7 @@
  * Copyright (C) 2022 Intel Corporation
  */
 
+#include <linux/hashtable.h>
 #include <pkvm.h>
 
 #include "pkvm_hyp.h"
@@ -25,6 +26,10 @@ static struct shadow_vm_ref shadow_vms_ref[MAX_SHADOW_VMS];
 
 #define SHADOW_VCPU_ARRAY(vm) \
 	((struct shadow_vcpu_array *)((void *)(vm) + sizeof(struct pkvm_shadow_vm)))
+
+#define SHADOW_VCPU_HASH_BITS		10
+DEFINE_HASHTABLE(shadow_vcpu_table, SHADOW_VCPU_HASH_BITS);
+static pkvm_spinlock_t shadow_vcpu_table_lock = __PKVM_SPINLOCK_UNLOCKED;
 
 static int allocate_shadow_vm_handle(struct pkvm_shadow_vm *vm)
 {
@@ -133,6 +138,37 @@ static void put_shadow_vm(int shadow_vm_handle)
 	WARN_ON(atomic_dec_if_positive(&vm_ref->refcount) <= 0);
 }
 
+static void add_shadow_vcpu_vmcs12_map(struct shadow_vcpu_state *vcpu)
+{
+	pkvm_spin_lock(&shadow_vcpu_table_lock);
+	hash_add(shadow_vcpu_table, &vcpu->hnode, vcpu->vmcs12_pa);
+	pkvm_spin_unlock(&shadow_vcpu_table_lock);
+}
+
+static void remove_shadow_vcpu_vmcs12_map(struct shadow_vcpu_state *vcpu)
+{
+	pkvm_spin_lock(&shadow_vcpu_table_lock);
+	hash_del(&vcpu->hnode);
+	pkvm_spin_unlock(&shadow_vcpu_table_lock);
+}
+
+s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa)
+{
+	struct shadow_vcpu_state *shadow_vcpu;
+	s64 handle = -1;
+
+	pkvm_spin_lock(&shadow_vcpu_table_lock);
+	hash_for_each_possible(shadow_vcpu_table, shadow_vcpu, hnode, vmcs12_pa) {
+		if (shadow_vcpu->vmcs12_pa == vmcs12_pa) {
+			handle = shadow_vcpu->shadow_vcpu_handle;
+			break;
+		}
+	}
+	pkvm_spin_unlock(&shadow_vcpu_table_lock);
+
+	return handle;
+}
+
 struct shadow_vcpu_state *get_shadow_vcpu(s64 shadow_vcpu_handle)
 {
 	int shadow_vm_handle = to_shadow_vm_handle(shadow_vcpu_handle);
@@ -197,6 +233,8 @@ static s64 attach_shadow_vcpu_to_vm(struct pkvm_shadow_vm *vm,
 	if (!shadow_vcpu->vm)
 		return -EINVAL;
 
+	add_shadow_vcpu_vmcs12_map(shadow_vcpu);
+
 	pkvm_spin_lock(&vm->lock);
 
 	if (vm->created_vcpus == KVM_MAX_VCPUS) {
@@ -241,12 +279,14 @@ detach_shadow_vcpu_from_vm(struct pkvm_shadow_vm *vm, s64 shadow_vcpu_handle)
 
 	pkvm_spin_unlock(&vm->lock);
 
-	if (shadow_vcpu)
+	if (shadow_vcpu) {
+		remove_shadow_vcpu_vmcs12_map(shadow_vcpu);
 		/*
 		 * Paired with the get_shadow_vm when saving the shadow_vm pointer
 		 * during attaching shadow_vcpu.
 		 */
 		put_shadow_vm(shadow_vcpu->vm->shadow_vm_handle);
+	}
 
 	return shadow_vcpu;
 }
@@ -258,6 +298,7 @@ s64 __pkvm_init_shadow_vcpu(struct kvm_vcpu *hvcpu, int shadow_vm_handle,
 	struct pkvm_shadow_vm *vm;
 	struct shadow_vcpu_state *shadow_vcpu;
 	struct x86_exception e;
+	unsigned long vmcs12_va;
 	s64 shadow_vcpu_handle;
 	int ret;
 
@@ -271,6 +312,10 @@ s64 __pkvm_init_shadow_vcpu(struct kvm_vcpu *hvcpu, int shadow_vm_handle,
 
 	ret = read_gva(hvcpu, vcpu_va, &shadow_vcpu->vmx, sizeof(struct vcpu_vmx), &e);
 	if (ret < 0)
+		return -EINVAL;
+
+	vmcs12_va = (unsigned long)shadow_vcpu->vmx.vmcs01.vmcs;
+	if (gva2gpa(hvcpu, vmcs12_va, (gpa_t *)&shadow_vcpu->vmcs12_pa, 0, &e))
 		return -EINVAL;
 
 	vm = get_shadow_vm(shadow_vm_handle);

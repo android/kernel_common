@@ -21,6 +21,9 @@ struct shadow_vcpu_state {
 
 	struct pkvm_shadow_vm *vm;
 
+	struct hlist_node hnode;
+	unsigned long vmcs12_pa;
+
 	struct vcpu_vmx vmx;
 } __aligned(PAGE_SIZE);
 
@@ -74,6 +77,7 @@ s64 __pkvm_init_shadow_vcpu(struct kvm_vcpu *hvcpu, int shadow_vm_handle,
 unsigned long __pkvm_teardown_shadow_vcpu(s64 shadow_vcpu_handle);
 struct shadow_vcpu_state *get_shadow_vcpu(s64 shadow_vcpu_handle);
 void put_shadow_vcpu(s64 shadow_vcpu_handle);
+s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa);
 
 extern struct pkvm_hyp *pkvm_hyp;
 
