@@ -13,6 +13,8 @@
 #include <pkvm.h>
 #include "pkvm_constants.h"
 
+extern void pkvm_init_debugfs(void);
+
 MODULE_LICENSE("GPL");
 
 static struct pkvm_hyp *pkvm;
@@ -964,6 +966,7 @@ __init int pkvm_init(void)
 		goto out;
 
 	pkvm->num_cpus = num_possible_cpus();
+	pkvm_init_debugfs();
 
 	return pkvm_init_finalise();
 

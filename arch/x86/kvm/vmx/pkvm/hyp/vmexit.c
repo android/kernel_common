@@ -6,6 +6,7 @@
 #include <linux/memblock.h>
 #include <asm/kvm_pkvm.h>
 #include <pkvm.h>
+#include "trace.h"
 #include "vmexit.h"
 #include "ept.h"
 #include "pkvm_hyp.h"
@@ -88,6 +89,12 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	a3 = vcpu->arch.regs[VCPU_REGS_RSI];
 
 	switch (nr) {
+	case PKVM_HC_SET_VMEXIT_TRACE:
+		pkvm_handle_set_vmexit_trace(vcpu, a0);
+		break;
+	case PKVM_HC_DUMP_VMEXIT_TRACE:
+		pkvm_handle_dump_vmexit_trace(a0, a1);
+		break;
 	case PKVM_HC_INIT_FINALISE:
 		__pkvm_init_finalise(vcpu, a0, a1);
 		break;
@@ -157,6 +164,9 @@ int pkvm_main(struct kvm_vcpu *vcpu)
 		}
 
 		vcpu->arch.cr2 = native_read_cr2();
+
+		trace_vmexit_start(vcpu, is_guest_mode(vcpu) ? true : false);
+
 		vcpu->arch.cr3 = vmcs_readl(GUEST_CR3);
 		vcpu->arch.regs[VCPU_REGS_RSP] = vmcs_readl(GUEST_RSP);
 
@@ -273,6 +283,7 @@ int pkvm_main(struct kvm_vcpu *vcpu)
 			skip_emulated_instruction();
 
 		native_write_cr2(vcpu->arch.cr2);
+		trace_vmexit_end(vcpu, vmx->exit_reason.basic);
 	} while (1);
 
 	return 0;
