@@ -133,9 +133,6 @@ unsigned long __pkvm_teardown_shadow_vcpu(s64 shadow_vcpu_handle);
 struct shadow_vcpu_state *get_shadow_vcpu(s64 shadow_vcpu_handle);
 void put_shadow_vcpu(s64 shadow_vcpu_handle);
 s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa);
-
-int for_each_valid_shadow_vm(int (*fn)(struct pkvm_shadow_vm *vm, void *data),
-			     void *data);
 void pkvm_kick_vcpu(struct kvm_vcpu *vcpu);
 
 #define PKVM_REQ_TLB_FLUSH_HOST_EPT			KVM_ARCH_REQ(0)

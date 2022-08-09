@@ -747,56 +747,6 @@ static void setup_guest_ept(struct shadow_vcpu_state *shadow_vcpu, u64 guest_ept
 		pkvm_invalidate_shadow_ept(&vm->sept_desc);
 }
 
-static int __do_handle_invept(struct pkvm_shadow_vm *vm, void *data)
-{
-	if (data) {
-		/*
-		 * Single context invalidate with specific guest eptp
-		 */
-		u64 guest_eptp = *(u64 *)data;
-		struct shadow_vcpu_state *vcpu;
-		struct vmcs12 *vmcs12;
-		s64 shadow_vcpu_handle;
-		int i;
-
-		pkvm_spin_lock(&vm->lock);
-
-		for (i = 0; i < vm->created_vcpus; i++) {
-			shadow_vcpu_handle = to_shadow_vcpu_handle(vm->shadow_vm_handle, i);
-			vcpu = get_shadow_vcpu(shadow_vcpu_handle);
-			if (!vcpu)
-				continue;
-			vmcs12 = (struct vmcs12 *)vcpu->cached_vmcs12;
-			if (vmcs12->ept_pointer == guest_eptp) {
-				put_shadow_vcpu(shadow_vcpu_handle);
-				break;
-			}
-			put_shadow_vcpu(shadow_vcpu_handle);
-		}
-
-		pkvm_spin_unlock(&vm->lock);
-
-		/* No vCPU is using this guest eptp so no need invalidate */
-		if (i == vm->created_vcpus)
-			goto done;
-	}
-
-	/*
-	 * Gloable context invalidation directly went here.
-	 */
-	pkvm_invalidate_shadow_ept(&vm->sept_desc);
-done:
-	return data ? 1 : 0;
-}
-
-static void do_handle_invept(u64 *guest_eptp)
-{
-	if (guest_eptp && !is_valid_eptp(*guest_eptp))
-		return;
-
-	for_each_valid_shadow_vm(__do_handle_invept, guest_eptp);
-}
-
 int handle_vmxon(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -1106,6 +1056,7 @@ int handle_vmlaunch(struct kvm_vcpu *vcpu)
 int handle_invept(struct kvm_vcpu *vcpu)
 {
 	struct vmx_capability *vmx_cap = &pkvm_hyp->vmx_cap;
+	struct shadow_vcpu_state *shadow_vcpu;
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	u32 vmx_instruction_info, types;
 	unsigned long type;
@@ -1128,8 +1079,18 @@ int handle_invept(struct kvm_vcpu *vcpu)
 		return 0;
 	}
 
+	/*
+	 * Shadow EPT TLB is flushed when doing vmclear for a shadow vcpu, so if
+	 * this CPU doesn't have a shadow vcpu loaded, then there is no shadow
+	 * EPT TLB entries left on this CPU, and no need to execut invept.
+	 */
+	shadow_vcpu = to_pkvm_hvcpu(vcpu)->current_shadow_vcpu;
+	if (!shadow_vcpu)
+		goto out;
+
 	switch (type) {
 	case VMX_EPT_EXTENT_CONTEXT: {
+		struct vmcs12 *vmcs12;
 		struct x86_exception e;
 		gva_t gva;
 		struct {
@@ -1145,16 +1106,29 @@ int handle_invept(struct kvm_vcpu *vcpu)
 			/*TODO: handle memory failure exception */
 			return -EINVAL;
 
-		do_handle_invept(&operand.eptp);
+		/*
+		 * For single context invept with a guest eptp, do the invept
+		 * if the guest eptp matches with the shadow eptp of this
+		 * loaded shadow vcpu.
+		 */
+		vmcs12 = (struct vmcs12 *)shadow_vcpu->cached_vmcs12;
+		if (vmcs12->ept_pointer == operand.eptp)
+			pkvm_flush_shadow_ept(&shadow_vcpu->vm->sept_desc);
 		break;
 	}
 	case VMX_EPT_EXTENT_GLOBAL:
-		do_handle_invept(NULL);
+		/*
+		 * For global context invept, directly do invept with the
+		 * shadow eptp of the current shadow vcpu, as there is no
+		 * other shadow ept's TLB entries left on this cpu.
+		 */
+		pkvm_flush_shadow_ept(&shadow_vcpu->vm->sept_desc);
 		break;
 	default:
 		break;
 	}
 
+out:
 	nested_vmx_result(VMsucceed, 0);
 	return 0;
 }
