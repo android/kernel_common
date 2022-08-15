@@ -1256,6 +1256,7 @@ out:
 static int context_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc)
 {
 	u16 sid = QI_DESC_CC_SID(desc->qw0);
+	u16 did = ecap_smts(iommu->iommu.ecap) ? 0 : QI_DESC_CC_DID(desc->qw0);
 	u64 granu = QI_DESC_CC_GRANU(desc->qw0) << DMA_CCMD_INVL_GRANU_OFFSET;
 	unsigned long start, end;
 	int ret;
@@ -1263,7 +1264,7 @@ static int context_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *de
 	switch (granu) {
 	case DMA_CCMD_GLOBAL_INVL:
 		start = 0;
-		end = IOMMU_MAX_VADDR;
+		end = MAX_NUM_OF_ADDRESS_SPACE(iommu);
 		pkvm_dbg("pkvm: %s: iommu%d: global\n", __func__, iommu->iommu.seq_id);
 		ret = sync_shadow_id(iommu, start, end, 0);
 		break;
@@ -1274,17 +1275,22 @@ static int context_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *de
 		 * according to spec 6.5.2.1
 		 */
 		start = 0;
-		end = IOMMU_MAX_VADDR;
+		end = MAX_NUM_OF_ADDRESS_SPACE(iommu);
 		pkvm_dbg("pkvm: %s: iommu%d: domain selective\n",
 			 __func__, iommu->iommu.seq_id);
-		ret = sync_shadow_id(iommu, start, end, 0);
+		ret = sync_shadow_id(iommu, start, end, did);
 		break;
 	case DMA_CCMD_DEVICE_INVL:
-		start = (unsigned long)sid << DEVFN_SHIFT;
-		end = ((unsigned long)sid + 1) << DEVFN_SHIFT;
+		if (ecap_smts(iommu->iommu.ecap)) {
+			start = (unsigned long)sid << DEVFN_SHIFT;
+			end = ((unsigned long)sid + 1) << DEVFN_SHIFT;
+		} else {
+			start = (unsigned long)sid << LM_DEVFN_SHIFT;
+			end = ((unsigned long)sid + 1) << LM_DEVFN_SHIFT;
+		}
 		pkvm_dbg("pkvm: %s: iommu%d: device selective sid 0x%x\n",
 			 __func__, iommu->iommu.seq_id, sid);
-		ret = sync_shadow_id(iommu, start, end, 0);
+		ret = sync_shadow_id(iommu, start, end, did);
 		break;
 	default:
 		pkvm_err("pkvm: %s: iommu%d: invalidate granu %lld\n",

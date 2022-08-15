@@ -54,7 +54,6 @@ enum sm_level {
 	IOMMU_SM_LEVEL_NUM,
 };
 
-
 #define LAST_LEVEL(level)	\
 	((level == 1) ? true : false)
 
@@ -63,6 +62,7 @@ enum sm_level {
 
 #define LM_BUS_BITS		8
 #define LM_BUS_SHIFT	8
+#define IOMMU_LM_MAX_VADDR         BIT(16)
 
 #define PASID_PTE_PRESENT	1
 #define PASID_PTE_FPD		2
@@ -87,6 +87,10 @@ enum sm_level {
 
 #define IOMMU_MAX_VADDR_LEN	(BUS_SHIFT + BUS_BITS)
 #define IOMMU_MAX_VADDR		BIT(IOMMU_MAX_VADDR_LEN)
+
+#define MAX_NUM_OF_ADDRESS_SPACE(iommu)		\
+	(ecap_smts(iommu->iommu.ecap) ?	\
+		IOMMU_MAX_VADDR : IOMMU_LM_MAX_VADDR)
 
 #define DMAR_GSTS_EN_BITS	(DMA_GCMD_TE | DMA_GCMD_EAFL | \
 				 DMA_GCMD_QIE | DMA_GCMD_IRE | \
