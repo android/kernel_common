@@ -49,6 +49,9 @@ enum sm_level {
 	IOMMU_SM_LEVEL_NUM,
 };
 
+#define LAST_LEVEL(level)	\
+	((level == 1) ? true : false)
+
 #define PASID_PTE_PRESENT	1
 #define PASID_PTE_FPD		2
 #define MAX_NR_PASID_BITS	PKVM_MAX_PASID_BITS

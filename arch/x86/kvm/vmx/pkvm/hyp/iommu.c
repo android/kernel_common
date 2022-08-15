@@ -119,7 +119,7 @@ static struct pkvm_mm_ops iommu_pw_noncoherency_mm_ops = {
 	.flush_cache = iommu_flush_cache,
 };
 
-static bool iommu_paging_entry_present(void *ptep)
+static bool iommu_id_entry_present(void *ptep)
 {
 	u64 val;
 
@@ -127,14 +127,14 @@ static bool iommu_paging_entry_present(void *ptep)
 	return !!(val & 1);
 }
 
-static unsigned long iommu_paging_entry_to_phys(void *ptep)
+static unsigned long iommu_id_entry_to_phys(void *ptep)
 {
 	u64 val = *(u64 *)ptep;
 
 	return val & VTD_PAGE_MASK;
 }
 
-static int iommu_paging_entry_to_index(unsigned long vaddr, int level)
+static int iommu_sm_id_entry_to_index(unsigned long vaddr, int level)
 {
 	switch (level) {
 	case IOMMU_PASID_TABLE:
@@ -152,16 +152,16 @@ static int iommu_paging_entry_to_index(unsigned long vaddr, int level)
 	return -EINVAL;
 }
 
-static bool iommu_paging_entry_is_leaf(void *ptep, int level)
+static bool iommu_id_entry_is_leaf(void *ptep, int level)
 {
-	if (level == IOMMU_PASID_TABLE ||
-		!iommu_paging_entry_present(ptep))
+	if (LAST_LEVEL(level) ||
+		!iommu_id_entry_present(ptep))
 		return true;
 
 	return false;
 }
 
-static int iommu_paging_level_entry_size(int level)
+static int iommu_sm_id_level_entry_size(int level)
 {
 	switch (level) {
 	case IOMMU_PASID_TABLE:
@@ -180,7 +180,7 @@ static int iommu_paging_level_entry_size(int level)
 	return -EINVAL;
 }
 
-static int iommu_paging_level_to_entries(int level)
+static int iommu_sm_id_level_to_entries(int level)
 {
 	switch (level) {
 	case IOMMU_PASID_TABLE:
@@ -198,7 +198,7 @@ static int iommu_paging_level_to_entries(int level)
 	return -EINVAL;
 }
 
-static unsigned long iommu_paging_level_to_size(int level)
+static unsigned long iommu_sm_id_level_to_size(int level)
 {
 	switch (level) {
 	case IOMMU_PASID_TABLE:
@@ -216,14 +216,14 @@ static unsigned long iommu_paging_level_to_size(int level)
 	return 0;
 }
 
-struct pkvm_pgtable_ops iommu_paging_ops = {
-	.pgt_entry_present = iommu_paging_entry_present,
-	.pgt_entry_to_phys = iommu_paging_entry_to_phys,
-	.pgt_entry_to_index = iommu_paging_entry_to_index,
-	.pgt_entry_is_leaf = iommu_paging_entry_is_leaf,
-	.pgt_level_entry_size = iommu_paging_level_entry_size,
-	.pgt_level_to_entries = iommu_paging_level_to_entries,
-	.pgt_level_to_size = iommu_paging_level_to_size,
+struct pkvm_pgtable_ops iommu_sm_id_ops = {
+	.pgt_entry_present = iommu_id_entry_present,
+	.pgt_entry_to_phys = iommu_id_entry_to_phys,
+	.pgt_entry_to_index = iommu_sm_id_entry_to_index,
+	.pgt_entry_is_leaf = iommu_id_entry_is_leaf,
+	.pgt_level_entry_size = iommu_sm_id_level_entry_size,
+	.pgt_level_to_entries = iommu_sm_id_level_to_entries,
+	.pgt_level_to_size = iommu_sm_id_level_to_size,
 };
 
 static int iommu_pgtable_walk(struct pkvm_pgtable *pgt, unsigned long vaddr,
@@ -369,7 +369,7 @@ static bool sync_shadow_pasid_table_entry(struct pgt_sync_data *sdata)
 	return pasid_copy_entry(shadow_pte, &tmp_pte);
 }
 
-static bool iommu_paging_sync_entry(struct pgt_sync_data *sdata)
+static bool iommu_sm_id_sync_entry(struct pgt_sync_data *sdata)
 {
 	bool ret = false;
 	struct pkvm_pgtable *spgt = sdata->spgt;
@@ -413,7 +413,7 @@ static int initialize_iommu_pgt(struct pkvm_iommu *iommu)
 	cap.level = IOMMU_SM_ROOT;
 
 	vpgt->root_pa = grt_pa;
-	ret = pkvm_pgtable_init(vpgt, &viommu_mm_ops, &iommu_paging_ops, &cap, false);
+	ret = pkvm_pgtable_init(vpgt, &viommu_mm_ops, &iommu_sm_id_ops, &cap, false);
 	if (ret)
 		return ret;
 
@@ -430,7 +430,7 @@ static int initialize_iommu_pgt(struct pkvm_iommu *iommu)
 	else
 		iommu_mm_ops = &iommu_pw_coherency_mm_ops;
 
-	ret = pkvm_pgtable_init(pgt, iommu_mm_ops, &iommu_paging_ops, &cap, true);
+	ret = pkvm_pgtable_init(pgt, iommu_mm_ops, &iommu_sm_id_ops, &cap, true);
 	if (!ret) {
 		/*
 		 * Hold additional reference count to make
@@ -487,7 +487,7 @@ int pkvm_init_iommu(unsigned long mem_base, unsigned long nr_pages)
 	return 0;
 }
 
-static int free_shadow_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
+static int free_shadow_id_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 			  unsigned long vaddr_end, int level, void *ptep,
 			  unsigned long flags, struct pgt_flush_data *flush_data,
 			  void *const arg)
@@ -507,7 +507,7 @@ static int free_shadow_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 
 	/* Un-present a present PASID Table entry */
 	if (level == IOMMU_PASID_TABLE) {
-		iommu_paging_sync_entry(&sync_data);
+		iommu_sm_id_sync_entry(&sync_data);
 		mm_ops->put_page(ptep);
 		return 0;
 	}
@@ -519,7 +519,7 @@ static int free_shadow_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 	 */
 	child_ptep = mm_ops->phys_to_virt(pgt_ops->pgt_entry_to_phys(ptep));
 	if (mm_ops->page_count(child_ptep) == 1) {
-		iommu_paging_sync_entry(&sync_data);
+		iommu_sm_id_sync_entry(&sync_data);
 		mm_ops->put_page(ptep);
 		mm_ops->put_page(child_ptep);
 	}
@@ -528,7 +528,7 @@ static int free_shadow_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 }
 
 /* sync_data != NULL, data != NULL */
-static int init_sync_data(struct pgt_sync_data *sync_data,
+static int init_sync_id_data(struct pgt_sync_data *sync_data,
 		struct pgt_sync_walk_data *data,
 		struct pkvm_iommu *iommu, void *guest_ptep,
 		unsigned long vaddr, int level)
@@ -574,9 +574,9 @@ static int init_sync_data(struct pgt_sync_data *sync_data,
 	return 0;
 }
 
-static int free_shadow(struct pkvm_iommu *iommu, unsigned long vaddr,
+static int free_shadow_id(struct pkvm_iommu *iommu, unsigned long vaddr,
 		       unsigned long vaddr_end);
-static int sync_shadow_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
+static int sync_shadow_id_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 			  unsigned long vaddr_end, int level, void *ptep,
 			  unsigned long flags, struct pgt_flush_data *flush_data,
 			  void *const arg)
@@ -588,7 +588,7 @@ static int sync_shadow_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 	struct pgt_sync_data sync_data;
 	void *shadow_ptep, *guest_ptep;
 	bool shadow_p, guest_p;
-	int ret = init_sync_data(&sync_data, data, iommu, ptep, vaddr, level);
+	int ret = init_sync_id_data(&sync_data, data, iommu, ptep, vaddr, level);
 
 	if (ret < 0)
 		return ret;
@@ -623,7 +623,7 @@ static int sync_shadow_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 			 * As here we only want to free its specific sub-level.
 			 */
 			spgt->mm_ops->get_page(shadow_ptep);
-			free_shadow(iommu, vaddr, new_vaddr_end);
+			free_shadow_id(iommu, vaddr, new_vaddr_end);
 			spgt->mm_ops->put_page(shadow_ptep);
 		}
 		/*
@@ -678,7 +678,7 @@ static int sync_shadow_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 		 */
 		sync_data.shadow_pa = spgt->pgt_ops->pgt_entry_to_phys(shadow_ptep);
 
-	if (iommu_paging_sync_entry(&sync_data)) {
+	if (iommu_sm_id_sync_entry(&sync_data)) {
 		if (!shadow_p)
 			/*
 			 * A non-present to present changing require to get
@@ -698,11 +698,11 @@ static int sync_shadow_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 	return ret;
 }
 
-static int free_shadow(struct pkvm_iommu *iommu, unsigned long vaddr,
+static int free_shadow_id(struct pkvm_iommu *iommu, unsigned long vaddr,
 		       unsigned long vaddr_end)
 {
 	struct pkvm_pgtable_walker walker = {
-		.cb = free_shadow_cb,
+		.cb = free_shadow_id_cb,
 		.flags = PKVM_PGTABLE_WALK_LEAF |
 			 PKVM_PGTABLE_WALK_TABLE_POST,
 	};
@@ -717,12 +717,12 @@ static int free_shadow(struct pkvm_iommu *iommu, unsigned long vaddr,
 	return iommu_pgtable_walk(&iommu->pgt, vaddr, vaddr_end, &walker);
 }
 
-static int sync_shadow(struct pkvm_iommu *iommu, unsigned long vaddr,
+static int sync_shadow_id(struct pkvm_iommu *iommu, unsigned long vaddr,
 		       unsigned long vaddr_end, u16 did)
 {
 	DEFINE_PGT_SYNC_WALK_DATA(arg, iommu, did);
 	struct pkvm_pgtable_walker walker = {
-		.cb = sync_shadow_cb,
+		.cb = sync_shadow_id_cb,
 		.flags = PKVM_PGTABLE_WALK_TABLE_PRE |
 			 PKVM_PGTABLE_WALK_LEAF,
 		.arg = &arg,
@@ -1085,7 +1085,7 @@ static int activate_iommu(struct pkvm_iommu *iommu)
 
 	initialize_viommu_reg(iommu);
 
-	ret = sync_shadow(iommu, vaddr, vaddr_end, 0);
+	ret = sync_shadow_id(iommu, vaddr, vaddr_end, 0);
 	if (ret)
 		goto out;
 
@@ -1111,7 +1111,7 @@ static int activate_iommu(struct pkvm_iommu *iommu)
 	return 0;
 
 free_shadow:
-	free_shadow(iommu, vaddr, vaddr_end);
+	free_shadow_id(iommu, vaddr, vaddr_end);
 out:
 	pkvm_spin_unlock(&iommu->lock);
 	return ret;
@@ -1129,7 +1129,7 @@ static int context_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *de
 		start = 0;
 		end = IOMMU_MAX_VADDR;
 		pkvm_dbg("pkvm: %s: iommu%d: global\n", __func__, iommu->iommu.seq_id);
-		ret = sync_shadow(iommu, start, end, 0);
+		ret = sync_shadow_id(iommu, start, end, 0);
 		break;
 	case DMA_CCMD_DOMAIN_INVL:
 		/*
@@ -1141,14 +1141,14 @@ static int context_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *de
 		end = IOMMU_MAX_VADDR;
 		pkvm_dbg("pkvm: %s: iommu%d: domain selective\n",
 			 __func__, iommu->iommu.seq_id);
-		ret = sync_shadow(iommu, start, end, 0);
+		ret = sync_shadow_id(iommu, start, end, 0);
 		break;
 	case DMA_CCMD_DEVICE_INVL:
 		start = (unsigned long)sid << DEVFN_SHIFT;
 		end = ((unsigned long)sid + 1) << DEVFN_SHIFT;
 		pkvm_dbg("pkvm: %s: iommu%d: device selective sid 0x%x\n",
 			 __func__, iommu->iommu.seq_id, sid);
-		ret = sync_shadow(iommu, start, end, 0);
+		ret = sync_shadow_id(iommu, start, end, 0);
 		break;
 	default:
 		pkvm_err("pkvm: %s: iommu%d: invalidate granu %lld\n",
@@ -1181,7 +1181,7 @@ static int pasid_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc
 			 __func__, iommu->iommu.seq_id, did);
 		start = 0;
 		end = IOMMU_MAX_VADDR;
-		ret = sync_shadow(iommu, start, end, did);
+		ret = sync_shadow_id(iommu, start, end, did);
 		break;
 	case QI_PC_PASID_SEL: {
 		/*
@@ -1194,7 +1194,7 @@ static int pasid_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc
 		for (bdf = 0; bdf < end_bdf; bdf++) {
 			start = (bdf << DEVFN_SHIFT) + pasid;
 			end = start + 1;
-			ret = sync_shadow(iommu, start, end, did);
+			ret = sync_shadow_id(iommu, start, end, did);
 			if (ret)
 				break;
 		}
@@ -1204,7 +1204,7 @@ static int pasid_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc
 		start = 0;
 		end = IOMMU_MAX_VADDR;
 		pkvm_dbg("pkvm: %s: iommu%d: global\n", __func__, iommu->iommu.seq_id);
-		ret = sync_shadow(iommu, start, end, 0);
+		ret = sync_shadow_id(iommu, start, end, 0);
 		break;
 	default:
 		pkvm_err("pkvm: %s: iommu%d: invalid granularity %d 0x%llx\n",
@@ -1360,7 +1360,7 @@ static void handle_gcmd_te(struct pkvm_iommu *iommu, bool en)
 		/*
 		 * Sync shadow page table to emulate Translation enable.
 		 */
-		if (sync_shadow(iommu, vaddr, vaddr_end, 0))
+		if (sync_shadow_id(iommu, vaddr, vaddr_end, 0))
 			return;
 		pkvm_dbg("pkvm: %s: enable TE\n", __func__);
 		goto out;
@@ -1372,7 +1372,7 @@ static void handle_gcmd_te(struct pkvm_iommu *iommu, bool en)
 	 * Not really disable translation as still
 	 * need to protect agains the device.
 	 */
-	free_shadow(iommu, vaddr, vaddr_end);
+	free_shadow_id(iommu, vaddr, vaddr_end);
 	viommu->vreg.gsts &= ~DMA_GSTS_TES;
 	pkvm_dbg("pkvm: %s: disable TE\n", __func__);
 out:
@@ -1399,7 +1399,7 @@ static void handle_gcmd_srtp(struct pkvm_iommu *iommu)
 		unsigned long vaddr = 0, vaddr_end = IOMMU_MAX_VADDR;
 
 		/* TE is already enabled, sync shadow */
-		if (sync_shadow(iommu, vaddr, vaddr_end, 0))
+		if (sync_shadow_id(iommu, vaddr, vaddr_end, 0))
 			return;
 
 		flush_context_cache(iommu, 0, 0, 0, DMA_CCMD_GLOBAL_INVL);
