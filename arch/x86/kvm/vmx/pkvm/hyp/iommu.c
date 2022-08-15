@@ -513,14 +513,21 @@ static int initialize_iommu_pgt(struct pkvm_iommu *iommu)
 	struct pkvm_pgtable *pgt = &iommu->pgt;
 	struct pkvm_pgtable *vpgt = &iommu->viommu.pgt;
 	static struct pkvm_mm_ops *iommu_mm_ops;
+	struct pkvm_pgtable_ops *iommu_ops;
 	struct pkvm_pgtable_cap cap;
 	u64 grt_pa = readq(iommu->iommu.reg + DMAR_RTADDR_REG) & VTD_PAGE_MASK;
 	int ret;
 
-	cap.level = IOMMU_SM_ROOT;
+	if (ecap_smts(iommu->iommu.ecap)) {
+		cap.level = IOMMU_SM_ROOT;
+		iommu_ops = &iommu_sm_id_ops;
+	} else {
+		cap.level = IOMMU_LM_ROOT;
+		iommu_ops = &iommu_lm_id_ops;
+	}
 
 	vpgt->root_pa = grt_pa;
-	ret = pkvm_pgtable_init(vpgt, &viommu_mm_ops, &iommu_sm_id_ops, &cap, false);
+	ret = pkvm_pgtable_init(vpgt, &viommu_mm_ops, iommu_ops, &cap, false);
 	if (ret)
 		return ret;
 
@@ -537,7 +544,7 @@ static int initialize_iommu_pgt(struct pkvm_iommu *iommu)
 	else
 		iommu_mm_ops = &iommu_pw_coherency_mm_ops;
 
-	ret = pkvm_pgtable_init(pgt, iommu_mm_ops, &iommu_sm_id_ops, &cap, true);
+	ret = pkvm_pgtable_init(pgt, iommu_mm_ops, iommu_ops, &cap, true);
 	if (!ret) {
 		/*
 		 * Hold additional reference count to make
@@ -1209,11 +1216,6 @@ static int activate_iommu(struct pkvm_iommu *iommu)
 	pkvm_dbg("%s: iommu%d\n", __func__, iommu->iommu.seq_id);
 
 	pkvm_spin_lock(&iommu->lock);
-
-	if (!ecap_nest(iommu->iommu.ecap)) {
-		ret = -ENODEV;
-		goto out;
-	}
 
 	ret = initialize_iommu_pgt(iommu);
 	if (ret)
