@@ -1494,7 +1494,7 @@ static int handle_qi_invalidation(struct pkvm_iommu *iommu, unsigned long val)
 
 static void handle_gcmd_te(struct pkvm_iommu *iommu, bool en)
 {
-	unsigned long vaddr = 0, vaddr_end = IOMMU_MAX_VADDR;
+	unsigned long vaddr = 0, vaddr_end = MAX_NUM_OF_ADDRESS_SPACE(iommu);
 	struct pkvm_viommu *viommu = &iommu->viommu;
 
 	if (en) {
@@ -1519,7 +1519,8 @@ static void handle_gcmd_te(struct pkvm_iommu *iommu, bool en)
 	pkvm_dbg("pkvm: %s: disable TE\n", __func__);
 out:
 	flush_context_cache(iommu, 0, 0, 0, DMA_CCMD_GLOBAL_INVL);
-	flush_pasid_cache(iommu, 0, QI_PC_GLOBAL, 0);
+	if (ecap_smts(iommu->iommu.ecap))
+		flush_pasid_cache(iommu, 0, QI_PC_GLOBAL, 0);
 	flush_iotlb(iommu, 0, 0, 0, DMA_TLB_GLOBAL_FLUSH);
 
 	root_tbl_walk(iommu);
@@ -1538,14 +1539,15 @@ static void handle_gcmd_srtp(struct pkvm_iommu *iommu)
 	pkvm_dbg("pkvm: %s: set SRTP val 0x%llx\n", __func__, vreg->rta);
 
 	if (vreg->gsts & DMA_GSTS_TES) {
-		unsigned long vaddr = 0, vaddr_end = IOMMU_MAX_VADDR;
+		unsigned long vaddr = 0, vaddr_end = MAX_NUM_OF_ADDRESS_SPACE(iommu);
 
 		/* TE is already enabled, sync shadow */
 		if (sync_shadow_id(iommu, vaddr, vaddr_end, 0))
 			return;
 
 		flush_context_cache(iommu, 0, 0, 0, DMA_CCMD_GLOBAL_INVL);
-		flush_pasid_cache(iommu, 0, QI_PC_GLOBAL, 0);
+		if (ecap_smts(iommu->iommu.ecap))
+			flush_pasid_cache(iommu, 0, QI_PC_GLOBAL, 0);
 		flush_iotlb(iommu, 0, 0, 0, DMA_TLB_GLOBAL_FLUSH);
 	}
 
