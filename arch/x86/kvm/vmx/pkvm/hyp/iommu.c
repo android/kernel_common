@@ -226,6 +226,72 @@ struct pkvm_pgtable_ops iommu_sm_id_ops = {
 	.pgt_level_to_size = iommu_sm_id_level_to_size,
 };
 
+static int iommu_lm_id_entry_to_index(unsigned long vaddr, int level)
+{
+	switch (level) {
+	case IOMMU_LM_CONTEXT:
+		return (vaddr >> LM_DEVFN_SHIFT) & (BIT(LM_DEVFN_BITS) - 1);
+	case IOMMU_LM_ROOT:
+		return (vaddr >> LM_BUS_SHIFT) & (BIT(LM_BUS_BITS) - 1);
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+static int iommu_lm_id_level_entry_size(int level)
+{
+	switch (level) {
+	case IOMMU_LM_CONTEXT:
+		return sizeof(struct context_entry);
+	case IOMMU_LM_ROOT:
+		return sizeof(struct root_entry);
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+static int iommu_lm_id_level_to_entries(int level)
+{
+	switch (level) {
+	case IOMMU_LM_CONTEXT:
+		return 1 << LM_DEVFN_BITS;
+	case IOMMU_LM_ROOT:
+		return 1 << LM_BUS_BITS;
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+static unsigned long iommu_lm_id_level_to_size(int level)
+{
+	switch (level) {
+	case IOMMU_LM_CONTEXT:
+		return 1 << LM_DEVFN_SHIFT;
+	case IOMMU_LM_ROOT:
+		return 1 << LM_BUS_SHIFT;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+struct pkvm_pgtable_ops iommu_lm_id_ops = {
+	.pgt_entry_present = iommu_id_entry_present,
+	.pgt_entry_to_phys = iommu_id_entry_to_phys,
+	.pgt_entry_to_index = iommu_lm_id_entry_to_index,
+	.pgt_entry_is_leaf = iommu_id_entry_is_leaf,
+	.pgt_level_entry_size = iommu_lm_id_level_entry_size,
+	.pgt_level_to_entries = iommu_lm_id_level_to_entries,
+	.pgt_level_to_size = iommu_lm_id_level_to_size,
+};
+
 static int iommu_pgtable_walk(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		       unsigned long vaddr_end, struct pkvm_pgtable_walker *walker)
 {

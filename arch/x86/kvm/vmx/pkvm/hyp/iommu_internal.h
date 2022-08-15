@@ -41,6 +41,11 @@ struct pkvm_iommu {
 	u64 piommu_iqa;
 };
 
+enum lm_level {
+	IOMMU_LM_CONTEXT = 1,
+	IOMMU_LM_ROOT,
+};
+
 enum sm_level {
 	IOMMU_PASID_TABLE = 1,
 	IOMMU_PASID_DIR,
@@ -49,8 +54,15 @@ enum sm_level {
 	IOMMU_SM_LEVEL_NUM,
 };
 
+
 #define LAST_LEVEL(level)	\
 	((level == 1) ? true : false)
+
+#define LM_DEVFN_BITS	8
+#define LM_DEVFN_SHIFT	0
+
+#define LM_BUS_BITS		8
+#define LM_BUS_SHIFT	8
 
 #define PASID_PTE_PRESENT	1
 #define PASID_PTE_FPD		2
