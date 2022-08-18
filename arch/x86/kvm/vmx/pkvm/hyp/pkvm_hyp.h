@@ -38,6 +38,9 @@ struct shadow_vcpu_state {
 
 	struct pkvm_shadow_vm *vm;
 
+	/* The donated size of shadow_vcpu. */
+	unsigned long shadow_size;
+
 	struct hlist_node hnode;
 	unsigned long vmcs12_pa;
 	bool vmcs02_inited;
@@ -92,6 +95,9 @@ struct pkvm_shadow_vm {
 
 	/* The host's kvm va. */
 	unsigned long host_kvm_va;
+
+	/* The donated size of shadow_vm. */
+	unsigned long shadow_size;
 
 	/*
 	 * VM's shadow EPT. All vCPU shares one mapping.

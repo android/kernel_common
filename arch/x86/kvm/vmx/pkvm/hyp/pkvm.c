@@ -96,11 +96,15 @@ int __pkvm_init_shadow_vm(unsigned long kvm_va,
 			  size_t shadow_size)
 {
 	struct pkvm_shadow_vm *vm;
+	int shadow_vm_handle;
 
 	if (!PAGE_ALIGNED(shadow_pa) ||
 		!PAGE_ALIGNED(shadow_size) ||
 		(shadow_size != PAGE_ALIGN(sizeof(struct pkvm_shadow_vm)
 					   + pkvm_shadow_vcpu_array_size())))
+		return -EINVAL;
+
+	if (__pkvm_host_donate_hyp(shadow_pa, shadow_size))
 		return -EINVAL;
 
 	vm = pkvm_phys_to_virt(shadow_pa);
@@ -109,23 +113,39 @@ int __pkvm_init_shadow_vm(unsigned long kvm_va,
 	pkvm_spin_lock_init(&vm->lock);
 
 	vm->host_kvm_va = kvm_va;
+	vm->shadow_size = shadow_size;
 
 	if (pkvm_shadow_ept_init(&vm->sept_desc))
-		return -EINVAL;
+		goto undonate;
 
-	return allocate_shadow_vm_handle(vm);
+	shadow_vm_handle = allocate_shadow_vm_handle(vm);
+	if (shadow_vm_handle < 0)
+		goto deinit_shadow_ept;
+
+	return shadow_vm_handle;
+
+deinit_shadow_ept:
+	pkvm_shadow_ept_deinit(&vm->sept_desc);
+undonate:
+	memset(vm, 0, shadow_size);
+	__pkvm_hyp_donate_host(shadow_pa, shadow_size);
+	return -EINVAL;
 }
 
 unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle)
 {
 	struct pkvm_shadow_vm *vm = free_shadow_vm_handle(shadow_vm_handle);
+	unsigned long shadow_size;
 
 	if (!vm)
 		return 0;
 
 	pkvm_shadow_ept_deinit(&vm->sept_desc);
 
-	memset(vm, 0, sizeof(struct pkvm_shadow_vm) + pkvm_shadow_vcpu_array_size());
+	shadow_size = vm->shadow_size;
+	memset(vm, 0, shadow_size);
+
+	WARN_ON(__pkvm_hyp_donate_host(pkvm_virt_to_phys(vm), shadow_size));
 
 	return pkvm_virt_to_phys(vm);
 }
@@ -321,32 +341,44 @@ s64 __pkvm_init_shadow_vcpu(struct kvm_vcpu *hvcpu, int shadow_vm_handle,
 		(vmx_basic_vmcs_size(pkvm_hyp->vmcs_config.basic) > PAGE_SIZE))
 		return -EINVAL;
 
+	if (__pkvm_host_donate_hyp(shadow_pa, shadow_size))
+		return -EINVAL;
+
 	shadow_vcpu = pkvm_phys_to_virt(shadow_pa);
 	memset(shadow_vcpu, 0, shadow_size);
+	shadow_vcpu->shadow_size = shadow_size;
 
 	ret = read_gva(hvcpu, vcpu_va, &shadow_vcpu->vmx, sizeof(struct vcpu_vmx), &e);
 	if (ret < 0)
-		return -EINVAL;
+		goto undonate;
 
 	vmcs12_va = (unsigned long)shadow_vcpu->vmx.vmcs01.vmcs;
 	if (gva2gpa(hvcpu, vmcs12_va, (gpa_t *)&shadow_vcpu->vmcs12_pa, 0, &e))
-		return -EINVAL;
+		goto undonate;
 
 	vm = get_shadow_vm(shadow_vm_handle);
 	if (!vm)
-		return -EINVAL;
+		goto undonate;
 
 	shadow_vcpu_handle = attach_shadow_vcpu_to_vm(vm, shadow_vcpu);
 
 	put_shadow_vm(shadow_vm_handle);
 
+	if (shadow_vcpu_handle < 0)
+		goto undonate;
+
 	return shadow_vcpu_handle;
+undonate:
+	memset(shadow_vcpu, 0, shadow_size);
+	__pkvm_hyp_donate_host(shadow_pa, shadow_size);
+	return -EINVAL;
 }
 
 unsigned long __pkvm_teardown_shadow_vcpu(s64 shadow_vcpu_handle)
 {
 	int shadow_vm_handle = to_shadow_vm_handle(shadow_vcpu_handle);
 	struct shadow_vcpu_state *shadow_vcpu;
+	unsigned long shadow_size;
 	struct pkvm_shadow_vm *vm = get_shadow_vm(shadow_vm_handle);
 
 	if (!vm)
@@ -359,7 +391,11 @@ unsigned long __pkvm_teardown_shadow_vcpu(s64 shadow_vcpu_handle)
 	if (!shadow_vcpu)
 		return 0;
 
-	memset(shadow_vcpu, 0, sizeof(struct shadow_vcpu_state));
+	shadow_size = shadow_vcpu->shadow_size;
+	memset(shadow_vcpu, 0, shadow_size);
+	WARN_ON(__pkvm_hyp_donate_host(pkvm_virt_to_phys(shadow_vcpu),
+				       shadow_size));
+
 	return pkvm_virt_to_phys(shadow_vcpu);
 }
 
