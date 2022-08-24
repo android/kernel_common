@@ -23,6 +23,8 @@
 
 #define PKVM_GHC_SHARE_MEM		PKVM_GHC_NUM(1)
 #define PKVM_GHC_UNSHARE_MEM		PKVM_GHC_NUM(2)
+#define PKVM_GHC_IOREAD			PKVM_GHC_NUM(3)
+#define PKVM_GHC_IOWRITE		PKVM_GHC_NUM(4)
 
 /*
  * 15bits for PASID, DO NOT change it, based on it,
