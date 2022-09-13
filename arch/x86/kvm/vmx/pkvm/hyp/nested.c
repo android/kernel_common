@@ -1134,6 +1134,112 @@ out:
 	return 0;
 }
 
+void vpid_sync_context(int vpid)
+{
+	if (vmx_has_invvpid_single())
+		vpid_sync_vcpu_single(vpid);
+	else if (vpid != 0)
+		vpid_sync_vcpu_global();
+}
+
+void vpid_sync_vcpu_addr(int vpid, gva_t addr)
+{
+	if (vpid == 0)
+		return;
+
+	if (vmx_has_invvpid_individual_addr())
+		__invvpid(VMX_VPID_EXTENT_INDIVIDUAL_ADDR, vpid, addr);
+	else
+		vpid_sync_context(vpid);
+}
+
+#define VMX_VPID_EXTENT_SUPPORTED_MASK		\
+	(VMX_VPID_EXTENT_INDIVIDUAL_ADDR_BIT |	\
+	VMX_VPID_EXTENT_SINGLE_CONTEXT_BIT |	\
+	VMX_VPID_EXTENT_GLOBAL_CONTEXT_BIT |	\
+	VMX_VPID_EXTENT_SINGLE_NON_GLOBAL_BIT)
+
+int handle_invvpid(struct kvm_vcpu *vcpu)
+{
+	struct vmx_capability *vmx_cap = &pkvm_hyp->vmx_cap;
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	u32 vmx_instruction_info, types;
+	struct x86_exception e;
+	unsigned long type;
+	gva_t gva;
+	int gpr_index;
+
+	struct {
+		u64 vpid : 16;
+		u64 rsvd : 48;
+		u64 gla;
+	} operand;
+
+	if (!vmx_has_invvpid())
+		/* TODO: inject #UD */
+		return -EINVAL;
+
+	if (!check_vmx_permission(vcpu))
+		return 0;
+
+	vmx_instruction_info = vmcs_read32(VMX_INSTRUCTION_INFO);
+	gpr_index = vmx_get_instr_info_reg2(vmx_instruction_info);
+	type = vcpu->arch.regs[gpr_index];
+	types = (vmx_cap->vpid & VMX_VPID_EXTENT_SUPPORTED_MASK) >> 8;
+
+	if (type > VMX_VPID_EXTENT_SINGLE_NON_GLOBAL || !(types & (1 << type))) {
+		nested_vmx_result(VMfailValid, VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+		return 0;
+	}
+
+	if (get_vmx_mem_address(vcpu, vmx->exit_qualification,
+				vmx_instruction_info, &gva))
+		/* TODO: handle the decode failure */
+		return -EINVAL;
+
+	if (read_gva(vcpu, gva, &operand, sizeof(operand), &e) < 0)
+		/*TODO: handle memory failure exception */
+		return -EINVAL;
+
+	if (operand.rsvd != 0) {
+		nested_vmx_result(VMfailValid,
+			VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+		return 0;
+	}
+
+	switch (type) {
+	case VMX_VPID_EXTENT_INDIVIDUAL_ADDR:
+		if (!operand.vpid ||
+			!__is_canonical_address(operand.gla,
+				pkvm_virt_addr_bits())) {
+			nested_vmx_result(VMfailValid,
+				VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+			return 0;
+		}
+
+		vpid_sync_vcpu_addr(operand.vpid, operand.gla);
+		break;
+	case VMX_VPID_EXTENT_SINGLE_CONTEXT:
+	case VMX_VPID_EXTENT_SINGLE_NON_GLOBAL:
+		if (!operand.vpid) {
+			nested_vmx_result(VMfailValid,
+				VMXERR_INVALID_OPERAND_TO_INVEPT_INVVPID);
+			return 0;
+		}
+
+		vpid_sync_context(operand.vpid);
+		break;
+	case VMX_VPID_EXTENT_ALL_CONTEXT:
+		vpid_sync_context(operand.vpid);
+		break;
+	default:
+		break;
+	}
+
+	nested_vmx_result(VMsucceed, 0);
+	return 0;
+}
+
 static bool nested_handle_ept_violation(struct shadow_vcpu_state *shadow_vcpu,
 					u64 l2_gpa, u64 exit_quali)
 {

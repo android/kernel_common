@@ -59,6 +59,11 @@ static inline void flush_ept(u64 eptp)
 		__invept(VMX_EPT_EXTENT_GLOBAL, 0, 0);
 }
 
+static inline u8 pkvm_virt_addr_bits(void)
+{
+	return (vmcs_readl(GUEST_CR4) & X86_CR4_LA57) ? 57 : 48;
+}
+
 void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu);
 
 #endif

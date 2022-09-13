@@ -167,4 +167,7 @@ static inline void vmcs_load(struct vmcs *vmcs)
 	vmx_asm1(vmptrld, "m"(phys_addr), vmcs, phys_addr);
 }
 
+void vpid_sync_context(int vpid);
+void vpid_sync_vcpu_addr(int vpid, gva_t addr);
+
 #endif

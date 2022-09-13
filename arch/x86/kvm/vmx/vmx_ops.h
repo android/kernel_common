@@ -341,6 +341,12 @@ static inline void vpid_sync_vcpu_global(void)
 	__invvpid(VMX_VPID_EXTENT_ALL_CONTEXT, 0, 0);
 }
 
+static inline void ept_sync_global(void)
+{
+	__invept(VMX_EPT_EXTENT_GLOBAL, 0, 0);
+}
+
+#ifndef __PKVM_HYP__
 static inline void vpid_sync_context(int vpid)
 {
 	if (cpu_has_vmx_invvpid_single())
@@ -360,11 +366,6 @@ static inline void vpid_sync_vcpu_addr(int vpid, gva_t addr)
 		vpid_sync_context(vpid);
 }
 
-static inline void ept_sync_global(void)
-{
-	__invept(VMX_EPT_EXTENT_GLOBAL, 0, 0);
-}
-
 static inline void ept_sync_context(u64 eptp)
 {
 	if (cpu_has_vmx_invept_context())
@@ -372,5 +373,6 @@ static inline void ept_sync_context(u64 eptp)
 	else
 		ept_sync_global();
 }
+#endif /* __PKVM_HYP__ */
 
 #endif /* __KVM_X86_VMX_INSN_H */

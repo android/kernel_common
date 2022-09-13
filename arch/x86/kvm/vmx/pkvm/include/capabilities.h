@@ -67,6 +67,11 @@ static inline bool vmx_has_invvpid(void)
 	return vmx_vpid_capability_check(VMX_VPID_INVVPID_BIT);
 }
 
+static inline bool vmx_has_invvpid_individual_addr(void)
+{
+	return vmx_vpid_capability_check(VMX_VPID_EXTENT_INDIVIDUAL_ADDR_BIT);
+}
+
 static inline bool vmx_has_invvpid_single(void)
 {
 	return vmx_vpid_capability_check(VMX_VPID_EXTENT_SINGLE_CONTEXT_BIT);

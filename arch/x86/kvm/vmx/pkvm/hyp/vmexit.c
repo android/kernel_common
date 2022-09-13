@@ -292,7 +292,7 @@ int pkvm_main(struct kvm_vcpu *vcpu)
 				skip_instruction = true;
 				break;
 			case EXIT_REASON_INVVPID:
-				ept_sync_global();
+				handle_invvpid(vcpu);
 				skip_instruction = true;
 				break;
 			default:

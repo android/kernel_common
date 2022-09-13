@@ -14,6 +14,7 @@ int handle_vmread(struct kvm_vcpu *vcpu);
 int handle_vmresume(struct kvm_vcpu *vcpu);
 int handle_vmlaunch(struct kvm_vcpu *vcpu);
 int handle_invept(struct kvm_vcpu *vcpu);
+int handle_invvpid(struct kvm_vcpu *vcpu);
 int nested_vmexit(struct kvm_vcpu *vcpu, bool *skip_instruction);
 void nested_flush_shadow_ept(struct kvm_vcpu *vcpu);
 void nested_invalidate_shadow_ept(int shadow_handle, u64 start_gpa, u64 size);
