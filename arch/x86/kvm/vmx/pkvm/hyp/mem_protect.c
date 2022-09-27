@@ -942,7 +942,7 @@ int __pkvm_guest_unshare_host(struct pkvm_pgtable *guest_pgt,
 {
 	unsigned long hpa;
 	u64 prot;
-	int ret;
+	int ret = 0;
 
 	host_ept_lock();
 	guest_sept_lock(guest_pgt);
