@@ -31,6 +31,8 @@ static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 static struct hyp_pool shadow_ept_pool;
 static struct rsvd_bits_validate ept_zero_check;
 
+static void flush_tlb_noop(struct pkvm_pgtable *pgt) { };
+
 static inline void pkvm_init_ept_page(void *page)
 {
 	/*
@@ -454,6 +456,25 @@ static struct pkvm_mm_ops shadow_ept_mm_ops = {
 	.flush_tlb = shadow_ept_flush_tlb,
 };
 
+/*
+ * pgstate_pgt_mm_ops is similar to the shadow_ept_mm_ops as its
+ * memory is reserved together with shadow EPT pages. The
+ * difference is that it doesn't have the flush_tlb callback as
+ * pgstate_pgt only works as IOMMU second-level page table for
+ * protected VM when there are passthrough devices, and in this
+ * case the memory is pinned, and the mapping is not allowed to
+ * be removed from pgstate_pgt.
+ */
+static struct pkvm_mm_ops pgstate_pgt_mm_ops = {
+	.phys_to_virt = pkvm_phys_to_virt,
+	.virt_to_phys = pkvm_virt_to_phys,
+	.zalloc_page = shadow_ept_zalloc_page,
+	.get_page = shadow_ept_get_page,
+	.put_page = shadow_ept_put_page,
+	.page_count = hyp_page_count,
+	.flush_tlb = flush_tlb_noop,
+};
+
 static int pkvm_shadow_ept_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
 				    void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {
@@ -717,6 +738,27 @@ int pkvm_shadow_ept_init(struct shadow_ept_desc *desc)
 	flush_ept(desc->shadow_eptp);
 
 	return 0;
+}
+
+void pkvm_pgstate_pgt_deinit(struct pkvm_shadow_vm *vm)
+{
+	pkvm_spin_lock(&vm->lock);
+
+	pkvm_pgtable_destroy(&vm->pgstate_pgt, NULL);
+
+	pkvm_spin_unlock(&vm->lock);
+}
+
+int pkvm_pgstate_pgt_init(struct pkvm_shadow_vm *vm)
+{
+	struct pkvm_pgtable *pgt = &vm->pgstate_pgt;
+	struct pkvm_pgtable_cap cap = {
+		.level = pkvm_hyp->ept_iommu_pgt_level,
+		.allowed_pgsz = pkvm_hyp->ept_iommu_pgsz_mask,
+		.table_prot = VMX_EPT_RWX_MASK,
+	};
+
+	return pkvm_pgtable_init(pgt, &pgstate_pgt_mm_ops, &ept_ops, &cap, true);
 }
 
 /*

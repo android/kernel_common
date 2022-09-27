@@ -122,8 +122,11 @@ int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
 	vm->shadow_size = shadow_size;
 	vm->vm_type = vm_type;
 
-	if (pkvm_shadow_ept_init(&vm->sept_desc))
+	if (pkvm_pgstate_pgt_init(vm))
 		goto undonate;
+
+	if (pkvm_shadow_ept_init(&vm->sept_desc))
+		goto deinit_pgstate_pgt;
 
 	shadow_vm_handle = allocate_shadow_vm_handle(vm);
 	if (shadow_vm_handle < 0)
@@ -133,6 +136,8 @@ int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
 
 deinit_shadow_ept:
 	pkvm_shadow_ept_deinit(&vm->sept_desc);
+deinit_pgstate_pgt:
+	pkvm_pgstate_pgt_deinit(vm);
 undonate:
 	memset(vm, 0, shadow_size);
 	__pkvm_hyp_donate_host(shadow_pa, shadow_size);
@@ -148,6 +153,8 @@ unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle)
 		return 0;
 
 	pkvm_shadow_ept_deinit(&vm->sept_desc);
+
+	pkvm_pgstate_pgt_deinit(vm);
 
 	shadow_size = vm->shadow_size;
 	memset(vm, 0, shadow_size);

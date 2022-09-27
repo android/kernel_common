@@ -181,7 +181,12 @@ static inline unsigned long pkvm_shadow_ept_pgtable_pages(int nr_vm)
 	/* Allow 1 GiB for MMIO mappings for each VM */
 	 res += __pkvm_pgtable_max_pages(SZ_1G >> PAGE_SHIFT) * nr_vm;
 
-	return res;
+	 /*
+	  * Each shadow VM has two page tables. One is used to manage page state
+	  * and reused as IOMMU second-level pagetable for passthrough device in
+	  * protected VM. Another one is used as shadow EPT.
+	  */
+	return (res * 2);
 }
 
 u64 hyp_total_reserve_pages(void);

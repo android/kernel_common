@@ -125,6 +125,15 @@ struct pkvm_shadow_vm {
 	 */
 	struct shadow_ept_desc sept_desc;
 
+	/*
+	 * Page state page table manages the page states, and
+	 * works as IOMMU second-level page table for protected
+	 * VM with passthrough devices. For the protected VM
+	 * without passthrough devices or normal VM, it manages
+	 * the page states only.
+	 */
+	struct pkvm_pgtable pgstate_pgt;
+
 	/* The vm_type to indicate if this is a protected VM */
 	u8 vm_type;
 

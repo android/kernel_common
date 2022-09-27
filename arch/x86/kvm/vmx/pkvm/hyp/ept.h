@@ -45,6 +45,9 @@ void pkvm_invalidate_shadow_ept_with_range(struct shadow_ept_desc *desc,
 void pkvm_flush_shadow_ept(struct shadow_ept_desc *desc);
 void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn);
 
+int pkvm_pgstate_pgt_init(struct pkvm_shadow_vm *vm);
+void pkvm_pgstate_pgt_deinit(struct pkvm_shadow_vm *vm);
+
 static inline bool is_valid_eptp(u64 eptp)
 {
 	if (!eptp || (eptp == INVALID_GPA))
