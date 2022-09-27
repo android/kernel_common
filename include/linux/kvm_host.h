@@ -2562,4 +2562,6 @@ long kvm_arch_vcpu_pre_fault_memory(struct kvm_vcpu *vcpu,
 				    struct kvm_pre_fault_memory *range);
 #endif
 
+int kvm_arch_add_device_to_pkvm(struct kvm *kvm, struct iommu_group *grp);
+
 #endif

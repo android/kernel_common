@@ -1035,6 +1035,36 @@ out:
 	return ret;
 }
 
+static int add_device_to_pkvm(struct device *dev, void *data)
+{
+	struct kvm_protected_vm *pkvm = data;
+	struct pci_dev *pdev;
+	u16 devid;
+
+	if (!dev_is_pci(dev))
+		return 0;
+
+	pdev = to_pci_dev(dev);
+	devid = PCI_DEVID(pdev->bus->number, pdev->devfn);
+
+	return kvm_hypercall3(PKVM_HC_ADD_PTDEV, pkvm->shadow_vm_handle, devid, 0);
+}
+
+int kvm_arch_add_device_to_pkvm(struct kvm *kvm, struct iommu_group *grp)
+{
+	int ret = 0;
+
+	kvm_get_kvm(kvm);
+
+	if (kvm->arch.vm_type == KVM_X86_PROTECTED_VM)
+		ret = iommu_group_for_each_dev(grp, &kvm->pkvm,
+					       add_device_to_pkvm);
+
+	kvm_put_kvm(kvm);
+
+	return ret;
+}
+
 int pkvm_init_shadow_vm(struct kvm *kvm)
 {
 	struct kvm_protected_vm *pkvm = &kvm->pkvm;
