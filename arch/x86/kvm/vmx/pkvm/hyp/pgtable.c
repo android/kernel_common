@@ -305,15 +305,20 @@ static int pgtable_unmap_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		return 0;
 
 	/*
-	 * Can direct unmap if matches with a large entry or a 4K entry
+	 * Unmap the page if the target address range belongs a
+	 * - 4K PTE entry
+	 * - huge page and don't need to split it
+	 * - a full huge page
 	 */
 	if (level == PG_LEVEL_4K || (pgt_ops->pgt_entry_huge(ptep) &&
-				     leaf_mapping_valid(pgt_ops, vaddr, vaddr_end,
-							1 << level, level))) {
-		if (data->unmap_leaf_override)
+		(!data->split_huge_page || leaf_mapping_valid(pgt_ops, vaddr,
+			vaddr_end, 1 << level, level)))) {
+
+		if (data->unmap_leaf_override) {
+			vaddr = ALIGN_DOWN(vaddr, pgt_ops->pgt_level_to_size(level));
 			return data->unmap_leaf_override(pgt, vaddr, level, ptep,
 					flush_data, data);
-		else
+		} else
 			return pgtable_unmap_leaf(pgt, vaddr, level, ptep,
 					flush_data, data);
 	}
@@ -608,6 +613,7 @@ int pkvm_pgtable_unmap(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 {
 	struct pkvm_pgtable_unmap_data data = {
 		.phys = INVALID_ADDR,
+		.split_huge_page = true,
 		.unmap_leaf_override = unmap_leaf,
 	};
 	struct pkvm_pgtable_walker walker = {
@@ -625,6 +631,24 @@ int pkvm_pgtable_unmap_safe(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 {
 	struct pkvm_pgtable_unmap_data data = {
 		.phys = ALIGN_DOWN(phys_start, PAGE_SIZE),
+		.split_huge_page = true,
+		.unmap_leaf_override = unmap_leaf,
+	};
+	struct pkvm_pgtable_walker walker = {
+		.cb = pgtable_unmap_cb,
+		.arg = &data,
+		.flags = PKVM_PGTABLE_WALK_LEAF | PKVM_PGTABLE_WALK_TABLE_POST,
+	};
+
+	return pgtable_walk(pgt, vaddr_start, size, true, &walker);
+}
+
+int pkvm_pgtable_unmap_nosplit(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
+		       unsigned long size, pgtable_leaf_ov_fn_t unmap_leaf)
+{
+	struct pkvm_pgtable_unmap_data data = {
+		.phys = INVALID_ADDR,
+		.split_huge_page = false,
 		.unmap_leaf_override = unmap_leaf,
 	};
 	struct pkvm_pgtable_walker walker = {

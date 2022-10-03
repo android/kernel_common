@@ -613,7 +613,7 @@ static void __invalidate_shadow_ept_with_range(struct shadow_ept_desc *desc,
 	if (!is_valid_eptp(desc->shadow_eptp))
 		goto out;
 
-	pkvm_pgtable_unmap(sept, vaddr, size, pkvm_shadow_ept_invalidate_leaf);
+	pkvm_pgtable_unmap_nosplit(sept, vaddr, size, pkvm_shadow_ept_invalidate_leaf);
 out:
 	pkvm_spin_unlock(&vm->lock);
 }
