@@ -33,7 +33,10 @@ static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 static struct hyp_pool shadow_pgt_pool;
 static struct rsvd_bits_validate ept_zero_check;
 
-static void flush_tlb_noop(struct pkvm_pgtable *pgt) { };
+static void flush_tlb_noop(struct pkvm_pgtable *pgt,
+			   unsigned long addr, unsigned long size)
+{
+}
 
 static inline void pkvm_init_ept_page(void *page)
 {
@@ -84,7 +87,8 @@ static void host_ept_put_page(void *vaddr)
 	hyp_put_page(&host_ept_pool, vaddr);
 }
 
-static void host_ept_flush_tlb(struct pkvm_pgtable *pgt)
+static void host_ept_flush_tlb(struct pkvm_pgtable *pgt,
+			       unsigned long vaddr, unsigned long size)
 {
 	struct pkvm_host_vcpu *hvcpu;
 	int i;
@@ -420,7 +424,9 @@ static void shadow_pgt_put_page(void *vaddr)
 	hyp_put_page(&shadow_pgt_pool, vaddr);
 }
 
-static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt)
+static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt,
+				 unsigned long addr,
+				 unsigned long size)
 {
 	struct pkvm_shadow_vm *shadow_vm = sept_to_shadow_vm(pgt);
 	struct shadow_vcpu_state *shadow_vcpu;
@@ -856,6 +862,8 @@ static bool allow_shadow_ept_mapping(struct pkvm_shadow_vm *vm,
 	 * can be cleared.
 	 */
 	if (vm->need_prepopulation) {
+		unsigned long size;
+
 		if (populate_pgstate_pgt(pgstate_pgt))
 			return false;
 		/*
@@ -868,7 +876,8 @@ static bool allow_shadow_ept_mapping(struct pkvm_shadow_vm *vm,
 		 * population performance. So still need to do TLB flushing in the
 		 * end after finishing all the donations.
 		 */
-		host_ept_flush_tlb(&host_ept);
+		size = host_ept.pgt_ops->pgt_level_to_size(host_ept.level + 1);
+		host_ept_flush_tlb(&host_ept, 0, size);
 		vm->need_prepopulation = false;
 	}
 
