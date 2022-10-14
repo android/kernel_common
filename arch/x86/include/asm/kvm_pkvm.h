@@ -127,7 +127,8 @@ static inline int hyp_pre_reserve_check(void)
 
 /* Calculate the total pages for Scalable IOMMU */
 static inline unsigned long pkvm_iommu_pages(int max_pasid, int nr_pasid_pdev,
-					     int nr_pdev, int nr_iommu, int qidesc_sz)
+					     int nr_pdev, int nr_iommu, int qidesc_sz,
+					     int qidesc_status_sz, int num_cpus)
 {
 	unsigned long res = 0;
 
@@ -145,7 +146,15 @@ static inline unsigned long pkvm_iommu_pages(int max_pasid, int nr_pasid_pdev,
 	/* Root pages for each IOMMU */
 	res += nr_iommu;
 	/* Desc and desc_status pages for each IOMMU */
-	res += nr_iommu * (ALIGN(qidesc_sz, PAGE_SIZE) >> PAGE_SHIFT);
+	res += nr_iommu * ((1 << get_order(qidesc_sz)) + (1 << get_order(qidesc_status_sz)));
+	/*
+	 * Reserve more IQ descriptor page. The size is calculated according to
+	 * the IOMMU QI descriptor size(excludes the QI descriptor status as
+	 * this is not needed to bunch requests) and the CPU number. Each CPU can
+	 * have its own reserved QI descriptor page so that multiple CPUs can
+	 * bunch the QI requests at the same time.
+	 */
+	res += num_cpus * (1 << get_order(qidesc_sz));
 
 	return res;
 }
