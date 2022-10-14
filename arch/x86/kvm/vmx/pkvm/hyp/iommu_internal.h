@@ -131,6 +131,8 @@ do {									\
 
 #define pgt_to_pkvm_iommu(_pgt) container_of(_pgt, struct pkvm_iommu, pgt)
 
+#define QI_DESC_IOTLB_DID(qw)		(((qw) & GENMASK_ULL(31, 16)) >> 16)
+
 struct pasid_dir_entry {
 	u64 val;
 };

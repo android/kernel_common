@@ -99,6 +99,12 @@ static void host_ept_flush_tlb(struct pkvm_pgtable *pgt,
 		kvm_make_request(PKVM_REQ_TLB_FLUSH_HOST_EPT, &hvcpu->vmx.vcpu);
 		pkvm_kick_vcpu(&hvcpu->vmx.vcpu);
 	}
+
+	/*
+	 * Also needs to flush the IOTLB as host EPT is used
+	 * as second-stage page table for some devices.
+	 */
+	pkvm_iommu_flush_iotlb(pgt, vaddr, size);
 }
 
 static void host_ept_flush_cache(void *vaddr, unsigned int size)
