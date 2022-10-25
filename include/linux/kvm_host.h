@@ -2009,9 +2009,16 @@ struct _kvm_stats_desc {
 	STATS_DESC_LOG_HIST(SCOPE, name, KVM_STATS_UNIT_SECONDS,	       \
 		KVM_STATS_BASE_POW10, -9, sz)
 
+#if IS_ENABLED(CONFIG_PKVM_INTEL)
+#define KVM_GENERIC_VM_STATS()						       \
+	STATS_DESC_COUNTER(VM_GENERIC, remote_tlb_flush),		       \
+	STATS_DESC_COUNTER(VM_GENERIC, remote_tlb_flush_requests),	       \
+	STATS_DESC_COUNTER(VM_GENERIC, remote_tlb_flush_with_range)
+#else
 #define KVM_GENERIC_VM_STATS()						       \
 	STATS_DESC_COUNTER(VM_GENERIC, remote_tlb_flush),		       \
 	STATS_DESC_COUNTER(VM_GENERIC, remote_tlb_flush_requests)
+#endif
 
 #define KVM_GENERIC_VCPU_STATS()					       \
 	STATS_DESC_COUNTER(VCPU_GENERIC, halt_successful_poll),		       \

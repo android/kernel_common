@@ -99,6 +99,9 @@ struct kvm_mmu_memory_cache {
 struct kvm_vm_stat_generic {
 	u64 remote_tlb_flush;
 	u64 remote_tlb_flush_requests;
+#if IS_ENABLED(CONFIG_PKVM_INTEL)
+	u64 remote_tlb_flush_with_range;
+#endif
 };
 
 struct kvm_vcpu_stat_generic {

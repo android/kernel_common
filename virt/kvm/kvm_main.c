@@ -354,8 +354,12 @@ EXPORT_SYMBOL_GPL(kvm_flush_remote_tlbs);
 
 void kvm_flush_remote_tlbs_range(struct kvm *kvm, gfn_t gfn, u64 nr_pages)
 {
-	if (!kvm_arch_flush_remote_tlbs_range(kvm, gfn, nr_pages))
+	if (!kvm_arch_flush_remote_tlbs_range(kvm, gfn, nr_pages)) {
+#if IS_ENABLED(CONFIG_PKVM_INTEL)
+		++kvm->stat.generic.remote_tlb_flush_with_range;
+#endif
 		return;
+	}
 
 	/*
 	 * Fall back to a flushing entire TLBs if the architecture range-based
