@@ -289,6 +289,25 @@ static int pgtable_unmap_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr,
 	return 0;
 }
 
+static void pgtable_free_child(struct pkvm_pgtable *pgt, void *ptep,
+			    struct pgt_flush_data *flush_data)
+{
+	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
+	struct pkvm_mm_ops *mm_ops = pgt->mm_ops;
+	void *child_ptep;
+
+	/*
+	 * Check the child pte page refcount. Put the child pte page if
+	 * no one else is using it.
+	 */
+	child_ptep = mm_ops->phys_to_virt(pgt_ops->pgt_entry_to_phys(ptep));
+	if (mm_ops->page_count(child_ptep) == 1) {
+		pgtable_set_entry(pgt_ops, mm_ops, ptep, 0);
+		mm_ops->put_page(ptep);
+		put_page_to_freelist(child_ptep, &flush_data->free_list);
+	}
+}
+
 static int pgtable_unmap_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 			    unsigned long vaddr_end, int level, void *ptep,
 			    unsigned long flags, struct pgt_flush_data *flush_data,
@@ -298,7 +317,6 @@ static int pgtable_unmap_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
 	struct pkvm_mm_ops *mm_ops = pgt->mm_ops;
 	unsigned long size = page_level_size(level);
-	void *child_ptep;
 
 	if (!pgt_ops->pgt_entry_mapped(ptep))
 		/* Nothing to do if the entry is not mapped */
@@ -348,18 +366,8 @@ static int pgtable_unmap_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		return 0;
 	}
 
-	/*
-	 * if not huge entry then means it is table entry, then check
-	 * the child pte page refcount. Put the child pte page if no
-	 * one else is using it.
-	 */
-	child_ptep = mm_ops->phys_to_virt(pgt_ops->pgt_entry_to_phys(ptep));
-	if (mm_ops->page_count(child_ptep) == 1) {
-		pgtable_set_entry(pgt_ops, mm_ops, ptep, 0);
-		mm_ops->put_page(ptep);
-		put_page_to_freelist(child_ptep, &flush_data->free_list);
-	}
-
+	/* if not huge entry then means it is table entry */
+	pgtable_free_child(pgt, ptep, flush_data);
 	return 0;
 }
 
@@ -422,9 +430,6 @@ static int pgtable_free_cb(struct pkvm_pgtable *pgt,
 {
 	struct pkvm_pgtable_free_data *data = arg;
 	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
-	struct pkvm_mm_ops *mm_ops = pgt->mm_ops;
-	phys_addr_t phys;
-	void *virt;
 
 	if (pgt_ops->pgt_entry_is_leaf(ptep, level)) {
 		if (data->free_leaf_override)
@@ -435,14 +440,7 @@ static int pgtable_free_cb(struct pkvm_pgtable *pgt,
 	}
 
 	/* Free the child page */
-	phys = pgt_ops->pgt_entry_to_phys(ptep);
-	virt = mm_ops->phys_to_virt(phys);
-	if (mm_ops->page_count(virt) == 1) {
-		pgtable_set_entry(pgt_ops, mm_ops, ptep, 0);
-		mm_ops->put_page(ptep);
-		put_page_to_freelist(virt, &flush_data->free_list);
-	}
-
+	pgtable_free_child(pgt, ptep, flush_data);
 	return 0;
 }
 
