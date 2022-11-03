@@ -25,6 +25,20 @@ struct shadow_ept_desc {
 #define PKVM_MAX_PROTECTED_VM_NUM	2
 
 /*
+ * Store the Virtualization Exception(#VE) information when a #VE occurs. This
+ * struture definition is based on
+ * sdm Volume 3, 25.5.7.2 Virtualizaiton-Exception Information.
+ */
+struct pkvm_ve_info {
+	u32 exit_reason;
+	u32 valid;
+	u64 exit_qual;
+	u64 gla;
+	u64 gpa;
+	u16 eptp_index;
+};
+
+/*
  * A container for the vcpu state that hyp needs to maintain for protected VMs.
  */
 struct shadow_vcpu_state {
@@ -53,6 +67,8 @@ struct shadow_vcpu_state {
 	/* assume vmcs02 is one page */
 	u8 vmcs02[PAGE_SIZE] __aligned(PAGE_SIZE);
 	u8 cached_vmcs12[VMCS12_SIZE] __aligned(PAGE_SIZE);
+
+	struct pkvm_ve_info ve_info;
 
 	/* The last cpu this vmcs02 runs with */
 	int last_cpu;
