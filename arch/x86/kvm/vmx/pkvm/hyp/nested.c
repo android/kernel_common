@@ -562,6 +562,8 @@ static u64 emulate_field_for_vmcs02(struct vcpu_vmx *vmx, u16 field, u64 virt_va
 		break;
 	case SECONDARY_VM_EXEC_CONTROL:
 		val &= ~NESTED_UNSUPPORTED_2NDEXEC;
+		/* Enable the #VE, but only protected VM will use it. */
+		val |= SECONDARY_EXEC_EPT_VIOLATION_VE;
 		break;
 	}
 	return val;
