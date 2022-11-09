@@ -31,16 +31,6 @@ static bool pkvm_phys_is_valid(u64 phys)
 	return phys != INVALID_ADDR;
 }
 
-static bool pgtable_pte_is_counted(u64 pte)
-{
-	/*
-	 * Due to we use the invalid pte to record the page ownership,
-	 * the refcount tracks both valid and invalid pte if the pte is
-	 * not 0.
-	 */
-	return !!pte;
-}
-
 static bool leaf_mapping_valid(struct pkvm_pgtable_ops *pgt_ops,
 			       unsigned long vaddr,
 			       unsigned long vaddr_end,
@@ -124,7 +114,7 @@ static int pgtable_map_leaf(struct pkvm_pgtable *pgt,
 		new = data->annotation;
 	}
 
-	if (pgtable_pte_is_counted(old)) {
+	if (pgt_ops->pgt_entry_mapped(ptep)) {
 		/* if just modify the page state, do set_pte directly */
 		if (!((old ^ new) & ~PKVM_PAGE_STATE_PROT_MASK))
 			goto set_pte;
@@ -136,7 +126,7 @@ static int pgtable_map_leaf(struct pkvm_pgtable *pgt,
 		mm_ops->put_page(ptep);
 	}
 
-	if (pgtable_pte_is_counted(new))
+	if (pgt_ops->pgt_entry_mapped(&new))
 		mm_ops->get_page(ptep);
 
 set_pte:
