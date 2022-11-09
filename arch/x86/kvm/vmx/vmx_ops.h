@@ -88,6 +88,12 @@ static __always_inline void vmcs_checkl(unsigned long field)
 			 "Natural width accessor invalid for 32-bit field");
 }
 
+#ifdef __PKVM_HYP__
+
+#include "pkvm/hyp/vmx_ops.h"
+
+#else
+
 static __always_inline unsigned long __vmcs_readl(unsigned long field)
 {
 	unsigned long value;
@@ -300,6 +306,7 @@ static inline void vmcs_load(struct vmcs *vmcs)
 
 	vmx_asm1(vmptrld, "m"(phys_addr), vmcs, phys_addr);
 }
+#endif /*__PKVM_HYP__*/
 
 static inline void __invvpid(unsigned long ext, u16 vpid, gva_t gva)
 {
