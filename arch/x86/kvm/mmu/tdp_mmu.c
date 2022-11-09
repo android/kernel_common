@@ -10,6 +10,7 @@
 
 #include <asm/cmpxchg.h>
 #include <trace/events/kvm.h>
+#include <asm/kvm_pkvm.h>
 
 /* Initializes the TDP MMU for the VM, if enabled. */
 void kvm_mmu_init_tdp_mmu(struct kvm *kvm)
@@ -1026,8 +1027,12 @@ static int tdp_mmu_map_handle_target_level(struct kvm_vcpu *vcpu,
 	if (WARN_ON_ONCE(sp->role.level != fault->goal_level))
 		return RET_PF_RETRY;
 
-	if (unlikely(!fault->slot))
+	if (unlikely(!fault->slot)) {
 		new_spte = make_mmio_spte(vcpu, iter->gfn, ACC_ALL);
+
+		if (pkvm_set_mmio_ve(vcpu, iter->gfn))
+			return RET_PF_RETRY;
+	}
 	else
 		wrprot = make_spte(vcpu, sp, fault->slot, ACC_ALL, iter->gfn,
 					 fault->pfn, iter->old_spte, fault->prefetch, true,
