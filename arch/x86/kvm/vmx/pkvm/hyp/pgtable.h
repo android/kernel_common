@@ -8,6 +8,8 @@
 #include <linux/types.h>
 #include <asm/pgtable_types.h>
 
+#define SUPPRESS_VE	BIT(63)
+
 struct pkvm_mm_ops {
 	void *(*phys_to_virt)(unsigned long phys);
 	unsigned long (*virt_to_phys)(void *vaddr);
@@ -33,6 +35,7 @@ struct pkvm_pgtable_ops {
 	int (*pgt_level_to_entries)(int level);
 	unsigned long (*pgt_level_to_size)(int level);
 	void (*pgt_set_entry)(void *ptep, u64 val);
+	u64 default_prot;
 };
 
 struct pkvm_pgtable {

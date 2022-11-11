@@ -5,6 +5,8 @@
 #ifndef _PKVM_MMU_H_
 #define _PKVM_MMU_H_
 
+#define MMU_PROT_DEF	0
+
 int pkvm_mmu_map(unsigned long vaddr_start, unsigned long phys_start,
 		unsigned long size, int pgsz_mask, u64 prot);
 

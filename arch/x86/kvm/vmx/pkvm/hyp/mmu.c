@@ -129,6 +129,7 @@ struct pkvm_pgtable_ops mmu_ops = {
 	.pgt_level_to_entries = mmu_level_to_entries,
 	.pgt_level_to_size = mmu_level_to_size,
 	.pgt_set_entry = mmu_set_entry,
+	.default_prot = MMU_PROT_DEF,
 };
 
 static int finalize_host_mappings_walker(struct pkvm_pgtable *mmu,

@@ -31,9 +31,47 @@ static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 static struct hyp_pool shadow_ept_pool;
 static struct rsvd_bits_validate ept_zero_check;
 
+static inline void pkvm_init_ept_page(void *page)
+{
+	/*
+	 * Normal VM: Never clear the "suppress #VE" bit, so #VE will never
+	 * be triggered.
+	 *
+	 * Protected VM: pkvm sets EPT_VIOLATION_VE for Protected VM, "suppress
+	 * #VE" bit must be set to get EPT violation, thus pkvm can build the
+	 * EPT mapping for memory region, and clear "suppress #VE" for mmio
+	 * region, thus mmio can trigger #VE.
+	 *
+	 * For simplicity, unconditionally initialize SEPT to set "suppress
+	 * #VE".
+	 */
+	asm volatile ("rep stosq\n\t"
+		      :
+		      : "a"(EPT_PROT_DEF), "c"(512), "D"(page)
+		      : "memory"
+	);
+}
+
+static void *ept_zalloc_page(struct hyp_pool *pool)
+{
+	void *page;
+
+	page = hyp_alloc_pages(pool, 0);
+	if (page)
+		pkvm_init_ept_page(page);
+
+	return page;
+}
+
 static void *host_ept_zalloc_page(void)
 {
-	return hyp_alloc_pages(&host_ept_pool, 0);
+	/*
+	 * Also initiailize the host ept with SUPPRESS_VE bit set although this
+	 * bit is ignored in host ept. Because host_ept and shadow_ept share the
+	 * same ept_ops, this will make the ept_entry_mapped work for both
+	 * host_ept and shadow_ept.
+	 */
+	return ept_zalloc_page(&host_ept_pool);
 }
 
 static void host_ept_get_page(void *vaddr)
@@ -91,8 +129,11 @@ static bool ept_entry_mapped(void *ptep)
 	 * contain page state and ownership information created through map
 	 * operation. So simply count non-zero entry as mapped to cover both
 	 * cases.
+	 *
+	 * Since we initialize every pte with SUPPRESS_VE bit set, which means
+	 * if a pte does not equal to the default value, it has been mapped.
 	 */
-	return !!(*(u64 *)ptep);
+	return !(*(u64 *)ptep == EPT_PROT_DEF);
 }
 
 static bool ept_entry_huge(void *ptep)
@@ -172,6 +213,7 @@ struct pkvm_pgtable_ops ept_ops = {
 	.pgt_level_to_entries = ept_level_to_entries,
 	.pgt_level_to_size = ept_level_to_size,
 	.pgt_set_entry = ept_set_entry,
+	.default_prot = EPT_PROT_DEF,
 };
 
 int pkvm_host_ept_map(unsigned long vaddr_start, unsigned long phys_start,
@@ -355,7 +397,7 @@ int pkvm_shadow_ept_pool_init(void *ept_pool_base, unsigned long ept_pool_pages)
 
 static void *shadow_ept_zalloc_page(void)
 {
-	return hyp_alloc_pages(&shadow_ept_pool, 0);
+	return ept_zalloc_page(&shadow_ept_pool);
 }
 
 static void shadow_ept_get_page(void *vaddr)
@@ -753,7 +795,12 @@ pkvm_handle_shadow_ept_violation(struct shadow_vcpu_state *shadow_vcpu, u64 l2_g
 		unsigned long level_size = pgt_ops->pgt_level_to_size(level);
 		unsigned long gpa = ALIGN_DOWN(l2_gpa, level_size);
 		unsigned long hpa = ALIGN_DOWN(host_gpa2hpa(phys), level_size);
-		u64 prot = gprot & EPT_PROT_MASK;
+		/*
+		 * Still set SUPPRESS_VE bit here as some mapping may still
+		 * cause EPT_VIOLATION and we want these EPT_VIOLATION to cause
+		 * vmexit.
+		 */
+		u64 prot = (gprot & EPT_PROT_MASK) | EPT_PROT_DEF;
 
 		if (!pkvm_pgtable_map(sept, gpa, hpa, level_size, 0,
 					prot, pkvm_shadow_ept_map_leaf))

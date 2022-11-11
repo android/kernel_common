@@ -266,7 +266,7 @@ static int pgtable_unmap_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		PKVM_ASSERT(phys == data->phys);
 	}
 
-	pgtable_set_entry(pgt_ops, mm_ops, ptep, 0);
+	pgtable_set_entry(pgt_ops, mm_ops, ptep, pgt_ops->default_prot);
 	if (pgt_ops->pgt_entry_present(ptep))
 		flush_data->flushtlb |= true;
 	mm_ops->put_page(ptep);
@@ -292,7 +292,7 @@ static void pgtable_free_child(struct pkvm_pgtable *pgt, void *ptep,
 	 */
 	child_ptep = mm_ops->phys_to_virt(pgt_ops->pgt_entry_to_phys(ptep));
 	if (mm_ops->page_count(child_ptep) == 1) {
-		pgtable_set_entry(pgt_ops, mm_ops, ptep, 0);
+		pgtable_set_entry(pgt_ops, mm_ops, ptep, pgt_ops->default_prot);
 		mm_ops->put_page(ptep);
 		put_page_to_freelist(child_ptep, &flush_data->free_list);
 	}
