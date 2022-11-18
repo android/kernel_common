@@ -55,7 +55,7 @@ enum sm_level {
 };
 
 #define LAST_LEVEL(level)	\
-	((level == 1) ? true : false)
+	(((level) == 1) ? true : false)
 
 #define LM_DEVFN_BITS	8
 #define LM_DEVFN_SHIFT	0
@@ -88,8 +88,8 @@ enum sm_level {
 #define IOMMU_MAX_VADDR_LEN	(BUS_SHIFT + BUS_BITS)
 #define IOMMU_MAX_VADDR		BIT(IOMMU_MAX_VADDR_LEN)
 
-#define MAX_NUM_OF_ADDRESS_SPACE(iommu)		\
-	(ecap_smts(iommu->iommu.ecap) ?	\
+#define MAX_NUM_OF_ADDRESS_SPACE(_iommu)		\
+	(ecap_smts((_iommu)->iommu.ecap) ?		\
 		IOMMU_MAX_VADDR : IOMMU_LM_MAX_VADDR)
 
 #define DMAR_GSTS_EN_BITS	(DMA_GCMD_TE | DMA_GCMD_EAFL | \
@@ -104,29 +104,29 @@ enum sm_level {
 #define PKVM_IOMMU_WAIT_OP(offset, op, cond, sts)			\
 do {									\
 	while (1) {							\
-		sts = op(offset);					\
+		(sts) = op(offset);					\
 		if (cond)						\
 			break;						\
 		cpu_relax();						\
 	}								\
 } while (0)
 
-#define IQ_DESC_BASE_PHYS(reg)		(reg & ~0xfff)
-#define IQ_DESC_DW(reg)			((reg >> 11) & 1)
-#define IQ_DESC_QS(reg)			(reg & GENMASK_ULL(2, 0))
+#define IQ_DESC_BASE_PHYS(reg)		((reg) & ~0xfff)
+#define IQ_DESC_DW(reg)			(((reg) >> 11) & 1)
+#define IQ_DESC_QS(reg)			((reg) & GENMASK_ULL(2, 0))
 #define IQ_DESC_LEN(reg)		(1 << (7 + IQ_DESC_QS(reg) + !IQ_DESC_DW(reg)))
 #define IQ_DESC_SHIFT(reg)		(4 + IQ_DESC_DW(reg))
 
-#define QI_DESC_TYPE(qw)		(qw & GENMASK_ULL(3, 0))
-#define QI_DESC_CC_GRANU(qw)		((qw & GENMASK_ULL(5, 4)) >> 4)
-#define QI_DESC_CC_DID(qw)		((qw & GENMASK_ULL(31, 16)) >> 16)
-#define QI_DESC_CC_SID(qw)		((qw & GENMASK_ULL(47, 32)) >> 32)
+#define QI_DESC_TYPE(qw)		((qw) & GENMASK_ULL(3, 0))
+#define QI_DESC_CC_GRANU(qw)		(((qw) & GENMASK_ULL(5, 4)) >> 4)
+#define QI_DESC_CC_DID(qw)		(((qw) & GENMASK_ULL(31, 16)) >> 16)
+#define QI_DESC_CC_SID(qw)		(((qw) & GENMASK_ULL(47, 32)) >> 32)
 
-#define QI_DESC_PC_GRANU(qw)		((qw & GENMASK_ULL(5, 4)) >> 4)
-#define QI_DESC_PC_DID(qw)		((qw & GENMASK_ULL(31, 16)) >> 16)
-#define QI_DESC_PC_PASID(qw)		((qw & GENMASK_ULL(51, 32)) >> 32)
+#define QI_DESC_PC_GRANU(qw)		(((qw) & GENMASK_ULL(5, 4)) >> 4)
+#define QI_DESC_PC_DID(qw)		(((qw) & GENMASK_ULL(31, 16)) >> 16)
+#define QI_DESC_PC_PASID(qw)		(((qw) & GENMASK_ULL(51, 32)) >> 32)
 
-#define pgt_to_pkvm_iommu(pgt) container_of(pgt, struct pkvm_iommu, pgt)
+#define pgt_to_pkvm_iommu(_pgt) container_of(_pgt, struct pkvm_iommu, pgt)
 
 struct pasid_dir_entry {
 	u64 val;

@@ -14,10 +14,10 @@
 #include "iommu_internal.h"
 #include "debug.h"
 
-#define for_each_valid_iommu(p)					\
-	for (p = iommus; p < iommus + PKVM_MAX_IOMMU_NUM; p++)	\
-		if (!p || !p->iommu.reg_phys) {			\
-			continue;				\
+#define for_each_valid_iommu(p)						\
+	for ((p) = iommus; (p) < iommus + PKVM_MAX_IOMMU_NUM; (p)++)	\
+		if (!(p) || !(p)->iommu.reg_phys) {			\
+			continue;					\
 		} else
 
 static struct pkvm_iommu iommus[PKVM_MAX_IOMMU_NUM];
@@ -45,9 +45,9 @@ struct pgt_sync_walk_data {
 	u16 did;
 };
 
-#define DEFINE_PGT_SYNC_WALK_DATA(name, iommu, domain_id)	\
-	struct pgt_sync_walk_data name = {			\
-		.iommu = iommu,					\
+#define DEFINE_PGT_SYNC_WALK_DATA(name, _iommu, domain_id)	\
+	struct pgt_sync_walk_data (name) = {			\
+		.iommu = (_iommu),				\
 		.shadow_pa = {0},				\
 		.did = (domain_id),				\
 	}
