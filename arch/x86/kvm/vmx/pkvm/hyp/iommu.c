@@ -395,6 +395,27 @@ static bool sync_shadow_pasid_dir_entry(struct pgt_sync_data *sdata)
 	return false;
 }
 
+static int iommu_audit_did(struct pkvm_iommu *iommu, u16 did, int shadow_vm_handle)
+{
+	struct pkvm_ptdev *tmp;
+	int ret = 0;
+
+	list_for_each_entry(tmp, &iommu->ptdev_head, iommu_node) {
+		if (tmp->shadow_vm_handle != shadow_vm_handle) {
+			if (tmp->did == did) {
+				/*
+				 * The devices belong to different VMs but behind
+				 * the same IOMMU, cannot use the same did.
+				 */
+				ret = -EPERM;
+				break;
+			}
+		}
+	}
+
+	return ret;
+}
+
 static struct pkvm_ptdev *iommu_find_ptdev(struct pkvm_iommu *iommu, u16 bdf, u32 pasid)
 {
 	struct pkvm_ptdev *p;
@@ -511,6 +532,29 @@ static bool sync_shadow_pasid_table_entry(struct pgt_sync_data *sdata)
 	}
 
 	pkvm_setup_ptdev_did(ptdev, pasid_get_domain_id(guest_pte));
+
+	if (iommu_audit_did(iommu, ptdev->did, ptdev->shadow_vm_handle))
+		/*
+		 * It is possible that this ptdev will be attached to a protected
+		 * VM so primary VM allocates the same did used by this protected
+		 * VM and did a TLB flush. But at this moment, this ptdev is not
+		 * attached yet so audit is failed. For this case, can skip the sync
+		 * of this pasid table entry and it will be synced again when this
+		 * ptdev is attached.
+		 *
+		 * It is also possible that this ptdev is just detached from a
+		 * protected VM but still using the previous did due to primary VM
+		 * has not configured this ptdev yet. In this case, the did of this
+		 * ptdev is still the same as the did used by other ptdevs not
+		 * detached yet. For this case, can skip the sync of this pasid
+		 * table entry and it will be synced again when primary VM configures
+		 * this ptdev.
+		 *
+		 * If not the above cases but primary VM does this by purpose, also
+		 * not sync the pasid table entry to guarantee the isolation.
+		 */
+		return false;
+
 	/*
 	 * ptdev->pgt will be used as second-level translation table
 	 * which should be EPT format.
