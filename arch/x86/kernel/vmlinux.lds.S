@@ -562,4 +562,8 @@ INIT_PER_CPU(irq_stack_backing_store);
 		"SRSO function pair won't alias");
 #endif
 
+#ifdef CONFIG_PKVM_INTEL
+#include <asm/pkvm_image_vars.h>
+#endif
+
 #endif /* CONFIG_X86_64 */
