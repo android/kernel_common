@@ -113,6 +113,8 @@ const unsigned short vmcs12_field_offsets[] = {
 	FIELD(GUEST_SYSENTER_CS, guest_sysenter_cs),
 	FIELD(HOST_IA32_SYSENTER_CS, host_ia32_sysenter_cs),
 	FIELD(VMX_PREEMPTION_TIMER_VALUE, vmx_preemption_timer_value),
+	FIELD(PLE_GAP, ple_gap),
+	FIELD(PLE_WINDOW, ple_window),
 	FIELD(CR0_GUEST_HOST_MASK, cr0_guest_host_mask),
 	FIELD(CR4_GUEST_HOST_MASK, cr4_guest_host_mask),
 	FIELD(CR0_READ_SHADOW, cr0_read_shadow),
@@ -151,5 +153,9 @@ const unsigned short vmcs12_field_offsets[] = {
 	FIELD(HOST_IA32_SYSENTER_EIP, host_ia32_sysenter_eip),
 	FIELD(HOST_RSP, host_rsp),
 	FIELD(HOST_RIP, host_rip),
+	FIELD(EXIT_IO_RCX, exit_io_rcx),
+	FIELD(EXIT_IO_RSI, exit_io_rsi),
+	FIELD(EXIT_IO_RDI, exit_io_rdi),
+	FIELD(EXIT_IO_RIP, exit_io_rip),
 };
 const unsigned int nr_vmcs12_fields = ARRAY_SIZE(vmcs12_field_offsets);

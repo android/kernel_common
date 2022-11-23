@@ -117,7 +117,11 @@ struct __packed vmcs12 {
 	natural_width host_ia32_sysenter_eip;
 	natural_width host_rsp;
 	natural_width host_rip;
-	natural_width paddingl[8]; /* room for future expansion */
+	natural_width exit_io_rcx;
+	natural_width exit_io_rsi;
+	natural_width exit_io_rdi;
+	natural_width exit_io_rip;
+	natural_width paddingl[4]; /* room for future expansion */
 	u32 pin_based_vm_exec_control;
 	u32 cpu_based_vm_exec_control;
 	u32 exception_bitmap;
@@ -165,7 +169,9 @@ struct __packed vmcs12 {
 	u32 guest_sysenter_cs;
 	u32 host_ia32_sysenter_cs;
 	u32 vmx_preemption_timer_value;
-	u32 padding32[7]; /* room for future expansion */
+	u32 ple_gap;
+	u32 ple_window;
+	u32 padding32[5]; /* room for future expansion */
 	u16 virtual_processor_id;
 	u16 posted_intr_nv;
 	u16 guest_es_selector;
@@ -294,6 +300,10 @@ static inline void vmx_check_vmcs12_offsets(void)
 	CHECK_OFFSET(host_ia32_sysenter_eip, 656);
 	CHECK_OFFSET(host_rsp, 664);
 	CHECK_OFFSET(host_rip, 672);
+	CHECK_OFFSET(exit_io_rcx, 680);
+	CHECK_OFFSET(exit_io_rsi, 688);
+	CHECK_OFFSET(exit_io_rdi, 696);
+	CHECK_OFFSET(exit_io_rip, 704);
 	CHECK_OFFSET(pin_based_vm_exec_control, 744);
 	CHECK_OFFSET(cpu_based_vm_exec_control, 748);
 	CHECK_OFFSET(exception_bitmap, 752);
@@ -341,6 +351,8 @@ static inline void vmx_check_vmcs12_offsets(void)
 	CHECK_OFFSET(guest_sysenter_cs, 920);
 	CHECK_OFFSET(host_ia32_sysenter_cs, 924);
 	CHECK_OFFSET(vmx_preemption_timer_value, 928);
+	CHECK_OFFSET(ple_gap, 932);
+	CHECK_OFFSET(ple_window, 936);
 	CHECK_OFFSET(virtual_processor_id, 960);
 	CHECK_OFFSET(posted_intr_nv, 962);
 	CHECK_OFFSET(guest_es_selector, 964);
