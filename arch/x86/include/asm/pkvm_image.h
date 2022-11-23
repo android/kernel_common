@@ -37,6 +37,12 @@
 		*(NAME NAME##.*)		\
 	END_PKVM_SECTION
 
+/*
+ * Defines a linker script alias of a kernel-proper symbol referenced by
+ * PKVM code.
+ */
+#define PKVM_ALIAS(sym)  pkvm_sym(sym) = sym;
+
 #endif /* LINKER_SCRIPT */
 
 #endif /* __X86_INTEL_PKVM_IMAGE_H */
