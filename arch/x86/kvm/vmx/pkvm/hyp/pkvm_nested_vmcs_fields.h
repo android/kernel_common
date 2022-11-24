@@ -28,6 +28,7 @@ EMULATED_FIELD_RW(VIRTUAL_PROCESSOR_ID, virtual_processor_id)
 /* 32-bits */
 EMULATED_FIELD_RW(VM_EXIT_CONTROLS, vm_exit_controls)
 EMULATED_FIELD_RW(VM_ENTRY_CONTROLS, vm_entry_controls)
+EMULATED_FIELD_RW(SECONDARY_VM_EXEC_CONTROL, secondary_vm_exec_control)
 
 /* 64-bits, what about their HIGH 32 fields?  */
 EMULATED_FIELD_RW(IO_BITMAP_A, io_bitmap_a)
@@ -77,7 +78,6 @@ SHADOW_FIELD_RW(GUEST_PML_INDEX, guest_pml_index)
 /* 32-bits */
 SHADOW_FIELD_RW(PIN_BASED_VM_EXEC_CONTROL, pin_based_vm_exec_control)
 SHADOW_FIELD_RW(CPU_BASED_VM_EXEC_CONTROL, cpu_based_vm_exec_control)
-SHADOW_FIELD_RW(SECONDARY_VM_EXEC_CONTROL, secondary_vm_exec_control)
 SHADOW_FIELD_RW(EXCEPTION_BITMAP, exception_bitmap)
 SHADOW_FIELD_RW(PAGE_FAULT_ERROR_CODE_MASK, page_fault_error_code_mask)
 SHADOW_FIELD_RW(PAGE_FAULT_ERROR_CODE_MATCH, page_fault_error_code_match)

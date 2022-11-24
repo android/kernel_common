@@ -16,4 +16,12 @@ int handle_vmlaunch(struct kvm_vcpu *vcpu);
 int nested_vmexit(struct kvm_vcpu *vcpu);
 void pkvm_init_nest(void);
 
+#define LIST_OF_VMX_MSRS        		\
+	MSR_IA32_VMX_MISC,                      \
+	MSR_IA32_VMX_PROCBASED_CTLS2,           \
+	MSR_IA32_VMX_VMFUNC
+
+bool is_vmx_msr(unsigned long msr);
+int read_vmx_msr(struct kvm_vcpu *vcpu, unsigned long msr, u64 *val);
+
 #endif

@@ -6,8 +6,70 @@
 #include <pkvm.h>
 
 #include "pkvm_hyp.h"
+#include "nested.h"
+#include "cpu.h"
 #include "vmx.h"
 #include "debug.h"
+
+/*
+ * Not support shadow vmcs & vmfunc;
+ * Not support descriptor-table exiting
+ * as it requires guest memory access
+ * to decode and emulate instructions
+ * which is not supported for protected VM.
+ */
+#define NESTED_UNSUPPORTED_2NDEXEC 		\
+	(SECONDARY_EXEC_SHADOW_VMCS | 		\
+	 SECONDARY_EXEC_ENABLE_VMFUNC | 	\
+	 SECONDARY_EXEC_DESC)
+
+static const unsigned int vmx_msrs[] = {
+	LIST_OF_VMX_MSRS
+};
+
+bool is_vmx_msr(unsigned long msr)
+{
+	bool found = false;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(vmx_msrs); i++) {
+		if (msr == vmx_msrs[i]) {
+			found = true;
+			break;
+		}
+	}
+
+	return found;
+}
+
+int read_vmx_msr(struct kvm_vcpu *vcpu, unsigned long msr, u64 *val)
+{
+	u32 low, high;
+	int err = 0;
+
+	pkvm_rdmsr(msr, low, high);
+
+	switch (msr) {
+	case MSR_IA32_VMX_PROCBASED_CTLS2:
+		high &= ~NESTED_UNSUPPORTED_2NDEXEC;
+		break;
+	case MSR_IA32_VMX_MISC:
+		/* not support PT, SMM */
+		low &= ~(VMX_MISC_INTEL_PT | BIT(28));
+		break;
+	case MSR_IA32_VMX_VMFUNC:
+		/* not support vmfunc */
+		low = high = 0;
+		break;
+	default:
+		err = -EACCES;
+		break;
+	}
+
+	*val = (u64)high << 32 | (u64)low;
+
+	return err;
+}
 
 /**
  * According to SDM Appendix B Field Encoding in VMCS, some fields only
@@ -491,6 +553,9 @@ static u64 emulate_field_for_vmcs02(struct vcpu_vmx *vmx, u16 field, u64 virt_va
 			val |= (VM_EXIT_LOAD_IA32_PAT | VM_EXIT_SAVE_IA32_PAT);
 		/* host always in 64bit mode */
 		val |= VM_EXIT_HOST_ADDR_SPACE_SIZE;
+		break;
+	case SECONDARY_VM_EXEC_CONTROL:
+		val &= ~NESTED_UNSUPPORTED_2NDEXEC;
 		break;
 	}
 	return val;

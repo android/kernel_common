@@ -5,6 +5,7 @@
 
 #include <pkvm.h>
 #include "cpu.h"
+#include "nested.h"
 #include "debug.h"
 
 #define INTERCEPT_DISABLE		(0U)
@@ -13,7 +14,7 @@
 #define INTERCEPT_READ_WRITE		(INTERCEPT_READ | INTERCEPT_WRITE)
 
 static unsigned int emulated_ro_guest_msrs[] = {
-	/* DUMMY */
+	LIST_OF_VMX_MSRS,
 };
 
 static void enable_msr_interception(u8 *bitmap, unsigned int msr_arg, unsigned int mode)
@@ -50,11 +51,25 @@ static void enable_msr_interception(u8 *bitmap, unsigned int msr_arg, unsigned i
 
 int handle_read_msr(struct kvm_vcpu *vcpu)
 {
-	/* simply return 0 for non-supported MSRs */
-	vcpu->arch.regs[VCPU_REGS_RAX] = 0;
-	vcpu->arch.regs[VCPU_REGS_RDX] = 0;
+	unsigned long msr = vcpu->arch.regs[VCPU_REGS_RCX];
+	int ret = 0;
+	u32 low = 0, high = 0;
+	u64 val;
 
-	return 0;
+	/* For non-supported MSRs, return low=high=0 by default */
+	if (is_vmx_msr(msr)) {
+		ret = read_vmx_msr(vcpu, msr, &val);
+		if (!ret) {
+			low = (u32)val;
+			high = (u32)(val >> 32);
+		}
+	}
+	pkvm_dbg("%s: CPU%d Value of msr 0x%lx: low=0x%x, high=0x%x\n", __func__, vcpu->cpu, msr, low, high);
+
+	vcpu->arch.regs[VCPU_REGS_RAX] = low;
+	vcpu->arch.regs[VCPU_REGS_RDX] = high;
+
+	return ret;
 }
 
 int handle_write_msr(struct kvm_vcpu *vcpu)
