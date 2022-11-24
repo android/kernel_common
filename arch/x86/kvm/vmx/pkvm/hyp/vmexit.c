@@ -9,6 +9,7 @@
 #include "vmexit.h"
 #include "ept.h"
 #include "pkvm_hyp.h"
+#include "vmsr.h"
 #include "nested.h"
 #include "debug.h"
 
@@ -107,18 +108,6 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	}
 
 	return ret;
-}
-
-static void handle_read_msr(struct kvm_vcpu *vcpu)
-{
-	/* simply return 0 for non-supported MSRs */
-	vcpu->arch.regs[VCPU_REGS_RAX] = 0;
-	vcpu->arch.regs[VCPU_REGS_RDX] = 0;
-}
-
-static void handle_write_msr(struct kvm_vcpu *vcpu)
-{
-	/*No emulation for msr write now*/
 }
 
 static void handle_xsetbv(struct kvm_vcpu *vcpu)

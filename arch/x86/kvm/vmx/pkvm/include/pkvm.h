@@ -106,6 +106,8 @@ PKVM_DECLARE(void *, pkvm_early_alloc_contig(unsigned int nr_pages));
 PKVM_DECLARE(void *, pkvm_early_alloc_page(void));
 PKVM_DECLARE(void, pkvm_early_alloc_init(void *virt, unsigned long size));
 
+PKVM_DECLARE(void, init_msr_emulation(struct vcpu_vmx *vmx));
+
 PKVM_DECLARE(void, noop_handler(void));
 PKVM_DECLARE(void, nmi_handler(void));
 

@@ -280,6 +280,7 @@ static __init void init_execution_control(struct vcpu_vmx *vmx,
 	/* guest handles exception directly */
 	vmcs_write32(EXCEPTION_BITMAP, 0);
 
+	pkvm_sym(init_msr_emulation(vmx));
 	vmcs_write64(MSR_BITMAP, __pa(vmx->vmcs01.msr_bitmap));
 
 	/*
