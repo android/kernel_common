@@ -12,4 +12,12 @@
 unsigned long pkvm_virt_to_symbol_phys(void *virt);
 #define __pkvm_pa_symbol(x) pkvm_virt_to_symbol_phys((void *)x)
 
+struct mem_range {
+	unsigned long start;
+	unsigned long end;
+};
+
+bool find_mem_range(unsigned long addr, struct mem_range *range);
+bool mem_range_included(struct mem_range *child, struct mem_range *parent);
+
 #endif
