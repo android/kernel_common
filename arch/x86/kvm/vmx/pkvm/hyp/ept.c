@@ -6,6 +6,7 @@
 #include <linux/types.h>
 #include <linux/memblock.h>
 #include <asm/kvm_pkvm.h>
+#include <asm/pkvm_spinlock.h>
 #include <mmu.h>
 #include <mmu/spte.h>
 
@@ -16,9 +17,12 @@
 #include "early_alloc.h"
 #include "pgtable.h"
 #include "ept.h"
+#include "memory.h"
+#include "debug.h"
 
 static struct hyp_pool host_ept_pool;
 static struct pkvm_pgtable host_ept;
+static pkvm_spinlock_t host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
 static void flush_tlb_noop(void) { };
 static void *host_ept_zalloc_page(void)
@@ -156,4 +160,64 @@ int pkvm_host_ept_init(struct pkvm_pgtable_cap *cap,
 
 	pkvm_hyp->host_vm.ept = &host_ept;
 	return pkvm_pgtable_init(&host_ept, &host_ept_mm_ops, &ept_ops, cap, true);
+}
+
+int handle_host_ept_violation(unsigned long gpa)
+{
+	unsigned long hpa;
+	struct mem_range range, cur;
+	bool is_memory = find_mem_range(gpa, &range);
+	u64 prot = HOST_EPT_DEF_MMIO_PROT;
+	int level;
+	int ret;
+
+	if (is_memory) {
+		pkvm_err("%s: not handle for memory address 0x%lx\n", __func__, gpa);
+		return -EPERM;
+	}
+
+	pkvm_spin_lock(&host_ept_lock);
+
+	pkvm_pgtable_lookup(&host_ept, gpa, &hpa, NULL, &level);
+	if (hpa != INVALID_ADDR) {
+		ret = -EAGAIN;
+		goto out;
+	}
+
+	do {
+		unsigned long size = ept_level_to_size(level);
+
+		cur.start = ALIGN_DOWN(gpa, size);
+		cur.end = cur.start + size - 1;
+		/*
+		 * TODO:
+		 * check if this MMIO belongs to pkvm owned devices (e.g. IOMMU)
+		 * check if this MMIO belongs to a secure VM pass-through device.
+		 */
+		if ((1 << level & host_ept.allowed_pgsz) &&
+				mem_range_included(&cur, &range))
+			break;
+		level--;
+	} while (level != PG_LEVEL_NONE);
+
+	if (level == PG_LEVEL_NONE) {
+		pkvm_err("pkvm: No valid range: gpa 0x%lx, cur 0x%lx ~ 0x%lx size 0x%lx level %d\n",
+			 gpa, cur.start, cur.end, cur.end - cur.start + 1, level);
+		ret = -EPERM;
+		goto out;
+	}
+
+	pkvm_dbg("pkvm: %s: cur MMIO range 0x%lx ~ 0x%lx size 0x%lx level %d\n",
+		__func__, cur.start, cur.end, cur.end - cur.start + 1, level);
+
+	ret = pkvm_host_ept_map(cur.start, cur.start, cur.end - cur.start + 1,
+			   1 << level, prot);
+	if (ret == -ENOMEM) {
+		/* TODO: reclaim MMIO range pages first and try do map again */
+		pkvm_dbg("%s: no memory to set host ept for addr 0x%lx\n",
+			 __func__, gpa);
+	}
+out:
+	pkvm_spin_unlock(&host_ept_lock);
+	return ret;
 }

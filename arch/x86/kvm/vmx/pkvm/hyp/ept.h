@@ -16,5 +16,6 @@ int pkvm_host_ept_unmap(unsigned long vaddr_start, unsigned long phys_start,
 		unsigned long size);
 int pkvm_host_ept_init(struct pkvm_pgtable_cap *cap, void *ept_pool_base,
 		unsigned long ept_pool_pages);
+int handle_host_ept_violation(unsigned long gpa);
 
 #endif
