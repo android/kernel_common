@@ -23,6 +23,7 @@
 #include "vmx.h"
 #include "mem_protect.h"
 #include "debug.h"
+#include "ptdev.h"
 
 static struct hyp_pool host_ept_pool;
 static struct pkvm_pgtable host_ept;
@@ -727,6 +728,56 @@ static bool is_access_violation(u64 ept_entry, u64 exit_qual)
 	return access_violation;
 }
 
+static int populate_pgstate_pgt(struct pkvm_pgtable *pgt)
+{
+	struct pkvm_shadow_vm *vm = pgstate_pgt_to_shadow_vm(pgt);
+	struct list_head *ptdev_head = &vm->ptdev_head;
+	struct pkvm_ptdev *ptdev, *tmp;
+	u64 *prot_override;
+	bool populated;
+	u64 prot;
+	int ret;
+
+	list_for_each_entry(ptdev, ptdev_head, vm_node) {
+		/* No need to populate if vpgt.root_pa doesn't exist */
+		if (!ptdev->vpgt.root_pa)
+			continue;
+
+		populated = false;
+		list_for_each_entry(tmp, ptdev_head, vm_node) {
+			if (tmp == ptdev)
+				break;
+			if (tmp->vpgt.root_pa == ptdev->vpgt.root_pa) {
+				populated = true;
+				break;
+			}
+		}
+
+		if (populated)
+			continue;
+
+		if (ptdev->vpgt.pgt_ops != pgt->pgt_ops) {
+			/* Populate with EPT format */
+			if (is_pgt_ops_ept(pgt)) {
+				prot = VMX_EPT_RWX_MASK;
+			} else {
+				pkvm_err("pkvm: not supported populating\n");
+				return -EOPNOTSUPP;
+			}
+			prot_override = &prot;
+		} else {
+			prot_override = NULL;
+		}
+
+		ret = pkvm_pgtable_sync_map(&ptdev->vpgt, pgt, prot_override,
+					    pkvm_pgstate_pgt_map_leaf);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static bool allow_shadow_ept_mapping(struct pkvm_shadow_vm *vm,
 				     u64 gpa, unsigned long hpa,
 				     unsigned long size)
@@ -734,6 +785,18 @@ static bool allow_shadow_ept_mapping(struct pkvm_shadow_vm *vm,
 	struct pkvm_pgtable *pgstate_pgt = &vm->pgstate_pgt;
 	unsigned long mapped_hpa;
 	int level;
+
+	/*
+	 * VM will be marked as need_prepopulation when a passthrough device is
+	 * attached. With this flag being set, VM's pgstate_pgt will be pre-populated
+	 * before handling EPT violation. After the population is done, this flag
+	 * can be cleared.
+	 */
+	if (vm->need_prepopulation) {
+		if (populate_pgstate_pgt(pgstate_pgt))
+			return false;
+		vm->need_prepopulation = false;
+	}
 
 	/*
 	 * Lookup the page state pgt to check if the mapping is already created

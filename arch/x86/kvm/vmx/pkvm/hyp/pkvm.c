@@ -449,6 +449,7 @@ int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid)
 		if (ptdev) {
 			pkvm_spin_lock(&vm->lock);
 			list_add_tail(&ptdev->vm_node, &vm->ptdev_head);
+			vm->need_prepopulation = true;
 			pkvm_spin_unlock(&vm->lock);
 		} else {
 			ret = -ENODEV;

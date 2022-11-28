@@ -133,6 +133,8 @@ struct pkvm_shadow_vm {
 	 * the page states only.
 	 */
 	struct pkvm_pgtable pgstate_pgt;
+	/* Indicate if pgstate_pgt needs to be prepopulated */
+	bool need_prepopulation;
 
 	/* link the passthrough devices of a protected VM */
 	struct list_head ptdev_head;
