@@ -10,6 +10,7 @@
 #include "ept.h"
 #include "mem_protect.h"
 #include "lapic.h"
+#include "ptdev.h"
 
 struct pkvm_hyp *pkvm_hyp;
 
@@ -117,6 +118,7 @@ int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
 
 	memset(vm, 0, shadow_size);
 	pkvm_spin_lock_init(&vm->lock);
+	INIT_LIST_HEAD(&vm->ptdev_head);
 
 	vm->host_kvm_va = kvm_va;
 	vm->shadow_size = shadow_size;
@@ -147,6 +149,7 @@ undonate:
 unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle)
 {
 	struct pkvm_shadow_vm *vm = free_shadow_vm_handle(shadow_vm_handle);
+	struct pkvm_ptdev *ptdev, *tmp;
 	unsigned long shadow_size;
 
 	if (!vm)
@@ -155,6 +158,14 @@ unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle)
 	pkvm_shadow_ept_deinit(&vm->sept_desc);
 
 	pkvm_pgstate_pgt_deinit(vm);
+
+	list_for_each_entry_safe(ptdev, tmp, &vm->ptdev_head, vm_node) {
+		pkvm_spin_lock(&vm->lock);
+		list_del(&ptdev->vm_node);
+		pkvm_spin_unlock(&vm->lock);
+
+		pkvm_detach_ptdev(ptdev);
+	}
 
 	shadow_size = vm->shadow_size;
 	memset(vm, 0, shadow_size);
@@ -422,4 +433,29 @@ void pkvm_kick_vcpu(struct kvm_vcpu *vcpu)
 		return;
 
 	pkvm_lapic_send_init(pcpu);
+}
+
+int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid)
+{
+	struct pkvm_shadow_vm *vm = get_shadow_vm(shadow_vm_handle);
+	struct pkvm_ptdev *ptdev;
+	int ret = 0;
+
+	if (!vm)
+		return -EINVAL;
+
+	if (vm->vm_type != KVM_X86_DEFAULT_VM) {
+		ptdev = pkvm_attach_ptdev(bdf, pasid, vm);
+		if (ptdev) {
+			pkvm_spin_lock(&vm->lock);
+			list_add_tail(&ptdev->vm_node, &vm->ptdev_head);
+			pkvm_spin_unlock(&vm->lock);
+		} else {
+			ret = -ENODEV;
+		}
+	}
+
+	put_shadow_vm(shadow_vm_handle);
+
+	return ret;
 }

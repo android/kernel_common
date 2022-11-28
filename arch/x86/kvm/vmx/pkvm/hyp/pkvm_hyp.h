@@ -134,6 +134,9 @@ struct pkvm_shadow_vm {
 	 */
 	struct pkvm_pgtable pgstate_pgt;
 
+	/* link the passthrough devices of a protected VM */
+	struct list_head ptdev_head;
+
 	/* The vm_type to indicate if this is a protected VM */
 	u8 vm_type;
 
@@ -161,6 +164,7 @@ struct shadow_vcpu_state *get_shadow_vcpu(s64 shadow_vcpu_handle);
 void put_shadow_vcpu(s64 shadow_vcpu_handle);
 s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa);
 void pkvm_kick_vcpu(struct kvm_vcpu *vcpu);
+int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid);
 
 #define PKVM_REQ_TLB_FLUSH_HOST_EPT			KVM_ARCH_REQ(0)
 #define PKVM_REQ_TLB_FLUSH_SHADOW_EPT			KVM_ARCH_REQ(1)

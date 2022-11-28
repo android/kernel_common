@@ -24,8 +24,9 @@ struct pkvm_ptdev *pkvm_get_ptdev(u16 bdf, u32 pasid)
 
 	hash_for_each_possible(ptdev_hasht, tmp, hnode, bdf) {
 		if (match_ptdev(tmp, bdf, pasid)) {
-			ptdev = tmp;
-			break;
+			ptdev = atomic_inc_not_zero(&tmp->refcount) ? tmp : NULL;
+			if (ptdev)
+				break;
 		}
 	}
 
@@ -41,6 +42,8 @@ struct pkvm_ptdev *pkvm_get_ptdev(u16 bdf, u32 pasid)
 		ptdev->index = index;
 		ptdev->pgt = pkvm_hyp->host_vm.ept;
 		INIT_LIST_HEAD(&ptdev->iommu_node);
+		INIT_LIST_HEAD(&ptdev->vm_node);
+		atomic_set(&ptdev->refcount, 1);
 		hash_add(ptdev_hasht, &ptdev->hnode, bdf);
 	}
 out:
@@ -51,6 +54,9 @@ out:
 
 void pkvm_put_ptdev(struct pkvm_ptdev *ptdev)
 {
+	if (!atomic_dec_and_test(&ptdev->refcount))
+		return;
+
 	pkvm_spin_lock(&ptdev_lock);
 
 	hlist_del(&ptdev->hnode);
@@ -78,4 +84,52 @@ void pkvm_setup_ptdev_vpgt(struct pkvm_ptdev *ptdev, unsigned long root_gpa,
 void pkvm_setup_ptdev_did(struct pkvm_ptdev *ptdev, u16 did)
 {
 	ptdev->did = did;
+}
+
+/*
+ * pkvm_detach_ptdev()	- detach a ptdev from the shadow VM it is attached.
+ * Basically it reverts what pkvm_attach_ptdev() does.
+ *
+ * @ptdev:	The target ptdev.
+ */
+void pkvm_detach_ptdev(struct pkvm_ptdev *ptdev)
+{
+	/* Reset what the attach API has set */
+	ptdev->shadow_vm_handle = 0;
+	pkvm_put_ptdev(ptdev);
+}
+
+/*
+ * pkvm_attach_ptdev() - attach a ptdev to a shadow VM so it will be isolated
+ * from the primary VM.
+ *
+ * @bdf:	The bdf of this ptdev.
+ * @pasid:	The pasid of this ptdev.
+ * @vm:		The shadow VM which will be attached to.
+ *
+ * FIXME:
+ * The passthrough devices attached to the protected VM is relying on KVM
+ * high to send vmcall so that pKVM can know which device should be isolated.
+ * But if KVM high has created a passthrough device for a protected VM without
+ * using this vmcall to notify pKVM, pKVM should still be able to isolate this
+ * passthrough device. To guarantee this, either needs pKVM to know the
+ * passthrough devices information to isolate them independently or needs
+ * protected VM to check with pKVM about its passthrough device info through
+ * some vmcall. Currently neither way is available.
+ */
+struct pkvm_ptdev *pkvm_attach_ptdev(u16 bdf, u32 pasid, struct pkvm_shadow_vm *vm)
+{
+	struct pkvm_ptdev *ptdev = pkvm_get_ptdev(bdf, pasid);
+
+	if (!ptdev)
+		return NULL;
+
+	if (cmpxchg(&ptdev->shadow_vm_handle, 0, vm->shadow_vm_handle) != 0) {
+		pkvm_err("%s: ptdev with bdf 0x%x pasid 0x%x is already attached\n",
+			 __func__, bdf, pasid);
+		pkvm_put_ptdev(ptdev);
+		return NULL;
+	}
+
+	return ptdev;
 }

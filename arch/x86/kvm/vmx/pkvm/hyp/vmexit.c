@@ -124,6 +124,9 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	case PKVM_HC_SET_MMIO_VE:
 		pkvm_shadow_clear_suppress_ve(vcpu, a0);
 		break;
+	case PKVM_HC_ADD_PTDEV:
+		ret = pkvm_add_ptdev(a0, a1, a2);
+		break;
 	default:
 		ret = -EINVAL;
 	}
