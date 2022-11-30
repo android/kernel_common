@@ -27,6 +27,7 @@
 
 static struct hyp_pool host_ept_pool;
 static struct pkvm_pgtable host_ept;
+static struct pkvm_pgtable host_ept_notlbflush;
 static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
 static struct hyp_pool shadow_ept_pool;
@@ -114,6 +115,17 @@ struct pkvm_mm_ops host_ept_mm_ops = {
 	.put_page = host_ept_put_page,
 	.page_count = hyp_page_count,
 	.flush_tlb = host_ept_flush_tlb,
+	.flush_cache = host_ept_flush_cache,
+};
+
+static struct pkvm_mm_ops host_ept_mm_ops_no_tlbflush = {
+	.phys_to_virt = pkvm_phys_to_virt,
+	.virt_to_phys = pkvm_virt_to_phys,
+	.zalloc_page = host_ept_zalloc_page,
+	.get_page = host_ept_get_page,
+	.put_page = host_ept_put_page,
+	.page_count = hyp_page_count,
+	.flush_tlb = flush_tlb_noop,
 	.flush_cache = host_ept_flush_cache,
 };
 
@@ -311,7 +323,23 @@ int pkvm_host_ept_init(struct pkvm_pgtable_cap *cap,
 				  fls(cap->allowed_pgsz) - 1);
 
 	pkvm_hyp->host_vm.ept = &host_ept;
-	return pkvm_pgtable_init(&host_ept, &host_ept_mm_ops, &ept_ops, cap, true);
+	ret = pkvm_pgtable_init(&host_ept, &host_ept_mm_ops, &ept_ops, cap, true);
+	if (ret)
+		return ret;
+
+	/*
+	 * Prepare an instance for host EPT without doing TLB flushing.
+	 * This is used for some fastpath code which wants to avoid
+	 * doing TLB flushing for each host EPT modifications. It doesn't
+	 * mean TLB flushing is not needed. The user still needs to do
+	 * TLB flushing explicitly after finishing all the host EPT
+	 * modifications.
+	 */
+	host_ept_notlbflush = host_ept;
+	host_ept_notlbflush.mm_ops = &host_ept_mm_ops_no_tlbflush;
+	pkvm_hyp->host_vm.ept_notlbflush = &host_ept_notlbflush;
+
+	return 0;
 }
 
 int handle_host_ept_violation(unsigned long gpa)
@@ -499,7 +527,21 @@ static int pkvm_pgstate_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vad
 		ret = __pkvm_host_share_guest(map_phys, pgt, vaddr, level_size, data->prot);
 		break;
 	case KVM_X86_PROTECTED_VM:
-		ret = __pkvm_host_donate_guest(map_phys, pgt, vaddr, level_size, data->prot);
+		if (vm->need_prepopulation)
+			/*
+			 * As pgstate pgt is the source of the shadow EPT, only after pgstate
+			 * pgt is set up, shadow EPT can be set up. So protected VM will not be
+			 * able to use the memory donated in pgstate pgt before its shadow EPT
+			 * is setting up. So it is safe to use the fastpath to donate all the
+			 * pages to improve the pre-population performance. TLB flushing
+			 * can be done in the caller after the pre-population is done but before
+			 * setting up its shadow EPT.
+			 */
+			ret = __pkvm_host_donate_guest_fastpath(map_phys, pgt, vaddr,
+								level_size, data->prot);
+		else
+			ret = __pkvm_host_donate_guest(map_phys, pgt, vaddr,
+						       level_size, data->prot);
 		break;
 	default:
 		ret = -EINVAL;
@@ -795,6 +837,17 @@ static bool allow_shadow_ept_mapping(struct pkvm_shadow_vm *vm,
 	if (vm->need_prepopulation) {
 		if (populate_pgstate_pgt(pgstate_pgt))
 			return false;
+		/*
+		 * Explicitly flush TLB of the host EPT after populating the page
+		 * state pgt.
+		 *
+		 * During the population, some pages are donated from primary VM to
+		 * this VM with the fastpath interface to avoid doing TLB flushing
+		 * during each iteration of the page donation so that to have a fast
+		 * population performance. So still need to do TLB flushing in the
+		 * end after finishing all the donations.
+		 */
+		host_ept_flush_tlb(&host_ept);
 		vm->need_prepopulation = false;
 	}
 

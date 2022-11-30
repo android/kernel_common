@@ -447,6 +447,46 @@ int __pkvm_host_donate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
 	return ret;
 }
 
+/*
+ * Fastpath interface will use the host EPT instance without doing tlbflushing
+ * to have a better performance. It is usually used in the scenario that caller
+ * needs to change a bunch of pages' state without having the TLB flushing
+ * overhead in the each iteration, but caller still needs to do TLB flushing
+ * after completing all the iterations.
+ */
+int __pkvm_host_donate_guest_fastpath(u64 hpa, struct pkvm_pgtable *guest_pgt,
+				      u64 gpa, u64 size, u64 prot)
+{
+	int ret;
+	struct pkvm_mem_transition donation = {
+		.size		= size,
+		.initiator	= {
+			.id	= PKVM_ID_HOST,
+			.host	= {
+				.pgt_override	= pkvm_hyp->host_vm.ept_notlbflush,
+				.addr		= hpa,
+			},
+		},
+		.completer	= {
+			.id	= PKVM_ID_GUEST,
+			.guest	= {
+				.pgt		= guest_pgt,
+				.addr		= gpa,
+				.phys		= hpa,
+			},
+			.prot	= prot,
+		},
+	};
+
+	host_ept_lock();
+
+	ret = do_donate(&donation);
+
+	host_ept_unlock();
+
+	return ret;
+}
+
 int __pkvm_host_undonate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
 			       u64 gpa, u64 size)
 {

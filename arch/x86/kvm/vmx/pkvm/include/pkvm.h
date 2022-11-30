@@ -47,6 +47,7 @@ struct pkvm_host_vcpu {
 struct pkvm_host_vm {
 	struct pkvm_host_vcpu *host_vcpus[CONFIG_NR_CPUS];
 	struct pkvm_pgtable *ept;
+	struct pkvm_pgtable *ept_notlbflush;
 };
 
 struct pkvm_iommu_info {

@@ -135,6 +135,18 @@ int __pkvm_host_donate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
 			     u64 gpa, u64 size, u64 prot);
 
 /*
+ * __pkvm_host_donate_guest_fastpath() - Similar to __pkvm_host_donate_guest() but
+ * will use the fastpath to set annotation in host EPT to donate a page. The fastpath
+ * of setting annotation doesn't do the TLB flushing when unmaps from the host EPT.
+ * This function is used in the scenario that, the caller can do TLB flushing after
+ * doing a bunch of donating pages which can improve the performance. The caller
+ * should guarantee that doing TLB flushing after donating doesn't bring any security
+ * window that host can steal the data from the donated page.
+ */
+int __pkvm_host_donate_guest_fastpath(u64 hpa, struct pkvm_pgtable *guest_pgt,
+				      u64 gpa, u64 size, u64 prot);
+
+/*
  * __pkvm_host_undoate_guest() - Host reclaim these pages donated to guest.
  * Then guest can't access these pages and host can access.
  *
