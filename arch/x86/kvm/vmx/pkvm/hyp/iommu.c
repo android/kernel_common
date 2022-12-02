@@ -323,41 +323,33 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 	struct context_entry *shadow_ce = sdata->shadow_ptep, tmp = {0};
 	struct context_entry *guest_ce = sdata->guest_ptep;
 	bool updated = false;
+	u8 aw;
 
-	/*
-	 * If hardware PT translation(ecap(bit6)) is being used by host,
-	 * pKVM won't shadow I/O paging structures as there are no virtual
-	 * I/O paging structures. Instead, pKVM should consider using EPT
-	 * as the 2nd-stage I/O table to ensure the memory protection.
-	 * (i.e. In legacy mode, although the virtual translation type is
-	 * CONTEXT_TT_PASS_THROUGH, the real translation type is
-	 * CONTEXT_TT_MULTI_LEVEL in pKVM.)
-	 *
-	 * Todo: to fully support legacy mode vIOMMU, either by using EPT as
-	 * 2nd-stage I/O translation table when HW PT translation is being
-	 * used by host or by disabling the HW PT translation cap so that
-	 * virtual I/O paging structures will come out which can be shadowed
-	 * by pKVM IOMMU for the DMA restriction.
-	 *
-	 * (Note: Currently we only support shadow root/context table in legacy
-	 * mode. The shadowing paging structures hasn't been supported yet.
-	 * The the following logic added for LM is to workaround the case in which
-	 * the type is set as CONTEXT_TT_PASS_THROUGH in host. W/o this workaround,
-	 * when virtual vt-d sets a domain type to PASS_THROUGH, the sdata->shadow_pa
-	 * would be 0 as there is no virtual table for this domain in host. However
-	 * "sdata->shadow_pa == 0" would lead shadow context entry not to be updated.
-	 * So add a workaround to make the shadow context entry be updated anyway.
-	 * After the missing piece of shadowing paging structures of legacy mode is
-	 * added, we won't need this workaround anymore.)
-	 */
-	if (sdata->guest_ptep && (sdata->shadow_pa ||
-		(!ecap_smts(sdata->iommu_ecap) &&
-		 (context_lm_get_tt(guest_ce) == CONTEXT_TT_PASS_THROUGH)))) {
+	if (sdata->guest_ptep && sdata->shadow_pa) {
 		tmp.hi = guest_ce->hi;
 		tmp.lo = sdata->shadow_pa | (guest_ce->lo & 0xfff);
 
-		/* Clear DTE to make sure device TLB is disabled for security */
-		context_clear_dte(&tmp);
+		if (ecap_smts(sdata->iommu_ecap))
+			/* Clear DTE to make sure device TLB is disabled for security */
+			context_clear_dte(&tmp);
+		else {
+			/*
+			 * Set translation type to CONTEXT_TT_MULTI_LEVEL to ensure using
+			 * 2nd-level translation and to disable device TLB for security.
+			 */
+			context_lm_set_tt(&tmp, CONTEXT_TT_MULTI_LEVEL);
+
+			/*
+			 * For now, set the address width only when host IOMMU driver
+			 * is using pass-through mode.
+			 * FIXME: Once shadow 2nd-stage page tables are supported by pKVM,
+			 * set the address width in all cases.
+			 */
+			if (sdata->shadow_pa == pkvm_hyp->host_vm.ept->root_pa) {
+				aw = (pkvm_hyp->ept_iommu_pgt_level == 4) ? 2 : 3;
+				context_lm_set_aw(&tmp, aw);
+			}
+		}
 	}
 
 	if (READ_ONCE(shadow_ce->hi) != tmp.hi) {
@@ -918,12 +910,32 @@ static int sync_shadow_id_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 			 * So no need to set sync_data.shadow_pa.
 			 */
 		} else {
-			/*
-			 * Right now reference to a virtual 2nd-stage paging table.
-			 * Fixme: Reference to a shadow paging table when shadowing 2nd-stage
-			 * paging table is supported by pKVM.
-			 */
-			sync_data.shadow_pa = vpgt_ops->pgt_entry_to_phys(guest_ptep);
+			switch (context_lm_get_tt(guest_ptep)) {
+			case CONTEXT_TT_MULTI_LEVEL:
+			case CONTEXT_TT_DEV_IOTLB:
+				/*
+				 * Right now reference to a virtual 2nd-stage paging table.
+				 * FIXME: Reference to a shadow paging table when shadowing
+				 * 2nd-stage paging table is supported by pKVM, to ensure
+				 * the memory protection.
+				 */
+				sync_data.shadow_pa = vpgt_ops->pgt_entry_to_phys(guest_ptep);
+				break;
+			case CONTEXT_TT_PASS_THROUGH:
+				/*
+				 * When host IOMMU driver is using pass-through mode, pkvm
+				 * IOMMU will actually use the 2nd-level translation using the
+				 * host EPT to guarantee the memory protection.
+				 */
+				sync_data.shadow_pa = pkvm_hyp->host_vm.ept->root_pa;
+				break;
+			default:
+				/*
+				 * Context entry with an unsupported (reserved) value of
+				 * Translation Type shall be non-present to the physical IOMMU.
+				 */
+				break;
+			}
 		}
 	} else if (!shadow_p) {
 		/*

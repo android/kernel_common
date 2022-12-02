@@ -157,6 +157,16 @@ static inline u8 context_lm_get_tt(struct context_entry *ce)
 	return (READ_ONCE(ce->lo) >> 2) & 3;
 }
 
+static inline void context_lm_set_tt(struct context_entry *ce, u8 value)
+{
+	entry_set_bits(&ce->lo, 3 << 2, value << 2);
+}
+
+static inline void context_lm_set_aw(struct context_entry *ce, u8 value)
+{
+	entry_set_bits(&ce->hi, 0x7, value);
+}
+
 /* Get PRESENT bit of a PASID table entry. */
 static inline bool pasid_pte_is_present(struct pasid_entry *pte)
 {
