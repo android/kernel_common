@@ -350,10 +350,9 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 	 * After the missing piece of shadowing paging structures of legacy mode is
 	 * added, we won't need this workaround anymore.)
 	 */
-	if ((sdata->guest_ptep && sdata->shadow_pa) ||
+	if (sdata->guest_ptep && (sdata->shadow_pa ||
 		(!ecap_smts(sdata->iommu_ecap) &&
-		 (context_lm_get_tt(guest_ce) == CONTEXT_TT_PASS_THROUGH)
-		 && !sdata->shadow_pa)) {
+		 (context_lm_get_tt(guest_ce) == CONTEXT_TT_PASS_THROUGH)))) {
 		tmp.hi = guest_ce->hi;
 		tmp.lo = sdata->shadow_pa | (guest_ce->lo & 0xfff);
 
