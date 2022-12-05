@@ -10,6 +10,7 @@
 
 #include <pkvm.h>
 #include "pkvm_hyp.h"
+#include "gfp.h"
 #include "early_alloc.h"
 #include "memory.h"
 #include "pgtable.h"
@@ -17,6 +18,7 @@
 #include "debug.h"
 
 void *pkvm_mmu_pgt_base;
+void *pkvm_vmemmap_base;
 
 static int divide_memory_pool(phys_addr_t phys, unsigned long size)
 {
@@ -28,10 +30,60 @@ static int divide_memory_pool(phys_addr_t phys, unsigned long size)
 
 	pkvm_early_alloc_init(virt, size - data_struct_size);
 
+	nr_pages = pkvm_vmemmap_pages(sizeof(struct hyp_page));
+	pkvm_vmemmap_base = pkvm_early_alloc_contig(nr_pages);
+	if (!pkvm_vmemmap_base)
+		return -ENOMEM;
+
 	nr_pages = pkvm_mmu_pgtable_pages();
 	pkvm_mmu_pgt_base = pkvm_early_alloc_contig(nr_pages);
 	if (!pkvm_mmu_pgt_base)
 		return -ENOMEM;
+
+	return 0;
+}
+
+static int pkvm_back_vmemmap(phys_addr_t back_pa)
+{
+	unsigned long i, start, start_va, size, end, end_va = 0;
+	struct memblock_region *reg;
+	int ret;
+
+	/* vmemmap region map to virtual address 0 */
+	__hyp_vmemmap = 0;
+
+	for (i = 0; i < hyp_memblock_nr; i++) {
+		reg = &hyp_memory[i];
+		start = reg->base;
+		/* Translate a range of memory to vmemmap range */
+		start_va = ALIGN_DOWN((unsigned long)hyp_phys_to_page(start),
+				   PAGE_SIZE);
+		/*
+		 * The beginning of the pkvm_vmemmap region for the current
+		 * memblock may already be backed by the page backing the end
+		 * of the previous region, so avoid mapping it twice.
+		 */
+		start_va = max(start_va, end_va);
+
+		end = reg->base + reg->size;
+		end_va = ALIGN((unsigned long)hyp_phys_to_page(end), PAGE_SIZE);
+		if (start_va >= end_va)
+			continue;
+
+		size = end_va - start_va;
+		/*
+		 * Create mapping for vmemmap virtual address
+		 * [start, start+size) to physical address
+		 * [back, back+size).
+		 */
+		ret = pkvm_mmu_map(start_va, back_pa, size, 0,
+				  (u64)pgprot_val(PAGE_KERNEL));
+		if (ret)
+			return ret;
+
+		memset(__pkvm_va(back_pa), 0, size);
+		back_pa += size;
+	}
 
 	return 0;
 }
@@ -76,8 +128,14 @@ static int create_mmu_mapping(const struct pkvm_section sections[],
 			return ret;
 	}
 
+	ret = pkvm_back_vmemmap(__pkvm_pa(pkvm_vmemmap_base));
+	if (ret)
+		return ret;
+
 	/* Switch the mmu pgtable to enable pkvm_vmemmap */
 	native_write_cr3(pkvm_hyp->mmu->root_pa);
+
+	pkvm_later_mmu_init(pkvm_mmu_pgt_base, nr_pages);
 
 	return 0;
 }

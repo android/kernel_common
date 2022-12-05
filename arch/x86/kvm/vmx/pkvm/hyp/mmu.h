@@ -14,4 +14,6 @@ int pkvm_mmu_unmap(unsigned long vaddr_start, unsigned long phys_start,
 int pkvm_early_mmu_init(struct pkvm_pgtable_cap *cap,
 		void *mmu_pool_base, unsigned long mmu_pool_pages);
 
+int pkvm_later_mmu_init(void *mmu_pool_base, unsigned long mmu_pool_pages);
+
 #endif
