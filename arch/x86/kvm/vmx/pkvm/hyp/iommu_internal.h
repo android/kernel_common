@@ -147,7 +147,7 @@ static inline void entry_set_bits(u64 *ptr, u64 mask, u64 bits)
 	WRITE_ONCE(*ptr, (old & ~mask) | bits);
 }
 
-static inline void context_clear_dte(struct context_entry *ce)
+static inline void context_sm_clear_dte(struct context_entry *ce)
 {
 	entry_set_bits(&ce->lo, 1 << 2, 0);
 }

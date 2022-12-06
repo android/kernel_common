@@ -331,7 +331,7 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 
 		if (ecap_smts(sdata->iommu_ecap))
 			/* Clear DTE to make sure device TLB is disabled for security */
-			context_clear_dte(&tmp);
+			context_sm_clear_dte(&tmp);
 		else {
 			/*
 			 * Set translation type to CONTEXT_TT_MULTI_LEVEL to ensure using
