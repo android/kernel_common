@@ -959,7 +959,7 @@ void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 	struct shadow_ept_desc *desc = &vm->sept_desc;
 	struct pkvm_pgtable *sept = &desc->sept;
 
-	if (vm->vm_type != KVM_X86_PROTECTED_VM)
+	if (!shadow_vcpu_is_protected(shadow_vcpu))
 		return;
 
 	/*
