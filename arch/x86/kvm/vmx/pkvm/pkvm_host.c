@@ -869,6 +869,82 @@ out:
 	return ret;
 }
 
+int pkvm_init_shadow_vm(struct kvm *kvm)
+{
+	struct kvm_protected_vm *pkvm = &kvm->pkvm;
+	size_t shadow_sz;
+	void *shadow_addr;
+	int ret;
+
+	shadow_sz = PAGE_ALIGN(PKVM_SHADOW_VM_SIZE);
+	shadow_addr = alloc_pages_exact(shadow_sz, GFP_KERNEL_ACCOUNT);
+	if (!shadow_addr)
+		return -ENOMEM;
+
+	ret = kvm_hypercall3(PKVM_HC_INIT_SHADOW_VM, (unsigned long)kvm,
+					  (unsigned long)__pa(shadow_addr), shadow_sz);
+	if (ret < 0)
+		goto free_page;
+
+	pkvm->shadow_vm_handle = ret;
+
+	return 0;
+free_page:
+	free_pages_exact(shadow_addr, shadow_sz);
+	return ret;
+}
+
+void pkvm_teardown_shadow_vm(struct kvm *kvm)
+{
+	struct kvm_protected_vm *pkvm = &kvm->pkvm;
+	unsigned long pa;
+
+	pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VM, pkvm->shadow_vm_handle);
+	if (!pa)
+		return;
+
+	free_pages_exact(__va(pa), PAGE_ALIGN(PKVM_SHADOW_VM_SIZE));
+}
+
+int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
+{
+	struct kvm_protected_vm *pkvm = &vcpu->kvm->pkvm;
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	s64 shadow_vcpu_handle;
+	size_t shadow_sz;
+	void *shadow_addr;
+
+	shadow_sz = PAGE_ALIGN(PKVM_SHADOW_VCPU_STATE_SIZE);
+	shadow_addr = alloc_pages_exact(shadow_sz, GFP_KERNEL_ACCOUNT);
+	if (!shadow_addr)
+		return -ENOMEM;
+
+	shadow_vcpu_handle = kvm_hypercall4(PKVM_HC_INIT_SHADOW_VCPU,
+					    pkvm->shadow_vm_handle, (unsigned long)vmx,
+					    (unsigned long)__pa(shadow_addr), shadow_sz);
+	if (shadow_vcpu_handle < 0)
+		goto free_page;
+
+	vcpu->pkvm_shadow_vcpu_handle = shadow_vcpu_handle;
+
+	return 0;
+
+free_page:
+	free_pages_exact(shadow_addr, shadow_sz);
+	return -EINVAL;
+}
+
+void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu)
+{
+	unsigned long pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VCPU,
+					  vcpu->pkvm_shadow_vcpu_handle);
+
+	if (!pa)
+		return;
+
+	free_pages_exact(__va(pa), PAGE_ALIGN(PKVM_SHADOW_VCPU_STATE_SIZE));
+}
+
 __init int pkvm_init(void)
 {
 	int ret = 0, cpu;

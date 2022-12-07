@@ -6,6 +6,8 @@
 #ifndef _ASM_X86_KVM_PKVM_H
 #define _ASM_X86_KVM_PKVM_H
 
+#include <linux/kvm_host.h>
+
 #ifdef CONFIG_PKVM_INTEL
 
 #include <linux/memblock.h>
@@ -131,8 +133,16 @@ static inline int hyp_pre_reserve_check(void)
 
 u64 hyp_total_reserve_pages(void);
 
+int pkvm_init_shadow_vm(struct kvm *kvm);
+void pkvm_teardown_shadow_vm(struct kvm *kvm);
+int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu);
+void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu);
 #else
 static inline void kvm_hyp_reserve(void) {}
+static inline int pkvm_init_shadow_vm(struct kvm *kvm) { return 0; }
+static inline void pkvm_teardown_shadow_vm(struct kvm *kvm) {}
+static inline int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu) { return 0; }
+static inline void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu) {}
 #endif
 
 #endif

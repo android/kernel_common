@@ -395,6 +395,14 @@ struct kvm_vcpu {
 	 */
 	struct kvm_memory_slot *last_used_slot;
 	u64 last_used_slot_gen;
+
+#if IS_ENABLED(CONFIG_PKVM_INTEL)
+	/*
+	 * Save the handle returned from the pkvm when init a shadow vcpu. This
+	 * will be used when teardown this shadow vcpu.
+	 */
+	s64 pkvm_shadow_vcpu_handle;
+#endif
 };
 
 /*
@@ -857,6 +865,10 @@ struct kvm {
 	struct xarray mem_attr_array;
 #endif
 	char stats_id[KVM_STATS_NAME_SIZE];
+
+#if IS_ENABLED(CONFIG_PKVM_INTEL)
+	struct kvm_protected_vm pkvm;
+#endif
 };
 
 #define kvm_err(fmt, ...) \

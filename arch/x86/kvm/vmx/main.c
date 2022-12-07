@@ -32,6 +32,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.vm_size = sizeof(struct kvm_vmx),
 	.vm_init = vmx_vm_init,
 	.vm_destroy = vmx_vm_destroy,
+	.vm_free = vmx_vm_free,
 
 	.vcpu_precreate = vmx_vcpu_precreate,
 	.vcpu_create = vmx_vcpu_create,

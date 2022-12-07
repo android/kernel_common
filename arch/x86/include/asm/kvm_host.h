@@ -1879,6 +1879,12 @@ struct kvm_arch_async_pf {
 	u64 error_code;
 };
 
+#if IS_ENABLED(CONFIG_PKVM_INTEL)
+struct kvm_protected_vm {
+	int shadow_vm_handle;
+};
+#endif
+
 extern u32 __read_mostly kvm_nr_uret_msrs;
 extern bool __read_mostly allow_smaller_maxphyaddr;
 extern bool __read_mostly enable_apicv;
