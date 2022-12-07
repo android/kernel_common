@@ -7,4 +7,4 @@ obj-y += core.o
 
 obj-$(CONFIG_INTEL_TDX_GUEST)	+= tdx/ virt_exception.o
 obj-$(CONFIG_AMD_MEM_ENCRYPT)   += sev/
-obj-$(CONFIG_PKVM_GUEST)	+= pkvm/
+obj-$(CONFIG_PKVM_GUEST)	+= pkvm/ virt_exception.o

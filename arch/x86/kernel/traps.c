@@ -1350,7 +1350,7 @@ DEFINE_IDTENTRY(exc_device_not_available)
 	}
 }
 
-#ifdef CONFIG_INTEL_TDX_GUEST
+#if defined(CONFIG_INTEL_TDX_GUEST) || defined(CONFIG_PKVM_GUEST)
 
 #define VE_FAULT_STR "VE fault"
 

@@ -70,7 +70,7 @@ static const __initconst struct idt_data early_idts[] = {
 	 */
 	INTG(X86_TRAP_PF,		asm_exc_page_fault),
 #endif
-#ifdef CONFIG_INTEL_TDX_GUEST
+#if defined(CONFIG_INTEL_TDX_GUEST) || defined(CONFIG_PKVM_GUEST)
 	INTG(X86_TRAP_VE,		asm_exc_virtualization_exception),
 #endif
 };
