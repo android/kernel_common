@@ -910,6 +910,8 @@ config INTEL_TDX_GUEST
 config PKVM_GUEST
 	bool "PKVM Guest Support"
 	depends on X86_64 && !PKVM_INTEL
+	select ARCH_HAS_CC_PLATFORM
+	select X86_MEM_ENCRYPT
 	default n
 	help
 	  Support running as a protected guest under Protected KVM.

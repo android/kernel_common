@@ -7,6 +7,7 @@
 
 #include <asm/kvm_para.h>
 #include <asm/io.h>
+#include <asm/coco.h>
 
 /* PKVM Hypercalls */
 #define PKVM_HC_INIT_FINALISE		1
@@ -127,6 +128,21 @@ static inline void pkvm_update_iommu_virtual_caps(u64 *cap, u64 *ecap)
 		*ecap &= ~(1UL << 2);
 	}
 }
+#endif
+
+#ifdef CONFIG_PKVM_GUEST
+
+void pkvm_guest_init_coco(void);
+bool pkvm_is_protected_guest(void);
+int pkvm_set_mem_host_visibility(unsigned long addr, int numpages, bool enc);
+
+#else
+
+static inline void pkvm_guest_init_coco(void) { }
+static inline bool pkvm_is_protected_guest(void) { return false; }
+static inline int
+pkvm_set_mem_host_visibility(unsigned long addr, int numpages, bool enc) { return 0; }
+
 #endif
 
 #endif
