@@ -505,6 +505,119 @@ with specific range, then shadow EPT only need removing mapping of necessary ran
 time.
 
 
+Memory Protection based on Page State
+=====================================
+
+To protect guest memory, pKVM introduces a mechanism called page state management. pKVM
+uses two ignored bits in EPT page table entry (BIT 56 & 57) to track page states. At the
+same time, when the page is un-present in EPT page table entry, ignored bits(12~31) may
+be used to record page owner id.
+
+ 63 ... 58 |   57  56   |    ...    |  31 ... 12  | 11 ... 0
+ ---------------------------------------------------------
+ |  ...    | page state |    ...    |  [owner_id] |    ...
+
+
+Page state - bits[57,56]:
+
+  - PKVM_NOPAGE(00b):
+	the page has no mapping in page table.
+	under this page state, host EPT is using the pte ignored
+	bits[31~12] to record owner_id.
+  - PKVM_PAGE_OWNED(01b):
+	the page is owned exclusively by the page-table owner.
+  - PKVM_PAGE_SHARED_OWNED(10b):
+	the page is owned by the page-table owner, but is shared
+	with another.
+  - PKVM_PAGE_SHARED_BORROWED(11b):
+	the page is shared with, but not owned by the page-table
+	owner.
+
+Owner_id - bits[31~12] (only valid in host EPT when PKVM_NOPAGE):
+  - 0: 	    PKVM_ID_HYP
+  - 1:      PKVM_ID_HOST
+  - others: PKVM_ID_GUEST
+
+The page states can be recorded in different entities:
+  - host EPT (with identical mapping)
+  - guest shadow EPT (with mapping of gpa to hpa)
+
+After a page is donated from host VM, the donee's id (page's owner id) can be recorded
+in host EPT's corresponding page table entry.
+
+Based on these, it's easy to find out a physical page's current owner and state.
+
+Page state transition
+---------------------
+
+Below state machine defines how page states are transformed among different entities
+(host EPT, and guest shadow EPT - which include normal VM & protected VM):
+
+
+       +------------------+                   +------------------+
+       |  host : NOPAGE   | <---------------- |  host : OWNED    |
+       |  guestA: OWNED   | ----------------> |  guest: NOPAGE   |
+       +------------------+       /           +------------------+
+             |        ^          /                 |        ^
+             |        |         /                  |        |
+             |        |        /                   |        |
+             |        |       /                    |        |
+             |        |      /                     |        |
+             v        |     /                      v        |
+    +----------------------------+         +----------------------------+
+    |   host : SHARED_BORROWED   |         |   host : SHARED_OWNED      |
+    |   guestA: SHARED_OWNED     |         |   guestB: SHARED_BORROWED  |
+    +----------------------------+         +----------------------------+
+
+
+Initially, all pages except pKVM owned ones are owned by host VM, so these pages are
+marked with PKVM_PAGE_OWNED in host EPT. Meantime, before guest first EPT_VIOLATION,
+there is no page mapped in guest shadow EPT, so all page states in its shadow EPT are
+PKVM_NOPAGE.
+
+When guest EPT_VIOLATION happen, pKVM needs to do EPT shadowing to build shadow EPT page
+mapping based on virtual EPT. During it, the corresponding page's state shall follow
+above state machine to do page donation or page sharing.
+
+1) page donation
+-----------------
+
+For a protected VM (guestA), during EPT shadowing, the page assigned to guestA shall be
+donated from host VM. Which means the page's ownership is moved from host to guestA. So
+in host EPT, the mapping of corresponding page table entry (host_gpa to hpa(== host_gpa))
+is removed and its page state is marked as PKVM_NOPAGE (meantime the guestA is recorded
+as owner_id). Meanwhile in guestA shadow EPT, the mapping of corresponding page table
+entry (gpa to hpa) is setup and its page state is marked as PKVM_PAGE_OWNED.
+
+Once a page is donated to a guest, it cannot be donated or shared to other guests before
+undonate back to host.
+
+Sometimes, host also need donate pages to the pKVM hypervisor (e.g., when creating a VM,
+its shadow VM data strtucture is allocated in host then donated to the pKVM hypervisor).
+
+2) page sharing
+---------------
+
+For a normal VM (guestB), during EPT shadowing, the page assigned to guestB shall be
+shared from host VM. Which means both host VM and guestB can access this page. So
+in host EPT, the mapping of corresponding page table entry is kept and its page state
+is marked as PKVM_PAGE_SHARED_OWNED. Meanwhile in guestB shadow EPT, the mapping of
+corresponding page table entry is setup and its page state is marked as
+PKVM_PAGE_SHARED_BORROWED.
+
+Once a page is shared to a guest, it cannot be donated or shared to other guests before
+unshare back to host.
+
+For a protected VM (guestA), a page can be shared back to host VM after donated to this
+guest (e.g., to support virtio). For this case, in host EPT, the mapping of corresponding
+page table entry is setup again and its page state is marked as PKVM_PAGE_SHARED_BORROWED.
+Meanwhile in guestA shadow EPT, the mapping of corresponding page table entry is kept but
+its page state is changed to PKVM_PAGE_SHARED_OWNED.
+
+Once a page is shared back to host after donated, guestA is allowed to unshare it. And
+this page can also be returned back to host directly.
+
+
 Misc
 ====
 
