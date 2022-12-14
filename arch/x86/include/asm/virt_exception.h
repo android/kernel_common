@@ -22,7 +22,7 @@ struct ve_info {
 	u32 instr_info;
 };
 
-int handle_mmio(struct pt_regs *regs, struct ve_info *ve);
+int ve_handle_mmio(struct pt_regs *regs, struct ve_info *ve);
 
 bool mmio_read(int size, unsigned long addr, unsigned long *val);
 bool mmio_write(int size, unsigned long addr, unsigned long val);
