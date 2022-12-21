@@ -7,7 +7,7 @@ ccflags-y += -D__DISABLE_EXPORTS
 ccflags-y += -D__PKVM_HYP__
 
 pkvm-hyp-y	:= vmx_asm.o vmexit.o memory.o page_alloc.o early_alloc.o pgtable.o mmu.o pkvm.o \
-		   init_finalise.o ept.o idt.o irq.o nested.o vmx.o vmsr.o
+		   init_finalise.o ept.o idt.o irq.o nested.o vmx.o vmsr.o mem_protect.o
 
 ifndef CONFIG_PKVM_INTEL_DEBUG
 lib-dir		:= lib

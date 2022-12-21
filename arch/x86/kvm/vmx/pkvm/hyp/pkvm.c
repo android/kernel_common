@@ -8,6 +8,7 @@
 
 #include "pkvm_hyp.h"
 #include "ept.h"
+#include "mem_protect.h"
 
 struct pkvm_hyp *pkvm_hyp;
 
@@ -37,8 +38,14 @@ static int allocate_shadow_vm_handle(struct pkvm_shadow_vm *vm)
 	struct shadow_vm_ref *vm_ref;
 	int handle;
 
-	/* The shadow_vm_handle is an int so cannot exceed the INT_MAX */
-	BUILD_BUG_ON(MAX_SHADOW_VMS > INT_MAX);
+	/*
+	 * The shadow_vm_handle is an int so cannot exceed the INT_MAX.
+	 * Meanwhile shadow_vm_handle will also be used as owner_id in
+	 * the page state machine so it also cannot exceed the max
+	 * owner_id.
+	 */
+	BUILD_BUG_ON(MAX_SHADOW_VMS >
+		     min(INT_MAX, ((1 << hweight_long(PKVM_INVALID_PTE_OWNER_MASK)) - 1)));
 
 	pkvm_spin_lock(&shadow_vms_lock);
 
