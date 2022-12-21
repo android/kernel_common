@@ -80,4 +80,6 @@ int pkvm_pgtable_unmap_safe(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 void pkvm_pgtable_lookup(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		unsigned long *pphys, u64 *pprot, int *plevel);
 void pkvm_pgtable_destroy(struct pkvm_pgtable *pgt);
+int pkvm_pgtable_annotate(struct pkvm_pgtable *pgt, unsigned long addr,
+			  unsigned long size, u64 annotation);
 #endif
