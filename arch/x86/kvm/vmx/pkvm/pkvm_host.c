@@ -73,6 +73,15 @@ static int check_pci_device_count(void)
 	return 0;
 }
 
+/*
+ * Check for the coherency of paging structures accessed through pasid table
+ * entries (in scalable mode) or context table entries (in legacy mode).
+ */
+static inline bool is_iommu_coherent(u64 ecap)
+{
+	return ecap_smts(ecap) ? !!ecap_smpwc(ecap) : !!ecap_coherent(ecap);
+}
+
 static int check_and_init_iommu(struct pkvm_hyp *pkvm)
 {
 	struct pkvm_iommu_info *info;
@@ -168,10 +177,9 @@ static int check_and_init_iommu(struct pkvm_hyp *pkvm)
 		}
 
 		/*
-		 * Check SMPWC for the coherency of the paging structure accessed
-		 * through pasid table entry.
+		 * Check for the coherency of the paging structure access.
 		 */
-		if (!ecap_smpwc(ecap))
+		if (!is_iommu_coherent(ecap))
 			pkvm->iommu_coherent = false;
 
 		info->reg_phys = drhd->reg_base_addr;
