@@ -30,7 +30,7 @@ static struct pkvm_pgtable host_ept;
 static struct pkvm_pgtable host_ept_notlbflush;
 static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
-static struct hyp_pool shadow_ept_pool;
+static struct hyp_pool shadow_pgt_pool;
 static struct rsvd_bits_validate ept_zero_check;
 
 static void flush_tlb_noop(struct pkvm_pgtable *pgt) { };
@@ -402,22 +402,22 @@ int pkvm_shadow_ept_pool_init(void *ept_pool_base, unsigned long ept_pool_pages)
 {
 	unsigned long pfn = __pkvm_pa(ept_pool_base) >> PAGE_SHIFT;
 
-	return hyp_pool_init(&shadow_ept_pool, pfn, ept_pool_pages, 0);
+	return hyp_pool_init(&shadow_pgt_pool, pfn, ept_pool_pages, 0);
 }
 
-static void *shadow_ept_zalloc_page(void)
+static void *shadow_pgt_zalloc_page(void)
 {
-	return ept_zalloc_page(&shadow_ept_pool);
+	return ept_zalloc_page(&shadow_pgt_pool);
 }
 
-static void shadow_ept_get_page(void *vaddr)
+static void shadow_pgt_get_page(void *vaddr)
 {
-	hyp_get_page(&shadow_ept_pool, vaddr);
+	hyp_get_page(&shadow_pgt_pool, vaddr);
 }
 
-static void shadow_ept_put_page(void *vaddr)
+static void shadow_pgt_put_page(void *vaddr)
 {
-	hyp_put_page(&shadow_ept_pool, vaddr);
+	hyp_put_page(&shadow_pgt_pool, vaddr);
 }
 
 static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt)
@@ -457,9 +457,9 @@ next:
 static struct pkvm_mm_ops shadow_ept_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
-	.zalloc_page = shadow_ept_zalloc_page,
-	.get_page = shadow_ept_get_page,
-	.put_page = shadow_ept_put_page,
+	.zalloc_page = shadow_pgt_zalloc_page,
+	.get_page = shadow_pgt_get_page,
+	.put_page = shadow_pgt_put_page,
 	.page_count = hyp_page_count,
 	.flush_tlb = shadow_ept_flush_tlb,
 };
@@ -476,9 +476,9 @@ static struct pkvm_mm_ops shadow_ept_mm_ops = {
 static struct pkvm_mm_ops pgstate_pgt_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
-	.zalloc_page = shadow_ept_zalloc_page,
-	.get_page = shadow_ept_get_page,
-	.put_page = shadow_ept_put_page,
+	.zalloc_page = shadow_pgt_zalloc_page,
+	.get_page = shadow_pgt_get_page,
+	.put_page = shadow_pgt_put_page,
 	.page_count = hyp_page_count,
 	.flush_tlb = flush_tlb_noop,
 };
