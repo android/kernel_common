@@ -12,10 +12,6 @@
 struct intel_pxp;
 
 int intel_pxp_terminate_sessions(struct intel_pxp *pxp, long mask);
-
-static inline int intel_pxp_terminate_session(struct intel_pxp *pxp, u32 id)
-{
-	return intel_pxp_terminate_sessions(pxp, BIT(id));
-}
+int intel_pxp_terminate_session(struct intel_pxp *pxp, u32 id);
 
 #endif /* __INTEL_PXP_CMD_H__ */

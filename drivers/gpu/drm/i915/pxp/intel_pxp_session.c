@@ -360,6 +360,24 @@ static int pxp_create_arb_session(struct intel_pxp *pxp)
 	return 0;
 }
 
+int intel_pxp_terminate_session(struct intel_pxp *pxp, u32 id)
+{
+	int ret;
+
+	ret = intel_pxp_terminate_sessions(pxp, BIT(id));
+	if (ret)
+		return ret;
+
+	ret = pxp_wait_for_session_state(pxp, id, false);
+	if (ret)
+		drm_dbg(&pxp->ctrl_gt->i915->drm, "Session state-%d did not clear\n", id);
+
+	if (!HAS_ENGINE(pxp->ctrl_gt, GSC0))
+		intel_pxp_tee_end_fw_sessions(pxp, BIT(id));
+
+	return ret;
+}
+
 static int pxp_terminate_all_sessions(struct intel_pxp *pxp)
 {
 	int ret;
@@ -397,11 +415,14 @@ static int pxp_terminate_all_sessions_and_global(struct intel_pxp *pxp)
 {
 	int ret;
 	struct intel_gt *gt = pxp->ctrl_gt;
+	u32 active_sip_slots;
 
 	/* must mark termination in progress calling this function */
 	GEM_WARN_ON(pxp->arb_session.is_valid);
 
 	mutex_lock(&pxp->session_mutex);
+
+	active_sip_slots = intel_uncore_read(gt->uncore, KCR_SIP(pxp->kcr_base));
 
 	/* terminate the hw sessions */
 	ret = pxp_terminate_all_sessions(pxp);
@@ -418,10 +439,11 @@ static int pxp_terminate_all_sessions_and_global(struct intel_pxp *pxp)
 
 	intel_uncore_write(gt->uncore, KCR_GLOBAL_TERMINATE(pxp->kcr_base), 1);
 
-	if (HAS_ENGINE(gt, GSC0))
+	/* muti-session support not yet enabled for GSCCS */
+	if (HAS_ENGINE(gt, GSC0) && (active_sip_slots & BIT(ARB_SESSION)))
 		intel_pxp_gsccs_end_arb_fw_session(pxp, ARB_SESSION);
 	else
-		intel_pxp_tee_end_arb_fw_session(pxp, ARB_SESSION);
+		intel_pxp_tee_end_fw_sessions(pxp, active_sip_slots);
 
 out:
 	mutex_unlock(&pxp->session_mutex);
