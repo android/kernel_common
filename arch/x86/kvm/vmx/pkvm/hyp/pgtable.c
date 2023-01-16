@@ -66,6 +66,19 @@ static bool leaf_mapping_allowed(struct pkvm_pgtable_ops *pgt_ops,
 	return leaf_mapping_valid(pgt_ops, vaddr, vaddr_end, pgsz_mask, level);
 }
 
+static void *pgtable_alloc_page(struct pkvm_mm_ops *mm_ops)
+{
+	void *page = NULL;
+
+	if (mm_ops->zalloc_page)
+		page = mm_ops->zalloc_page();
+
+	if (page && mm_ops->flush_cache)
+		mm_ops->flush_cache(page, PAGE_SIZE);
+
+	return page;
+}
+
 static void pgtable_set_entry(struct pkvm_pgtable_ops *pgt_ops,
 			struct pkvm_mm_ops *mm_ops,
 			void *ptep, u64 pte)
@@ -177,7 +190,7 @@ static int pgtable_map_walk_leaf(struct pkvm_pgtable *pgt,
 	 * page mapping. And for current level, if the huge page mapping already
 	 * present, we need further split it.
 	 */
-	page = mm_ops->zalloc_page();
+	page = pgtable_alloc_page(mm_ops);
 	if (!page)
 		return -ENOMEM;
 
@@ -337,7 +350,7 @@ static int pgtable_unmap_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		 * if it is huge pte, split and goto next level.
 		 */
 		u64 prot = pgt_ops->pgt_entry_to_prot(ptep);
-		void *page = mm_ops->zalloc_page();
+		void *page = pgtable_alloc_page(mm_ops);
 
 		if (!page)
 			return -ENOMEM;
@@ -551,8 +564,8 @@ int pkvm_pgtable_init(struct pkvm_pgtable *pgt,
 	if (!mm_ops || !pgt_ops || !cap)
 		return -EINVAL;
 
-	if (alloc_root && mm_ops->zalloc_page) {
-		root = mm_ops->zalloc_page();
+	if (alloc_root) {
+		root = pgtable_alloc_page(mm_ops);
 		if (!root)
 			return -ENOMEM;
 		pgt->root_pa = __pkvm_pa(root);
