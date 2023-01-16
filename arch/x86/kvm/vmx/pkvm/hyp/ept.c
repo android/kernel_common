@@ -483,6 +483,23 @@ static struct pkvm_mm_ops pgstate_pgt_mm_ops = {
 	.flush_tlb = flush_tlb_noop,
 };
 
+/*
+ * As pgstate pgt may be used as IOMMU page table, flushing cache is
+ * needed when modifying the page table entries if IOMMU is not coherent.
+ * This ops has flush_cache callback and can be used for the pgstate_pgt
+ * which is used as IOMMU page table with noncoherent IOMMU.
+ */
+static struct pkvm_mm_ops pgstate_pgt_mm_ops_noncoherency = {
+	.phys_to_virt = pkvm_phys_to_virt,
+	.virt_to_phys = pkvm_virt_to_phys,
+	.zalloc_page = shadow_pgt_zalloc_page,
+	.get_page = shadow_pgt_get_page,
+	.put_page = shadow_pgt_put_page,
+	.page_count = hyp_page_count,
+	.flush_tlb = flush_tlb_noop,
+	.flush_cache = pkvm_clflush_cache_range,
+};
+
 static int pkvm_pgstate_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
 				     void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {
@@ -715,6 +732,14 @@ int pkvm_pgstate_pgt_init(struct pkvm_shadow_vm *vm)
 	};
 
 	return pkvm_pgtable_init(pgt, &pgstate_pgt_mm_ops, &ept_ops, &cap, true);
+}
+
+void pkvm_pgstate_pgt_update_coherency(struct pkvm_pgtable *pgt, bool coherent)
+{
+	if (coherent)
+		pkvm_pgtable_set_mm_ops(pgt, &pgstate_pgt_mm_ops);
+	else
+		pkvm_pgtable_set_mm_ops(pgt, &pgstate_pgt_mm_ops_noncoherency);
 }
 
 /*

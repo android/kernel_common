@@ -99,12 +99,15 @@ void pkvm_setup_ptdev_did(struct pkvm_ptdev *ptdev, u16 did)
  * Basically it reverts what pkvm_attach_ptdev() does.
  *
  * @ptdev:	The target ptdev.
+ * @vm:		The shadow VM which will be attached to.
  */
-void pkvm_detach_ptdev(struct pkvm_ptdev *ptdev)
+void pkvm_detach_ptdev(struct pkvm_ptdev *ptdev, struct pkvm_shadow_vm *vm)
 {
 	/* Reset what the attach API has set */
 	ptdev->shadow_vm_handle = 0;
 	ptdev->pgt = pkvm_hyp->host_vm.ept;
+	pkvm_shadow_vm_unlink_ptdev(vm, &ptdev->vm_node,
+				    ptdev->iommu_coherency);
 	pkvm_iommu_sync(ptdev->bdf, ptdev->pasid);
 
 	pkvm_put_ptdev(ptdev);
@@ -128,7 +131,7 @@ void pkvm_detach_ptdev(struct pkvm_ptdev *ptdev)
  * protected VM to check with pKVM about its passthrough device info through
  * some vmcall. Currently neither way is available.
  */
-struct pkvm_ptdev *pkvm_attach_ptdev(u16 bdf, u32 pasid, struct pkvm_shadow_vm *vm)
+int pkvm_attach_ptdev(u16 bdf, u32 pasid, struct pkvm_shadow_vm *vm)
 {
 	struct pkvm_ptdev *ptdev = pkvm_get_ptdev(bdf, pasid);
 
@@ -136,14 +139,14 @@ struct pkvm_ptdev *pkvm_attach_ptdev(u16 bdf, u32 pasid, struct pkvm_shadow_vm *
 		ptdev = pkvm_alloc_ptdev(bdf, pasid,
 					 pkvm_iommu_coherency(bdf, pasid));
 		if (!ptdev)
-			return NULL;
+			return -ENODEV;
 	}
 
 	if (cmpxchg(&ptdev->shadow_vm_handle, 0, vm->shadow_vm_handle) != 0) {
 		pkvm_err("%s: ptdev with bdf 0x%x pasid 0x%x is already attached\n",
 			 __func__, bdf, pasid);
 		pkvm_put_ptdev(ptdev);
-		return NULL;
+		return -ENODEV;
 	}
 
 	/*
@@ -151,10 +154,12 @@ struct pkvm_ptdev *pkvm_attach_ptdev(u16 bdf, u32 pasid, struct pkvm_shadow_vm *
 	 * IOMMU page table accordingly.
 	 */
 	ptdev->pgt = &vm->pgstate_pgt;
+	pkvm_shadow_vm_link_ptdev(vm, &ptdev->vm_node,
+				  ptdev->iommu_coherency);
 	if (pkvm_iommu_sync(ptdev->bdf, ptdev->pasid)) {
-		pkvm_detach_ptdev(ptdev);
-		return NULL;
+		pkvm_detach_ptdev(ptdev, vm);
+		return -ENODEV;
 	}
 
-	return ptdev;
+	return 0;
 }

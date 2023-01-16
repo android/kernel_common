@@ -159,13 +159,8 @@ unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle)
 
 	pkvm_pgstate_pgt_deinit(vm);
 
-	list_for_each_entry_safe(ptdev, tmp, &vm->ptdev_head, vm_node) {
-		pkvm_spin_lock(&vm->lock);
-		list_del(&ptdev->vm_node);
-		pkvm_spin_unlock(&vm->lock);
-
-		pkvm_detach_ptdev(ptdev);
-	}
+	list_for_each_entry_safe(ptdev, tmp, &vm->ptdev_head, vm_node)
+		pkvm_detach_ptdev(ptdev, vm);
 
 	shadow_size = vm->shadow_size;
 	memset(vm, 0, shadow_size);
@@ -195,6 +190,29 @@ void put_shadow_vm(int shadow_vm_handle)
 
 	vm_ref = &shadow_vms_ref[shadow_vm_handle];
 	WARN_ON(atomic_dec_if_positive(&vm_ref->refcount) <= 0);
+}
+
+void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
+			       struct list_head *node, bool coherency)
+{
+	pkvm_spin_lock(&vm->lock);
+	list_add_tail(node, &vm->ptdev_head);
+	vm->noncoherent_ptdev += !coherency;
+	vm->need_prepopulation = true;
+	pkvm_pgstate_pgt_update_coherency(&vm->pgstate_pgt,
+					  !vm->noncoherent_ptdev);
+	pkvm_spin_unlock(&vm->lock);
+}
+
+void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,
+				 struct list_head *node, bool coherency)
+{
+	pkvm_spin_lock(&vm->lock);
+	list_del(node);
+	vm->noncoherent_ptdev -= !coherency;
+	pkvm_pgstate_pgt_update_coherency(&vm->pgstate_pgt,
+					  !vm->noncoherent_ptdev);
+	pkvm_spin_unlock(&vm->lock);
 }
 
 static void add_shadow_vcpu_vmcs12_map(struct shadow_vcpu_state *vcpu)
@@ -438,23 +456,13 @@ void pkvm_kick_vcpu(struct kvm_vcpu *vcpu)
 int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid)
 {
 	struct pkvm_shadow_vm *vm = get_shadow_vm(shadow_vm_handle);
-	struct pkvm_ptdev *ptdev;
 	int ret = 0;
 
 	if (!vm)
 		return -EINVAL;
 
-	if (vm->vm_type != KVM_X86_DEFAULT_VM) {
-		ptdev = pkvm_attach_ptdev(bdf, pasid, vm);
-		if (ptdev) {
-			pkvm_spin_lock(&vm->lock);
-			list_add_tail(&ptdev->vm_node, &vm->ptdev_head);
-			vm->need_prepopulation = true;
-			pkvm_spin_unlock(&vm->lock);
-		} else {
-			ret = -ENODEV;
-		}
-	}
+	if (vm->vm_type != KVM_X86_DEFAULT_VM)
+		ret = pkvm_attach_ptdev(bdf, pasid, vm);
 
 	put_shadow_vm(shadow_vm_handle);
 

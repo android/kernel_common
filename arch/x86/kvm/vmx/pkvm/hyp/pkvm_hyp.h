@@ -135,6 +135,11 @@ struct pkvm_shadow_vm {
 	struct pkvm_pgtable pgstate_pgt;
 	/* Indicate if pgstate_pgt needs to be prepopulated */
 	bool need_prepopulation;
+	/*
+	 * Indicate the count of the shadow VM passthrough devices
+	 * which are attached to non-coherent IOMMU.
+	 */
+	unsigned long noncoherent_ptdev;
 
 	/* link the passthrough devices of a protected VM */
 	struct list_head ptdev_head;
@@ -158,6 +163,10 @@ int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
 unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle);
 struct pkvm_shadow_vm *get_shadow_vm(int shadow_vm_handle);
 void put_shadow_vm(int shadow_vm_handle);
+void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
+			       struct list_head *node, bool coherency);
+void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,
+				 struct list_head *node, bool coherency);
 s64 __pkvm_init_shadow_vcpu(struct kvm_vcpu *hvcpu, int shadow_vm_handle,
 			    unsigned long vcpu_va, unsigned long shadow_pa,
 			    size_t shadow_size);

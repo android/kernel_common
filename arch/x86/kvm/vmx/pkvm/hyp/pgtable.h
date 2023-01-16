@@ -140,4 +140,9 @@ int pkvm_pgtable_annotate(struct pkvm_pgtable *pgt, unsigned long addr,
 			  unsigned long size, u64 annotation);
 int pkvm_pgtable_sync_map(struct pkvm_pgtable *src, struct pkvm_pgtable *dest,
 			  u64 *prot, pgtable_leaf_ov_fn_t map_leaf);
+
+static inline void pkvm_pgtable_set_mm_ops(struct pkvm_pgtable *pgt, struct pkvm_mm_ops *mm_ops)
+{
+	pgt->mm_ops = mm_ops;
+}
 #endif

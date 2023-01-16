@@ -47,6 +47,7 @@ void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn);
 
 int pkvm_pgstate_pgt_init(struct pkvm_shadow_vm *vm);
 void pkvm_pgstate_pgt_deinit(struct pkvm_shadow_vm *vm);
+void pkvm_pgstate_pgt_update_coherency(struct pkvm_pgtable *pgt, bool coherent);
 bool is_pgt_ops_ept(struct pkvm_pgtable *pgt);
 
 static inline bool is_valid_eptp(u64 eptp)
