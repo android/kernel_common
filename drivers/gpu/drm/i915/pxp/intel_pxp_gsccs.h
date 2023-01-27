@@ -10,6 +10,7 @@
 
 #include "gt/uc/intel_gsc_uc_heci_cmd_submit.h"
 
+struct drm_file;
 struct intel_pxp;
 
 #define GSC_PENDING_RETRY_MAXCOUNT 40
@@ -23,6 +24,11 @@ int intel_pxp_gsccs_init(struct intel_pxp *pxp);
 
 int intel_pxp_gsccs_create_session(struct intel_pxp *pxp, int arb_session_id);
 void intel_pxp_gsccs_end_arb_fw_session(struct intel_pxp *pxp, u32 arb_session_id);
+
+void intel_gsccs_free_client_resources(struct intel_pxp *pxp,
+				       struct drm_file *drmfile);
+int intel_gsccs_alloc_client_resources(struct intel_pxp *pxp,
+				       struct drm_file *drmfile);
 
 #else
 static inline void intel_pxp_gsccs_fini(struct intel_pxp *pxp)

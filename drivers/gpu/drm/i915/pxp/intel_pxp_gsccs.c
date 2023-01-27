@@ -7,6 +7,7 @@
 
 #include "gt/intel_context.h"
 #include "gt/intel_gt.h"
+#include "gt/intel_gtt.h"
 #include "gt/uc/intel_gsc_fw.h"
 #include "gt/uc/intel_gsc_uc_heci_cmd_submit.h"
 
@@ -16,6 +17,103 @@
 #include "intel_pxp_cmd_interface_43.h"
 #include "intel_pxp_gsccs.h"
 #include "intel_pxp_types.h"
+
+struct drm_file;
+
+/**
+ * struct gsccs_client_ctx
+ *
+ * We dont need to allocate multiple execution resources (above struct)
+ * for a single drm_client that is executing multiple PXP sessions.
+ * So we use a link list of nodes indexed by the drmclient handle
+ */
+struct gsccs_client_ctx {
+	/** @link: achor for linked list. */
+	struct list_head link;
+	/** @exec: session execution resource for a given client. */
+	struct gsccs_session_resources exec;
+	/** @drmfile: drm_file handle for a given client. */
+	struct drm_file *drmfile;
+};
+
+static struct gsccs_client_ctx *
+gsccs_find_client_execution_resource(struct intel_pxp *pxp, struct drm_file *drmfile)
+{
+	struct gsccs_client_ctx *client;
+
+	if (!drmfile)
+		return NULL;
+
+	lockdep_assert_held(&pxp->session_mutex);
+
+	list_for_each_entry(client, &pxp->gsccs_clients, link)
+		if (client->drmfile == drmfile)
+			return client;
+
+	return NULL;
+}
+
+static void
+gsccs_destroy_execution_resource(struct intel_pxp *pxp, struct gsccs_session_resources *exec_res);
+
+static
+void gsccs_free_client(struct intel_pxp *pxp, struct gsccs_client_ctx *client)
+{
+	list_del(&client->link);
+	gsccs_destroy_execution_resource(pxp, &client->exec);
+	kfree(client);
+}
+
+void intel_gsccs_free_client_resources(struct intel_pxp *pxp,
+				       struct drm_file *drmfile)
+{
+	struct gsccs_client_ctx *client;
+
+	if (!drmfile)
+		return;
+
+	lockdep_assert_held(&pxp->session_mutex);
+
+	client = gsccs_find_client_execution_resource(pxp, drmfile);
+	if (client)
+		gsccs_free_client(pxp, client);
+}
+
+static int
+gsccs_allocate_execution_resource(struct intel_pxp *pxp, struct gsccs_session_resources *exec_res,
+				  bool is_client_res);
+
+int intel_gsccs_alloc_client_resources(struct intel_pxp *pxp,
+				       struct drm_file *drmfile)
+{
+	struct gsccs_client_ctx *client;
+	int ret;
+
+	if (!drmfile)
+		return -EINVAL;
+
+	lockdep_assert_held(&pxp->session_mutex);
+
+	client = gsccs_find_client_execution_resource(pxp, drmfile);
+	if (client)
+		return 0;
+
+	client = kzalloc(sizeof(*client), GFP_KERNEL);
+	if (!client)
+		return -ENOMEM;
+
+	ret = gsccs_allocate_execution_resource(pxp, &client->exec, true);
+	if (ret) {
+		kfree(client);
+		return ret;
+	}
+
+	INIT_LIST_HEAD(&client->link);
+	client->drmfile = drmfile;
+	list_add_tail(&client->link, &pxp->gsccs_clients);
+
+	return 0;
+}
 
 static bool
 is_fw_err_platform_config(struct intel_pxp *pxp, u32 type)
@@ -286,7 +384,8 @@ void intel_pxp_gsccs_end_arb_fw_session(struct intel_pxp *pxp, u32 session_id)
 }
 
 static void
-gsccs_cleanup_fw_host_session_handle(struct intel_pxp *pxp)
+gsccs_cleanup_fw_host_session_handle(struct intel_pxp *pxp,
+				     struct gsccs_session_resources *exec_res)
 {
 	struct drm_i915_private *i915 = pxp->ctrl_gt->i915;
 	int ret;
@@ -298,24 +397,25 @@ gsccs_cleanup_fw_host_session_handle(struct intel_pxp *pxp)
 }
 
 static void
-gsccs_destroy_execution_resource(struct intel_pxp *pxp)
+gsccs_destroy_execution_resource(struct intel_pxp *pxp, struct gsccs_session_resources *exec_res)
 {
-	struct gsccs_session_resources *exec_res = &pxp->gsccs_res;
-
 	if (exec_res->host_session_handle)
-		gsccs_cleanup_fw_host_session_handle(pxp);
+		gsccs_cleanup_fw_host_session_handle(pxp, exec_res);
 	if (exec_res->ce)
 		intel_context_put(exec_res->ce);
 	if (exec_res->bb_vma)
 		i915_vma_unpin_and_release(&exec_res->bb_vma, I915_VMA_RELEASE_MAP);
 	if (exec_res->pkt_vma)
 		i915_vma_unpin_and_release(&exec_res->pkt_vma, I915_VMA_RELEASE_MAP);
+	if (exec_res->vm)
+		i915_vm_put(exec_res->vm);
 
 	memset(exec_res, 0, sizeof(*exec_res));
 }
 
 static int
 gsccs_create_buffer(struct intel_gt *gt,
+		    struct i915_address_space *vm,
 		    const char *bufname, size_t size,
 		    struct i915_vma **vma, void **map)
 {
@@ -330,7 +430,7 @@ gsccs_create_buffer(struct intel_gt *gt,
 		goto out_none;
 	}
 
-	*vma = i915_vma_instance(obj, gt->vm, NULL);
+	*vma = i915_vma_instance(obj, vm, NULL);
 	if (IS_ERR(*vma)) {
 		drm_err(&i915->drm, "Failed to vma-instance gsccs backend %s.\n", bufname);
 		err = PTR_ERR(*vma);
@@ -366,11 +466,13 @@ out_none:
 }
 
 static int
-gsccs_allocate_execution_resource(struct intel_pxp *pxp)
+gsccs_allocate_execution_resource(struct intel_pxp *pxp, struct gsccs_session_resources *exec_res,
+				  bool is_client_res)
 {
 	struct intel_gt *gt = pxp->ctrl_gt;
-	struct gsccs_session_resources *exec_res = &pxp->gsccs_res;
 	struct intel_engine_cs *engine = gt->engine[GSC0];
+	struct i915_ppgtt *ppgtt;
+	struct i915_address_space *vm;
 	struct intel_context *ce;
 	int err = 0;
 
@@ -381,18 +483,31 @@ gsccs_allocate_execution_resource(struct intel_pxp *pxp)
 	if (!engine)
 		return -ENODEV;
 
+	/* if this is for internal arb session, use the main resource */
+	if (!is_client_res) {
+		exec_res->vm = i915_vm_get(pxp->ctrl_gt->vm);
+	} else {
+		ppgtt = i915_ppgtt_create(gt, 0);
+		if (IS_ERR(ppgtt)) {
+			err = IS_ERR(ppgtt);
+			return err;
+		}
+		exec_res->vm = &ppgtt->vm;
+	}
+	vm = exec_res->vm;
+
 	/*
 	 * Now, allocate, pin and map two objects, one for the heci message packet
 	 * and another for the batch buffer we submit into GSC engine (that includes the packet).
 	 * NOTE: GSC-CS backend is currently only supported on MTL, so we allocate shmem.
 	 */
-	err = gsccs_create_buffer(pxp->ctrl_gt, "Heci Packet",
+	err = gsccs_create_buffer(pxp->ctrl_gt, vm, "Heci Packet",
 				  2 * PXP43_MAX_HECI_INOUT_SIZE,
 				  &exec_res->pkt_vma, &exec_res->pkt_vaddr);
 	if (err)
-		return err;
+		goto free_vm;
 
-	err = gsccs_create_buffer(pxp->ctrl_gt, "Batch Buffer", PAGE_SIZE,
+	err = gsccs_create_buffer(pxp->ctrl_gt, vm, "Batch Buffer", PAGE_SIZE,
 				  &exec_res->bb_vma, &exec_res->bb_vaddr);
 	if (err)
 		goto free_pkt;
@@ -406,11 +521,21 @@ gsccs_allocate_execution_resource(struct intel_pxp *pxp)
 	}
 
 	i915_vm_put(ce->vm);
-	ce->vm = i915_vm_get(pxp->ctrl_gt->vm);
+	ce->vm = i915_vm_get(vm);
 	exec_res->ce = ce;
 
 	/* initialize host-session-handle (for all i915-to-gsc-firmware PXP cmds) */
 	get_random_bytes(&exec_res->host_session_handle, sizeof(exec_res->host_session_handle));
+	/*
+	 * To help with debuggability of gsc-firmware log-parsing let's isolate user-space from
+	 * kernel space (arb-session-only) commands by prefixing Bit-0 of host-session-handle
+	 */
+	exec_res->host_session_handle &= ~HOST_SESSION_MASK;
+	exec_res->host_session_handle |= HOST_SESSION_PXP_SINGLE;
+	if (is_client_res)
+		exec_res->host_session_handle |= 1;
+	else
+		exec_res->host_session_handle &= ~1;
 
 	return 0;
 
@@ -418,6 +543,8 @@ free_batch:
 	i915_vma_unpin_and_release(&exec_res->bb_vma, I915_VMA_RELEASE_MAP);
 free_pkt:
 	i915_vma_unpin_and_release(&exec_res->pkt_vma, I915_VMA_RELEASE_MAP);
+free_vm:
+	i915_vm_put(exec_res->vm);
 	memset(exec_res, 0, sizeof(*exec_res));
 
 	return err;
@@ -426,10 +553,15 @@ free_pkt:
 void intel_pxp_gsccs_fini(struct intel_pxp *pxp)
 {
 	intel_wakeref_t wakeref;
+	struct gsccs_client_ctx *client, *client_tmp;
 
-	gsccs_destroy_execution_resource(pxp);
 	with_intel_runtime_pm(&pxp->ctrl_gt->i915->runtime_pm, wakeref)
 		intel_pxp_fini_hw(pxp);
+
+	list_for_each_entry_safe(client, client_tmp, &pxp->gsccs_clients, link)
+		gsccs_free_client(pxp, client);
+
+	gsccs_destroy_execution_resource(pxp, &pxp->gsccs_res);
 }
 
 int intel_pxp_gsccs_init(struct intel_pxp *pxp)
@@ -437,7 +569,8 @@ int intel_pxp_gsccs_init(struct intel_pxp *pxp)
 	int ret;
 	intel_wakeref_t wakeref;
 
-	ret = gsccs_allocate_execution_resource(pxp);
+	INIT_LIST_HEAD(&pxp->gsccs_clients);
+	ret = gsccs_allocate_execution_resource(pxp, &pxp->gsccs_res, false);
 	if (!ret) {
 		with_intel_runtime_pm(&pxp->ctrl_gt->i915->runtime_pm, wakeref)
 			intel_pxp_init_hw(pxp);

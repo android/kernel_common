@@ -656,7 +656,6 @@ int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmf
 	if (!intel_pxp_is_enabled(pxp))
 		return -ENODEV;
 
-	/* At the moment, we only support multi-session on pre-MTL */
 	if (HAS_ENGINE(pxp->ctrl_gt, GSC0))
 		return -ENODEV;
 
@@ -681,6 +680,14 @@ int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmf
 
 	mutex_lock(&pxp->session_mutex);
 
+	if (HAS_ENGINE(pxp->ctrl_gt, GSC0)) {
+		ret = intel_gsccs_alloc_client_resources(pxp, drmfile);
+		if (ret) {
+			drm_warn(&i915->drm, "GSCCS drm-client allocation failure\n");
+			goto out_unlock;
+		}
+	}
+
 	switch (pxp_ops->action) {
 	case PRELIM_DRM_I915_PXP_ACTION_SET_SESSION_STATUS:
 		ret = pxp_set_session_status(pxp, pxp_ops, drmfile);
@@ -696,6 +703,7 @@ int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmf
 		break;
 	}
 
+out_unlock:
 	mutex_unlock(&pxp->session_mutex);
 out_pm:
 	intel_runtime_pm_put(&i915->runtime_pm, wakeref);
@@ -710,6 +718,8 @@ void intel_pxp_close(struct intel_pxp *pxp, struct drm_file *drmfile)
 
 	mutex_lock(&pxp->session_mutex);
 	intel_pxp_file_close(pxp, drmfile);
+	if (HAS_ENGINE(pxp->ctrl_gt, GSC0))
+		intel_gsccs_free_client_resources(pxp, drmfile);
 	mutex_unlock(&pxp->session_mutex);
 }
 

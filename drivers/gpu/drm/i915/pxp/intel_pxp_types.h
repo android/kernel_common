@@ -73,6 +73,7 @@ struct intel_pxp {
 	struct gsccs_session_resources {
 		u64 host_session_handle; /* used by firmware to link commands to sessions */
 		struct intel_context *ce; /* context for gsc command submission */
+		struct i915_address_space *vm; /* only for user space session contexts */
 
 		struct i915_vma *pkt_vma; /* GSC FW cmd packet vma */
 		void *pkt_vaddr;  /* GSC FW cmd packet virt pointer */
@@ -80,6 +81,8 @@ struct intel_pxp {
 		struct i915_vma *bb_vma; /* HECI_PKT batch buffer vma */
 		void *bb_vaddr; /* HECI_PKT batch buffer virt pointer */
 	} gsccs_res;
+	/** @gsccs_clients: list of gsccs_res structs for each active client. */
+	struct list_head gsccs_clients; /* protected by session_mutex */
 
 	/**
 	 * @pxp_component: i915_pxp_component struct of the bound mei_pxp
