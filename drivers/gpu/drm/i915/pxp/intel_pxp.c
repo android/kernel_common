@@ -593,6 +593,68 @@ static int pxp_set_session_status(struct intel_pxp *pxp,
 	return ret;
 }
 
+static bool ioctl_buffer_size_valid(u32 size)
+{
+	return size > 0 && size <= SZ_64K;
+}
+
+static int
+intel_pxp_ioctl_io_message(struct intel_pxp *pxp, struct drm_file *drmfile,
+			   struct prelim_drm_i915_pxp_tee_io_message_params *params)
+{
+	struct drm_i915_private *i915 = pxp->ctrl_gt->i915;
+	void *msg_in = NULL;
+	void *msg_out = NULL;
+	int ret = 0;
+
+	if (!params->msg_in || !params->msg_out ||
+	    !ioctl_buffer_size_valid(params->msg_out_buf_size) ||
+	    !ioctl_buffer_size_valid(params->msg_in_size))
+		return -EINVAL;
+
+	msg_in = kzalloc(params->msg_in_size, GFP_KERNEL);
+	if (!msg_in)
+		return -ENOMEM;
+
+	msg_out = kzalloc(params->msg_out_buf_size, GFP_KERNEL);
+	if (!msg_out) {
+		ret = -ENOMEM;
+		goto end;
+	}
+
+	if (copy_from_user(msg_in, u64_to_user_ptr(params->msg_in), params->msg_in_size)) {
+		drm_dbg(&i915->drm, "Failed to copy_from_user for TEE message\n");
+		ret = -EFAULT;
+		goto end;
+	}
+
+	if (HAS_ENGINE(pxp->ctrl_gt, GSC0))
+		ret = intel_pxp_gsccs_client_io_msg(pxp, drmfile,
+						    msg_in, params->msg_in_size,
+						    msg_out, params->msg_out_buf_size,
+						    &params->msg_out_ret_size);
+	else
+		ret = intel_pxp_tee_io_message(pxp,
+					       msg_in, params->msg_in_size,
+					       msg_out, params->msg_out_buf_size,
+					       &params->msg_out_ret_size);
+	if (ret) {
+		drm_dbg(&i915->drm, "Failed to send/receive user TEE message\n");
+		goto end;
+	}
+
+	if (copy_to_user(u64_to_user_ptr(params->msg_out), msg_out, params->msg_out_ret_size)) {
+		drm_dbg(&i915->drm, "Failed copy_to_user for TEE message\n");
+		ret = -EFAULT;
+		goto end;
+	}
+
+end:
+	kfree(msg_in);
+	kfree(msg_out);
+	return ret;
+}
+
 static int pxp_send_tee_msg(struct intel_pxp *pxp,
 			    struct prelim_drm_i915_pxp_ops *pxp_ops,
 			    struct drm_file *drmfile)
@@ -606,7 +668,7 @@ static int pxp_send_tee_msg(struct intel_pxp *pxp,
 	if (copy_from_user(&params, uparams, sizeof(params)) != 0)
 		return -EFAULT;
 
-	ret = intel_pxp_tee_ioctl_io_message(pxp, &params);
+	ret = intel_pxp_ioctl_io_message(pxp, drmfile, &params);
 	if (ret >= 0) {
 		pxp_ops->status = ret;
 

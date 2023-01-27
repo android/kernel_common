@@ -53,6 +53,39 @@ gsccs_find_client_execution_resource(struct intel_pxp *pxp, struct drm_file *drm
 	return NULL;
 }
 
+static int
+gsccs_send_message(struct intel_pxp *pxp,
+		   struct gsccs_session_resources *exec_res,
+		   void *msg_in, size_t msg_in_size,
+		   void *msg_out, size_t msg_out_size_max,
+		   size_t *msg_out_len,
+		   u64 *gsc_msg_handle_retry);
+
+int
+intel_pxp_gsccs_client_io_msg(struct intel_pxp *pxp, struct drm_file *drmfile,
+			      void *msg_in, size_t msg_in_size,
+			      void *msg_out, size_t msg_out_size_max,
+			      u32 *msg_out_len)
+{
+	struct gsccs_client_ctx *client;
+	size_t reply_size;
+	int ret;
+
+	if (!drmfile)
+		return -EINVAL;
+
+	client = gsccs_find_client_execution_resource(pxp, drmfile);
+	if (!client)
+		return -EINVAL;
+
+	ret = gsccs_send_message(pxp, &client->exec,
+				 msg_in, msg_in_size,
+				 msg_out, msg_out_size_max,
+				 &reply_size, NULL);
+	*msg_out_len = (u32)reply_size;
+	return ret;
+}
+
 static void
 gsccs_destroy_execution_resource(struct intel_pxp *pxp, struct gsccs_session_resources *exec_res);
 
@@ -149,6 +182,7 @@ fw_err_to_string(u32 type)
 
 static int
 gsccs_send_message(struct intel_pxp *pxp,
+		   struct gsccs_session_resources *exec_res,
 		   void *msg_in, size_t msg_in_size,
 		   void *msg_out, size_t msg_out_size_max,
 		   size_t *msg_out_len,
@@ -156,17 +190,25 @@ gsccs_send_message(struct intel_pxp *pxp,
 {
 	struct intel_gt *gt = pxp->ctrl_gt;
 	struct drm_i915_private *i915 = gt->i915;
-	struct gsccs_session_resources *exec_res =  &pxp->gsccs_res;
-	struct intel_gsc_mtl_header *header = exec_res->pkt_vaddr;
+	struct intel_gsc_mtl_header *header;
 	struct intel_gsc_heci_non_priv_pkt pkt;
+	u32 insert_header_size = 0;
 	size_t max_msg_size;
 	u32 reply_size;
 	int ret;
 
+	if (!exec_res) {
+		drm_err(&i915->drm, "gsc send_message with invalid exec_resource\n");
+		return -ENODEV;
+	} else if (exec_res == &pxp->gsccs_res) {
+		/* kernel submissions need population of gsc-mtl-header */
+		insert_header_size = sizeof(*header);
+	}
+
 	if (!exec_res->ce)
 		return -ENODEV;
 
-	max_msg_size = PXP43_MAX_HECI_INOUT_SIZE - sizeof(*header);
+	max_msg_size = PXP43_MAX_HECI_INOUT_SIZE - insert_header_size;
 
 	if (msg_in_size > max_msg_size || msg_out_size_max > max_msg_size)
 		return -ENOSPC;
@@ -178,26 +220,31 @@ gsccs_send_message(struct intel_pxp *pxp,
 
 	mutex_lock(&pxp->tee_mutex);
 
-	memset(header, 0, sizeof(*header));
-	intel_gsc_uc_heci_cmd_emit_mtl_header(header, HECI_MEADDRESS_PXP,
-					      msg_in_size + sizeof(*header),
-					      exec_res->host_session_handle);
+	header = exec_res->pkt_vaddr;
 
-	/* check if this is a host-session-handle cleanup call (empty packet) */
-	if (!msg_in && !msg_out)
-		header->flags |= GSC_INFLAG_MSG_CLEANUP;
+	if (insert_header_size) {
+		memset(header, 0, sizeof(*header));
+		intel_gsc_uc_heci_cmd_emit_mtl_header(header, HECI_MEADDRESS_PXP,
+						      msg_in_size + sizeof(*header),
+						      exec_res->host_session_handle);
+		/* check if this is a host-session-handle cleanup call (empty packet) */
+		if (!msg_in && !msg_out)
+			header->flags |= GSC_INFLAG_MSG_CLEANUP;
+	}
+
 
 	/* copy caller provided gsc message handle if this is polling for a prior msg completion */
-	header->gsc_message_handle = *gsc_msg_handle_retry;
+	if (gsc_msg_handle_retry) /* can be null if its a client send-message */
+		header->gsc_message_handle = *gsc_msg_handle_retry;
 
 	/* NOTE: zero size packets are used for session-cleanups */
 	if (msg_in && msg_in_size)
-		memcpy(exec_res->pkt_vaddr + sizeof(*header), msg_in, msg_in_size);
+		memcpy(exec_res->pkt_vaddr + insert_header_size, msg_in, msg_in_size);
 
 	pkt.addr_in = i915_vma_offset(exec_res->pkt_vma);
 	pkt.size_in = header->message_size;
 	pkt.addr_out = pkt.addr_in + PXP43_MAX_HECI_INOUT_SIZE;
-	pkt.size_out = msg_out_size_max + sizeof(*header);
+	pkt.size_out = msg_out_size_max + insert_header_size;
 	pkt.heci_pkt_vma = exec_res->pkt_vma;
 	pkt.bb_vma = exec_res->bb_vma;
 
@@ -206,7 +253,8 @@ gsccs_send_message(struct intel_pxp *pxp,
 	 * We use offset PXP43_MAX_HECI_INOUT_SIZE for reply location so point header there.
 	 */
 	header = exec_res->pkt_vaddr + PXP43_MAX_HECI_INOUT_SIZE;
-	header->validity_marker = 0;
+	if (insert_header_size) /*not for clients */
+		header->validity_marker = 0;
 
 	ret = intel_gsc_uc_heci_cmd_submit_nonpriv(&gt->uc.gsc,
 						   exec_res->ce, &pkt, exec_res->bb_vaddr,
@@ -222,13 +270,18 @@ gsccs_send_message(struct intel_pxp *pxp,
 		ret = -EINVAL;
 		goto unlock;
 	}
+
+	/* for client messages, we return the output as-is without verifying it */
+	if (!insert_header_size)
+		goto skip_output_validation;
+
 	if (header->status != 0) {
 		drm_dbg(&i915->drm, "gsc PXP reply status has error = 0x%08x\n",
 			header->status);
 		ret = -EINVAL;
 		goto unlock;
 	}
-	if (header->flags & GSC_OUTFLAG_MSG_PENDING) {
+	if (gsc_msg_handle_retry && header->flags & GSC_OUTFLAG_MSG_PENDING) {
 		drm_dbg(&i915->drm, "gsc PXP reply is busy\n");
 		/*
 		 * When the GSC firmware replies with pending bit, it means that the requested
@@ -241,7 +294,9 @@ gsccs_send_message(struct intel_pxp *pxp,
 		goto unlock;
 	}
 
-	reply_size = header->message_size - sizeof(*header);
+skip_output_validation:
+
+	reply_size = header->message_size - insert_header_size;
 	if (reply_size > msg_out_size_max) {
 		drm_warn(&i915->drm, "caller with insufficient PXP reply size %u (%zu)\n",
 			 reply_size, msg_out_size_max);
@@ -249,7 +304,8 @@ gsccs_send_message(struct intel_pxp *pxp,
 	}
 
 	if (msg_out)
-		memcpy(msg_out, exec_res->pkt_vaddr + PXP43_MAX_HECI_INOUT_SIZE + sizeof(*header),
+		memcpy(msg_out,
+		       exec_res->pkt_vaddr + PXP43_MAX_HECI_INOUT_SIZE + insert_header_size,
 		       reply_size);
 	if (msg_out_len)
 		*msg_out_len = reply_size;
@@ -261,6 +317,7 @@ unlock:
 
 static int
 gsccs_send_message_retry_complete(struct intel_pxp *pxp,
+				  struct gsccs_session_resources *exec_res,
 				  void *msg_in, size_t msg_in_size,
 				  void *msg_out, size_t msg_out_size_max,
 				  size_t *msg_out_len)
@@ -272,9 +329,15 @@ gsccs_send_message_retry_complete(struct intel_pxp *pxp,
 	 * Keep sending request if GSC firmware was busy. Based on fw specs +
 	 * sw overhead (and testing) we expect a worst case pending-bit delay of
 	 * GSC_PENDING_RETRY_MAXCOUNT x GSC_PENDING_RETRY_PAUSE_MS millisecs.
+	 *
+	 * NOTE: this _retry_complete version of send_message is typically
+	 * used internally for arb-session management as user-space callers
+	 * interacting with GSC-FW is expected to handle pending-bit replies
+	 * on their own.
 	 */
 	do {
-		ret = gsccs_send_message(pxp, msg_in, msg_in_size, msg_out, msg_out_size_max,
+		ret = gsccs_send_message(pxp, exec_res,
+					 msg_in, msg_in_size, msg_out, msg_out_size_max,
 					 msg_out_len, &gsc_session_retry);
 		/* Only try again if gsc says so */
 		if (ret != -EAGAIN)
@@ -319,7 +382,7 @@ int intel_pxp_gsccs_create_session(struct intel_pxp *pxp,
 	msg_in.header.buffer_len = sizeof(msg_in) - sizeof(msg_in.header);
 	msg_in.protection_mode = PXP43_INIT_SESSION_PROTECTION_ARB;
 
-	ret = gsccs_send_message_retry_complete(pxp,
+	ret = gsccs_send_message_retry_complete(pxp, &pxp->gsccs_res,
 						&msg_in, sizeof(msg_in),
 						&msg_out, sizeof(msg_out), NULL);
 	if (ret) {
@@ -361,7 +424,7 @@ void intel_pxp_gsccs_end_arb_fw_session(struct intel_pxp *pxp, u32 session_id)
 	msg_in.header.stream_id |= FIELD_PREP(PXP_CMDHDR_EXTDATA_APP_TYPE, 0);
 	msg_in.header.stream_id |= FIELD_PREP(PXP_CMDHDR_EXTDATA_SESSION_ID, session_id);
 
-	ret = gsccs_send_message_retry_complete(pxp,
+	ret = gsccs_send_message_retry_complete(pxp, &pxp->gsccs_res,
 						&msg_in, sizeof(msg_in),
 						&msg_out, sizeof(msg_out), NULL);
 	if (ret) {
@@ -390,7 +453,7 @@ gsccs_cleanup_fw_host_session_handle(struct intel_pxp *pxp,
 	struct drm_i915_private *i915 = pxp->ctrl_gt->i915;
 	int ret;
 
-	ret = gsccs_send_message_retry_complete(pxp, NULL, 0, NULL, 0, NULL);
+	ret = gsccs_send_message_retry_complete(pxp, exec_res, NULL, 0, NULL, 0, NULL);
 	if (ret)
 		drm_dbg(&i915->drm, "Failed to send gsccs msg host-session-cleanup: ret=[%d]\n",
 			ret);

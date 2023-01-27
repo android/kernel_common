@@ -55,10 +55,10 @@ fw_err_to_string(u32 type)
 	return NULL;
 }
 
-static int intel_pxp_tee_io_message(struct intel_pxp *pxp,
-				    void *msg_in, u32 msg_in_size,
-				    void *msg_out, u32 msg_out_max_size,
-				    u32 *msg_out_rcv_size)
+int intel_pxp_tee_io_message(struct intel_pxp *pxp,
+			     void *msg_in, u32 msg_in_size,
+			     void *msg_out, u32 msg_out_max_size,
+			     u32 *msg_out_rcv_size)
 {
 	struct drm_i915_private *i915 = pxp->ctrl_gt->i915;
 	struct i915_pxp_component *pxp_component = pxp->pxp_component;
@@ -438,59 +438,3 @@ void intel_pxp_tee_end_fw_sessions(struct intel_pxp *pxp, u32 sessions_mask)
 			intel_pxp_tee_end_one_fw_session(pxp, n);
 	}
 }
-
-static bool tee_ioctl_buffer_size_valid(u32 size)
-{
-	return size > 0 && size <= SZ_64K;
-}
-
-int intel_pxp_tee_ioctl_io_message(struct intel_pxp *pxp,
-				   struct prelim_drm_i915_pxp_tee_io_message_params *params)
-{
-	struct drm_i915_private *i915 = pxp->ctrl_gt->i915;
-	void *msg_in = NULL;
-	void *msg_out = NULL;
-	int ret = 0;
-
-	if (!params->msg_in || !params->msg_out ||
-	    !tee_ioctl_buffer_size_valid(params->msg_out_buf_size) ||
-	    !tee_ioctl_buffer_size_valid(params->msg_in_size))
-		return -EINVAL;
-
-	msg_in = kzalloc(params->msg_in_size, GFP_KERNEL);
-	if (!msg_in)
-		return -ENOMEM;
-
-	msg_out = kzalloc(params->msg_out_buf_size, GFP_KERNEL);
-	if (!msg_out) {
-		ret = -ENOMEM;
-		goto end;
-	}
-
-	if (copy_from_user(msg_in, u64_to_user_ptr(params->msg_in), params->msg_in_size)) {
-		drm_dbg(&i915->drm, "Failed to copy_from_user for TEE message\n");
-		ret = -EFAULT;
-		goto end;
-	}
-
-	ret = intel_pxp_tee_io_message(pxp,
-				       msg_in, params->msg_in_size,
-				       msg_out, params->msg_out_buf_size,
-				       &params->msg_out_ret_size);
-	if (ret) {
-		drm_dbg(&i915->drm, "Failed to send/receive user TEE message\n");
-		goto end;
-	}
-
-	if (copy_to_user(u64_to_user_ptr(params->msg_out), msg_out, params->msg_out_ret_size)) {
-		drm_dbg(&i915->drm, "Failed copy_to_user for TEE message\n");
-		ret = -EFAULT;
-		goto end;
-	}
-
-end:
-	kfree(msg_in);
-	kfree(msg_out);
-	return ret;
-}
-
