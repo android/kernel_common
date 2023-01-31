@@ -266,9 +266,10 @@ static int pgtable_unmap_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		PKVM_ASSERT(phys == data->phys);
 	}
 
-	pgtable_set_entry(pgt_ops, mm_ops, ptep, pgt_ops->default_prot);
 	if (pgt_ops->pgt_entry_present(ptep))
 		flush_data->flushtlb |= true;
+
+	pgtable_set_entry(pgt_ops, mm_ops, ptep, pgt_ops->default_prot);
 	mm_ops->put_page(ptep);
 
 	if (data->phys != INVALID_ADDR) {
