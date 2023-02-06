@@ -973,20 +973,23 @@ static int sync_shadow_id_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 	}
 
 	if (LAST_LEVEL(level)) {
-		if (ecap_smts(iommu->iommu.ecap)) {
-			/*
-			 * For PASID_TABLE, cache invalidation may want to
-			 * sync specific PASID with did matched. So do the
-			 * check before sync the entry.
-			 *
-			 * According to vt-d spec 6.2.2.1, software must not
-			 * use domain-id value of 0 on when programming
-			 * context-entries on implementations reporting CM=1
-			 * in the Capability register.
-			 *
-			 * So non-zero DID means a real DID from host software.
-			 */
-			if (data->did && (pasid_get_domain_id(guest_ptep) != data->did))
+		/*
+		 * Cache invalidation may want to sync specific PASID entries
+		 * (in scalable mode) or context entries (in legacy mode) with
+		 * DID matched. In such case we only need to sync the entries
+		 * with the matching DID.
+		 *
+		 * According to vt-d spec 6.2.2.1 and 6.2.3.1, software must
+		 * not use domain-id value of 0 when programming entries on
+		 * implementations reporting CM=1 in the Capability register.
+		 * So non-zero DID means a real DID from host software.
+		 */
+		if (data->did) {
+			u16 did = ecap_smts(iommu->iommu.ecap)
+				? pasid_get_domain_id(guest_ptep)
+				: context_lm_get_did(guest_ptep);
+
+			if (did != data->did)
 				return ret;
 		}
 
