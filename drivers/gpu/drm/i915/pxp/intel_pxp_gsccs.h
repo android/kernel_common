@@ -23,7 +23,6 @@ void intel_pxp_gsccs_fini(struct intel_pxp *pxp);
 int intel_pxp_gsccs_init(struct intel_pxp *pxp);
 
 int intel_pxp_gsccs_create_session(struct intel_pxp *pxp, int arb_session_id);
-void intel_pxp_gsccs_end_arb_fw_session(struct intel_pxp *pxp, u32 arb_session_id);
 
 void intel_gsccs_free_client_resources(struct intel_pxp *pxp,
 				       struct drm_file *drmfile);
@@ -34,6 +33,8 @@ intel_pxp_gsccs_client_io_msg(struct intel_pxp *pxp, struct drm_file *drmfile,
 			      void *msg_in, size_t msg_in_size,
 			      void *msg_out, size_t msg_out_size_max,
 			      u32 *msg_out_len);
+
+void intel_pxp_gsccs_end_fw_sessions(struct intel_pxp *pxp, u32 sessions_mask);
 
 #else
 static inline void intel_pxp_gsccs_fini(struct intel_pxp *pxp)

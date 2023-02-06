@@ -405,7 +405,7 @@ int intel_pxp_gsccs_create_session(struct intel_pxp *pxp,
 	return ret;
 }
 
-void intel_pxp_gsccs_end_arb_fw_session(struct intel_pxp *pxp, u32 session_id)
+static void intel_pxp_gsccs_end_one_fw_session(struct intel_pxp *pxp, u32 session_id)
 {
 	struct drm_i915_private *i915 = pxp->ctrl_gt->i915;
 	struct pxp42_inv_stream_key_in msg_in = {};
@@ -474,6 +474,16 @@ gsccs_destroy_execution_resource(struct intel_pxp *pxp, struct gsccs_session_res
 		i915_vm_put(exec_res->vm);
 
 	memset(exec_res, 0, sizeof(*exec_res));
+}
+
+void intel_pxp_gsccs_end_fw_sessions(struct intel_pxp *pxp, u32 sessions_mask)
+{
+	int n;
+
+	for (n = 0; n < INTEL_PXP_MAX_HWDRM_SESSIONS; ++n) {
+		if (sessions_mask & BIT(n))
+			intel_pxp_gsccs_end_one_fw_session(pxp, n);
+	}
 }
 
 static int

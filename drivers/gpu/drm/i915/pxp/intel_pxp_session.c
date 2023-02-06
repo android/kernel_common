@@ -380,7 +380,9 @@ int intel_pxp_terminate_session(struct intel_pxp *pxp, u32 id)
 	if (ret)
 		drm_dbg(&pxp->ctrl_gt->i915->drm, "Session state-%d did not clear\n", id);
 
-	if (!HAS_ENGINE(pxp->ctrl_gt, GSC0))
+	if (HAS_ENGINE(pxp->ctrl_gt, GSC0))
+		intel_pxp_gsccs_end_fw_sessions(pxp, BIT(id));
+	else
 		intel_pxp_tee_end_fw_sessions(pxp, BIT(id));
 
 	return ret;
@@ -455,9 +457,8 @@ static int pxp_terminate_all_sessions_and_global(struct intel_pxp *pxp)
 
 	intel_uncore_write(gt->uncore, KCR_GLOBAL_TERMINATE(pxp->kcr_base), 1);
 
-	/* muti-session support not yet enabled for GSCCS */
-	if (HAS_ENGINE(gt, GSC0) && (active_sip_slots & BIT(ARB_SESSION)))
-		intel_pxp_gsccs_end_arb_fw_session(pxp, ARB_SESSION);
+	if (HAS_ENGINE(gt, GSC0))
+		intel_pxp_gsccs_end_fw_sessions(pxp, active_sip_slots);
 	else
 		intel_pxp_tee_end_fw_sessions(pxp, active_sip_slots);
 

@@ -718,9 +718,6 @@ int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmf
 	if (!intel_pxp_is_enabled(pxp))
 		return -ENODEV;
 
-	if (HAS_ENGINE(pxp->ctrl_gt, GSC0))
-		return -ENODEV;
-
 	wakeref = intel_runtime_pm_get_if_in_use(&i915->runtime_pm);
 	if (!wakeref) {
 		drm_dbg(&i915->drm, "pxp ioctl blocked due to state in suspend\n");
