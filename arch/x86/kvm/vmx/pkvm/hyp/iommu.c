@@ -332,6 +332,27 @@ static void iommu_del_ptdev(struct pkvm_iommu *iommu, struct pkvm_ptdev *ptdev)
 	pkvm_put_ptdev(ptdev);
 }
 
+static int iommu_audit_did(struct pkvm_iommu *iommu, u16 did, int shadow_vm_handle)
+{
+	struct pkvm_ptdev *tmp;
+	int ret = 0;
+
+	list_for_each_entry(tmp, &iommu->ptdev_head, iommu_node) {
+		if (tmp->shadow_vm_handle != shadow_vm_handle) {
+			if (tmp->did == did) {
+				/*
+				 * The devices belong to different VMs but behind
+				 * the same IOMMU, cannot use the same did.
+				 */
+				ret = -EPERM;
+				break;
+			}
+		}
+	}
+
+	return ret;
+}
+
 /* present root entry when shadow_pa valid, otherwise un-present it */
 static bool sync_root_entry(struct pgt_sync_data *sdata)
 {
@@ -356,7 +377,7 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 	struct pkvm_pgtable_cap cap;
 	bool updated = false;
 	u8 tt, aw;
-	u16 bdf;
+	u16 bdf, did;
 
 	if (ecap_smts(sdata->iommu_ecap)) {
 		if (sdata->guest_ptep && sdata->shadow_pa) {
@@ -436,7 +457,11 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 			goto update_shadow_ce;
 		}
 
-		pkvm_setup_ptdev_did(ptdev, context_lm_get_did(guest_ce));
+		did = context_lm_get_did(guest_ce);
+		if (iommu_audit_did(iommu, did, ptdev->shadow_vm_handle))
+			return false;
+
+		pkvm_setup_ptdev_did(ptdev, did);
 
 		if (!is_pgt_ops_ept(ptdev->pgt))
 			return false;
@@ -449,7 +474,7 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 		 */
 		context_lm_set_tt(&tmp, CONTEXT_TT_MULTI_LEVEL);
 
-		if (tt != CONTEXT_TT_PASS_THROUGH) {
+		if (tt != CONTEXT_TT_PASS_THROUGH && !ptdev_attached_to_vm(ptdev)) {
 			/*
 			 * For now reference to the host's vIOMMU page table.
 			 * FIXME: Reference to the shadow page table once pKVM
@@ -498,27 +523,6 @@ static bool sync_shadow_pasid_dir_entry(struct pgt_sync_data *sdata)
 	}
 
 	return false;
-}
-
-static int iommu_audit_did(struct pkvm_iommu *iommu, u16 did, int shadow_vm_handle)
-{
-	struct pkvm_ptdev *tmp;
-	int ret = 0;
-
-	list_for_each_entry(tmp, &iommu->ptdev_head, iommu_node) {
-		if (tmp->shadow_vm_handle != shadow_vm_handle) {
-			if (tmp->did == did) {
-				/*
-				 * The devices belong to different VMs but behind
-				 * the same IOMMU, cannot use the same did.
-				 */
-				ret = -EPERM;
-				break;
-			}
-		}
-	}
-
-	return ret;
 }
 
 /* sync pasid table entry when guest_ptep valid, otherwise un-present it */
@@ -2078,9 +2082,8 @@ int pkvm_iommu_sync(u16 bdf, u32 pasid)
 			  ((unsigned long)pasid & ((1UL << MAX_NR_PASID_BITS) - 1));
 		id_addr_end = id_addr + 1;
 	} else {
-		pkvm_err("%s: No support for legacy IOMMU.\n", __func__);
-		ret = -EOPNOTSUPP;
-		goto out;
+		id_addr = (unsigned long)bdf << LM_DEVFN_SHIFT;
+		id_addr_end = ((unsigned long)bdf + 1) << LM_DEVFN_SHIFT;
 	}
 
 	pkvm_spin_lock(&iommu->lock);
@@ -2090,16 +2093,20 @@ int pkvm_iommu_sync(u16 bdf, u32 pasid)
 			/* Flush pasid cache and IOTLB for the valid old_did */
 			if (ecap_smts(iommu->iommu.ecap))
 				flush_pasid_cache(iommu, old_did, QI_PC_PASID_SEL, pasid);
+			else
+				flush_context_cache(iommu, old_did, 0, 0, DMA_CCMD_DOMAIN_INVL);
 			flush_iotlb(iommu, old_did, 0, 0, DMA_TLB_DSI_FLUSH);
 		}
 
 		/* Flush pasid cache and IOTLB to make sure no stale TLB for the new did */
 		if (ecap_smts(iommu->iommu.ecap))
 			flush_pasid_cache(iommu, ptdev->did, QI_PC_PASID_SEL, pasid);
+		else
+			flush_context_cache(iommu, ptdev->did, 0, 0, DMA_CCMD_DOMAIN_INVL);
 		flush_iotlb(iommu, ptdev->did, 0, 0, DMA_TLB_DSI_FLUSH);
 	}
 	pkvm_spin_unlock(&iommu->lock);
-out:
+
 	pkvm_put_ptdev(ptdev);
 	return ret;
 }
