@@ -152,14 +152,39 @@ static inline void context_sm_clear_dte(struct context_entry *ce)
 	entry_set_bits(&ce->lo, 1 << 2, 0);
 }
 
+static inline bool context_lm_is_present(struct context_entry *ce)
+{
+	return READ_ONCE(ce->lo) & 1;
+}
+
 static inline u8 context_lm_get_tt(struct context_entry *ce)
 {
 	return (READ_ONCE(ce->lo) >> 2) & 3;
 }
 
+static inline u64 context_lm_get_slptr(struct context_entry *ce)
+{
+	return READ_ONCE(ce->lo) & VTD_PAGE_MASK;
+}
+
+static inline u8 context_lm_get_aw(struct context_entry *ce)
+{
+	return READ_ONCE(ce->hi) & 0x7;
+}
+
+static inline u16 context_lm_get_did(struct context_entry *ce)
+{
+	return (READ_ONCE(ce->hi) >> 8) & 0xffff;
+}
+
 static inline void context_lm_set_tt(struct context_entry *ce, u8 value)
 {
 	entry_set_bits(&ce->lo, 3 << 2, value << 2);
+}
+
+static inline void context_lm_set_slptr(struct context_entry *ce, u64 value)
+{
+	entry_set_bits(&ce->lo, VTD_PAGE_MASK, value);
 }
 
 static inline void context_lm_set_aw(struct context_entry *ce, u8 value)

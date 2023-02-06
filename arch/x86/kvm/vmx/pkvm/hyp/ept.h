@@ -57,4 +57,7 @@ static inline bool is_valid_eptp(u64 eptp)
 	/* TODO: other bits check */
 	return true;
 }
+
+extern struct pkvm_pgtable_ops ept_ops;
+
 #endif

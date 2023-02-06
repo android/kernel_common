@@ -303,6 +303,35 @@ static int iommu_pgtable_walk(struct pkvm_pgtable *pgt, unsigned long vaddr,
 	return pgtable_walk(pgt, vaddr, vaddr_end - vaddr, false, walker);
 }
 
+static struct pkvm_ptdev *iommu_find_ptdev(struct pkvm_iommu *iommu, u16 bdf, u32 pasid)
+{
+	struct pkvm_ptdev *p;
+
+	list_for_each_entry(p, &iommu->ptdev_head, iommu_node) {
+		if (match_ptdev(p, bdf, pasid))
+			return p;
+	}
+
+	return NULL;
+}
+
+static struct pkvm_ptdev *iommu_add_ptdev(struct pkvm_iommu *iommu, u16 bdf, u32 pasid)
+{
+	struct pkvm_ptdev *ptdev = pkvm_get_ptdev(bdf, pasid);
+
+	if (!ptdev)
+		return NULL;
+
+	list_add_tail(&ptdev->iommu_node, &iommu->ptdev_head);
+	return ptdev;
+}
+
+static void iommu_del_ptdev(struct pkvm_iommu *iommu, struct pkvm_ptdev *ptdev)
+{
+	list_del_init(&ptdev->iommu_node);
+	pkvm_put_ptdev(ptdev);
+}
+
 /* present root entry when shadow_pa valid, otherwise un-present it */
 static bool sync_root_entry(struct pgt_sync_data *sdata)
 {
@@ -322,36 +351,121 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 {
 	struct context_entry *shadow_ce = sdata->shadow_ptep, tmp = {0};
 	struct context_entry *guest_ce = sdata->guest_ptep;
+	struct pkvm_iommu *iommu = pgt_to_pkvm_iommu(sdata->spgt);
+	struct pkvm_ptdev *ptdev;
+	struct pkvm_pgtable_cap cap;
 	bool updated = false;
-	u8 aw;
+	u8 tt, aw;
+	u16 bdf;
 
-	if (sdata->guest_ptep && sdata->shadow_pa) {
-		tmp.hi = guest_ce->hi;
-		tmp.lo = sdata->shadow_pa | (guest_ce->lo & 0xfff);
+	if (ecap_smts(sdata->iommu_ecap)) {
+		if (sdata->guest_ptep && sdata->shadow_pa) {
+			tmp.hi = guest_ce->hi;
+			tmp.lo = sdata->shadow_pa | (guest_ce->lo & 0xfff);
 
-		if (ecap_smts(sdata->iommu_ecap))
 			/* Clear DTE to make sure device TLB is disabled for security */
 			context_sm_clear_dte(&tmp);
-		else {
-			/*
-			 * Set translation type to CONTEXT_TT_MULTI_LEVEL to ensure using
-			 * 2nd-level translation and to disable device TLB for security.
-			 */
-			context_lm_set_tt(&tmp, CONTEXT_TT_MULTI_LEVEL);
+		}
+	} else {
+		/*
+		 * In legacy mode, a context entry is a leaf entry responsible for
+		 * configuring the actual address translation for the given ptdev,
+		 * much like a PASID table entry in scalable mode. So the below logic
+		 * is quite similar to the logic in sync_shadow_pasid_table_entry()
+		 * for scalable mode.
+		 */
+		bdf = sdata->vaddr >> LM_DEVFN_SHIFT;
+		ptdev = iommu_find_ptdev(iommu, bdf, 0);
 
-			/*
-			 * For now, set the address width only when host IOMMU driver
-			 * is using pass-through mode.
-			 * FIXME: Once shadow 2nd-stage page tables are supported by pKVM,
-			 * set the address width in all cases.
-			 */
-			if (sdata->shadow_pa == pkvm_hyp->host_vm.ept->root_pa) {
-				aw = (pkvm_hyp->ept_iommu_pgt_level == 4) ? 2 : 3;
-				context_lm_set_aw(&tmp, aw);
+		if (!ptdev) {
+			ptdev = iommu_add_ptdev(iommu, bdf, 0);
+			if (!ptdev)
+				return false;
+		}
+
+		if (!sdata->guest_ptep) {
+			if (context_lm_is_present(shadow_ce)) {
+				pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL);
+				pkvm_setup_ptdev_did(ptdev, 0);
+				iommu_del_ptdev(iommu, ptdev);
+
+				goto update_shadow_ce;
 			}
+			return false;
+		}
+
+		tt = context_lm_get_tt(guest_ce);
+		switch (tt) {
+		case CONTEXT_TT_MULTI_LEVEL:
+		case CONTEXT_TT_DEV_IOTLB:
+			aw = context_lm_get_aw(guest_ce);
+			if (aw != 1 && aw != 2 && aw != 3) {
+				pkvm_err("pkvm: unsupported address width %u\n", aw);
+
+				pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL);
+				pkvm_setup_ptdev_did(ptdev, 0);
+
+				/*
+				 * TODO: our error reporting to the host for invalid
+				 * values of aw or tt is not good: the host will see
+				 * translation fault reason "present bit is clear"
+				 * instead of "invalid entry".
+				 */
+				goto update_shadow_ce;
+			}
+			cap.level = (aw == 1) ? 3 :
+				    (aw == 2) ? 4 : 5;
+			cap.allowed_pgsz = pkvm_hyp->ept_cap.allowed_pgsz;
+			pkvm_setup_ptdev_vpgt(ptdev, context_lm_get_slptr(guest_ce),
+					      &viommu_mm_ops, &ept_ops, &cap);
+
+			break;
+		case CONTEXT_TT_PASS_THROUGH:
+			/*
+			 * When host IOMMU driver is using pass-through mode, pkvm
+			 * IOMMU will actually use the address translation
+			 * (CONTEXT_TT_MULTI_LEVEL) with the primary VM's EPT
+			 * to guarantee the protection.
+			 */
+			break;
+		default:
+			pkvm_err("pkvm: unsupported translation type %u\n", tt);
+
+			pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL);
+			pkvm_setup_ptdev_did(ptdev, 0);
+			goto update_shadow_ce;
+		}
+
+		pkvm_setup_ptdev_did(ptdev, context_lm_get_did(guest_ce));
+
+		if (!is_pgt_ops_ept(ptdev->pgt))
+			return false;
+
+		tmp = *guest_ce;
+
+		/*
+		 * Always set translation type to MULTI_LEVEL to ensure address
+		 * translation and to disable device TLB for security.
+		 */
+		context_lm_set_tt(&tmp, CONTEXT_TT_MULTI_LEVEL);
+
+		if (tt != CONTEXT_TT_PASS_THROUGH) {
+			/*
+			 * For now reference to the host's vIOMMU page table.
+			 * FIXME: Reference to the shadow page table once pKVM
+			 * supports shadowing vIOMMU page tables, to guarantee
+			 * the protection.
+			 */
+			context_lm_set_slptr(&tmp, ptdev->vpgt.root_pa);
+		} else {
+			context_lm_set_slptr(&tmp, ptdev->pgt->root_pa);
+			aw = (ptdev->pgt->level == 3) ? 1 :
+			     (ptdev->pgt->level == 4) ? 2 : 3;
+			context_lm_set_aw(&tmp, aw);
 		}
 	}
 
+update_shadow_ce:
 	if (READ_ONCE(shadow_ce->hi) != tmp.hi) {
 		WRITE_ONCE(shadow_ce->hi, tmp.hi);
 		updated = true;
@@ -405,35 +519,6 @@ static int iommu_audit_did(struct pkvm_iommu *iommu, u16 did, int shadow_vm_hand
 	}
 
 	return ret;
-}
-
-static struct pkvm_ptdev *iommu_find_ptdev(struct pkvm_iommu *iommu, u16 bdf, u32 pasid)
-{
-	struct pkvm_ptdev *p;
-
-	list_for_each_entry(p, &iommu->ptdev_head, iommu_node) {
-		if (match_ptdev(p, bdf, pasid))
-			return p;
-	}
-
-	return NULL;
-}
-
-static struct pkvm_ptdev *iommu_add_ptdev(struct pkvm_iommu *iommu, u16 bdf, u32 pasid)
-{
-	struct pkvm_ptdev *ptdev = pkvm_get_ptdev(bdf, pasid);
-
-	if (!ptdev)
-		return NULL;
-
-	list_add_tail(&ptdev->iommu_node, &iommu->ptdev_head);
-	return ptdev;
-}
-
-static void iommu_del_ptdev(struct pkvm_iommu *iommu, struct pkvm_ptdev *ptdev)
-{
-	list_del_init(&ptdev->iommu_node);
-	pkvm_put_ptdev(ptdev);
 }
 
 /* sync pasid table entry when guest_ptep valid, otherwise un-present it */
@@ -903,40 +988,13 @@ static int sync_shadow_id_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 			 */
 			if (data->did && (pasid_get_domain_id(guest_ptep) != data->did))
 				return ret;
-
-			/*
-			 * The shadow_pa to configur the PASID table entry is
-			 * depending on the pgt used by the corresponding ptdev.
-			 * So no need to set sync_data.shadow_pa.
-			 */
-		} else {
-			switch (context_lm_get_tt(guest_ptep)) {
-			case CONTEXT_TT_MULTI_LEVEL:
-			case CONTEXT_TT_DEV_IOTLB:
-				/*
-				 * Right now reference to a virtual 2nd-stage paging table.
-				 * FIXME: Reference to a shadow paging table when shadowing
-				 * 2nd-stage paging table is supported by pKVM, to ensure
-				 * the memory protection.
-				 */
-				sync_data.shadow_pa = vpgt_ops->pgt_entry_to_phys(guest_ptep);
-				break;
-			case CONTEXT_TT_PASS_THROUGH:
-				/*
-				 * When host IOMMU driver is using pass-through mode, pkvm
-				 * IOMMU will actually use the 2nd-level translation using the
-				 * host EPT to guarantee the memory protection.
-				 */
-				sync_data.shadow_pa = pkvm_hyp->host_vm.ept->root_pa;
-				break;
-			default:
-				/*
-				 * Context entry with an unsupported (reserved) value of
-				 * Translation Type shall be non-present to the physical IOMMU.
-				 */
-				break;
-			}
 		}
+
+		/*
+		 * For a leaf entry, the physical address of its child level
+		 * is determined by the pgt used by the corresponding ptdev.
+		 * So no need to set sync_data.shadow_pa.
+		 */
 	} else if (!shadow_p) {
 		/*
 		 * For a non-present non-leaf (which may be root/context/pasid
