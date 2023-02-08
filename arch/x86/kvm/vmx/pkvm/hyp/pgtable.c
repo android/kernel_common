@@ -756,14 +756,14 @@ static int pgtable_sync_map_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 }
 
 /*
- * pkvm_pgtable_sync_map() - map the destination pgtable_pgt according to the source
- * pgtable_pgt, with the same phys address and desired property bits.
+ * pkvm_pgtable_sync_map() - map the destination pgtable according to the source
+ * pgtable, with the same phys address and desired property bits.
  *
- * @src:	source pgtable_pgt.
- * @dest:	destination pgtable_pgt.
+ * @src:	source pgtable.
+ * @dest:	destination pgtable.
  * @prot:	desired property bits. Can be NULL if use the same property
- *		bits as the source pgtable_pgt
- * @map_leaf:	function to map the leaf entry for destination pgtable_pgt.
+ *		bits as the source pgtable
+ * @map_leaf:	function to map the leaf entry for destination pgtable.
  */
 int pkvm_pgtable_sync_map(struct pkvm_pgtable *src, struct pkvm_pgtable *dest,
 			  u64 *prot, pgtable_leaf_ov_fn_t map_leaf)
