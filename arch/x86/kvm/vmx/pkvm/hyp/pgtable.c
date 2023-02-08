@@ -740,11 +740,12 @@ static int pgtable_sync_map_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 	unsigned long size;
 	u64 prot;
 
-	if (!pgt->pgt_ops->pgt_entry_present(ptep))
-		return 0;
-
 	phys = pgt_ops->pgt_entry_to_phys(ptep);
 	size = pgt_ops->pgt_level_to_size(level);
+
+	if (!pgt->pgt_ops->pgt_entry_present(ptep))
+		return pkvm_pgtable_unmap(data->dest_pgt, vaddr, size, NULL);
+
 	if (data->prot_override)
 		prot = *data->prot_override;
 	else
