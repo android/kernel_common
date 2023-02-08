@@ -756,6 +756,37 @@ static int pgtable_sync_map_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 }
 
 /*
+ * pkvm_pgtable_sync_map_range() - map the given address range in the destination
+ * pgtable according to the source pgtable, with the same phys address and desired
+ * property bits.
+ *
+ * @src:	source pgtable.
+ * @dest:	destination pgtable.
+ * @vaddr:	virtual start address of the range.
+ * @size:	size of the range in bytes.
+ * @prot:	desired property bits. Can be NULL if use the same property
+ *		bits as the source pgtable
+ * @map_leaf:	function to map the leaf entry for destination pgtable.
+ */
+int pkvm_pgtable_sync_map_range(struct pkvm_pgtable *src, struct pkvm_pgtable *dest,
+				unsigned long vaddr, unsigned long size,
+				u64 *prot, pgtable_leaf_ov_fn_t map_leaf)
+{
+	struct pkvm_pgtable_sync_data data = {
+		.dest_pgt = dest,
+		.prot_override = prot,
+		.map_leaf_override = map_leaf,
+	};
+	struct pkvm_pgtable_walker walker = {
+		.cb = pgtable_sync_map_cb,
+		.flags = PKVM_PGTABLE_WALK_LEAF,
+		.arg = &data,
+	};
+
+	return pgtable_walk(src, vaddr, size, true, &walker);
+}
+
+/*
  * pkvm_pgtable_sync_map() - map the destination pgtable according to the source
  * pgtable, with the same phys address and desired property bits.
  *
@@ -768,17 +799,7 @@ static int pgtable_sync_map_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 int pkvm_pgtable_sync_map(struct pkvm_pgtable *src, struct pkvm_pgtable *dest,
 			  u64 *prot, pgtable_leaf_ov_fn_t map_leaf)
 {
-	struct pkvm_pgtable_sync_data data = {
-		.dest_pgt = dest,
-		.prot_override = prot,
-		.map_leaf_override = map_leaf,
-	};
-	struct pkvm_pgtable_walker walker = {
-		.cb = pgtable_sync_map_cb,
-		.flags = PKVM_PGTABLE_WALK_LEAF,
-		.arg = &data,
-	};
 	unsigned long size = src->pgt_ops->pgt_level_to_size(src->level + 1);
 
-	return pgtable_walk(src, 0, size, true, &walker);
+	return pkvm_pgtable_sync_map_range(src, dest, 0, size, prot, map_leaf);
 }
