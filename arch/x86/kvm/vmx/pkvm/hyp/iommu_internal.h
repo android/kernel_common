@@ -129,9 +129,12 @@ do {									\
 #define QI_DESC_PC_DID(qw)		(((qw) & GENMASK_ULL(31, 16)) >> 16)
 #define QI_DESC_PC_PASID(qw)		(((qw) & GENMASK_ULL(51, 32)) >> 32)
 
-#define pgt_to_pkvm_iommu(_pgt) container_of(_pgt, struct pkvm_iommu, pgt)
-
+#define QI_DESC_IOTLB_GRANU(qw)		(((qw) & GENMASK_ULL(5, 4)) >> 4)
 #define QI_DESC_IOTLB_DID(qw)		(((qw) & GENMASK_ULL(31, 16)) >> 16)
+#define QI_DESC_IOTLB_ADDR(qw)		((qw) & VTD_PAGE_MASK)
+#define QI_DESC_IOTLB_AM(qw)		((qw) & GENMASK_ULL(5, 0))
+
+#define pgt_to_pkvm_iommu(_pgt) container_of(_pgt, struct pkvm_iommu, pgt)
 
 struct pasid_dir_entry {
 	u64 val;

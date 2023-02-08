@@ -109,7 +109,7 @@ static void pgtable_split(struct pkvm_pgtable_ops *pgt_ops,
 	}
 }
 
-static int pgtable_map_leaf(struct pkvm_pgtable *pgt,
+int pgtable_map_leaf(struct pkvm_pgtable *pgt,
 			    unsigned long vaddr,
 			    int level, void *ptep,
 			    struct pgt_flush_data *flush_data,

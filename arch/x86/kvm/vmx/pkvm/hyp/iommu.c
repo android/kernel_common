@@ -14,6 +14,8 @@
 #include "iommu_internal.h"
 #include "debug.h"
 #include "ptdev.h"
+#include "iommu_spgt.h"
+#include "bug.h"
 
 #define for_each_valid_iommu(p)						\
 	for ((p) = iommus; (p) < iommus + PKVM_MAX_IOMMU_NUM; (p)++)	\
@@ -24,6 +26,12 @@
 static struct pkvm_iommu iommus[PKVM_MAX_IOMMU_NUM];
 
 static struct hyp_pool iommu_pool;
+
+/* Used in legacy mode only. */
+struct shadow_pgt_sync_data {
+	unsigned long vaddr;
+	unsigned long vaddr_end;
+};
 
 /*
  * Guest root/context/pasid table (hereinafter "id table") walking parameter.
@@ -44,13 +52,19 @@ struct id_sync_walk_data {
 	 * it is set as a non-zero did value.
 	 */
 	u16 did;
+	/*
+	 * Used in legacy mode when just syncing a specific
+	 * range of pages in shadow page tables.
+	 */
+	struct shadow_pgt_sync_data *spgt_data;
 };
 
-#define DEFINE_ID_SYNC_WALK_DATA(name, _iommu, domain_id)	\
-	struct id_sync_walk_data (name) = {			\
-		.iommu = (_iommu),				\
-		.shadow_pa = {0},				\
-		.did = (domain_id),				\
+#define DEFINE_ID_SYNC_WALK_DATA(name, _iommu, domain_id, _spgt_data)	\
+	struct id_sync_walk_data (name) = {				\
+		.iommu = (_iommu),					\
+		.shadow_pa = {0},					\
+		.did = (domain_id),					\
+		.spgt_data = (_spgt_data),				\
 	}
 
 /*
@@ -71,6 +85,7 @@ struct id_sync_data {
 	u64 shadow_pa;
 	struct pkvm_pgtable *shadow_id;
 	unsigned long vaddr;
+	struct shadow_pgt_sync_data *spgt_data;
 };
 
 static inline void *iommu_zalloc_pages(size_t size)
@@ -361,6 +376,58 @@ static int iommu_audit_did(struct pkvm_iommu *iommu, u16 did, int shadow_vm_hand
 	return ret;
 }
 
+static int shadow_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
+			       void *ptep, struct pgt_flush_data *flush_data, void *arg)
+{
+	struct pkvm_pgtable_map_data *data = arg;
+	unsigned long map_phys;
+	int ret = 0;
+
+	host_ept_lock();
+
+	pkvm_host_ept_lookup(data->phys, &map_phys, NULL, NULL);
+	if (map_phys == INVALID_ADDR) {
+		pkvm_err("pkvm: phys addr 0x%lx not mapped in host ept\n", data->phys);
+		goto out;
+	}
+
+	ret = pgtable_map_leaf(pgt, vaddr, level, ptep, flush_data, arg);
+
+out:
+	host_ept_unlock();
+	return ret;
+}
+
+/* used in legacy mode only */
+static void sync_shadow_pgt(struct pkvm_ptdev *ptdev, struct shadow_pgt_sync_data *sdata)
+{
+	struct pkvm_pgtable *spgt;
+	int ret;
+
+	PKVM_ASSERT(is_pgt_ops_ept(&ptdev->vpgt));
+
+	/*
+	 * ptdev->pgt should be already set to this shadow iommu pgtable.
+	 * However, ptdev->pgt could change in the meantime due to ptdev
+	 * attach to a VM. So to avoid race, do not use ptdev->pgt directly
+	 * but get the same shadow iommu pgtable on our own.
+	 */
+	spgt = pkvm_get_host_iommu_spgt(ptdev->vpgt.root_pa, ptdev->iommu_coherency);
+	PKVM_ASSERT(spgt);
+
+	if (sdata)
+		ret = pkvm_pgtable_sync_map_range(&ptdev->vpgt, spgt,
+						  sdata->vaddr,
+						  sdata->vaddr_end - sdata->vaddr,
+						  NULL, shadow_pgt_map_leaf);
+	else
+		ret = pkvm_pgtable_sync_map(&ptdev->vpgt, spgt,
+					    NULL, shadow_pgt_map_leaf);
+	PKVM_ASSERT(ret == 0);
+
+	pkvm_put_host_iommu_spgt(spgt, ptdev->iommu_coherency);
+}
+
 /* present root entry when shadow_pa valid, otherwise un-present it */
 static bool sync_root_entry(struct id_sync_data *sdata)
 {
@@ -446,7 +513,10 @@ static bool sync_shadow_context_entry(struct id_sync_data *sdata)
 				    (aw == 2) ? 4 : 5;
 			cap.allowed_pgsz = pkvm_hyp->ept_cap.allowed_pgsz;
 			pkvm_setup_ptdev_vpgt(ptdev, context_lm_get_slptr(guest_ce),
-					      &viommu_mm_ops, &ept_ops, &cap, false);
+					      &viommu_mm_ops, &ept_ops, &cap, true);
+
+			if (!ptdev_attached_to_vm(ptdev))
+				sync_shadow_pgt(ptdev, sdata->spgt_data);
 
 			break;
 		case CONTEXT_TT_PASS_THROUGH:
@@ -481,21 +551,10 @@ static bool sync_shadow_context_entry(struct id_sync_data *sdata)
 		 * translation and to disable device TLB for security.
 		 */
 		context_lm_set_tt(&tmp, CONTEXT_TT_MULTI_LEVEL);
-
-		if (tt != CONTEXT_TT_PASS_THROUGH && !ptdev_attached_to_vm(ptdev)) {
-			/*
-			 * For now reference to the host's vIOMMU page table.
-			 * FIXME: Reference to the shadow page table once pKVM
-			 * supports shadowing vIOMMU page tables, to guarantee
-			 * the protection.
-			 */
-			context_lm_set_slptr(&tmp, ptdev->vpgt.root_pa);
-		} else {
-			context_lm_set_slptr(&tmp, ptdev->pgt->root_pa);
-			aw = (ptdev->pgt->level == 3) ? 1 :
-			     (ptdev->pgt->level == 4) ? 2 : 3;
-			context_lm_set_aw(&tmp, aw);
-		}
+		context_lm_set_slptr(&tmp, ptdev->pgt->root_pa);
+		aw = (ptdev->pgt->level == 3) ? 1 :
+		     (ptdev->pgt->level == 4) ? 2 : 3;
+		context_lm_set_aw(&tmp, aw);
 	}
 
 update_shadow_ce:
@@ -921,6 +980,7 @@ static int init_sync_id_data(struct id_sync_data *sync_data,
 	sync_data->iommu_ecap = iommu->iommu.ecap;
 	sync_data->shadow_pa = 0;
 	sync_data->vaddr = vaddr;
+	sync_data->spgt_data = data->spgt_data;
 
 	return 0;
 }
@@ -1071,9 +1131,10 @@ static int free_shadow_id(struct pkvm_iommu *iommu, unsigned long vaddr,
 }
 
 static int sync_shadow_id(struct pkvm_iommu *iommu, unsigned long vaddr,
-		       unsigned long vaddr_end, u16 did)
+		       unsigned long vaddr_end, u16 did,
+		       struct shadow_pgt_sync_data *spgt_data)
 {
-	DEFINE_ID_SYNC_WALK_DATA(arg, iommu, did);
+	DEFINE_ID_SYNC_WALK_DATA(arg, iommu, did, spgt_data);
 	struct pkvm_pgtable_walker walker = {
 		.cb = sync_shadow_id_cb,
 		.flags = PKVM_PGTABLE_WALK_TABLE_PRE |
@@ -1461,7 +1522,7 @@ static int activate_iommu(struct pkvm_iommu *iommu)
 
 	initialize_viommu_reg(iommu);
 
-	ret = sync_shadow_id(iommu, vaddr, vaddr_end, 0);
+	ret = sync_shadow_id(iommu, vaddr, vaddr_end, 0, NULL);
 	if (ret)
 		goto out;
 
@@ -1506,7 +1567,7 @@ static int context_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *de
 		start = 0;
 		end = MAX_NUM_OF_ADDRESS_SPACE(iommu);
 		pkvm_dbg("pkvm: %s: iommu%d: global\n", __func__, iommu->iommu.seq_id);
-		ret = sync_shadow_id(iommu, start, end, 0);
+		ret = sync_shadow_id(iommu, start, end, 0, NULL);
 		break;
 	case DMA_CCMD_DOMAIN_INVL:
 		/*
@@ -1518,7 +1579,7 @@ static int context_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *de
 		end = MAX_NUM_OF_ADDRESS_SPACE(iommu);
 		pkvm_dbg("pkvm: %s: iommu%d: domain selective\n",
 			 __func__, iommu->iommu.seq_id);
-		ret = sync_shadow_id(iommu, start, end, did);
+		ret = sync_shadow_id(iommu, start, end, did, NULL);
 		break;
 	case DMA_CCMD_DEVICE_INVL:
 		if (ecap_smts(iommu->iommu.ecap)) {
@@ -1530,7 +1591,7 @@ static int context_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *de
 		}
 		pkvm_dbg("pkvm: %s: iommu%d: device selective sid 0x%x\n",
 			 __func__, iommu->iommu.seq_id, sid);
-		ret = sync_shadow_id(iommu, start, end, did);
+		ret = sync_shadow_id(iommu, start, end, did, NULL);
 		break;
 	default:
 		pkvm_err("pkvm: %s: iommu%d: invalidate granu %lld\n",
@@ -1563,7 +1624,7 @@ static int pasid_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc
 			 __func__, iommu->iommu.seq_id, did);
 		start = 0;
 		end = IOMMU_MAX_VADDR;
-		ret = sync_shadow_id(iommu, start, end, did);
+		ret = sync_shadow_id(iommu, start, end, did, NULL);
 		break;
 	case QI_PC_PASID_SEL: {
 		/*
@@ -1576,7 +1637,7 @@ static int pasid_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc
 		for (bdf = 0; bdf < end_bdf; bdf++) {
 			start = (bdf << DEVFN_SHIFT) + pasid;
 			end = start + 1;
-			ret = sync_shadow_id(iommu, start, end, did);
+			ret = sync_shadow_id(iommu, start, end, did, NULL);
 			if (ret)
 				break;
 		}
@@ -1586,7 +1647,7 @@ static int pasid_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc
 		start = 0;
 		end = IOMMU_MAX_VADDR;
 		pkvm_dbg("pkvm: %s: iommu%d: global\n", __func__, iommu->iommu.seq_id);
-		ret = sync_shadow_id(iommu, start, end, 0);
+		ret = sync_shadow_id(iommu, start, end, 0, NULL);
 		break;
 	default:
 		pkvm_err("pkvm: %s: iommu%d: invalid granularity %d 0x%llx\n",
@@ -1598,6 +1659,55 @@ static int pasid_cache_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc
 	if (ret)
 		pkvm_err("pkvm: %s: iommu%d: granularity %d failed with ret %d\n",
 			 __func__, iommu->iommu.seq_id, granu, ret);
+
+	return ret;
+}
+
+static int iotlb_lm_invalidate(struct pkvm_iommu *iommu, struct qi_desc *desc)
+{
+	u16 did = QI_DESC_IOTLB_DID(desc->qw0);
+	u64 granu = QI_DESC_IOTLB_GRANU(desc->qw0) << DMA_TLB_FLUSH_GRANU_OFFSET;
+	u64 addr = QI_DESC_IOTLB_ADDR(desc->qw1);
+	u64 mask = ((u64)-1) << (VTD_PAGE_SHIFT + QI_DESC_IOTLB_AM(desc->qw1));
+	struct shadow_pgt_sync_data data;
+	struct pkvm_ptdev *p;
+	int ret;
+
+	switch (granu) {
+	case DMA_TLB_GLOBAL_FLUSH:
+		pkvm_dbg("pkvm: %s: iommu%d: global\n", __func__, iommu->iommu.seq_id);
+		ret = sync_shadow_id(iommu, 0, IOMMU_LM_MAX_VADDR, 0, NULL);
+		break;
+	case DMA_TLB_DSI_FLUSH:
+		pkvm_dbg("pkvm: %s: iommu%d: domain selective did %u\n",
+			 __func__, iommu->iommu.seq_id, did);
+
+		/* optimization: walk just the needed devices, not the entire bdf space */
+		list_for_each_entry(p, &iommu->ptdev_head, iommu_node)
+			if (p->did == did)
+				ret = sync_shadow_id(iommu, p->bdf, p->bdf + 1, did, NULL);
+		break;
+	case DMA_TLB_PSI_FLUSH:
+		data.vaddr = addr & mask;
+		data.vaddr_end = (addr | ~mask) + 1;
+		pkvm_dbg("pkvm: %s: iommu%d: page selective did %u start 0x%lx end 0x%lx\n",
+			 __func__, iommu->iommu.seq_id, did, data.vaddr, data.vaddr_end);
+
+		/* optimization: walk just the needed devices, not the entire bdf space */
+		list_for_each_entry(p, &iommu->ptdev_head, iommu_node)
+			if (p->did == did)
+				ret = sync_shadow_id(iommu, p->bdf, p->bdf + 1, did, &data);
+		break;
+	default:
+		pkvm_err("pkvm: %s: iommu%d: invalid granularity %lld\n",
+			__func__, iommu->iommu.seq_id, granu >> DMA_TLB_FLUSH_GRANU_OFFSET);
+		ret = -EINVAL;
+		break;
+	}
+
+	if (ret)
+		pkvm_err("pkvm: %s: iommu%d: granularity %lld failed with ret %d\n",
+			__func__, iommu->iommu.seq_id, granu >> DMA_TLB_FLUSH_GRANU_OFFSET, ret);
 
 	return ret;
 }
@@ -1614,7 +1724,6 @@ static int handle_descriptor(struct pkvm_iommu *iommu, struct qi_desc *desc)
 	 */
 	case QI_PGRP_RESP_TYPE:
 	case QI_PSTRM_RESP_TYPE:
-	case QI_IOTLB_TYPE:
 	case QI_DIOTLB_TYPE:
 	case QI_DEIOTLB_TYPE:
 	case QI_IEC_TYPE:
@@ -1626,6 +1735,10 @@ static int handle_descriptor(struct pkvm_iommu *iommu, struct qi_desc *desc)
 		break;
 	case QI_PC_TYPE:
 		ret = pasid_cache_invalidate(iommu, desc);
+		break;
+	case QI_IOTLB_TYPE:
+		if (!ecap_smts(iommu->iommu.ecap))
+			ret = iotlb_lm_invalidate(iommu, desc);
 		break;
 	default:
 		pkvm_err("pkvm: %s: iommu%d: invalid type %d desc addr 0x%llx val 0x%llx\n",
@@ -1742,7 +1855,7 @@ static void handle_gcmd_te(struct pkvm_iommu *iommu, bool en)
 		/*
 		 * Sync shadow id table to emulate Translation enable.
 		 */
-		if (sync_shadow_id(iommu, vaddr, vaddr_end, 0))
+		if (sync_shadow_id(iommu, vaddr, vaddr_end, 0, NULL))
 			return;
 		pkvm_dbg("pkvm: %s: enable TE\n", __func__);
 		goto out;
@@ -1782,7 +1895,7 @@ static void handle_gcmd_srtp(struct pkvm_iommu *iommu)
 		unsigned long vaddr = 0, vaddr_end = MAX_NUM_OF_ADDRESS_SPACE(iommu);
 
 		/* TE is already enabled, sync shadow */
-		if (sync_shadow_id(iommu, vaddr, vaddr_end, 0))
+		if (sync_shadow_id(iommu, vaddr, vaddr_end, 0, NULL))
 			return;
 
 		flush_context_cache(iommu, 0, 0, 0, DMA_CCMD_GLOBAL_INVL);
@@ -2119,7 +2232,7 @@ int pkvm_iommu_sync(u16 bdf, u32 pasid)
 	}
 
 	pkvm_spin_lock(&iommu->lock);
-	ret = sync_shadow_id(iommu, id_addr, id_addr_end, 0);
+	ret = sync_shadow_id(iommu, id_addr, id_addr_end, 0, NULL);
 	if (!ret) {
 		if (old_did != ptdev->did) {
 			/* Flush pasid cache and IOTLB for the valid old_did */
