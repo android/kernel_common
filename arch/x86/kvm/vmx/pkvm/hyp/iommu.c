@@ -414,7 +414,7 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 
 		if (!sdata->guest_ptep) {
 			if (context_lm_is_present(shadow_ce)) {
-				pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL);
+				pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL, false);
 				pkvm_setup_ptdev_did(ptdev, 0);
 				iommu_del_ptdev(iommu, ptdev);
 
@@ -431,7 +431,7 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 			if (aw != 1 && aw != 2 && aw != 3) {
 				pkvm_err("pkvm: unsupported address width %u\n", aw);
 
-				pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL);
+				pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL, false);
 				pkvm_setup_ptdev_did(ptdev, 0);
 
 				/*
@@ -446,7 +446,7 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 				    (aw == 2) ? 4 : 5;
 			cap.allowed_pgsz = pkvm_hyp->ept_cap.allowed_pgsz;
 			pkvm_setup_ptdev_vpgt(ptdev, context_lm_get_slptr(guest_ce),
-					      &viommu_mm_ops, &ept_ops, &cap);
+					      &viommu_mm_ops, &ept_ops, &cap, false);
 
 			break;
 		case CONTEXT_TT_PASS_THROUGH:
@@ -460,7 +460,7 @@ static bool sync_shadow_context_entry(struct pgt_sync_data *sdata)
 		default:
 			pkvm_err("pkvm: unsupported translation type %u\n", tt);
 
-			pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL);
+			pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL, false);
 			pkvm_setup_ptdev_did(ptdev, 0);
 			goto update_shadow_ce;
 		}
@@ -559,7 +559,7 @@ static bool sync_shadow_pasid_table_entry(struct pgt_sync_data *sdata)
 			 * a ptdev's vpgt/did should be reset as well as
 			 * deleting ptdev from this iommu.
 			 */
-			pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL);
+			pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL, false);
 			pkvm_setup_ptdev_did(ptdev, 0);
 			iommu_del_ptdev(iommu, ptdev);
 
@@ -593,7 +593,7 @@ static bool sync_shadow_pasid_table_entry(struct pgt_sync_data *sdata)
 		cap.level = pasid_get_flpm(guest_pte) == 0 ? 4 : 5;
 		cap.allowed_pgsz = pkvm_hyp->mmu_cap.allowed_pgsz;
 		pkvm_setup_ptdev_vpgt(ptdev, pasid_get_flptr(guest_pte),
-				      &viommu_mm_ops, &mmu_ops, &cap);
+				      &viommu_mm_ops, &mmu_ops, &cap, false);
 	} else if (type == PASID_ENTRY_PGTT_PT) {
 		/*
 		 * When host IOMMU driver is using pass-through mode, pkvm
@@ -611,7 +611,7 @@ static bool sync_shadow_pasid_table_entry(struct pgt_sync_data *sdata)
 		 * keep ptdev linked to this IOMMU, and clear the shadow entry
 		 * so that not to support it.
 		 */
-		pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL);
+		pkvm_setup_ptdev_vpgt(ptdev, 0, NULL, NULL, NULL, false);
 		pkvm_setup_ptdev_did(ptdev, 0);
 
 		pkvm_err("pkvm: unsupported pasid type %lld\n", type);

@@ -7,6 +7,7 @@
 #include "pkvm_hyp.h"
 #include "iommu.h"
 #include "ptdev.h"
+#include "iommu_spgt.h"
 #include "bug.h"
 
 #define MAX_PTDEV_NUM	(PKVM_MAX_PDEV_NUM + PKVM_MAX_PASID_PDEV_NUM)
@@ -34,6 +35,7 @@ struct pkvm_ptdev *pkvm_alloc_ptdev(u16 bdf, u32 pasid, bool coherency)
 		INIT_LIST_HEAD(&ptdev->iommu_node);
 		INIT_LIST_HEAD(&ptdev->vm_node);
 		atomic_set(&ptdev->refcount, 1);
+		pkvm_spin_lock_init(&ptdev->lock);
 		hash_add(ptdev_hasht, &ptdev->hnode, bdf);
 	}
 
@@ -71,6 +73,9 @@ void pkvm_put_ptdev(struct pkvm_ptdev *ptdev)
 
 	__clear_bit(ptdev->index, ptdevs_bitmap);
 
+	if (ptdev->pgt != pkvm_hyp->host_vm.ept)
+		pkvm_put_host_iommu_spgt(ptdev->pgt, ptdev->iommu_coherency);
+
 	memset(ptdev, 0, sizeof(struct pkvm_ptdev));
 
 	pkvm_spin_unlock(&ptdev_lock);
@@ -78,15 +83,31 @@ void pkvm_put_ptdev(struct pkvm_ptdev *ptdev)
 
 void pkvm_setup_ptdev_vpgt(struct pkvm_ptdev *ptdev, unsigned long root_gpa,
 			   struct pkvm_mm_ops *mm_ops, struct pkvm_pgtable_ops *paging_ops,
-			   struct pkvm_pgtable_cap *cap)
+			   struct pkvm_pgtable_cap *cap, bool shadowed)
 {
+	pkvm_spin_lock(&ptdev->lock);
+
+	if (ptdev->pgt != pkvm_hyp->host_vm.ept &&
+			(!shadowed || root_gpa != ptdev->vpgt.root_pa) &&
+			!ptdev_attached_to_vm(ptdev)) {
+		pkvm_put_host_iommu_spgt(ptdev->pgt, ptdev->iommu_coherency);
+		ptdev->pgt = pkvm_hyp->host_vm.ept;
+	}
+
 	if (!root_gpa || root_gpa == INVALID_ADDR || !mm_ops || !paging_ops || !cap) {
 		memset(&ptdev->vpgt, 0, sizeof(struct pkvm_pgtable));
-		return;
+		goto out;
 	}
 
 	ptdev->vpgt.root_pa = root_gpa;
 	PKVM_ASSERT(pkvm_pgtable_init(&ptdev->vpgt, mm_ops, paging_ops, cap, false) == 0);
+
+	if (shadowed && ptdev->pgt == pkvm_hyp->host_vm.ept) {
+		ptdev->pgt = pkvm_get_host_iommu_spgt(root_gpa, ptdev->iommu_coherency);
+		PKVM_ASSERT(ptdev->pgt);
+	}
+out:
+	pkvm_spin_unlock(&ptdev->lock);
 }
 
 void pkvm_setup_ptdev_did(struct pkvm_ptdev *ptdev, u16 did)
@@ -104,8 +125,11 @@ void pkvm_setup_ptdev_did(struct pkvm_ptdev *ptdev, u16 did)
 void pkvm_detach_ptdev(struct pkvm_ptdev *ptdev, struct pkvm_shadow_vm *vm)
 {
 	/* Reset what the attach API has set */
+	pkvm_spin_lock(&ptdev->lock);
 	ptdev->shadow_vm_handle = 0;
 	ptdev->pgt = pkvm_hyp->host_vm.ept;
+	pkvm_spin_unlock(&ptdev->lock);
+
 	pkvm_shadow_vm_unlink_ptdev(vm, &ptdev->vm_node,
 				    ptdev->iommu_coherency);
 	pkvm_iommu_sync(ptdev->bdf, ptdev->pasid);
@@ -142,18 +166,28 @@ int pkvm_attach_ptdev(u16 bdf, u32 pasid, struct pkvm_shadow_vm *vm)
 			return -ENODEV;
 	}
 
+	pkvm_spin_lock(&ptdev->lock);
+
 	if (cmpxchg(&ptdev->shadow_vm_handle, 0, vm->shadow_vm_handle) != 0) {
 		pkvm_err("%s: ptdev with bdf 0x%x pasid 0x%x is already attached\n",
 			 __func__, bdf, pasid);
+		pkvm_spin_unlock(&ptdev->lock);
 		pkvm_put_ptdev(ptdev);
 		return -ENODEV;
 	}
+
+	PKVM_ASSERT(ptdev->pgt != &vm->pgstate_pgt);
+	if (ptdev->pgt != pkvm_hyp->host_vm.ept)
+		pkvm_put_host_iommu_spgt(ptdev->pgt, ptdev->iommu_coherency);
 
 	/*
 	 * Reset pgt of this ptdev to VM's pgstate_pgt so need to update
 	 * IOMMU page table accordingly.
 	 */
 	ptdev->pgt = &vm->pgstate_pgt;
+
+	pkvm_spin_unlock(&ptdev->lock);
+
 	pkvm_shadow_vm_link_ptdev(vm, &ptdev->vm_node,
 				  ptdev->iommu_coherency);
 	if (pkvm_iommu_sync(ptdev->bdf, ptdev->pasid)) {
