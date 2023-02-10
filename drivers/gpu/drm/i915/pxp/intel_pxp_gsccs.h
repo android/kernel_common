@@ -35,6 +35,8 @@ intel_pxp_gsccs_client_io_msg(struct intel_pxp *pxp, struct drm_file *drmfile,
 			      u32 *msg_out_len);
 
 void intel_pxp_gsccs_end_fw_sessions(struct intel_pxp *pxp, u32 sessions_mask);
+int intel_pxp_gsccs_get_client_host_session_handle(struct intel_pxp *pxp, struct drm_file *drmfile,
+						   u64 *handle);
 
 #else
 static inline void intel_pxp_gsccs_fini(struct intel_pxp *pxp)

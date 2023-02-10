@@ -707,6 +707,60 @@ static int pxp_query_tag(struct intel_pxp *pxp, struct prelim_drm_i915_pxp_ops *
 	return ret;
 }
 
+static int
+pxp_process_host_session_handle_request(struct intel_pxp *pxp,
+					struct prelim_drm_i915_pxp_ops *pxp_ops,
+					struct drm_file *drmfile)
+{
+	struct prelim_drm_i915_pxp_host_session_handle_request params;
+	struct prelim_drm_i915_pxp_host_session_handle_request __user *uparams =
+		u64_to_user_ptr(pxp_ops->params);
+	int ret = 0;
+
+	if (copy_from_user(&params, uparams, sizeof(params)) != 0)
+		return -EFAULT;
+
+	if (params.request_type != PRELIM_DRM_I915_PXP_GET_HOST_SESSION_HANDLE) {
+		ret = PRELIM_DRM_I915_PXP_OP_STATUS_ERROR_INVALID;
+		goto error_out;
+	}
+
+	/* legacy hw doesn't use this - user space shouldn't be requesting this */
+	if (!HAS_ENGINE(pxp->ctrl_gt, GSC0)) {
+		ret = PRELIM_DRM_I915_PXP_OP_STATUS_ERROR_INVALID;
+		goto error_out;
+	}
+
+	intel_pxp_gsccs_get_client_host_session_handle(pxp, drmfile,
+						       &params.host_session_handle);
+	if (!params.host_session_handle) {
+		ret = PRELIM_DRM_I915_PXP_OP_STATUS_ERROR_UNKNOWN;
+		drm_warn(&pxp->ctrl_gt->i915->drm, "Host Session Handle allocated 0x0\n");
+	}
+
+error_out:
+	if (ret >= 0) {
+		pxp_ops->status = ret;
+
+		if (copy_to_user(uparams, &params, sizeof(params)))
+			ret = -EFAULT;
+		else
+			ret = 0;
+	}
+
+	return ret;
+}
+
+static bool pxp_action_needs_arb_session(u32 action)
+{
+	switch (action) {
+	case PRELIM_DRM_I915_PXP_ACTION_HOST_SESSION_HANDLE_REQ:
+		return false;
+	}
+
+	return true;
+}
+
 int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmfile)
 {
 	int ret = 0;
@@ -725,16 +779,18 @@ int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmf
 		return 0;
 	}
 
-	if (pxp->hw_state_invalidated) {
-		drm_dbg(&i915->drm, "pxp ioctl retry required due to state attacked\n");
-		pxp_ops->status = PRELIM_DRM_I915_PXP_OP_STATUS_RETRY_REQUIRED;
-		goto out_pm;
-	}
-
-	if (!intel_pxp_is_active(pxp)) {
-		ret = intel_pxp_start(pxp);
-		if (ret)
+	if (pxp_action_needs_arb_session(pxp_ops->action)) {
+		if (pxp->hw_state_invalidated) {
+			drm_dbg(&i915->drm, "pxp ioctl retry required due to state attacked\n");
+			pxp_ops->status = PRELIM_DRM_I915_PXP_OP_STATUS_RETRY_REQUIRED;
 			goto out_pm;
+		}
+
+		if (!intel_pxp_is_active(pxp)) {
+			ret = intel_pxp_start(pxp);
+			if (ret)
+				goto out_pm;
+		}
 	}
 
 	mutex_lock(&pxp->session_mutex);
@@ -756,6 +812,9 @@ int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmf
 		break;
 	case PRELIM_DRM_I915_PXP_ACTION_QUERY_PXP_TAG:
 		ret = pxp_query_tag(pxp, pxp_ops);
+		break;
+	case PRELIM_DRM_I915_PXP_ACTION_HOST_SESSION_HANDLE_REQ:
+		ret = pxp_process_host_session_handle_request(pxp, pxp_ops, drmfile);
 		break;
 	default:
 		ret = -EINVAL;

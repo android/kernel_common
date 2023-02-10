@@ -200,8 +200,12 @@ gsccs_send_message(struct intel_pxp *pxp,
 	if (!exec_res) {
 		drm_err(&i915->drm, "gsc send_message with invalid exec_resource\n");
 		return -ENODEV;
-	} else if (exec_res == &pxp->gsccs_res) {
-		/* kernel submissions need population of gsc-mtl-header */
+	} else if (exec_res == &pxp->gsccs_res || (!msg_in && !msg_out)) {
+		/*
+		 * kernel submissions need population of gsc-mtl-header and
+		 * only kernel does host_session_cleanup (on behalf of client
+		 * exec_res) identified by the empty packet.
+		 */
 		insert_header_size = sizeof(*header);
 	}
 
@@ -457,6 +461,24 @@ gsccs_cleanup_fw_host_session_handle(struct intel_pxp *pxp,
 	if (ret)
 		drm_dbg(&i915->drm, "Failed to send gsccs msg host-session-cleanup: ret=[%d]\n",
 			ret);
+}
+
+int
+intel_pxp_gsccs_get_client_host_session_handle(struct intel_pxp *pxp, struct drm_file *drmfile,
+					       u64 *handle)
+{
+	struct gsccs_client_ctx *n;
+
+	if (!drmfile)
+		return -EINVAL;
+
+	n = gsccs_find_client_execution_resource(pxp, drmfile);
+	if (!n)
+		return -EINVAL;
+
+	*handle = n->exec.host_session_handle;
+
+	return 0;
 }
 
 static void

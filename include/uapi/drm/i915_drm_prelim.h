@@ -86,6 +86,37 @@ struct prelim_drm_i915_pxp_query_tag {
 } __attribute__((packed));
 
 /*
+ * struct pxp_host_session_handle_params
+ * Used with PXP_OPS: PRELIM_DRM_I915_PXP_ACTION_HOST_SESSION_HANDLE
+ * Contains params to get a host-session-handle that the user-space
+ * process uses for all communication with the GSC-FW via the PXP_OPS:
+ * PRELIM_DRM_I915_PXP_ACTION_TEE_IO_MESSAGE.
+ *
+ * - Each user space process is provided a single host_session_handle.
+ *   A user space process that repeats a request for a host_session_handle
+ *   will be successfully serviced but returned the same host_session_handle
+ *   that was generated (a random number) on the first request.
+ * - When the user space process exits, the kernel driver will send a cleanup
+ *   cmd to the gsc firmware. There is no need (and no mechanism) for the user
+ *   space process to explicitly request to release it's host_session_handle.
+ * - The host_session_handle remains valid through any suspend/resume cycles
+ *   and through PXP hw-session-slot teardowns (essentially they are
+ *   decoupled from the hw session-slots)
+ *
+ * Return values via prelim_drm_i915_pxp_ops.status:
+ *    - PRELIM_DRM_I915_PXP_OP_STATUS_SUCCESS
+ *    - PRELIM_DRM_I915_PXP_OP_STATUS_ERROR_INVALID
+ *      (if 'request' type is not valid or if device has no GSC engine)
+ *    - PRELIM_DRM_I915_PXP_OP_STATUS_ERROR_UNKNOWN
+ *      (if other subsystem failed to generate random no.)
+ */
+struct prelim_drm_i915_pxp_host_session_handle_request {
+	__u32 request_type; /* in - type of request for host-session-handle operation */
+#define PRELIM_DRM_I915_PXP_GET_HOST_SESSION_HANDLE     1
+	__u64 host_session_handle; /* out - returned host_session_handle */
+} __attribute__((packed));
+
+/*
  * DRM_I915_PXP_OPS -
  *
  * PXP is an i915 componment, that helps user space to establish the hardware
@@ -102,12 +133,14 @@ struct prelim_drm_i915_pxp_ops {
 #define PRELIM_DRM_I915_PXP_ACTION_SET_SESSION_STATUS 0
 #define PRELIM_DRM_I915_PXP_ACTION_TEE_IO_MESSAGE 1
 #define PRELIM_DRM_I915_PXP_ACTION_QUERY_PXP_TAG 2
+#define PRELIM_DRM_I915_PXP_ACTION_HOST_SESSION_HANDLE_REQ 3
 
 	__u32 status; /* out - status output for this operation */
 #define PRELIM_DRM_I915_PXP_OP_STATUS_SUCCESS 0
 #define PRELIM_DRM_I915_PXP_OP_STATUS_RETRY_REQUIRED 1
 #define PRELIM_DRM_I915_PXP_OP_STATUS_SESSION_NOT_AVAILABLE 2
 #define PRELIM_DRM_I915_PXP_OP_STATUS_ERROR_UNKNOWN 3
+#define PRELIM_DRM_I915_PXP_OP_STATUS_ERROR_INVALID 4
 
 	__u64 params; /* in/out - pointer to data matching the action */
 } __attribute__((packed));
