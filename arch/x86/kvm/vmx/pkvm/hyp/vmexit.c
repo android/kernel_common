@@ -288,8 +288,8 @@ int pkvm_main(struct kvm_vcpu *vcpu)
 				skip_instruction = true;
 				break;
 			case EXIT_REASON_EPT_VIOLATION:
-				if (handle_host_ept_violation(vmcs_read64(GUEST_PHYSICAL_ADDRESS)))
-					skip_instruction = true;
+				if (handle_host_ept_violation(vcpu, &skip_instruction))
+					pkvm_err("pkvm: handle host ept violation failed");
 				break;
 			case EXIT_REASON_INTERRUPT_WINDOW:
 				handle_irq_window(vcpu);

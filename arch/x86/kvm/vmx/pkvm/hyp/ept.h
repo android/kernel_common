@@ -32,7 +32,7 @@ void pkvm_host_ept_lookup(unsigned long vaddr, unsigned long *pphys,
 			  u64 *pprot, int *plevel);
 int pkvm_host_ept_init(struct pkvm_pgtable_cap *cap, void *ept_pool_base,
 		unsigned long ept_pool_pages);
-int handle_host_ept_violation(unsigned long gpa);
+int handle_host_ept_violation(struct kvm_vcpu *vcpu, bool *skip);
 void pkvm_flush_host_ept(void);
 int pkvm_shadow_ept_pool_init(void *ept_pool_base, unsigned long ept_pool_pages);
 int pkvm_shadow_ept_init(struct shadow_ept_desc *desc);

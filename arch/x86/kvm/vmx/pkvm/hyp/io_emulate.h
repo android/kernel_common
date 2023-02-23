@@ -62,5 +62,6 @@ int handle_host_pio(struct kvm_vcpu *vcpu);
 
 int register_host_mmio_handler(unsigned long start, unsigned long end,
 	mmio_handler_t read, mmio_handler_t write);
+int try_emul_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa);
 
 #endif

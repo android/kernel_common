@@ -24,6 +24,7 @@
 #include "mem_protect.h"
 #include "debug.h"
 #include "ptdev.h"
+#include "io_emulate.h"
 
 static struct hyp_pool host_ept_pool;
 static struct pkvm_pgtable host_ept;
@@ -354,18 +355,24 @@ int pkvm_host_ept_init(struct pkvm_pgtable_cap *cap,
 	return 0;
 }
 
-int handle_host_ept_violation(unsigned long gpa)
+int handle_host_ept_violation(struct kvm_vcpu *vcpu, bool *skip_instruction)
 {
-	unsigned long hpa;
+	unsigned long hpa, gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
 	struct mem_range range, cur;
 	bool is_memory = find_mem_range(gpa, &range);
 	u64 prot = pkvm_mkstate(HOST_EPT_DEF_MMIO_PROT, PKVM_PAGE_OWNED);
 	int level;
 	int ret;
+	*skip_instruction = true;
 
 	if (is_memory) {
 		pkvm_err("%s: not handle for memory address 0x%lx\n", __func__, gpa);
 		return -EPERM;
+	}
+
+	ret = try_emul_host_mmio(vcpu, gpa);
+	if (ret != -EINVAL) {
+		return ret;
 	}
 
 	pkvm_spin_lock(&_host_ept_lock);
@@ -411,6 +418,9 @@ int handle_host_ept_violation(unsigned long gpa)
 	}
 out:
 	pkvm_spin_unlock(&_host_ept_lock);
+
+	if (ret == 0)
+		*skip_instruction = false;
 	return ret;
 }
 

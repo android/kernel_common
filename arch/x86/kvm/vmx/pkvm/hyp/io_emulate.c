@@ -139,6 +139,23 @@ int handle_host_pio(struct kvm_vcpu *vcpu)
 	return emulate_host_pio(vcpu, &req);
 }
 
+static int pkvm_mmio_default_read(struct kvm_vcpu *vcpu, struct pkvm_mmio_req *req)
+{
+	pkvm_mmio_read((u64)host_mmio2hva(req->address), req->size, req->value);
+	return 0;
+}
+
+static int pkvm_mmio_default_write(struct kvm_vcpu *vcpu, struct pkvm_mmio_req *req)
+{
+	pkvm_mmio_write((u64)host_mmio2hva(req->address), req->size, *req->value);
+	return 0;
+}
+
+struct pkvm_mmio_handler default_mmio_handler = {
+	.read = pkvm_mmio_default_read,
+	.write = pkvm_mmio_default_write
+};
+
 static struct pkvm_mmio_handler *emul_mmio_lookup(struct pkvm_mmio_emul_table *table,
 	unsigned long start, unsigned long end)
 {
@@ -190,4 +207,168 @@ int register_host_mmio_handler(unsigned long start, unsigned long end,
 	host_ept_unlock();
 
 	return ret;
+}
+
+/*
+ * mmcfg access in x86 only use simple mov instrcutions. So keep the decoder
+ * simple for now.
+ * TODO: make the decoder complete
+ */
+static int mmio_instruction_decode(struct kvm_vcpu *vcpu, unsigned long gpa,
+	struct pkvm_mmio_req *req)
+{
+	struct x86_exception exception;
+	bool direction, zero_extend = false;
+	unsigned long rip;
+	u8 insn[3];
+	int size;
+
+	rip = vmcs_readl(GUEST_RIP);
+
+	/*
+	 * Read first three bytes is enough to determine the opcode.
+	 * Check arch/x86/include/asm/pci_x86.h.
+	 */
+	if (read_gva(vcpu, rip, insn, 3, &exception) < 0)
+		return -EINVAL;
+
+	/*
+	 * In case the compiler adds the REX prefix
+	 */
+	if ((insn[0] & 0xf0) == 0x40) {
+		insn[0] = insn[1];
+		insn[1] = insn[2];
+	}
+
+	if (insn[0] == 0x66 && (insn[1] & 0xf0) == 0x40)
+		insn[1] = insn[2];
+
+	switch (insn[0]) {
+	case 0x0f:
+		switch (insn[1]) {
+		case 0xb6:
+			zero_extend = true;
+			direction = PKVM_IO_READ;
+			size = 1;
+			break;
+		default:
+			return -EIO;
+		}
+		break;
+	case 0x66:
+		size = 2;
+		switch (insn[1]) {
+		case 0x89:
+			direction = PKVM_IO_WRITE;
+			break;
+		case 0x8b:
+			direction = PKVM_IO_READ;
+			break;
+		default:
+			return -EIO;
+		}
+		break;
+	case 0x88:
+		size = 1;
+		direction = PKVM_IO_WRITE;
+		break;
+	case 0x89:
+		size = 4;
+		direction = PKVM_IO_WRITE;
+		break;
+	case 0x8a:
+		size = 1;
+		direction = PKVM_IO_READ;
+		break;
+	case 0x8b:
+		size = 4;
+		direction = PKVM_IO_READ;
+		break;
+	default:
+		return -EIO;
+	}
+
+	req->address = gpa;
+	req->size = size;
+	req->value = &vcpu->arch.regs[VCPU_REGS_RAX];
+	req->direction = direction;
+
+	if (zero_extend)
+		*req->value = 0;
+
+	return 0;
+}
+
+static struct pkvm_mmio_handler *get_mmio_handler(struct pkvm_mmio_emul_table *table,
+	struct pkvm_mmio_req *req)
+{
+	struct pkvm_mmio_handler *handler;
+	unsigned long start, end;
+
+	start = req->address;
+	end = req->address + req->size - 1;
+
+	handler = emul_mmio_lookup(table, start, end);
+
+	/*
+	 * If handler is NULL, this is an access that does not touch the emulated
+	 * MMIO range. Return the default handler.
+	 */
+	if (!handler)
+		return &default_mmio_handler;
+
+	/* Do not allow the access to cross the boundary. */
+	if ((start < handler->start && end >= handler->start) ||
+		(start <= handler->end && end > handler->end))
+		return NULL;
+
+	return handler;
+}
+
+static int emulate_host_mmio(struct kvm_vcpu *vcpu, struct pkvm_mmio_req *req)
+{
+	struct pkvm_mmio_emul_table *table;
+	struct pkvm_mmio_handler *handler;
+	int ret = 0;
+
+	table = &host_mmio_emul_table;
+
+	handler = get_mmio_handler(table, req);
+	if (!handler)
+		return -EINVAL;
+
+	if (req->direction == PKVM_IO_READ && handler->read)
+		ret = handler->read(vcpu, req);
+	else if (req->direction == PKVM_IO_WRITE && handler->write)
+		ret = handler->write(vcpu, req);
+
+	return ret;
+}
+
+static int handle_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
+{
+	struct pkvm_mmio_req req;
+
+	if (mmio_instruction_decode(vcpu, gpa, &req)) {
+		pkvm_dbg("pkvm: MMIO instruction decode failed");
+		return -EINVAL;
+	}
+
+	pkvm_dbg("pkvm: host %s MMIO gpa 0x%lx width %d value 0x%lx", req.direction ?
+		"write" : "read", req.address, req.size, *req.value);
+
+	return emulate_host_mmio(vcpu, &req);
+}
+
+int try_emul_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
+{
+	if (emul_mmio_lookup(&host_mmio_emul_table, gpa, gpa) == NULL)
+		return -EINVAL;
+
+	if (handle_host_mmio(vcpu, gpa)) {
+		pkvm_err("%s: emulate MMIO failed for memory address 0x%lx\n", __func__, gpa);
+		return -EIO;
+	}
+
+	return 0;
 }
