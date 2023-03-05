@@ -94,6 +94,26 @@ int dm_verity_unregister_error_notifier(struct notifier_block *nb)
 }
 EXPORT_SYMBOL_GPL(dm_verity_unregister_error_notifier);
 
+/*
+ * Make two different leaf functions to be able to separately query transient
+ * and non-transient verity failures in crash analysis tool.
+ */
+static noinline
+void verity_transient_error_panic(dev_t devt, blk_status_t status,
+				  u64 block, const char *message)
+{
+	panic("dm-verity transient failure: device:%u:%u status:%d block:%llu message:%s",
+	      MAJOR(devt), MINOR(devt), status, (u64)block, message);
+}
+
+static noinline
+void verity_integrity_error_panic(dev_t devt, blk_status_t status,
+				  u64 block, const char *message)
+{
+	panic("dm-verity integrity failure: device:%u:%u status:%d block:%llu message:%s",
+	      MAJOR(devt), MINOR(devt), status, (u64)block, message);
+}
+
 /* If the request is not successful, this handler takes action.
  * TODO make this call a registered handler.
  */
@@ -149,9 +169,10 @@ static void verity_error(struct dm_verity *v, struct dm_verity_io *io,
 	return;
 
 do_panic:
-	panic("dm-verity failure: "
-	      "device:%u:%u status:%d block:%llu message:%s",
-	      MAJOR(devt), MINOR(devt), status, (u64)block, message);
+	if (transient)
+		verity_transient_error_panic(devt, status, block, message);
+	else
+		verity_integrity_error_panic(devt, status, block, message);
 }
 
 /**
