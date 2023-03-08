@@ -234,6 +234,7 @@ u64 hyp_total_reserve_pages(void)
 				  PKVM_IOMMU_QI_DESC_SIZE,
 				  PKVM_IOMMU_QI_DESC_STATUS_SIZE,
 				  num_possible_cpus());
+	total += pkvm_host_shadow_iommu_pgtable_pages(PKVM_PDEV_NUM);
 
 	return total;
 }

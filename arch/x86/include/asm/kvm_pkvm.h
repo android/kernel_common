@@ -198,6 +198,33 @@ static inline unsigned long pkvm_shadow_ept_pgtable_pages(int nr_vm)
 	return (res * 2);
 }
 
+/*
+ * Calculate the total pages for shadow IOMMU page tables for the host's
+ * devices used with Legacy IOMMU. Similarly to the calculation for shadow EPT,
+ * we assume that there is no shared memory between devices using different
+ * page tables.
+ *
+ * TODO: do not reserve these pages if legacy mode is not used by pKVM, i.e.
+ * if all the IOMMUs have scalable mode capability.
+ */
+static inline unsigned long pkvm_host_shadow_iommu_pgtable_pages(int nr_pdev)
+{
+	unsigned long pgtable_pages = __pkvm_pgtable_total_pages();
+	unsigned long res;
+
+	res = pgtable_pages;
+
+	/*
+	 * Similarly to shadow VMs (see the comment in
+	 * pkvm_shadow_ept_pgtable_pages()), each device may require
+	 * its own level2:level5 page table pages.
+	 */
+	res += __pkvm_pgtable_max_pages(pgtable_pages) * (nr_pdev - 1);
+
+	return res;
+}
+
+
 u64 hyp_total_reserve_pages(void);
 
 int pkvm_init_shadow_vm(struct kvm *kvm);
