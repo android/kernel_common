@@ -199,8 +199,8 @@ void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
 	list_add_tail(node, &vm->ptdev_head);
 	vm->noncoherent_ptdev += !coherency;
 	vm->need_prepopulation = true;
-	pkvm_pgstate_pgt_update_coherency(&vm->pgstate_pgt,
-					  !vm->noncoherent_ptdev);
+	pkvm_shadow_sl_iommu_pgt_update_coherency(&vm->pgstate_pgt,
+						  !vm->noncoherent_ptdev);
 	pkvm_spin_unlock(&vm->lock);
 }
 
@@ -210,8 +210,8 @@ void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,
 	pkvm_spin_lock(&vm->lock);
 	list_del(node);
 	vm->noncoherent_ptdev -= !coherency;
-	pkvm_pgstate_pgt_update_coherency(&vm->pgstate_pgt,
-					  !vm->noncoherent_ptdev);
+	pkvm_shadow_sl_iommu_pgt_update_coherency(&vm->pgstate_pgt,
+						  !vm->noncoherent_ptdev);
 	pkvm_spin_unlock(&vm->lock);
 }
 

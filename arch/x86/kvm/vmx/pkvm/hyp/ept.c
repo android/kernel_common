@@ -477,15 +477,32 @@ static struct pkvm_mm_ops shadow_ept_mm_ops = {
 };
 
 /*
- * pgstate_pgt_mm_ops is similar to the shadow_ept_mm_ops as its
- * memory is reserved together with shadow EPT pages. The
- * difference is that it doesn't have the flush_tlb callback as
- * pgstate_pgt only works as IOMMU second-level page table for
- * protected VM when there are passthrough devices, and in this
- * case the memory is pinned, and the mapping is not allowed to
- * be removed from pgstate_pgt.
+ * mm_ops for shadow second-level IOMMU page tables. These tables
+ * are similar to shadow EPT tables, as they also have the EPT
+ * format and their memory is reserved together with shadow EPT
+ * pages. The difference is that this mm_ops doesn't have the
+ * flush_tlb callback.
+ *
+ * Precisely, shadow_sl_iommu_pgt_mm_ops is used for two kinds of
+ * 2nd level iommu page tables:
+ *
+ * - pgstate_pgt which is reused as IOMMU page table for protected
+ *   VM with passthrough devices. In this case the memory is pinned,
+ *   and the mapping is not allowed to be removed from pgstate_pgt,
+ *   so the flush_tlb callback is not needed.
+ *
+ * - Host shadow IOMMU page tables used for the host's devices when
+ *   legacy IOMMU is used. They do not need the flush_tlb callback
+ *   either, since IOTLB flush after unmapping pages from these
+ *   tables is performed in other ways: either as a part of vIOMMU
+ *   IOTLB flush emulation when initiated by the host, or together
+ *   with host EPT TLB flush when ensuring pKVM memory protection.
+ *
+ * TODO: refactor the code: move all the management of both types
+ * of 2nd level iommu page tables to iommu_spgt.c to some common API.
+ * That means also refactoring of pkvm_ptdev structure.
  */
-static struct pkvm_mm_ops pgstate_pgt_mm_ops = {
+static struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = shadow_pgt_zalloc_page,
@@ -496,12 +513,12 @@ static struct pkvm_mm_ops pgstate_pgt_mm_ops = {
 };
 
 /*
- * As pgstate pgt may be used as IOMMU page table, flushing cache is
- * needed when modifying the page table entries if IOMMU is not coherent.
- * This ops has flush_cache callback and can be used for the pgstate_pgt
- * which is used as IOMMU page table with noncoherent IOMMU.
+ * Flushing cache is needed when modifying IOMMU page table entries
+ * if the IOMMU is not coherent. This ops has flush_cache callback
+ * so it can be used for a pgtable which is used as IOMMU page table
+ * with noncoherent IOMMU.
  */
-static struct pkvm_mm_ops pgstate_pgt_mm_ops_noncoherency = {
+static struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops_noncoherency = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = shadow_pgt_zalloc_page,
@@ -743,15 +760,21 @@ int pkvm_pgstate_pgt_init(struct pkvm_shadow_vm *vm)
 		.table_prot = VMX_EPT_RWX_MASK,
 	};
 
-	return pkvm_pgtable_init(pgt, &pgstate_pgt_mm_ops, &ept_ops, &cap, true);
+	return pkvm_pgtable_init(pgt, &shadow_sl_iommu_pgt_mm_ops, &ept_ops, &cap, true);
 }
 
-void pkvm_pgstate_pgt_update_coherency(struct pkvm_pgtable *pgt, bool coherent)
+struct pkvm_mm_ops *pkvm_shadow_sl_iommu_pgt_get_mm_ops(bool coherent)
+{
+	return coherent ? &shadow_sl_iommu_pgt_mm_ops
+			: &shadow_sl_iommu_pgt_mm_ops_noncoherency;
+}
+
+void pkvm_shadow_sl_iommu_pgt_update_coherency(struct pkvm_pgtable *pgt, bool coherent)
 {
 	if (coherent)
-		pkvm_pgtable_set_mm_ops(pgt, &pgstate_pgt_mm_ops);
+		pkvm_pgtable_set_mm_ops(pgt, &shadow_sl_iommu_pgt_mm_ops);
 	else
-		pkvm_pgtable_set_mm_ops(pgt, &pgstate_pgt_mm_ops_noncoherency);
+		pkvm_pgtable_set_mm_ops(pgt, &shadow_sl_iommu_pgt_mm_ops_noncoherency);
 }
 
 /*
