@@ -442,6 +442,11 @@ static int pxp_terminate_all_sessions_and_global(struct intel_pxp *pxp)
 
 	active_sip_slots = intel_uncore_read(gt->uncore, KCR_SIP(pxp->kcr_base));
 
+	if (HAS_ENGINE(gt, GSC0))
+		intel_pxp_gsccs_end_fw_sessions(pxp, active_sip_slots);
+	else
+		intel_pxp_tee_end_fw_sessions(pxp, active_sip_slots);
+
 	/* terminate the hw sessions */
 	ret = pxp_terminate_all_sessions(pxp, active_sip_slots);
 	if (ret) {
@@ -456,11 +461,6 @@ static int pxp_terminate_all_sessions_and_global(struct intel_pxp *pxp)
 	}
 
 	intel_uncore_write(gt->uncore, KCR_GLOBAL_TERMINATE(pxp->kcr_base), 1);
-
-	if (HAS_ENGINE(gt, GSC0))
-		intel_pxp_gsccs_end_fw_sessions(pxp, active_sip_slots);
-	else
-		intel_pxp_tee_end_fw_sessions(pxp, active_sip_slots);
 
 out:
 	mutex_unlock(&pxp->session_mutex);
