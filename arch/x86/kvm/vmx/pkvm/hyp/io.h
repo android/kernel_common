@@ -44,4 +44,39 @@ static inline void pkvm_pio_write(unsigned int port, int size, unsigned long val
 	}
 }
 
+
+static inline void pkvm_mmio_read(u64 pos, int size, unsigned long *value)
+{
+	switch (size) {
+	case IO_SIZE_1:
+		asm volatile("movb (%1),%%al" : "=a" (*(u8 *)value) : "r" (pos));
+		break;
+	case IO_SIZE_2:
+		asm volatile("movw (%1),%%ax" : "=a" (*(u16 *)value) : "r" (pos));
+		break;
+	case IO_SIZE_4:
+		asm volatile("movl (%1),%%eax" : "=a" (*(u32 *)value) : "r" (pos));
+		break;
+	default:
+		break;
+	}
+}
+
+static inline void pkvm_mmio_write(u64 pos, int size, unsigned long value)
+{
+	switch (size) {
+	case IO_SIZE_1:
+		asm volatile("movb %%al,(%1)" : : "a" ((u8)value), "r" (pos) : "memory");
+		break;
+	case IO_SIZE_2:
+		asm volatile("movw %%ax,(%1)" : : "a" ((u16)value), "r" (pos) : "memory");
+		break;
+	case IO_SIZE_4:
+		asm volatile("movl %%eax,(%1)" : : "a" ((u32)value), "r" (pos) : "memory");
+		break;
+	default:
+		break;
+	}
+}
+
 #endif
