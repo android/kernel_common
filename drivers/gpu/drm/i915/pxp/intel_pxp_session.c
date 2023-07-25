@@ -3,6 +3,9 @@
  * Copyright(c) 2020, Intel Corporation. All rights reserved.
  */
 
+#include <drm/i915_drm.h>
+#include <linux/nospec.h>
+
 #include "i915_drv.h"
 
 #include "intel_pxp.h"
@@ -241,6 +244,7 @@ int intel_pxp_sm_ioctl_terminate_session(struct intel_pxp *pxp,
 	if (session_id >= INTEL_PXP_MAX_HWDRM_SESSIONS)
 		return -EINVAL;
 
+	session_id = array_index_nospec(session_id, INTEL_PXP_MAX_HWDRM_SESSIONS);
 	if (!pxp->hwdrm_sessions[session_id])
 		return 0;
 
@@ -268,6 +272,7 @@ int intel_pxp_sm_ioctl_query_pxp_tag(struct intel_pxp *pxp,
 	if (session_id >= INTEL_PXP_MAX_HWDRM_SESSIONS)
 		return -EINVAL;
 
+	session_id = array_index_nospec(session_id, INTEL_PXP_MAX_HWDRM_SESSIONS);
 	if (!pxp->hwdrm_sessions[session_id]) {
 		*pxp_tag = 0;
 		*session_is_alive = 0;
@@ -299,6 +304,7 @@ int intel_pxp_sm_ioctl_mark_session_in_play(struct intel_pxp *pxp,
 	if (session_id >= INTEL_PXP_MAX_HWDRM_SESSIONS)
 		return -EINVAL;
 
+	session_id = array_index_nospec(session_id, INTEL_PXP_MAX_HWDRM_SESSIONS);
 	if (!pxp->hwdrm_sessions[session_id])
 		return -EINVAL;
 
