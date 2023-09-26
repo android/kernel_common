@@ -780,7 +780,8 @@ int i915_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmf
 	}
 
 	if (pxp_action_needs_arb_session(pxp_ops->action)) {
-		if (pxp->hw_state_invalidated) {
+		if (wait_for(!pxp->hw_state_invalidated,
+			     intel_pxp_get_backend_timeout_ms(pxp))) {
 			drm_dbg(&i915->drm, "pxp ioctl retry required due to state attacked\n");
 			pxp_ops->status = PRELIM_DRM_I915_PXP_OP_STATUS_RETRY_REQUIRED;
 			goto out_pm;
