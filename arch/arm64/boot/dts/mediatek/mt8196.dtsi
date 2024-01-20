@@ -633,6 +633,58 @@
 			reg = <0 0x1002c000 0 0x1000>;
 		};
 
+		pio: pinctrl@1002d000 {
+			compatible = "mediatek,mt8196-pinctrl";
+			reg = <0 0x1002d000 0 0x1000>,
+			      <0 0x12000000 0 0x1000>,
+			      <0 0x12020000 0 0x1000>,
+			      <0 0x12040000 0 0x1000>,
+			      <0 0x12060000 0 0x1000>,
+			      <0 0x12820000 0 0x1000>,
+			      <0 0x12840000 0 0x1000>,
+			      <0 0x12860000 0 0x1000>,
+			      <0 0x13000000 0 0x1000>,
+			      <0 0x13020000 0 0x1000>,
+			      <0 0x13040000 0 0x1000>,
+			      <0 0x130f0000 0 0x1000>,
+			      <0 0x13110000 0 0x1000>,
+			      <0 0x13800000 0 0x1000>,
+			      <0 0x13820000 0 0x1000>,
+			      <0 0x13860000 0 0x1000>,
+			      <0 0x12080000 0 0x1000>,
+			      <0 0x12880000 0 0x1000>,
+			      <0 0x13080000 0 0x1000>,
+			      <0 0x13880000 0 0x1000>,
+			      <0 0x1c54a000 0 0x1000>;
+			reg-names = "iocfg0",
+				    "iocfg_rt",
+				    "iocfg_rm1",
+				    "iocfg_rm2",
+				    "iocfg_rb",
+				    "iocfg_bm1",
+				    "iocfg_bm2",
+				    "iocfg_bm3",
+				    "iocfg_lt",
+				    "iocfg_lm1",
+				    "iocfg_lm2",
+				    "iocfg_lb1",
+				    "iocfg_lb2",
+				    "iocfg_tm1",
+				    "iocfg_tm2",
+				    "iocfg_tm3",
+				    "eint-e",
+				    "eint-s",
+				    "eint-w",
+				    "eint-n",
+				    "eint-c";
+			gpio-controller;
+			#gpio-cells = <2>;
+			gpio-ranges = <&pio 0 0 271>;
+			interrupt-controller;
+			interrupts = <GIC_SPI 396 IRQ_TYPE_LEVEL_HIGH 0>;
+			#interrupt-cells = <2>;
+		};
+
 		i2c5: i2c@120a0000 {
 			compatible = "mediatek,mt8196-i2c", "mediatek,mt8188-i2c";
 			reg = <0 0x120a0000 0 0x20000>,
