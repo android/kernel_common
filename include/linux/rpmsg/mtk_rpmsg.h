@@ -8,6 +8,8 @@
 
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
+#include <linux/rpmsg.h>
+#include <linux/soc/mediatek/mtk-mbox.h>
 
 typedef void (*ipi_handler_t)(void *data, unsigned int len, void *priv);
 
@@ -29,10 +31,44 @@ struct mtk_rpmsg_info {
 	int ns_ipi_id;
 };
 
+struct mtk_rpmsg_channel_info_mbox {
+	struct rpmsg_channel_info info;
+	unsigned int send_slot;
+	unsigned int recv_slot;
+	unsigned int send_slot_size;
+	unsigned int recv_slot_size;
+	unsigned int send_pin_index;
+	unsigned int recv_pin_index;
+	unsigned int send_pin_offset;
+	unsigned int recv_pin_offset;
+	unsigned int mbox;
+	spinlock_t channel_lock;
+};
+
+struct mtk_rpmsg_device_mbox {
+	struct rpmsg_device rpdev;
+	struct platform_device *pdev;
+	struct mtk_rpmsg_operations *ops;
+	struct mtk_mbox_device *mbdev;
+};
+
 struct rproc_subdev *
 mtk_rpmsg_create_rproc_subdev(struct platform_device *pdev,
 			      struct mtk_rpmsg_info *info);
 
 void mtk_rpmsg_destroy_rproc_subdev(struct rproc_subdev *subdev);
+
+/*
+ * create mtk rpmsg device
+ */
+struct mtk_rpmsg_device_mbox
+*mtk_rpmsg_create_mbox_device(struct platform_device *pdev,
+		struct mtk_mbox_device *mbdev, unsigned int ipc_chan_id);
+/*
+ * create mtk rpmsg channel
+ */
+struct mtk_rpmsg_channel_info_mbox *
+mtk_rpmsg_create_channel(struct mtk_rpmsg_device_mbox *mdev, u32 chan_id,
+		char *name);
 
 #endif
