@@ -1210,6 +1210,57 @@
 			clocks = <&clk13m>;
 		};
 
+		smi_disp_common: smi-comm@30020000 {
+			compatible = "mediatek,mt8196-smi-common";
+			reg = <0 0x30020000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_MM_INFRA1>;
+			mediatek,smi = <&disp_ssc0_smi_2x1_sub_comm>;
+			mediatek,common-id = <0>;
+			mediatek,skip-rpm-cb;
+		};
+
+		smi_mdp_common: smi-comm@30021000 {
+			compatible = "mediatek,mt8196-smi-common";
+			reg = <0 0x30021000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_MM_INFRA1>;
+			mediatek,smi = <&mdp_ssc4_smi_2x1_sub_comm>;
+			mediatek,common-id = <1>;
+			mediatek,skip-rpm-cb;
+		};
+
+		disp_ssc0_smi_2x1_sub_comm: smi-comm@30a30000 {
+			compatible = "mediatek,mt8196-smi-common";
+			reg = <0 0x30a30000 0 0x1000>;
+			mediatek,common-id = <3>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_MM_INFRA1>;
+			mediatek,skip-rpm-cb;
+		};
+
+		disp_ssc1_smi_2x1_sub_comm: smi-comm@30a31000 {
+			compatible = "mediatek,mt8196-smi-common";
+			reg = <0 0x30a31000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_MM_INFRA1>;
+			mediatek,common-id = <4>;
+			mediatek,skip-rpm-cb;
+		};
+
+		mdp_ssc4_smi_2x1_sub_comm: smi-comm@30a32000 {
+			compatible = "mediatek,mt8196-smi-common";
+			reg = <0 0x30a32000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_MM_INFRA1>;
+			mediatek,common-id = <5>;
+			mediatek,skip-rpm-cb;
+		};
+
+		mdp_ssc5_smi_2x1_sub_comm: smi-comm@30a33000 {
+			compatible = "mediatek,mt8196-smi-common";
+			reg = <0 0x30a33000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_MM_INFRA1>;
+			mediatek,common-id = <6>;
+			mediatek,skip-rpm-cb;
+		};
+
+
 		mminfra_hwv: syscon@31a80000 {
 			/* TODO: Fix compatible in driver */
 			compatible = "mediatek,mt8196-mminfra-hwv", "mediatek,mt8196-mminfra_hwv", "syscon";
@@ -1238,11 +1289,35 @@
 			#clock-cells = <1>;
 		};
 
+		smi_larb32: larb@32240000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32240000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_DIS0_DORMANT>;
+			clocks = <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>,
+				 <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_dram_sub_comm1>;
+			mediatek,larb-id = <32>;
+			larb-port-real-time-type = <1 1 1 1 0 0 0 0 1 0>;
+		};
+
 		dispsys1_config_clk: syscon@32400000 {
 			compatible = "mediatek,mt8196-mmsys1", "syscon";
 			reg = <0 0x32400000 0 0x1000>;
 			mm-hw-ccf-regmap = <&mm_hwv>;
 			#clock-cells = <1>;
+		};
+
+		smi_larb33: larb@32600000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32600000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_DIS1_DORMANT>;
+			clocks = <&dispsys1_config_clk CLK_MM1_SMI_LARB0_SMI>,
+				 <&dispsys1_config_clk CLK_MM1_SMI_LARB0_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_dram_sub_comm2>;
+			mediatek,larb-id = <33>;
+			larb-port-real-time-type = <0 1 1 1 0 0 0 1 0 0 0 0 0 0 0 1>;
 		};
 
 		ovlsys_config_clk: syscon@32800000 {
@@ -1253,12 +1328,137 @@
 			#clock-cells = <1>;
 		};
 
+		smi_larb0: larb@32a60000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32a60000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_OVL0_DORMANT>;
+			clocks = <&ovlsys_config_clk CLK_OVL_SMI_SMI>,
+				 <&ovlsys_config_clk CLK_OVL_SMI_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_dram_sub_comm0>;
+			mediatek,larb-id = <0>;
+			larb-port-real-time-type = <0 0 0 0 1 1 0 0 0 0 1 1 1>;
+		};
+
+		smi_larb1: larb@32a70000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32a70000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_OVL0_DORMANT>;
+			clocks = <&ovlsys_config_clk CLK_OVL_SMI_SMI>,
+				 <&ovlsys_config_clk CLK_OVL_SMI_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_dram_sub_comm1>;
+			mediatek,larb-id = <1>;
+			larb-port-real-time-type = <0 0 0 0 0 1 0 0 0 0 0 0 1 1 1 1>;
+		};
+
+		smi_larb20: larb@32a80000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32a80000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_OVL0_DORMANT>;
+			clocks = <&ovlsys_config_clk CLK_OVL_SMI_SMI>,
+				 <&ovlsys_config_clk CLK_OVL_SMI_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_dram_sub_comm2>;
+			mediatek,larb-id = <20>;
+			larb-port-real-time-type = <0 0 0 0 0 0 1 0 0 0 0 0 0 1 1>;
+		};
+
+		smi_larb21: larb@32a90000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32a90000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_OVL0_DORMANT>;
+			clocks = <&ovlsys_config_clk CLK_OVL_SMI_SMI>,
+				 <&ovlsys_config_clk CLK_OVL_SMI_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_dram_sub_comm3>;
+			mediatek,larb-id = <21>;
+			larb-port-real-time-type = <0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1>;
+		};
+
 		ovlsys1_config_clk: syscon@32c00000 {
 			/* TODO: Fix compatible in driver */
 			compatible = "mediatek,mt8196-ovlsys1-config", "mediatek,mt8196-ovlsys1_config", "syscon";
 			reg = <0 0x32c00000 0 0x1000>;
 			mm-hw-ccf-regmap = <&mm_hwv>;
 			#clock-cells = <1>;
+
+			async {
+				clocks = <&ovlsys1_config_clk CLK_OVL_DLO5_DISP>,
+					 <&ovlsys1_config_clk CLK_OVL_DLO6_DISP>;
+			};
+		};
+
+		smi_larb34: larb@32e60000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32e60000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_OVL1_DORMANT>;
+			clocks = <&ovlsys1_config_clk CLK_OVL1_SMI_SMI>,
+				 <&ovlsys1_config_clk CLK_OVL1_SMI_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_dram_sub_comm3>;
+			mediatek,larb-id = <34>;
+			larb-port-real-time-type = <0 0 0 0 1 1 0 0 0 0 1 1 1>;
+		};
+
+		smi_larb35: larb@32e70000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32e70000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_OVL1_DORMANT>;
+			clocks = <&ovlsys1_config_clk CLK_OVL1_SMI_SMI>,
+				 <&ovlsys1_config_clk CLK_OVL1_SMI_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_dram_sub_comm2>;
+			mediatek,larb-id = <35>;
+			larb-port-real-time-type = <0 0 0 0 0 1 0 0 0 0 0 0 1 1 1 1>;
+		};
+
+		smi_larb36: larb@32e80000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32e80000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_OVL1_DORMANT>;
+			clocks = <&ovlsys1_config_clk CLK_OVL1_SMI_SMI>,
+				 <&ovlsys1_config_clk CLK_OVL1_SMI_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_dram_sub_comm1>;
+			mediatek,larb-id = <36>;
+			larb-port-real-time-type = <0 0 0 0 0 0 1 0 0 0 0 0 0 1 1>;
+		};
+
+		smi_larb37: larb@32e90000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x32e90000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_OVL1_DORMANT>;
+			clocks = <&ovlsys1_config_clk CLK_OVL1_SMI_SMI>,
+				 <&ovlsys1_config_clk CLK_OVL1_SMI_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_dram_sub_comm0>;
+			mediatek,larb-id = <37>;
+			larb-port-real-time-type = <0 0 0 0 0 0 1 0 0 0 0 0 0 0 0 0 0 1>;
+		};
+
+		smi_larb5: larb@3600d000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x3600d000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VDE0>;
+			clocks = <&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>,
+				 <&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_common>;
+			mediatek,larb-id = <5>;
+			larb-port-real-time-type = <1 1 1 1 1 1 1 1>;
+		};
+
+		smi_larb6: larb@3600e000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x3600e000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VDE0>;
+			clocks = <&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>,
+				 <&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_common>;
+			mediatek,larb-id = <6>;
+			larb-port-real-time-type = <1 1 1>;
 		};
 
 		vdec_soc_gcon_base_clk: syscon@3600f000 {
@@ -1266,6 +1466,18 @@
 			compatible = "mediatek,mt8196-vdecsys-soc", "mediatek,mt8196-vdecsys_soc", "syscon";
 			reg = <0 0x3600f000 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		smi_larb4: larb@3602e000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x3602e000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VDE1>;
+			clocks = <&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>,
+				 <&vdec_soc_gcon_base_clk CLK_VDE1_VDEC_CKEN>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_common>;
+			mediatek,larb-id = <4>;
+			larb-port-real-time-type = <1 1 1 1 1 1 1 1>;
 		};
 
 		vdec_gcon_base_clk: syscon@3602f000 {
@@ -1281,6 +1493,41 @@
 			#clock-cells = <1>;
 		};
 
+		smi_larb7: larb@38010000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x38010000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VEN0>;
+			clocks = <&venc_gcon_clk CLK_VEN1_CKE0_LARB_SMI>,
+				 <&venc_gcon_clk CLK_VEN1_CKE1_VENC_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_venc_sub_comm0>;
+			mediatek,larb-id = <7>;
+			larb-port-real-time-type = <3 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 3 3 1 1 1 1 3>;
+		};
+
+		smi_disp_venc_sub_comm0: smi-sub-comm@38070000 {
+			compatible = "mediatek,mt8196-smi-sub-common";
+			reg = <0 0x38070000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VEN0>;
+			clocks = <&venc_gcon_clk CLK_VEN1_CKE0_LARB_SMI>,
+				 <&venc_gcon_clk CLK_VEN1_CKE1_VENC_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_common>;
+			mediatek,common-id = <15>;
+		};
+
+		smi_larb41: larb@38090000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x38090000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VEN0>;
+			clocks = <&venc_gcon_clk CLK_VEN1_CKE0_LARB_SMI>,
+				 <&venc_gcon_clk CLK_VEN1_CKE1_VENC_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_venc_sub_comm0>;
+			mediatek,larb-id = <41>;
+			larb-port-real-time-type = <3 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 3 3 1 1 1 1 3>;
+		};
+
 		venc_gcon_core1_clk: syscon@38800000 {
 			/* TODO: Fix compatible in driver */
 			compatible = "mediatek,mt8196-vencsys-c1", "mediatek,mt8196-vencsys_c1", "syscon";
@@ -1289,12 +1536,83 @@
 			#clock-cells = <1>;
 		};
 
+		smi_larb8: larb@38810000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x38810000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VEN1>;
+			clocks = <&venc_gcon_core1_clk CLK_VEN2_CKE0_LARB_SMI>,
+				 <&venc_gcon_core1_clk CLK_VEN2_CKE1_VENC_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_venc_sub_comm1>;
+			mediatek,larb-id = <8>;
+			larb-port-real-time-type = <3 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 3 3 1 1 1 1 3>;
+		};
+
+
+		smi_mdp_venc_sub_comm1: smi-sub-comm@38870000 {
+			compatible = "mediatek,mt8196-smi-sub-common";
+			reg = <0 0x38870000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VEN1>;
+			clocks = <&venc_gcon_core1_clk CLK_VEN2_CKE0_LARB_SMI>,
+				 <&venc_gcon_core1_clk CLK_VEN2_CKE1_VENC_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_common>;
+			mediatek,common-id = <16>;
+		};
+
+		smi_larb42: larb@38890000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x38890000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VEN1>;
+			clocks = <&venc_gcon_core1_clk CLK_VEN2_CKE0_LARB_SMI>,
+				 <&venc_gcon_core1_clk CLK_VEN2_CKE1_VENC_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_venc_sub_comm1>;
+			mediatek,larb-id = <42>;
+			larb-port-real-time-type = <3 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 3 3 1 1 1 1 3>;
+		};
+
 		venc_gcon_core2_clk: syscon@38c00000 {
 			/* TODO: Fix compatible in driver */
 			compatible = "mediatek,mt8196-vencsys-c2", "mediatek,mt8196-vencsys_c2", "syscon";
 			reg = <0 0x38c00000 0 0x1000>;
 			mm-hw-ccf-regmap = <&mm_hwv>;
 			#clock-cells = <1>;
+		};
+
+		smi_larb24: larb@38c10000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x38c10000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VEN2>;
+			clocks = <&venc_gcon_core2_clk CLK_VEN_C2_CKE0_LARB_SMI>,
+				 <&venc_gcon_core2_clk CLK_VEN_C2_CKE1_VENC_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_venc_sub_comm2>;
+			mediatek,larb-id = <24>;
+			larb-port-real-time-type = <3 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 3 3 1 1 1 1 3>;
+		};
+
+		smi_mdp_venc_sub_comm2: smi-sub-comm@38c70000 {
+			compatible = "mediatek,mt8196-smi-sub-common";
+			reg = <0 0x38c70000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VEN2>;
+			clocks = <&venc_gcon_core2_clk CLK_VEN_C2_CKE0_LARB_SMI>,
+				 <&venc_gcon_core2_clk CLK_VEN_C2_CKE1_VENC_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_venc_sub_comm1>;
+			mediatek,common-id = <18>;
+		};
+
+		smi_larb47: larb@38c90000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x38c90000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_VEN2>;
+			clocks = <&venc_gcon_core2_clk CLK_VEN_C2_CKE0_LARB_SMI>,
+				 <&venc_gcon_core2_clk CLK_VEN_C2_CKE1_VENC_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_venc_sub_comm2>;
+			mediatek,larb-id = <47>;
+			larb-port-real-time-type = <3 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 1 1 1 3 3 3 3 3 3 3 3 1 1 1 1 3>;
 		};
 
 		cam_main_r1a_clk: syscon@3a000000 {
@@ -1311,10 +1629,32 @@
 			#clock-cells = <1>;
 		};
 
+		smi_larb2: larb@3e030000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x3e030000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_MML0_SHUTDOWN>;
+			clocks = <&mdpsys_config_clk CLK_MDP_SMI0_SMI>, <&mdpsys_config_clk CLK_MDP_SMI0_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_dram_sub_comm0>;
+			mediatek,larb-id = <2>;
+			larb-port-real-time-type = <1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1>;
+		};
+
 		mdpsys1_config_clk: syscon@3e400000 {
 			compatible = "mediatek,mt8196-mdpsys1", "syscon";
 			reg = <0 0x3e400000 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		smi_larb3: larb@3e430000 {
+			compatible = "mediatek,mt8196-smi-larb";
+			reg = <0 0x3e430000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_MML1_SHUTDOWN>;
+			clocks = <&mdpsys1_config_clk CLK_MDP1_SMI0_SMI>, <&mdpsys1_config_clk CLK_MDP1_SMI0_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_dram_sub_comm3>;
+			mediatek,larb-id = <3>;
+			larb-port-real-time-type = <2 2 2 2 2 2 2 2 1 2 2 2 2 2 2 2 1 2>;
 		};
 
 		disp_vdisp_ao_config_clk: syscon@3e800000 {
@@ -1323,6 +1663,50 @@
 			reg = <0 0x3e800000 0 0x1000>;
 			mm-hw-ccf-regmap = <&mm_hwv>;
 			#clock-cells = <1>;
+		};
+
+		smi_disp_dram_sub_comm0: smi-sub-comm@3e810000 {
+			compatible = "mediatek,mt8196-smi-sub-common";
+			reg = <0 0x3e810000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_DISP_VCORE>;
+			clocks = <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>,
+					 <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_common>;
+			mediatek,common-id = <9>;
+		};
+
+		smi_disp_dram_sub_comm1: smi-sub-comm@3e820000 {
+			compatible = "mediatek,mt8196-smi-sub-common";
+			reg = <0 0x3e820000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_DISP_VCORE>;
+			clocks = <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>,
+					 <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_disp_common>;
+			mediatek,common-id = <10>;
+		};
+
+		smi_mdp_dram_sub_comm2: smi-sub-comm@3e830000 {
+			compatible = "mediatek,mt8196-smi-sub-common";
+			reg = <0 0x3e830000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_DISP_VCORE>;
+			clocks = <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>,
+					 <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_common>;
+			mediatek,common-id = <11>;
+		};
+
+		smi_mdp_dram_sub_comm3: smi-sub-comm@3e840000 {
+			compatible = "mediatek,mt8196-smi-sub-common";
+			reg = <0 0x3e840000 0 0x1000>;
+			power-domains = <&hfrpsys MT8196_POWER_DOMAIN_DISP_VCORE>;
+			clocks = <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>,
+					 <&disp_vdisp_ao_config_clk CLK_MM_V_SMI_SUB_SOMM0_SMI>;
+			clock-names = "apb", "smi";
+			mediatek,smi = <&smi_mdp_common>;
+			mediatek,common-id = <12>;
 		};
 
 		mfgpll_pll_ctrl_clk: syscon@4b810000 {
