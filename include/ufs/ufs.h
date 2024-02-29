@@ -14,6 +14,7 @@
 #include <linux/bitops.h>
 #include <linux/types.h>
 #include <linux/android_vendor.h>
+#include <linux/android_kabi.h>
 #include <uapi/scsi/scsi_bsg_ufs.h>
 #include <linux/time64.h>
 
@@ -599,6 +600,8 @@ struct ufs_dev_info {
 	u32 rtc_update_period;
 
 	u8 rtt_cap; /* bDeviceRTTCap */
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 	ANDROID_OEM_DATA(1);
 };
 

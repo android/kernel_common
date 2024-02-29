@@ -29,6 +29,7 @@
 #include <linux/idr.h>
 #include <linux/leds.h>
 #include <linux/rculist.h>
+#include <linux/android_kabi.h>
 
 #include <net/bluetooth/hci.h>
 #include <net/bluetooth/hci_drv.h>
@@ -643,6 +644,11 @@ struct hci_dev {
 				     struct bt_codec *codec, __u8 *vnd_len,
 				     __u8 **vnd_data);
 	u8 (*classify_pkt_type)(struct hci_dev *hdev, struct sk_buff *skb);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #define HCI_PHY_HANDLE(handle)	(handle & 0xff)
@@ -759,6 +765,11 @@ struct hci_conn {
 	void (*disconn_cfm_cb)	(struct hci_conn *conn, u8 reason);
 
 	void (*cleanup)(struct hci_conn *conn);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 struct hci_link {
@@ -773,6 +784,8 @@ struct hci_chan {
 	struct sk_buff_head data_q;
 	unsigned int	sent;
 	__u8		state;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 struct hci_conn_params {
@@ -801,6 +814,8 @@ struct hci_conn_params {
 	/* Accessed without hdev->lock: */
 	hci_conn_flags_t flags;
 	u8  privacy_mode;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 extern struct list_head hci_dev_list;
@@ -2015,6 +2030,8 @@ struct hci_cb {
 								__u8 encrypt);
 	void (*key_change_cfm)	(struct hci_conn *conn, __u8 status);
 	void (*role_switch_cfm)	(struct hci_conn *conn, __u8 status, __u8 role);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 static inline void hci_connect_cfm(struct hci_conn *conn, __u8 status)
@@ -2261,6 +2278,8 @@ struct hci_mgmt_chan {
 	size_t handler_count;
 	const struct hci_mgmt_handler *handlers;
 	void (*hdev_init) (struct sock *sk, struct hci_dev *hdev);
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 int hci_mgmt_chan_register(struct hci_mgmt_chan *c);

@@ -19,6 +19,7 @@
 #include <linux/percpu-defs.h>
 #include <linux/rbtree.h>
 #include <linux/timer.h>
+#include <linux/android_kabi.h>
 
 /*
  * Mode arguments of xxx_hrtimer functions:

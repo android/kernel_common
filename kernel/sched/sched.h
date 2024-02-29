@@ -71,6 +71,7 @@
 #include <linux/workqueue_api.h>
 #include <linux/delayacct.h>
 #include <linux/android_vendor.h>
+#include <linux/android_kabi.h>
 
 #include <trace/events/power.h>
 #include <trace/events/sched.h>
@@ -500,6 +501,10 @@ struct task_group {
 	ANDROID_VENDOR_DATA_ARRAY(1, 4);
 #endif
 
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #ifdef CONFIG_GROUP_SCHED_WEIGHT
@@ -1037,6 +1042,11 @@ struct root_domain {
 	struct perf_domain __rcu *pd;
 
 	ANDROID_VENDOR_DATA(1);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 extern void init_defrootdomain(void);
@@ -1337,6 +1347,10 @@ struct rq {
 	misfit_reason_t		misfit_reason;
 #endif
 
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 	ANDROID_OEM_DATA_ARRAY(1, 16);
 };
 

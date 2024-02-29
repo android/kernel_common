@@ -9,6 +9,7 @@
 #include <linux/prefetch.h>
 #include <linux/srcu.h>
 #include <linux/rw_hint.h>
+#include <linux/android_kabi.h>
 
 struct blk_mq_tags;
 struct blk_flush_queue;
@@ -209,6 +210,7 @@ struct request {
 	rq_end_io_fn *end_io;
 	void *end_io_data;
 
+	ANDROID_KABI_RESERVE(1);
 	ANDROID_OEM_DATA(1);
 };
 
@@ -452,6 +454,8 @@ struct blk_mq_hw_ctx {
 	 * q->unused_hctx_list.
 	 */
 	struct list_head	hctx_list;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -538,6 +542,8 @@ struct blk_mq_tag_set {
 	struct mutex		tag_list_lock;
 	struct list_head	tag_list;
 	struct srcu_struct	*srcu;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -668,6 +674,8 @@ struct blk_mq_ops {
 	 */
 	void (*show_rq)(struct seq_file *m, struct request *rq);
 #endif
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /* Keep hctx_flag_name[] in sync with the definitions below */

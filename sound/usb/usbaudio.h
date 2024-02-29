@@ -6,6 +6,7 @@
  *
  *   Copyright (c) 2002 by Takashi Iwai <tiwai@suse.de>
  */
+#include <linux/android_kabi.h>
 
 /* handling of USB vendor/product ID pairs as 32-bit numbers */
 #define USB_ID(vendor, product) (((unsigned int)(vendor) << 16) | (product))
@@ -75,6 +76,11 @@ struct snd_usb_audio {
 
 	unsigned int num_intf_to_ctrl;
 	struct snd_intf_to_ctrl intf_to_ctrl[MAX_CARD_INTERFACES];
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 #define USB_AUDIO_IFACE_UNUSED	((void *)-1L)

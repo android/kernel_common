@@ -14,6 +14,7 @@
 #include <uapi/linux/tty.h>
 #include <linux/rwsem.h>
 #include <linux/llist.h>
+#include <linux/android_kabi.h>
 
 
 /*
@@ -241,6 +242,9 @@ struct tty_struct {
 
 #define N_TTY_BUF_SIZE 4096
 	struct work_struct SAK_work;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 } __randomize_layout;
 
 /* Each of a tty's open files has private_data pointing to tty_file_private */
