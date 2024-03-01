@@ -1149,6 +1149,33 @@
 			status = "disabled";
 		};
 
+		pwm: pwm@16330000 {
+			compatible = "mediatek,pwm";
+			reg = <0 0x16330000 0 0x1000>;
+			interrupts = <GIC_SPI 319 IRQ_TYPE_LEVEL_HIGH 0>;
+
+			status = "disabled";
+		};
+
+		nor_flash: spi@16340000 {
+			compatible = "mediatek,mt8196-nor",
+				     "mediatek,mt8186-nor";
+			reg = <0 0x16340000 0 0x1000>;
+			clocks = <&cksys_clk CLK_CK_SFLASH_SEL>,
+				 <&pericfg_ao_clk CLK_PERAO_FLASHIF_FLASH_FLASHIF>,
+				 <&pericfg_ao_clk CLK_PERAO_FLASHIF_DRAM_FLASHIF>,
+				 <&pericfg_ao_clk CLK_PERAO_FLASHIF_AXI_FLASHIF>,
+				 <&pericfg_ao_clk CLK_PERAO_FLASHIF_BCLK_FLASHIF>,
+				 <&pericfg_ao_clk CLK_PERAO_FLASHIF_27M_FLASHIF>;
+			clock-names = "spi", "sf", "axi", "axi_s", "bclk", "27m";
+			assigned-clocks = <&cksys_clk CLK_CK_SFLASH_SEL>;
+			assigned-clock-parents = <&cksys_clk CLK_CK_UNIVPLL_D6_D8>;
+			interrupts = <GIC_SPI 269 IRQ_TYPE_LEVEL_HIGH 0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "disabled";
+		};
+
 		pericfg_ao_clk: syscon@16640000 {
 			/* TODO: Fix compatible in driver */
 			compatible = "mediatek,mt8196-pericfg-ao", "mediatek,mt8196-pericfg_ao", "syscon";

@@ -16,6 +16,45 @@
 	};
 };
 
+&nor_flash {
+	pinctrl-names = "default";
+	pinctrl-0 = <&nor_pins_default>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	flash@0 {
+		compatible = "jedec,spi-nor";
+		reg = <0>;
+		spi-max-frequency = <52000000>;
+	};
+};
+
+&pio {
+	nor_pins_default: nor-default-pins {
+		pins0 {
+			pinmux = <PINMUX_GPIO102__FUNC_SF_CK>;
+			bias-pull-down = <MTK_PULL_SET_RSEL_000>;
+			mediatek,drive-strength-adv = <0>;
+			drive-strength = <14>;
+		};
+
+		pins1 {
+			pinmux = <PINMUX_GPIO101__FUNC_SF_CS>;
+			bias-pull-up = <MTK_PULL_SET_RSEL_000>;
+			mediatek,drive-strength-adv = <0>;
+			drive-strength = <14>;
+		};
+
+		pins2 {
+			pinmux = <PINMUX_GPIO91__FUNC_SF_D0>,
+				 <PINMUX_GPIO92__FUNC_SF_D1>;
+			bias-pull-down;
+			drive-strength = <14>;
+		};
+	};
+};
+
 &uart0 {
 	status = "okay";
 };
