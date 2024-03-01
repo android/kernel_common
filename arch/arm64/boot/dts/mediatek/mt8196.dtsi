@@ -722,6 +722,13 @@
 			#clock-cells = <1>;
 		};
 
+		efuse: efuse@13260000 {
+			compatible = "mediatek,mt8196-efuse", "mediatek,efuse";
+			reg = <0 0x13260000 0 0x1000>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+		};
+
 		i2c1: i2c@13930000 {
 			compatible = "mediatek,mt8196-i2c", "mediatek,mt8188-i2c";
 			reg = <0 0x13930000 0 0x80000>,
