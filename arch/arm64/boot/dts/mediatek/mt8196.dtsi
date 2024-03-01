@@ -620,13 +620,6 @@
 			#clock-cells = <1>;
 		};
 
-		infracfg_ao_clk: syscon@10001000 {
-			/* TODO: Fix compatible in driver */
-			compatible = "mediatek,mt8196-infracfg-ao", "mediatek,mt8196-infracfg_ao", "syscon";
-			reg = <0 0x10001000 0 0x1000>;
-			#clock-cells = <1>;
-		};
-
 		ifr_bus: syscon@1002c000 {
 			/* TODO: Fix compatible in driver */
 			compatible = "mediatek,mt8196-ifr-bus", "mediatek,mt8196-ifr_bus", "syscon";
@@ -1182,6 +1175,101 @@
 			reg = <0 0x16640000 0 0x1000>;
 			hw-voter-regmap = <&hwv>;
 			#clock-cells = <1>;
+		};
+
+		xhci0: usb@16700000 {
+			compatible = "mediatek,mtk-xhci";
+			reg = <0 0x16700000 0 0x1000>,
+			      <0 0x16703e00 0 0x0100>;
+			reg-names = "mac", "ippc";
+			interrupts-extended = <&gic GIC_SPI 600 IRQ_TYPE_LEVEL_HIGH 0>,
+					      <&pio 273 IRQ_TYPE_LEVEL_LOW>;
+			interrupt-names = "host","wakeup";
+			phys = <&u2port0 PHY_TYPE_USB2>,
+			       <&u3port0 PHY_TYPE_USB3>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			clocks = <&vlp_cksys_clk CLK_VLP_CK_USB_TOP_SEL>,
+				 <&vlp_cksys_clk CLK_VLP_CK_USB_XHCI_SEL>,
+				 <&cksys_clk CLK_CK_USB_FMCNT_P1_SEL>;
+			clock-names = "sys_ck", "xhci_ck", "frmcnt_ck";
+			power-domains = <&scpsys MT8196_POWER_DOMAIN_SSUSB_P0>;
+			mediatek,syscon-wakeup = <&usbwkcfg_ao_clk 0x200 107>;
+			wakeup-source;
+			status = "disabled";
+		};
+
+		xhci1: usb1@16710000 {
+			compatible = "mediatek,mtk-xhci";
+			reg = <0 0x16710000 0 0x1000>,
+			      <0 0x16713e00 0 0x0100>;
+			reg-names = "mac", "ippc";
+			interrupts-extended = <&gic GIC_SPI 603 IRQ_TYPE_LEVEL_HIGH 0>,
+					      <&pio 276 IRQ_TYPE_LEVEL_LOW>;
+			interrupt-names = "host","wakeup";
+			phys = <&u2port1 PHY_TYPE_USB2>;
+			clocks = <&cksys_clk CLK_CK_USB_TOP_1P_SEL>,
+				 <&cksys_clk CLK_CK_USB_XHCI_1P_SEL>,
+				 <&cksys_clk CLK_CK_USB_FMCNT_P1_SEL>;
+			clock-names = "sys_ck", "xhci_ck", "frmcnt_ck";
+			power-domains = <&scpsys MT8196_POWER_DOMAIN_SSUSB_P1>;
+			mediatek,syscon-wakeup = <&usbwkcfg_ao_clk 0x200 108>;
+			wakeup-source;
+			status = "disabled";
+		};
+
+		u2phy0: usb-phy0@16730000 {
+			compatible = "mediatek,xsphy";
+			ranges = <0x0 0x0 0x16730000 0x700>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			u2port0: usb2-phy0@0 {
+				reg = <0x0 0x400>;
+				clocks = <&clk26m>;
+				clock-names = "ref";
+				#phy-cells = <1>;
+				mediatek,discth = <10>;
+			};
+		};
+
+		u2phy1: usb-phy1@16740000 {
+			compatible = "mediatek,xsphy";
+			ranges = <0x0 0x0 0x16740000 0x700>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			u2port1: usb2-phy1@0 {
+				reg = <0x0 0x400>;
+				clocks = <&clk26m>;
+				clock-names = "ref";
+				#phy-cells = <1>;
+				mediatek,discth = <10>;
+			};
+		};
+
+		u3phy0: usb3-phy0@16773000 {
+			compatible = "mediatek,xsphy";
+			ranges;
+			reg = <0 0x16773000 0 0x200>;
+			#address-cells = <2>;
+			#size-cells = <2>;
+			power-domains = <&scpsys MT8196_POWER_DOMAIN_SSUSB_DP_PHY_P0>;
+			status = "disabled";
+
+			u3port0: usb3-phy0@16773400 {
+				reg = <0 0x16773400 0 0x500>;
+				clocks = <&clk26m>;
+				clock-names = "ref";
+				#phy-cells = <1>;
+			};
+		};
+
+		usbwkcfg_ao_clk: syscon@167a0000 {
+			compatible = "mediatek,mt8196-usbwkcfg-ao", "syscon";
+			reg = <0 0x167a0000 0 0x1000>;
 		};
 
 		ufscfg_ao_sec_clk: syscon@16890000 {

@@ -5,6 +5,7 @@
  */
 /dts-v1/;
 #include "mt8196.dtsi"
+#include <dt-bindings/gpio/gpio.h>
 
 / {
 	model = "MediaTek MT8196 evaluation board";
@@ -13,6 +14,15 @@
 	/* chosen */
 	chosen: chosen {
 		stdout-path = "serial0:115200n8";
+	};
+
+	usb_p0_vbus: regulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vbus";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		gpio = <&pio 20 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
 	};
 };
 
@@ -53,6 +63,28 @@
 			drive-strength = <14>;
 		};
 	};
+
+	xhci0_pins_default: xhci0-default-pins {
+		pins-cmd-dat {
+			pinmux = <PINMUX_GPIO72__FUNC_GPIO72>;
+			output-high;
+		};
+	};
+};
+
+&xhci0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&xhci0_pins_default>;
+	vbus-supply = <&usb_p0_vbus>;
+	status = "okay";
+};
+
+&u2phy0 {
+	status = "okay";
+};
+
+&u3phy0 {
+	status = "okay";
 };
 
 &uart0 {
