@@ -379,6 +379,17 @@ config HID_GLORIOUS
 	  Support for Glorious PC Gaming Race mice such as
 	  the Glorious Model O, O- and D.
 
+config HID_HIMAX
+	tristate "Himax SPI driver for HID"
+	depends on SPI
+	depends on HID
+	help
+	  Support Himax touch IC HX83102J,
+	  which is connected to your computer via SPI
+	  and you want to use it as a HID device.
+
+	  If unsure, say N.
+
 config HID_HOLTEK
 	tristate "Holtek HID devices"
 	depends on USB_HID

@@ -9398,6 +9398,7 @@ M:	Allen Lin <allencl_lin@hotmail.com>
 L:	linux-input@vger.kernel.org
 S:	Maintained
 F:	Documentation/devicetree/bindings/input/touchscreen/himax,hx83102j.yaml
+F:	drivers/hid/hid-himax.*
 
 HIPPI
 M:	Jes Sorensen <jes@trained-monkey.org>
