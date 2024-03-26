@@ -678,6 +678,27 @@
 			#interrupt-cells = <2>;
 		};
 
+		devapc_apinfra_dramc: devapc@102f3000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x102f3000 0 0x1000>;
+			vio-idx-num = <61>;
+			interrupts = <GIC_SPI 870 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		devapc_apinfra_emi: devapc@10613000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x10613000 0 0x1000>;
+			vio-idx-num = <149>;
+			interrupts = <GIC_SPI 869 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		devapc_apinfra_big4: devapc@10693000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x10693000 0 0x1000>;
+			vio-idx-num = <89>;
+			interrupts = <GIC_SPI 863 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		i2c5: i2c@120a0000 {
 			compatible = "mediatek,mt8196-i2c", "mediatek,mt8188-i2c";
 			reg = <0 0x120a0000 0 0x20000>,
@@ -872,6 +893,27 @@
 			#clock-cells = <1>;
 		};
 
+		devapc_apinfra_io_intf: devapc@140a0000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x140a0000 0 0x1000>;
+			vio-idx-num = <8>;
+			interrupts = <GIC_SPI 865 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		devapc_apinfra_mem_intf: devapc@140c0000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x140c0000 0 0x1000>;
+			vio-idx-num = <7>;
+			interrupts = <GIC_SPI 837 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		devapc_apinfra_slb: devapc@140e0000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x140e0000 0 0x1000>;
+			vio-idx-num = <14>;
+			interrupts = <GIC_SPI 833 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		apifrbus_ao_mem_reg_clk: syscon@14126000 {
 			/* TODO: Fix compatible in driver */
 			compatible = "mediatek,mt8196-apifrbus-ao-mem-reg", "mediatek,mt8196-apifrbus_ao_mem_reg", "syscon";
@@ -879,9 +921,57 @@
 			#clock-cells = <1>;
 		};
 
+		devapc_apinfra_mem: devapc@14130000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x14130000 0 0x1000>;
+			vio-idx-num = <13>;
+			interrupts = <GIC_SPI 835 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+
+		devapc_apinfra_mem_ctrl: devapc@14131000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x14131000 0 0x1000>;
+			vio-idx-num = <23>;
+			interrupts = <GIC_SPI 836 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		infracfg@14136000 {
+			compatible = "mediatek,infracfg";
+			reg = <0 0x14136000 0 0x1000>;
+		};
+
+		devapc_apinfra_int: devapc@142f4000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x142f4000 0 0x1000>;
+			vio-idx-num = <26>;
+			interrupts = <GIC_SPI 864 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		devapc_apinfra_io_ctrl: devapc@14400000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x14400000 0 0x1000>;
+			vio-idx-num = <10>;
+			interrupts = <GIC_SPI 868 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		devapc_apinfra_io: devapc@14401000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x14401000 0 0x1000>;
+			vio-idx-num = <230>;
+			interrupts = <GIC_SPI 867 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		hwv: syscon@14500000 {
 			compatible = "mediatek,mt8196-hwv", "syscon";
 			reg = <0 0x14500000 0 0x3000>;
+		};
+
+		devapc_apinfra_mmu: devapc@14800000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x14800000 0 0x1000>;
+			vio-idx-num = <20>;
+			interrupts = <GIC_SPI 834 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		uart0: serial@16000000 {
@@ -1175,6 +1265,13 @@
 			reg = <0 0x16640000 0 0x1000>;
 			hw-voter-regmap = <&hwv>;
 			#clock-cells = <1>;
+		};
+
+		devapc_peri: devapc@16670000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x16670000 0 0x1000>;
+			vio-idx-num = <204>;
+			interrupts = <GIC_SPI 265 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		xhci0: usb@16700000 {
@@ -1530,6 +1627,20 @@
 			#clock-cells = <1>;
 		};
 
+		devapc_apinfra_ssr: devapc@180f3000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x180f3000 0 0x1000>;
+			vio-idx-num = <39>;
+			interrupts = <GIC_SPI 866 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		devapc_adsp: devapc@1a019000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x1a019000 0 0x1000>;
+			vio-idx-num = <54>;
+			interrupts = <GIC_SPI 715 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		afe_clk: syscon@1a110000 {
 			compatible = "mediatek,mt8196-audiosys", "syscon";
 			reg = <0 0x1a110000 0 0x1000>;
@@ -1565,6 +1676,13 @@
 			#clock-cells = <1>;
 		};
 
+		devapc_vlp: devapc@1c032000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x1c032000 0 0x1000>;
+			vio-idx-num = <101>;
+			interrupts = <GIC_SPI 694 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
 		systimer: systimer@1c400000 {
 			compatible = "mediatek,mt8196-timer",
 				     "mediatek,mt6765-timer";
@@ -1589,6 +1707,13 @@
 			mediatek,smi = <&mdp_ssc4_smi_2x1_sub_comm>;
 			mediatek,common-id = <1>;
 			mediatek,skip-rpm-cb;
+		};
+
+		devapc_mminfra: devapc@30040000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x30040000 0 0x1000>;
+			vio-idx-num = <699>;
+			interrupts = <GIC_SPI 478 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		gce0: gce@300c0000 {
@@ -1654,6 +1779,13 @@
 			/* TODO: Fix compatible in driver */
 			compatible = "mediatek,mt8196-mminfra-hwv", "mediatek,mt8196-mminfra_hwv", "syscon";
 			reg = <0 0x31a80000 0 0x1000>;
+		};
+
+		devapc_mmup: devapc@31ad5000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x31ad5000 0 0x1000>;
+			vio-idx-num = <71>;
+			interrupts = <GIC_SPI 794 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		mm_hwv: syscon@31b00000 {
@@ -2126,6 +2258,20 @@
 			compatible = "mediatek,mt8196-mfgpll-sc1-pll-ctrl", "mediatek,mt8196-mfgpll_sc1_pll_ctrl", "syscon";
 			reg = <0 0x4b810800 0 0x1000>;
 			#clock-cells = <1>;
+		};
+
+		devapc_gpu: devapc@4b890000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x4b890000 0 0x1000>;
+			vio-idx-num = <20>;
+			interrupts = <GIC_SPI 613 IRQ_TYPE_LEVEL_HIGH 0>;
+		};
+
+		devapc_gpu1: devapc@4b8b0000 {
+			compatible = "mediatek,mt8196-devapc";
+			reg = <0 0x4b8b0000 0 0x1000>;
+			vio-idx-num = <26>;
+			interrupts = <GIC_SPI 613 IRQ_TYPE_LEVEL_HIGH 0>;
 		};
 
 		apu_smmu: iommu@4c000000 {
