@@ -1056,6 +1056,8 @@ static int es8326_resume(struct snd_soc_component *component)
 	es8326->hp = 0;
 	es8326->hpl_vol = 0x03;
 	es8326->hpr_vol = 0x03;
+
+	es8326_irq(es8326->irq, es8326);
 	return 0;
 }
 
@@ -1066,6 +1068,9 @@ static int es8326_suspend(struct snd_soc_component *component)
 	cancel_delayed_work_sync(&es8326->jack_detect_work);
 	es8326_disable_micbias(component);
 	es8326->calibrated = false;
+	regmap_write(es8326->regmap, ES8326_CLK_MUX, 0x2d);
+	regmap_write(es8326->regmap, ES8326_DAC2HPMIX, 0x00);
+	regmap_write(es8326->regmap, ES8326_ANA_PDN, 0x3b);
 	regmap_write(es8326->regmap, ES8326_CLK_CTL, ES8326_CLK_OFF);
 	regcache_cache_only(es8326->regmap, true);
 
