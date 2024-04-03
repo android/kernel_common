@@ -15,7 +15,8 @@
 #include <linux/pm_runtime.h>
 #include <linux/mailbox_controller.h>
 #include <linux/mailbox/mtk-cmdq-mailbox.h>
-#include <linux/of.h>
+#include <linux/mailbox/mtk-cmdq-sec-mailbox.h>
+#include <linux/of_device.h>
 
 #define CMDQ_MBOX_AUTOSUSPEND_DELAY_MS	100
 
@@ -66,6 +67,13 @@
 #define CMDQ_JUMP_BY_OFFSET		0x10000000
 #define CMDQ_JUMP_BY_PA			0x10000001
 
+#define CMDQ_THR_IDX(thread, cmdq)	(((thread)->base - (cmdq)->base - CMDQ_THR_BASE) \
+					 / CMDQ_THR_SIZE)
+
+#define CMDQ_IS_SECURE_THREAD(idx, cmdq) ((idx) >= (cmdq)->pdata->secure_thread_min && \
+					  (idx) < (cmdq)->pdata->secure_thread_min + \
+					  (cmdq)->pdata->secure_thread_nr)
+
 struct gce_plat {
 	u32 thread_nr;
 	u8 shift;
@@ -74,6 +82,8 @@ struct gce_plat {
 	bool sw_ddr_en;
 	bool gce_vm;
 	u32 dma_mask_bit;
+	u32 secure_thread_nr;
+	u32 secure_thread_min;
 	u32 gce_num;
 };
 
@@ -428,6 +438,7 @@ static int cmdq_mbox_send_data(struct mbox_chan *chan, void *data)
 	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
 	struct cmdq_task *task;
 	unsigned long curr_pa, end_pa;
+	u32 idx = CMDQ_THR_IDX(thread, cmdq);
 	int ret;
 
 	/* Client should not flush new tasks if suspended. */
@@ -436,6 +447,13 @@ static int cmdq_mbox_send_data(struct mbox_chan *chan, void *data)
 	ret = pm_runtime_get_sync(cmdq->mbox.dev);
 	if (ret < 0)
 		return ret;
+
+	if (CMDQ_IS_SECURE_THREAD(idx, cmdq)) {
+		ret = cmdq_sec_mbox.ops->send_data(chan, data);
+		pm_runtime_mark_last_busy(cmdq->mbox.dev);
+		pm_runtime_put_autosuspend(cmdq->mbox.dev);
+		return ret;
+	}
 
 	task = kzalloc(sizeof(*task), GFP_ATOMIC);
 	if (!task)
@@ -493,6 +511,13 @@ static int cmdq_mbox_send_data(struct mbox_chan *chan, void *data)
 
 static int cmdq_mbox_startup(struct mbox_chan *chan)
 {
+	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
+	struct cmdq_thread *thread = (struct cmdq_thread *)chan->con_priv;
+	u32 idx = CMDQ_THR_IDX(thread, cmdq);
+
+	if (CMDQ_IS_SECURE_THREAD(idx, cmdq))
+		cmdq_sec_mbox.ops->startup(chan);
+
 	return 0;
 }
 
@@ -502,8 +527,16 @@ static void cmdq_mbox_shutdown(struct mbox_chan *chan)
 	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
 	struct cmdq_task *task, *tmp;
 	unsigned long flags;
+	u32 idx = CMDQ_THR_IDX(thread, cmdq);
 
 	WARN_ON(pm_runtime_get_sync(cmdq->mbox.dev) < 0);
+
+	if (CMDQ_IS_SECURE_THREAD(idx, cmdq)) {
+		cmdq_sec_mbox.ops->shutdown(chan);
+		pm_runtime_mark_last_busy(cmdq->mbox.dev);
+		pm_runtime_put_autosuspend(cmdq->mbox.dev);
+		return;
+	}
 
 	spin_lock_irqsave(&thread->chan->lock, flags);
 	if (list_empty(&thread->task_busy_list))
@@ -544,7 +577,16 @@ static int cmdq_mbox_flush(struct mbox_chan *chan, unsigned long timeout)
 	struct cmdq_task *task, *tmp;
 	unsigned long flags;
 	u32 enable;
+	u32 idx = CMDQ_THR_IDX(thread, cmdq);
 	int ret;
+
+	if (CMDQ_IS_SECURE_THREAD(idx, cmdq)) {
+		/*
+		 * secure mbox_flush will be called inside the
+		 * cmdq_sec_mbox.ops->send_data(chan);
+		 */
+		return 0;
+	}
 
 	ret = pm_runtime_get_sync(cmdq->mbox.dev);
 	if (ret < 0)
@@ -640,6 +682,8 @@ static int cmdq_probe(struct platform_device *pdev)
 	int alias_id = 0;
 	static const char * const clk_name = "gce";
 	static const char * const clk_names[] = { "gce0", "gce1" };
+	static struct gce_sec_plat sec_plat = {0};
+	u32 hwid = 0;
 
 	cmdq = devm_kzalloc(dev, sizeof(*cmdq), GFP_KERNEL);
 	if (!cmdq)
@@ -665,6 +709,8 @@ static int cmdq_probe(struct platform_device *pdev)
 		dev, cmdq->base, cmdq->irq);
 
 	if (cmdq->pdata->gce_num > 1) {
+		hwid = of_alias_get_id(dev->of_node, clk_name);
+
 		for_each_child_of_node(phandle->parent, node) {
 			alias_id = of_alias_get_id(node, clk_name);
 			if (alias_id >= 0 && alias_id < cmdq->pdata->gce_num) {
@@ -750,6 +796,28 @@ static int cmdq_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	if (of_property_read_u32_index(dev->of_node, "mediatek,gce-events", 0,
+				       &sec_plat.cmdq_event) == 0) {
+		struct platform_device *cmdq_sec;
+
+		sec_plat.mbox = &cmdq->mbox;
+		sec_plat.base = cmdq->base;
+		sec_plat.hwid = hwid;
+		sec_plat.secure_thread_nr = cmdq->pdata->secure_thread_nr;
+		sec_plat.secure_thread_min = cmdq->pdata->secure_thread_min;
+		sec_plat.shift = cmdq->pdata->shift;
+		sec_plat.mminfra_offset = cmdq->pdata->mminfra_offset;
+
+		cmdq_sec = platform_device_register_data(dev, "mtk-cmdq-sec",
+							 PLATFORM_DEVID_AUTO,
+							 &sec_plat,
+							 sizeof(sec_plat));
+		if (IS_ERR(cmdq_sec)) {
+			dev_err(dev, "failed to register platform_device mtk-cmdq-sec\n");
+			return PTR_ERR(cmdq_sec);
+		}
+	}
+
 	return 0;
 }
 
@@ -793,6 +861,8 @@ static const struct gce_plat gce_plat_mt8188 = {
 	.thread_nr = 32,
 	.shift = 3,
 	.control_by_sw = true,
+	.secure_thread_nr = 2,
+	.secure_thread_min = 8,
 	.gce_num = 2
 };
 
@@ -807,6 +877,8 @@ static const struct gce_plat gce_plat_mt8195 = {
 	.thread_nr = 24,
 	.shift = 3,
 	.control_by_sw = true,
+	.secure_thread_nr = 2,
+	.secure_thread_min = 8,
 	.gce_num = 2
 };
 
@@ -818,6 +890,8 @@ static const struct gce_plat gce_plat_mt8196 = {
 	.sw_ddr_en = true,
 	.gce_vm = true,
 	.dma_mask_bit = 35,
+	.secure_thread_nr = 3,
+	.secure_thread_min = 8,
 	.gce_num = 2
 };
 
