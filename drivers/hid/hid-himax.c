@@ -9,6 +9,7 @@
 
 static int himax_cable_detect_func(struct himax_ts_data *ts, bool force_renew);
 static int himax_chip_init(struct himax_ts_data *ts);
+static int himax_heatmap_data_init(struct himax_ts_data *ts);
 static int himax_platform_init(struct himax_ts_data *ts);
 static void himax_ts_work(struct himax_ts_data *ts);
 
@@ -1013,12 +1014,15 @@ static int hx83102j_read_event_stack(struct himax_ts_data *ts, u8 *buf, u32 leng
  *
  * This function is used to initialize hx83102j touch specific data in himax_ts_data.
  * The chip_max_dsram_size is the maximum size of the DSRAM of hx83102j.
+ * The ic_data.enc16bits is the flag to indicate the heatmap data is transferred in
+ * 16 bits or 12 bits.
  *
  * Return: None
  */
 static void hx83102j_chip_init_data(struct himax_ts_data *ts)
 {
 	ts->chip_max_dsram_size = HIMAX_HX83102J_DSRAM_SZ;
+	ts->ic_data.enc16bits = false;
 }
 
 /**
@@ -2505,6 +2509,48 @@ static int himax_err_ctrl(struct himax_ts_data *ts, u8 *buf)
 }
 
 /**
+ * heatmap_decompress_12bits() - Decompress 12bits heatmap data to 16bits
+ * @ts: Himax touch screen data
+ * @in_buf: Compressed heatmap data
+ * @target: Decompressed heatmap data
+ *
+ * This function is used to decompress the 12bits heatmap data to 16bits.
+ * The 12bits heatmap data is compressed in 3 bytes for 2 pixels, here we
+ * restore each 3 bytes to 4 bytes in the target buffer. the format of 12 bits:
+ * [value 1 low byte]|[value 2 low byte]|[value 1 high nibble][value 2 high nibble]
+ *   8 bits		8 bits		   4 bits		4 bits
+ * restored 16 bits:
+ * [high nibble][low byte] : mask 0x0FFF, MSB 4 bits are ignored
+ *
+ * Return: None
+ */
+static void heatmap_decompress_12bits(struct himax_ts_data *ts, u8 *in_buf, u8 *target)
+{
+	int i;
+	/* 1 byte for ID, else are HEATMAP headers */
+	const int in_offset = HIMAX_HEAT_MAP_INFO_SZ + 1;
+	const int heatmap_data_sz = ts->ic_data.rx_num * ts->ic_data.tx_num;
+	u8 *in_ptr;
+	const u8 h_nibble = GENMASK(7, 4);
+	const u8 l_nibble = GENMASK(3, 0);
+	u16 *target_ptr;
+
+	/* Copy headers to target buffer */
+	memcpy(target, in_buf, in_offset);
+	/* Restore 2 16bits raw data each time */
+	for (i = 0; i < heatmap_data_sz; i += 2) {
+		/* locate offset in in_buf, step 3 bytes each time */
+		in_ptr = &in_buf[in_offset + i * 3 / 2];
+		/* locate target offset, step 2 16bits each time */
+		target_ptr = (u16 *)&target[in_offset + i * 2];
+		/* 1st 16bits of 2 16bits raw data */
+		*target_ptr = (u16)in_ptr[0] | ((u16)(in_ptr[2] & h_nibble) << 4);
+		/* 2nd 16bits of 2 16bits raw data */
+		*(target_ptr + 1) = (u16)in_ptr[1] | (u16)(in_ptr[2] & l_nibble) << 8;
+	}
+}
+
+/**
  * himax_ts_operation() - Process the touch interrupt data
  * @ts: Himax touch screen data
  *
@@ -2517,6 +2563,8 @@ static int himax_err_ctrl(struct himax_ts_data *ts, u8 *buf)
  * report descriptor, the size of report data is fixed. To prevent next report
  * data being contaminated by the previous data, all the data must be reported
  * wheather previous data is valid or not.
+ * The heatmap data will be decompressed by calling the heatmap_decompress_12bits()
+ * if heatmap is not encoded in 16bits, otherwise it will be copied directly.
  *
  * Return: HIMAX_TS_SUCCESS on success, negative error code in
  * himax_touch_report_status on failure
@@ -2542,6 +2590,18 @@ static int himax_ts_operation(struct himax_ts_data *ts)
 						HIMAX_HID_REPORT_HDR_SZ);
 			offset += ts->hid_desc.max_input_length;
 		}
+		if (!ts->ic_data.enc16bits)
+			heatmap_decompress_12bits(ts,
+						  ts->xfer_buf + offset + HIMAX_HID_REPORT_HDR_SZ,
+						  ts->heatmap_buf);
+		else
+			memcpy(ts->heatmap_buf,
+			       ts->xfer_buf + offset + HIMAX_HID_REPORT_HDR_SZ,
+			       ts->heatmap_data_size + HIMAX_HEAT_MAP_INFO_SZ + 1);
+
+		ret += himax_hid_report(ts, ts->heatmap_buf,
+					(ts->ic_data.rx_num * ts->ic_data.tx_num * 2) +
+					HIMAX_HEAT_MAP_INFO_SZ + 1);
 	}
 
 	if (ret != 0)
@@ -2705,9 +2765,15 @@ static void himax_hid_register(struct himax_ts_data *ts)
  *
  * The function is used to calculate the final size of the HID report data.
  * The base size is equal to the max_input_length of the hid descriptor.
+ * Plus the size of the heatmap data and its header. If the heatmap data is
+ * encoded in 12bits, the size of heatmap is 1.5 times of the size of the
+ * rx_num * tx_num. Otherwise, the size of heatmap is 2 times of the size of
+ * the rx_num * tx_num.
  * If the size of the HID report data is not equal to the previous size, it
  * will free the previous allocated memory and allocate the new memory which
  * size is equal to the final size of touch_data_sz.
+ * It will also call the himax_heatmap_data_init() to initialize the heatmap
+ * data.
  *
  * Return: 0 on success, negative error code on failure
  */
@@ -2716,6 +2782,13 @@ static int himax_hid_report_data_init(struct himax_ts_data *ts)
 	ts->touch_data_sz = ts->hid_desc.max_input_length;
 	if (ts->ic_data.stylus_function)
 		ts->touch_data_sz += ts->hid_desc.max_input_length;
+	ts->touch_data_sz += HIMAX_HEAT_MAP_HEADER_SZ;
+	ts->touch_data_sz += HIMAX_HEAT_MAP_INFO_SZ;
+	if (!ts->ic_data.enc16bits)
+		ts->heatmap_data_size = (ts->ic_data.rx_num * ts->ic_data.tx_num * 3) / 2;
+	else
+		ts->heatmap_data_size = (ts->ic_data.rx_num * ts->ic_data.tx_num * 2);
+	ts->touch_data_sz += ts->heatmap_data_size;
 	if (ts->touch_data_sz != ts->xfer_buf_sz) {
 		kfree(ts->xfer_buf);
 		ts->xfer_buf_sz = 0;
@@ -2723,6 +2796,10 @@ static int himax_hid_report_data_init(struct himax_ts_data *ts)
 		if (!ts->xfer_buf)
 			return -ENOMEM;
 		ts->xfer_buf_sz = ts->touch_data_sz;
+	}
+	if (himax_heatmap_data_init(ts)) {
+		dev_err(ts->dev, "%s: report data init fail\n", __func__);
+		return -ENOMEM;
 	}
 
 	return 0;
@@ -2897,6 +2974,27 @@ err_update_fw_failed:
 err_load_bin_descriptor:
 	release_firmware(ts->himax_fw);
 	ts->himax_fw = NULL;
+}
+
+/**
+ * himax_heatmap_data_init() - Initialize the heatmap data
+ * @ts: Himax touch screen data
+ *
+ * The function is used to initialize the heatmap data. It will allocate the
+ * memory for the heatmap data. The size of the heatmap data is equal to the
+ * rx_num * tx_num * 2 plus the size of the heatmap header and the size of
+ * the heatmap ID.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int himax_heatmap_data_init(struct himax_ts_data *ts)
+{
+	ts->heatmap_buf = devm_kzalloc(ts->dev, (ts->ic_data.rx_num * ts->ic_data.tx_num) * 2
+				       + HIMAX_HEAT_MAP_INFO_SZ + HIMAX_HID_ID_SZ, GFP_KERNEL);
+	if (!ts->heatmap_buf)
+		return -ENOMEM;
+
+	return 0;
 }
 
 /**

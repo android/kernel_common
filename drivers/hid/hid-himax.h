@@ -53,6 +53,13 @@
 #define HIMAX_TP_INFO_STR_LEN				12U
 #define HIMAX_ZF_PARTITION_AMOUNT_OFFSET		12
 #define HIMAX_ZF_PARTITION_DESC_SZ			16U
+/* heatmap header sizes */
+#define HIMAX_HEAT_MAP_HEADER_SZ			3U
+#define HIMAX_HEAT_MAP_HID_HDR_SZ			12U
+#define HIMAX_HEAT_MAP_DATA_HDR_SZ			8U
+#define HIMAX_HEAT_MAP_INFO_SZ \
+	(HIMAX_HEAT_MAP_HID_HDR_SZ + HIMAX_HEAT_MAP_DATA_HDR_SZ)
+#define HIMAX_HID_ID_SZ					1U
 /* HIDRAW report header size */
 #define HIMAX_HID_REPORT_HDR_SZ				2U
 /* hx83102j IC parameters */
@@ -272,6 +279,7 @@ union himax_dword_data {
  * @interrupt_is_edge: Interrupt is edge otherwise level
  * @stylus_function: Stylus function available or not
  * @stylus_v2: Is stylus version 2
+ * @enc16bits: indicate heatmap is encoded in 16 bits data or 12 bits data
  */
 struct himax_ic_data {
 	u8 stylus_ratio;
@@ -295,6 +303,7 @@ struct himax_ic_data {
 	bool interrupt_is_edge;
 	bool stylus_function;
 	bool stylus_v2;
+	bool enc16bits;
 };
 
 /**
@@ -417,10 +426,12 @@ struct himax_platform_data {
  * @xfer_buf: Interrupt data buffer
  * @xfer_rx_data: SPI Transfer receive data buffer
  * @xfer_tx_data: SPI Transfer transmit data buffer
+ * @heatmap_buf: Heatmap buffer
  * @zf_update_cfg_buffer: Zero flash update configuration buffer
  * @himax_irq: IRQ number
  * @excp_zero_event_count: Exception zero event count
  * @chip_max_dsram_size: Maximum size of DSRAM
+ * @heatmap_data_size: Heatmap data size
  * @spi_xfer_max_sz: Size of SPI controller max transfer size
  * @xfer_buf_sz: Size of interrupt data buffer
  * @irq_state: IRQ state
@@ -455,10 +466,12 @@ struct himax_ts_data {
 	u8 *xfer_buf;
 	u8 *xfer_rx_data;
 	u8 *xfer_tx_data;
+	u8 *heatmap_buf;
 	u8 *zf_update_cfg_buffer;
 	s32 himax_irq;
 	s32 excp_zero_event_count;
 	u32 chip_max_dsram_size;
+	u32 heatmap_data_size;
 	u32 spi_xfer_max_sz;
 	u32 xfer_buf_sz;
 	atomic_t irq_state;
