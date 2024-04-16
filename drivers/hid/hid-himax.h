@@ -157,11 +157,27 @@ enum himax_hidraw_id_function {
 /**
  * enum himax_touch_report_status - ts operation return code for touch report
  * @HIMAX_TS_GET_DATA_FAIL: Get touch data fail
+ * @HIMAX_TS_EXCP_EVENT: ESD event detected
+ * @HIMAX_TS_ABNORMAL_PATTERN: Check interrupt data fail
  * @HIMAX_TS_SUCCESS: Get touch data success
+ * @HIMAX_TS_EXCP_REC_OK: 1st report after ESD recovery
+ * @HIMAX_TS_EXCP_REC_FAIL: error during ESD recovery
+ * @HIMAX_TS_EXCP_NO_MATCH: checksum fail but no ESD event
+ * @HIMAX_TS_REPORT_DATA: Report ts data to upper layer
+ * @HIMAX_TS_IC_RUNNING: IC is busy, ignore the report
+ * @HIMAX_TS_ZERO_EVENT_CNT: All data report is zero
  */
 enum himax_touch_report_status {
 	HIMAX_TS_GET_DATA_FAIL = -4,
+	HIMAX_TS_EXCP_EVENT,
+	HIMAX_TS_ABNORMAL_PATTERN,
 	HIMAX_TS_SUCCESS = 0,
+	HIMAX_TS_EXCP_REC_OK,
+	HIMAX_TS_EXCP_REC_FAIL,
+	HIMAX_TS_EXCP_NO_MATCH,
+	HIMAX_TS_REPORT_DATA,
+	HIMAX_TS_IC_RUNNING,
+	HIMAX_TS_ZERO_EVENT_CNT,
 };
 
 /**
@@ -394,11 +410,13 @@ struct himax_platform_data {
  * @xfer_tx_data: SPI Transfer transmit data buffer
  * @zf_update_cfg_buffer: Zero flash update configuration buffer
  * @himax_irq: IRQ number
+ * @excp_zero_event_count: Exception zero event count
  * @chip_max_dsram_size: Maximum size of DSRAM
  * @spi_xfer_max_sz: Size of SPI controller max transfer size
  * @xfer_buf_sz: Size of interrupt data buffer
  * @irq_state: IRQ state
  * @irq_lock: Spin lock for irq
+ * @excp_reset_active: Indicate the exception reset is active
  * @initialized: Indicate the driver is initialized
  * @probe_finish: Indicate the driver probe is finished
  * @ic_boot_done: Indicate the IC boot is done
@@ -426,12 +444,14 @@ struct himax_ts_data {
 	u8 *xfer_tx_data;
 	u8 *zf_update_cfg_buffer;
 	s32 himax_irq;
+	s32 excp_zero_event_count;
 	u32 chip_max_dsram_size;
 	u32 spi_xfer_max_sz;
 	u32 xfer_buf_sz;
 	atomic_t irq_state;
 	/* lock for irq_save */
 	spinlock_t irq_lock;
+	bool excp_reset_active;
 	bool initialized;
 	bool probe_finish;
 	bool ic_boot_done;

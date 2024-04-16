@@ -1896,6 +1896,45 @@ load_firmware_error:
 }
 
 /**
+ * himax_input_check() - Check the interrupt data
+ * @ts: Himax touch screen data
+ * @buf: Buffer of interrupt data
+ *
+ * This function is used to check the interrupt data. The function will check
+ * the interrupt data to see if it is normal or abnormal. If the interrupt data
+ * is all the same, it will return HIMAX_TS_ABNORMAL_PATTERN, otherwise, it will
+ * return HIMAX_TS_REPORT_DATA.
+ *
+ * Return: HIMAX_TS_ABNORMAL_PATTERN when all data is the same, HIMAX_TS_REPORT_DATA
+ * when data is normal.
+ */
+static int himax_input_check(struct himax_ts_data *ts, u8 *buf)
+{
+	int i;
+	int length;
+	int same_cnt = 1;
+
+	/* Check all interrupt data */
+	length = ts->touch_data_sz;
+	if (!length)
+		return HIMAX_TS_REPORT_DATA;
+
+	for (i = 1; i < length; i++) {
+		if (buf[i] == buf[i - 1])
+			same_cnt++;
+		else
+			same_cnt = 1;
+	}
+
+	if (same_cnt == length) {
+		dev_warn(ts->dev, "%s: [HIMAX TP MSG] Detected abnormal input pattern\n", __func__);
+		return HIMAX_TS_ABNORMAL_PATTERN;
+	}
+
+	return HIMAX_TS_REPORT_DATA;
+}
+
+/**
  * himax_hid_parse() - Parse the HID report descriptor
  * @hid: HID device
  *
@@ -2151,11 +2190,185 @@ static void himax_hid_remove(struct himax_ts_data *ts)
 }
 
 /**
+ * himax_mcu_ic_excp_check() - Check the exception type
+ * @ts: Himax touch screen data
+ * @buf: input buffer
+ *
+ * This function is used to categorize the exception type and report the exception
+ * event to caller. The event type is categorized into exception event and all zero
+ * event. The function will check the first byte of interrupt data only because
+ * previous function has already confirm all data is the same. If the 1st byte data
+ * is not zero then return HIMAX_TS_EXCP_EVENT. Otherwise, it will increment the
+ * global all zero event count and check if it reached exception threshold. If it
+ * reached, it will return HIMAX_TS_EXCP_EVENT. If it is not reached, it will return
+ * HIMAX_TS_ZERO_EVENT_CNT.
+ *
+ * return:
+ * - HIMAX_TS_EXCP_EVENT     : recovery is needed
+ * - HIMAX_TS_ZERO_EVENT_CNT : all zero event checked
+ */
+static int himax_mcu_ic_excp_check(struct himax_ts_data *ts, const u8 *buf)
+{
+	bool excp_flag = false;
+	const u32 all_zero_excp_event_threshold = 5;
+
+	switch (buf[0]) {
+	case 0x00:
+		dev_info(ts->dev, "%s: [HIMAX TP MSG]: EXCEPTION event checked - ALL 0x00\n",
+			 __func__);
+		excp_flag = false;
+		break;
+	default:
+		dev_info(ts->dev, "%s: [HIMAX TP MSG]: EXCEPTION event checked - All 0x%02X\n",
+			 __func__, buf[0]);
+		excp_flag = true;
+	}
+
+	if (!excp_flag) {
+		ts->excp_zero_event_count++;
+		dev_info(ts->dev, "%s: ALL Zero event %d times\n", __func__,
+			 ts->excp_zero_event_count);
+		if (ts->excp_zero_event_count == all_zero_excp_event_threshold) {
+			ts->excp_zero_event_count = 0;
+			return HIMAX_TS_EXCP_EVENT;
+		}
+
+		return HIMAX_TS_ZERO_EVENT_CNT;
+	}
+
+	ts->excp_zero_event_count = 0;
+
+	return HIMAX_TS_EXCP_EVENT;
+}
+
+/**
+ * himax_excp_hw_reset() - Do the ESD recovery
+ * @ts: Himax touch screen data
+ *
+ * This function is used to do the ESD recovery. It will remove the HID device,
+ * reload the firmware, and probe the HID device again. Because finger/stylus
+ * may stuck on the touch screen, it will remove the HID device first to avoid
+ * this situation.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+static int himax_excp_hw_reset(struct himax_ts_data *ts)
+{
+	int ret;
+
+	dev_info(ts->dev, "%s: START EXCEPTION Reset\n", __func__);
+	himax_hid_remove(ts);
+	ret = himax_zf_reload_from_file(ts->firmware_name, ts);
+	if (ret) {
+		dev_err(ts->dev, "%s: update FW fail, error: %d\n", __func__, ret);
+		return ret;
+	}
+
+	dev_info(ts->dev, "%s: update FW success\n", __func__);
+	ret = himax_hid_probe(ts);
+	if (ret) {
+		dev_err(ts->dev, "%s: hid probe fail, error: %d\n", __func__, ret);
+		return ret;
+	}
+	dev_info(ts->dev, "%s: END EXCEPTION Reset\n", __func__);
+
+	return 0;
+}
+
+/**
+ * himax_ts_event_check() - Check the abnormal interrupt data
+ * @ts: Himax touch screen data
+ * @buf: Interrupt data
+ *
+ * This function is used to check the abnormal interrupt data.
+ * If the data pattern matched the exception pattern, it will try to do
+ * the ESD recovery. For all zero data, it needs to be continuous reported
+ * for several times to trigger the ESD recovery(checked by himax_mcu_ic_excp_check())
+ *
+ * Return:
+ * - HIMAX_TS_EXCP_EVENT     : exception recovery event
+ * - HIMAX_TS_ZERO_EVENT_CNT : zero event count
+ * - HIMAX_TS_EXCP_REC_OK    : exception recovery done
+ * - HIMAX_TS_EXCP_REC_FAIL  : exception recovery error
+ */
+static int himax_ts_event_check(struct himax_ts_data *ts, const u8 *buf)
+{
+	int ret;
+
+	/* The first data read out right after chip reset is invalid. Drop it. */
+	if (ts->excp_reset_active) {
+		ts->excp_reset_active = false;
+		dev_info(ts->dev, "%s: Skip data after reset\n", __func__);
+
+		return HIMAX_TS_EXCP_REC_OK;
+	}
+
+	/* No data after reset, check exception pattern */
+	ret = himax_mcu_ic_excp_check(ts, buf);
+	switch (ret) {
+	/* Exception pattern matched, do recovery */
+	case HIMAX_TS_EXCP_EVENT:
+		/* Print debug message only, no check return */
+		himax_mcu_read_FW_status(ts);
+		ret = himax_excp_hw_reset(ts);
+		if (ret) {
+			dev_err(ts->dev, "%s: Recovery error!\n", __func__);
+			return HIMAX_TS_EXCP_REC_FAIL;
+		}
+		ts->excp_reset_active = true;
+		ret = HIMAX_TS_EXCP_EVENT;
+		break;
+	/* All zero event, but not reach reset threshold print debug message only */
+	case HIMAX_TS_ZERO_EVENT_CNT:
+		/* Print debug message only, no check return */
+		himax_mcu_read_FW_status(ts);
+		break;
+	}
+
+	return ret;
+}
+
+/**
+ * himax_err_ctrl() - ESD check and recovery
+ * @ts: Himax touch screen data
+ * @buf: Interrupt data
+ *
+ * This function is used to check the interrupt data. Use himax_input_check()
+ * to check the data. If the data is not valid, it will call himax_ts_event_check()
+ * to see if data match the exception pattern and do the ESD recovery when needed.
+ * If the data is valid, it will clear the exception counters and return
+ * HIMAX_TS_REPORT_DATA.
+ *
+ * Return:
+ * - HIMAX_TS_REPORT_DATA   : valid data
+ * - HIMAX_TS_EXCP_EVENT    : exception match
+ * - HIMAX_TS_ZERO_EVENT_CNT: zero frame event counted
+ * - HIMAX_TS_EXCP_REC_OK   : exception recovery done
+ * - HIMAX_TS_EXCP_REC_FAIL : exception recovery error
+ */
+static int himax_err_ctrl(struct himax_ts_data *ts, u8 *buf)
+{
+	int ret;
+
+	ret = himax_input_check(ts, buf);
+	if (ret == HIMAX_TS_ABNORMAL_PATTERN)
+		return himax_ts_event_check(ts, buf);
+
+	/* data check passed, clear excp counters */
+	ts->excp_zero_event_count = 0;
+	ts->excp_reset_active = false;
+
+	return ret;
+}
+
+/**
  * himax_ts_operation() - Process the touch interrupt data
  * @ts: Himax touch screen data
  *
  * This function is used to process the touch interrupt data. It will
  * call the himax_touch_get() to get the touch data.
+ * Check the data by calling the himax_err_ctrl() to see if the data is
+ * valid. If the data is not valid, it also process the ESD recovery.
  * If the hid is probed, it will call the himax_hid_report() to report the
  * touch data to the HID core. Due to the report data must match the HID
  * report descriptor, the size of report data is fixed. To prevent next report
@@ -2173,6 +2386,9 @@ static int himax_ts_operation(struct himax_ts_data *ts)
 	memset(ts->xfer_buf, 0x00, ts->xfer_buf_sz);
 	ret = himax_touch_get(ts, ts->xfer_buf);
 	if (ret == HIMAX_TS_GET_DATA_FAIL)
+		return ret;
+	ret = himax_err_ctrl(ts, ts->xfer_buf);
+	if (!(ret == HIMAX_TS_REPORT_DATA))
 		return ret;
 	if (ts->hid_probed) {
 		offset = ts->hid_desc.max_input_length;
@@ -2608,6 +2824,8 @@ static int himax_chip_suspend(struct himax_ts_data *ts)
 static int himax_chip_resume(struct himax_ts_data *ts)
 {
 	ts->resume_succeeded = false;
+	ts->excp_zero_event_count = 0;
+	ts->excp_reset_active = false;
 	if (himax_power_set(ts, true))
 		return -EIO;
 	gpiod_set_value(ts->pdata.gpiod_rst, 0);
