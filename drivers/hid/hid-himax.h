@@ -96,6 +96,7 @@
 #define HIMAX_AHB_CMD_INCR4_ADD_4_BYTE			0x01
 #define HIMAX_AHB_CMD_LEAVE_SAFE_MODE			0x0000
 /* DSRAM flag addresses */
+#define HIMAX_DSRAM_ADDR_RAWDATA			0x10000000
 #define HIMAX_DSRAM_ADDR_VENDOR				0x10007000
 #define HIMAX_DSRAM_ADDR_FW_VER				0x10007004
 #define HIMAX_DSRAM_ADDR_CUS_INFO			0x10007008
@@ -103,6 +104,7 @@
 #define HIMAX_DSRAM_ADDR_CFG				0x10007084
 #define HIMAX_DSRAM_ADDR_INT_IS_EDGE			0x10007088
 #define HIMAX_DSRAM_ADDR_MKEY				0x100070e8
+#define HIMAX_DSRAM_ADDR_BANK_SEARCH			0x100070f4
 #define HIMAX_DSRAM_ADDR_RXNUM_TXNUM			0x100070f4
 #define HIMAX_DSRAM_ADDR_MAXPT_XYRVS			0x100070f8
 #define HIMAX_DSRAM_ADDR_X_Y_RES			0x100070fc
@@ -117,6 +119,7 @@
 #define HIMAX_DSRAM_ADDR_USB_DETECT			0x10007f38
 #define HIMAX_DSRAM_ADDR_DBG_MSG			0x10007f40
 #define HIMAX_DSRAM_ADDR_AP_NOTIFY_FW_SUSPEND		0x10007fd0
+#define HIMAX_DSRAM_ADDR_NEG_NOISE_SUP			0x10007fd8
 /* dsram flag data */
 #define HIMAX_DSRAM_DATA_AP_NOTIFY_FW_SUSPEND		0xa55aa55a
 #define HIMAX_DSRAM_DATA_AP_NOTIFY_FW_RESUME		0x00000000
@@ -124,6 +127,8 @@
 #define HIMAX_DSRAM_DATA_FW_RELOAD_DONE			0x000072c0
 #define HIMAX_DSRAM_DATA_USB_ATTACH			0xa55aa55a
 #define HIMAX_DSRAM_DATA_USB_DETACH			0x00000000
+#define HIMAX_DSRAM_DATA_HANDSHAKING_RELEASE		0x00000000
+#define HIMAX_DSRAM_DATA_NEG_NOISE			0x7f0c0000
 #define HIMAX_DSRAM_DATA_SAFE_MODE_RELEASE		0x00000000
 /* hx83102j-specific register/dsram flags/data */
 #define HIMAX_HX83102J_DSRAM_ADDR_RAW_OUT_SEL		0x100072ec
@@ -161,6 +166,39 @@
 /* HIDRAW commands */
 #define HIMAX_HID_FW_UPDATE_BL_CMD			0x77
 #define HIMAX_HID_FW_UPDATE_MAIN_CMD			0x55
+/* Bank search data types */
+#define HIMAX_BANK_SEARCH_RAWDATA			8
+#define HIMAX_BANK_SEARCH_NOISE				8
+#define HIMAX_BANK_SEARCH_OPENSHORT			0
+/* Inspection dataType */
+#define HIMAX_DATA_TYPE_SORTING				0x0a
+#define HIMAX_DATA_TYPE_OPEN				0x0b
+#define HIMAX_DATA_TYPE_MICRO_OPEN			0x0c
+#define HIMAX_DATA_TYPE_SHORT				0x0a
+#define HIMAX_DATA_TYPE_RAWDATA				0x0a
+#define HIMAX_DATA_TYPE_NOISE				0x0f
+#define HIMAX_DATA_TYPE_BACK_NORMAL			0x00
+#define HIMAX_HID_RAW_DATA_TYPE_DELTA			0x09
+#define HIMAX_HID_RAW_DATA_TYPE_RAW			0x0a
+#define HIMAX_HID_RAW_DATA_TYPE_BASELINE		0x0b
+#define HIMAX_HID_RAW_DATA_TYPE_NORMAL			0x00
+/* N frame parameters */
+#define	HIMAX_NFRAME_NOISE				60
+#define HIMAX_NFRAME_OTHER				2
+/* Self test start-end passwords */
+#define	HIMAX_PWD_OPEN_START				0x7777
+#define	HIMAX_PWD_OPEN_END				0x8888
+#define	HIMAX_PWD_SHORT_START				0x1111
+#define	HIMAX_PWD_SHORT_END				0x3333
+#define	HIMAX_PWD_RAWDATA_START				0x0000
+#define	HIMAX_PWD_RAWDATA_END				0x9999
+#define	HIMAX_PWD_NOISE_START				0x0000
+#define	HIMAX_PWD_NOISE_END				0x9999
+#define	HIMAX_PWD_SORTING_START				0xaaaa
+#define	HIMAX_PWD_SORTING_END				0xcccc
+/* DSRAM data handshake passwords */
+#define	HIMAX_SRAM_PASSWRD_START			0x5aa5
+#define	HIMAX_SRAM_PASSWRD_END				0xa55a
 /* Map code of FW 1k header */
 #define HIMAX_TP_CONFIG_TABLE				0x00000a00
 #define HIMAX_FW_CID					0x10000000
@@ -185,8 +223,11 @@
  * @HIMAX_ID_CONTACT_COUNT: Contact count report ID
  * @HIMAX_ID_CFG: Configuration report ID
  * @HIMAX_ID_REG_RW: Register read/write report ID
+ * @HIMAX_ID_TOUCH_MONITOR_SEL: Touch monitor data type select report ID
+ * @HIMAX_ID_TOUCH_MONITOR: Touch monitor report ID
  * @HIMAX_ID_FW_UPDATE: Firmware update report ID
  * @HIMAX_ID_FW_UPDATE_HANDSHAKING: Firmware update handshaking report ID
+ * @HIMAX_ID_SELF_TEST: Self test report ID
  * @HIMAX_ID_USI_COLOR: USI color report ID
  * @HIMAX_ID_USI_WIDTH: USI width report ID
  * @HIMAX_ID_USI_STYLE: USI style report ID
@@ -200,8 +241,11 @@ enum himax_hidraw_id_function {
 	HIMAX_ID_CONTACT_COUNT = 0x03,
 	HIMAX_ID_CFG = 0x05,
 	HIMAX_ID_REG_RW,
+	HIMAX_ID_TOUCH_MONITOR_SEL = 0x07,
+	HIMAX_ID_TOUCH_MONITOR,
 	HIMAX_ID_FW_UPDATE = 0x0a,
 	HIMAX_ID_FW_UPDATE_HANDSHAKING,
+	HIMAX_ID_SELF_TEST,
 	HIMAX_ID_USI_COLOR = 0x11,
 	HIMAX_ID_USI_WIDTH,
 	HIMAX_ID_USI_STYLE,
@@ -211,6 +255,118 @@ enum himax_hidraw_id_function {
 	HIMAX_ID_USI_TRANSDUCER = 0x19,
 	HIMAX_ID_INPUT_RD_DE = 0x31,
 	HIMAX_ID_WINDOWS_BLOB_VALID = 0x44,
+};
+
+/**
+ * enum himax_hid_self_test_type - Self test parameters for HIDRAW
+ * @HIMAX_HID_SELF_TEST_SHORT: Panel ADC node Short test
+ * @HIMAX_HID_SELF_TEST_OPEN: Panel ADC node Open test
+ * @HIMAX_HID_SELF_TEST_MICRO_OPEN: Panel ADC node Micro Open test
+ * @HIMAX_HID_SELF_TEST_RAWDATA: Panel ADC node Rawdata test
+ * @HIMAX_HID_SELF_TEST_NOISE: Panel ADC Noise test
+ * @HIMAX_HID_SELF_TEST_RESET: Reset self test process, return to normal mode
+ */
+enum himax_hid_self_test_type {
+	HIMAX_HID_SELF_TEST_SHORT = 0x11,
+	HIMAX_HID_SELF_TEST_OPEN,
+	HIMAX_HID_SELF_TEST_MICRO_OPEN,
+	HIMAX_HID_SELF_TEST_RAWDATA = 0x21,
+	HIMAX_HID_SELF_TEST_NOISE,
+	HIMAX_HID_SELF_TEST_RESET = 0x01,
+};
+
+/**
+ * enum himax_hid_self_test_status - Self test return status for HIDRAW
+ * @HIMAX_HID_SELF_TEST_FINISH: report self test has finished
+ * @HIMAX_HID_SELF_TEST_ERROR: report self test has error
+ */
+enum himax_hid_self_test_status {
+	HIMAX_HID_SELF_TEST_FINISH = 0xff,
+	HIMAX_HID_SELF_TEST_ERROR = 0xef
+};
+
+/**
+ * enum himax_hid_inspection_type - Inspection modes of self test
+ * @HIMAX_INSPECT_OPEN: Open mode
+ * @HIMAX_INSPECT_MICRO_OPEN: Micro Open mode
+ * @HIMAX_INSPECT_SHORT: Short mode
+ * @HIMAX_INSPECT_ABS_NOISE: Absolute Noise mode
+ * @HIMAX_INSPECT_RAWDATA: Rawdata mode
+ * @HIMAX_INSPECT_SORTING: Sorting mode
+ * @HIMAX_INSPECT_BACK_NORMAL: Normal mode
+ */
+enum himax_hid_inspection_type {
+	HIMAX_INSPECT_OPEN,
+	HIMAX_INSPECT_MICRO_OPEN,
+	HIMAX_INSPECT_SHORT,
+	HIMAX_INSPECT_ABS_NOISE,
+	HIMAX_INSPECT_RAWDATA,
+	HIMAX_INSPECT_SORTING,
+	HIMAX_INSPECT_BACK_NORMAL
+};
+
+/**
+ * enum himax_data_type - Data type index of self test mapping of actual types
+ * @HIMAX_DATA_SORTING: Sorting data index
+ * @HIMAX_DATA_OPEN: Open data index
+ * @HIMAX_DATA_MICRO_OPEN: Micro Open data index
+ * @HIMAX_DATA_SHORT: Short data index
+ * @HIMAX_DATA_RAWDATA: Rawdata data index
+ * @HIMAX_DATA_NOISE: Noise data index
+ * @HIMAX_DATA_BACK_NORMAL: Normal data index
+ * @HIMAX_DATA_TYPE_MAX: enum amount for data allocate
+ */
+enum himax_data_type {
+	HIMAX_DATA_SORTING,
+	HIMAX_DATA_OPEN,
+	HIMAX_DATA_MICRO_OPEN,
+	HIMAX_DATA_SHORT,
+	HIMAX_DATA_RAWDATA,
+	HIMAX_DATA_NOISE,
+	HIMAX_DATA_BACK_NORMAL,
+	HIMAX_DATA_TYPE_MAX
+};
+
+/**
+ * enum himax_inspection_result - Inspection result of self test
+ * @HIMAX_INSPECT_OK: Self test pass
+ * @HIMAX_INSPECT_CHANGE_MODE_REQUIRED: Change mode required
+ * @HIMAX_INSPECT_FAIL: Self test fail
+ * @HIMAX_INSPECT_ENOMEM: Memory allocate errors
+ * @HIMAX_INSPECT_ESCREEN: Abnormal screen state Invalid
+ * @HIMAX_INSPECT_ESPECT: Out of specification
+ * @HIMAX_INSPECT_EFILE: Criteria file loading error
+ * @HIMAX_INSPECT_ESWITCHMODE: Switch mode error
+ * @HIMAX_INSPECT_ESWITCHDATA: Switch data error
+ * @HIMAX_INSPECT_EGETRAW: Get raw data errors
+ */
+enum himax_inspection_result {
+	HIMAX_INSPECT_OK,
+	HIMAX_INSPECT_CHANGE_MODE_REQUIRED,
+	HIMAX_INSPECT_FAIL = 1 << 1,
+	HIMAX_INSPECT_ENOMEM = 1 << 2,
+	HIMAX_INSPECT_ESCREEN = 1 << 3,
+	HIMAX_INSPECT_ESPECT = 1 << 4,
+	HIMAX_INSPECT_EFILE = 1 << 5,
+	HIMAX_INSPECT_ESWITCHMODE = 1 << 6,
+	HIMAX_INSPECT_ESWITCHDATA = 1 << 7,
+	HIMAX_INSPECT_EGETRAW = 1 << 8,
+};
+
+/**
+ * enum himax_hid_raw_data_type - Raw data types indexes of raw data select
+ * @HIMAX_HID_RAW_DATA_TYPE_DELTA_INDEX: Delta index
+ * @HIMAX_HID_RAW_DATA_TYPE_RAW_INDEX: Raw index
+ * @HIMAX_HID_RAW_DATA_TYPE_BASELINE_INDEX: Baseline index
+ * @HIMAX_HID_RAW_DATA_TYPE_NORMAL_INDEX: Normal index
+ * @HIMAX_HID_RAW_DATA_TYPE_MAX: Enum limit for raw data types
+ */
+enum himax_hid_raw_data_type {
+	HIMAX_HID_RAW_DATA_TYPE_DELTA_INDEX,
+	HIMAX_HID_RAW_DATA_TYPE_RAW_INDEX,
+	HIMAX_HID_RAW_DATA_TYPE_BASELINE_INDEX,
+	HIMAX_HID_RAW_DATA_TYPE_NORMAL_INDEX,
+	HIMAX_HID_RAW_DATA_TYPE_MAX
 };
 
 /**
@@ -360,6 +516,7 @@ struct himax_rd_feature_unit {
  * struct himax_hid_req_cfg - HIDRAW request configuration
  * @reg_data: Register data buffer, not include READ/WRITE, REG_ADDR
  * @processing_id: Store last ID of HIDRAW request
+ * @self_test_type: Self test type
  * @handshake_set: Store the HID set parameter for last set request
  * @handshake_get: Store the HID get parameter for last get request
  * @current_size: Accumulated size of fw data
@@ -383,6 +540,7 @@ struct himax_rd_feature_unit {
 struct himax_hid_req_cfg {
 	u8 reg_data[HIMAX_HID_REG_SZ_MAX - HIMAX_HID_REG_RW_SZ - HIMAX_REG_SZ];
 	u32 processing_id;
+	u32 self_test_type;
 	u32 handshake_set;
 	u32 handshake_get;
 	u32 current_size;
@@ -518,10 +676,16 @@ union himax_host_ext_rd {
 		struct himax_rd_feature_unit cfg;
 		/* HIMAX_ID_REG_RW */
 		struct himax_rd_feature_unit reg_rw;
+		/* HIMAX_ID_TOUCH_MONITOR_SEL */
+		struct himax_rd_feature_unit monitor_sel;
+		/* HIMAX_ID_TOUCH_MONITOR */
+		struct himax_rd_feature_unit monitor;
 		/* HIMAX_ID_FW_UPDATE */
 		struct himax_rd_feature_unit fw_update;
 		/* HIMAX_ID_FW_UPDATE_HANDSHAKING */
 		struct himax_rd_feature_unit fw_update_handshaking;
+		/* HIMAX_ID_SELF_TEST */
+		struct himax_rd_feature_unit self_test;
 		/* HIMAX_ID_INPUT_RD_DE */
 		struct himax_rd_feature_unit input_rd_en;
 		/* HIMAX_HIMAX_ID_WINDOWS_BLOB_VALIDATION */
@@ -742,6 +906,7 @@ struct himax_platform_data {
  * @initial_work: Delayed work for TP initialization
  * @himax_hidraw_wq: Workqueue for hidraw
  * @work_hid_update: Delayed work for hid update
+ * @work_self_test: Delayed work for self test
  */
 struct himax_ts_data {
 	u8 latest_power_status;
@@ -795,5 +960,6 @@ struct himax_ts_data {
 	struct delayed_work initial_work;
 	struct workqueue_struct *himax_hidraw_wq;
 	struct delayed_work work_hid_update;
+	struct delayed_work work_self_test;
 };
 #endif
