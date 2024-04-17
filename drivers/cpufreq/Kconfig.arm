@@ -232,7 +232,7 @@ config ARM_TEGRA20_CPUFREQ
 	tristate "Tegra20/30 CPUFreq support"
 	depends on ARCH_TEGRA || COMPILE_TEST
 	depends on CPUFREQ_DT
-	default ARCH_TEGRA
+	default ARCH_TEGRA_2x_SOC || ARCH_TEGRA_3x_SOC
 	help
 	  This adds the CPUFreq driver support for Tegra20/30 SOCs.
 
@@ -240,7 +240,7 @@ config ARM_TEGRA124_CPUFREQ
 	tristate "Tegra124 CPUFreq support"
 	depends on ARCH_TEGRA || COMPILE_TEST
 	depends on CPUFREQ_DT
-	default ARCH_TEGRA
+	default ARCH_TEGRA_114_SOC || ARCH_TEGRA_124_SOC || ARCH_TEGRA_132_SOC || ARCH_TEGRA_210_SOC
 	help
 	  This adds the CPUFreq driver support for Tegra124 SOCs.
 
