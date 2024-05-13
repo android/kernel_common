@@ -4156,6 +4156,7 @@ static void himax_initial_work(struct work_struct *work)
 		else
 			break;
 	}
+
 	/* get hid descriptors */
 	if (!ts->fw_info_table.addr_hid_desc) {
 		dev_err(ts->dev, "%s: No HID descriptor! Wrong FW!\n", __func__);
@@ -5326,9 +5327,13 @@ static void himax_shutdown(struct spi_device *spi)
 	}
 
 	himax_int_enable(ts, false);
-	gpiod_set_value(ts->pdata.gpiod_rst, 1);
-	himax_power_deconfig(&ts->pdata);
 	himax_hid_remove(ts);
+	power_supply_unreg_notifier(&ts->power_notif);
+	cancel_delayed_work_sync(&ts->work_pwr);
+	destroy_workqueue(ts->himax_pwr_wq);
+	gpiod_set_value(ts->pdata.gpiod_rst, 1);
+	himax_chip_deinit(ts);
+	himax_platform_deinit(ts);
 }
 
 #if defined(CONFIG_OF)
