@@ -587,4 +587,120 @@ int cmdq_pkt_finalize(struct cmdq_pkt *pkt)
 }
 EXPORT_SYMBOL(cmdq_pkt_finalize);
 
+int cmdq_sec_insert_backup_cookie(struct cmdq_pkt *pkt)
+{
+	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
+	struct cmdq_operand left, right;
+	struct device *dev;
+	dma_addr_t addr;
+
+	if (!cl) {
+		pr_err("%s %d: pkt->cl is NULL!\n", __func__, __LINE__);
+		return -EINVAL;
+	}
+	dev = cl->chan->mbox->dev;
+
+	addr = cmdq_sec_get_exec_cnt_addr(cl->chan);
+	if (addr == 0) {
+		dev_err(dev, "%s %d: failed to get exec cnt addr!\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	cmdq_pkt_assign(pkt, CMDQ_THR_SPR_IDX1, CMDQ_ADDR_HIGH(addr));
+	cmdq_pkt_read_s(pkt, CMDQ_THR_SPR_IDX1, CMDQ_ADDR_LOW(addr), CMDQ_THR_SPR_IDX1);
+
+	left.reg = true;
+	left.idx = CMDQ_THR_SPR_IDX1;
+	right.reg = false;
+	right.value = 1;
+	cmdq_pkt_logic_command(pkt, CMDQ_THR_SPR_IDX1, &left, CMDQ_LOGIC_ADD, &right);
+
+	addr = cmdq_sec_get_cookie_addr(cl->chan) + cmdq_get_offset_pa(cl->chan);
+	if (addr == 0) {
+		dev_err(dev, "%s %d: failed to get cookie addr!\n",
+			__func__, __LINE__);
+		return -EINVAL;
+	}
+
+	cmdq_pkt_assign(pkt, CMDQ_THR_SPR_IDX2, CMDQ_ADDR_HIGH(addr));
+	cmdq_pkt_write_s(pkt, CMDQ_THR_SPR_IDX2, CMDQ_ADDR_LOW(addr), CMDQ_THR_SPR_IDX1);
+	cmdq_pkt_set_event(pkt, cmdq_sec_get_eof_event_id(cl->chan));
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(cmdq_sec_insert_backup_cookie);
+
+void cmdq_sec_pkt_free_sec_data(struct cmdq_pkt *pkt)
+{
+	kfree(pkt->sec_data);
+}
+EXPORT_SYMBOL_GPL(cmdq_sec_pkt_free_sec_data);
+
+int cmdq_sec_pkt_alloc_sec_data(struct cmdq_pkt *pkt)
+{
+	struct cmdq_sec_data *sec_data;
+
+	if (pkt->sec_data) {
+		memset(pkt->sec_data, 0, sizeof(struct cmdq_sec_data));
+		return 0;
+	}
+
+	sec_data = kzalloc(sizeof(*sec_data), GFP_KERNEL);
+	if (!sec_data)
+		return -ENOMEM;
+
+	pkt->sec_data = (void *)sec_data;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(cmdq_sec_pkt_alloc_sec_data);
+
+static int cmdq_sec_append_metadata(struct cmdq_pkt *pkt,
+				    const enum cmdq_iwc_addr_metadata_type type,
+				    const u32 base, const u32 offset)
+{
+	struct cmdq_client *cl = (struct cmdq_client *)pkt->cl;
+	struct device *dev = cl->chan->mbox->dev;
+	struct cmdq_sec_data *sec_data;
+	int idx;
+
+	dev_dbg(dev, "[%s %d] pkt:%p type:%u base:%#x offset:%#x",
+		__func__, __LINE__, pkt, type, base, offset);
+
+	if (!pkt->sec_data) {
+		dev_err(dev, "[%s %d] no sec_data\n", __func__, __LINE__);
+		return -ENOMEM;
+	}
+
+	sec_data = (struct cmdq_sec_data *)pkt->sec_data;
+	idx = sec_data->meta_cnt;
+	if (idx >= CMDQ_IWC_MAX_ADDR_LIST_LENGTH) {
+		dev_err(dev, "idx:%u reach over:%u", idx, CMDQ_IWC_MAX_ADDR_LIST_LENGTH);
+		return -EFAULT;
+	}
+
+	sec_data->meta_list[idx].type = type;
+	sec_data->meta_list[idx].base_handle = base;
+	sec_data->meta_list[idx].offset = offset;
+	sec_data->meta_cnt += 1;
+
+	return 0;
+}
+
+int cmdq_sec_pkt_write(struct cmdq_pkt *pkt, u8 subsys, u32 pa_base, u16 offset,
+		       enum cmdq_iwc_addr_metadata_type type,
+		       u32 base, u32 base_offset)
+{
+	if (subsys != CMDQ_SUBSYS_INVALID)
+		cmdq_pkt_write(pkt, subsys, offset, base);
+	else {
+		cmdq_pkt_assign(pkt, CMDQ_THR_SPR_IDX0, CMDQ_ADDR_HIGH(pa_base));
+		cmdq_pkt_write_s_value(pkt, CMDQ_THR_SPR_IDX0, CMDQ_ADDR_LOW(offset), base);
+	}
+
+	return cmdq_sec_append_metadata(pkt, type, base, base_offset);
+}
+EXPORT_SYMBOL_GPL(cmdq_sec_pkt_write);
+
 MODULE_LICENSE("GPL v2");
