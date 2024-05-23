@@ -7,9 +7,9 @@
 #include "mt8186-corsola-veluza.dtsi"
 
 / {
-	model = "Google veluza sku131073/131075 board";
-	compatible = "google,veluza-sku131073", "google,veluza-sku131075",
-		     "google,veluza", "google,corsola", "mediatek,mt8186";
+	model = "Google veluza sku131073 board";
+	compatible = "google,veluza-sku131073","google,veluza",
+		     "google,corsola", "mediatek,mt8186";
 };
 
 &i2c1 {

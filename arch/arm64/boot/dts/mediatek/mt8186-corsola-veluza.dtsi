@@ -17,10 +17,6 @@
 	};
 };
 
-&usb_c1 {
-    status = "disabled";
-};
-
 &keyboard_controller {
 	function-row-physmap = <
 		MATRIX_KEY(0x00, 0x02, 0)	/* T1 */
