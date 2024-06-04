@@ -81,6 +81,15 @@
 	>;
 };
 
+&keyboard_controller {
+	keypad,num-columns = <18>;
+
+	linux,keymap = <
+		CROS_TOP_ROW_KEYMAP_V30
+		CROS_MAIN_KEYMAP_V30
+	>;
+};
+
 &dsi_out {
 	remote-endpoint = <&anx7625_in_>;
 };
