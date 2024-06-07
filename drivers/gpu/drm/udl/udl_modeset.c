@@ -582,8 +582,8 @@ int udl_modeset_init(struct drm_device *dev)
 	if (ret)
 		return ret;
 
-	dev->mode_config.min_width = 640;
-	dev->mode_config.min_height = 480;
+	dev->mode_config.min_width = UDL_CURSOR_W;
+	dev->mode_config.min_height = UDL_CURSOR_H;
 	dev->mode_config.max_width = 2048;
 	dev->mode_config.max_height = 2048;
 	dev->mode_config.preferred_depth = 16;
