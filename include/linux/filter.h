@@ -1477,7 +1477,7 @@ static inline u16 bpf_anc_helper(const struct sock_filter *ftest)
 }
 
 void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb,
-					   int k, unsigned int size);
+					   int k, unsigned int size, void *buf);
 
 static inline int bpf_tell_extensions(void)
 {

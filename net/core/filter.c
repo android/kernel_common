@@ -230,7 +230,7 @@ BPF_CALL_4(bpf_skb_load_helper_8, const struct sk_buff *, skb, const void *,
 		if (!skb_copy_bits(skb, offset, &tmp, sizeof(tmp)))
 			return tmp;
 	} else {
-		ptr = bpf_internal_load_pointer_neg_helper(skb, offset, len);
+		ptr = bpf_internal_load_pointer_neg_helper(skb, offset, len, &tmp);
 		if (likely(ptr))
 			return *(u8 *)ptr;
 	}
@@ -257,7 +257,7 @@ BPF_CALL_4(bpf_skb_load_helper_16, const struct sk_buff *, skb, const void *,
 		if (!skb_copy_bits(skb, offset, &tmp, sizeof(tmp)))
 			return be16_to_cpu(tmp);
 	} else {
-		ptr = bpf_internal_load_pointer_neg_helper(skb, offset, len);
+		ptr = bpf_internal_load_pointer_neg_helper(skb, offset, len, &tmp);
 		if (likely(ptr))
 			return get_unaligned_be16(ptr);
 	}
@@ -284,7 +284,7 @@ BPF_CALL_4(bpf_skb_load_helper_32, const struct sk_buff *, skb, const void *,
 		if (!skb_copy_bits(skb, offset, &tmp, sizeof(tmp)))
 			return be32_to_cpu(tmp);
 	} else {
-		ptr = bpf_internal_load_pointer_neg_helper(skb, offset, len);
+		ptr = bpf_internal_load_pointer_neg_helper(skb, offset, len, &tmp);
 		if (likely(ptr))
 			return get_unaligned_be32(ptr);
 	}
