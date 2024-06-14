@@ -58,6 +58,12 @@ static void msg_submit(struct mbox_chan *chan)
 	void *data;
 	int err = -EBUSY;
 
+	if (chan->mbox->ops->power_get) {
+		err = chan->mbox->ops->power_get(chan);
+		if (err < 0)
+			return;
+	}
+
 	spin_lock_irqsave(&chan->lock, flags);
 
 	if (!chan->msg_count || chan->active_req)
@@ -89,12 +95,16 @@ exit:
 		hrtimer_start(&chan->mbox->poll_hrt, 0, HRTIMER_MODE_REL);
 		spin_unlock_irqrestore(&chan->mbox->poll_hrt_lock, flags);
 	}
+
+	if (chan->mbox->ops->power_put)
+		chan->mbox->ops->power_put(chan);
 }
 
 static void tx_tick(struct mbox_chan *chan, int r)
 {
 	unsigned long flags;
 	void *mssg;
+	int ret;
 
 	spin_lock_irqsave(&chan->lock, flags);
 	mssg = chan->active_req;
@@ -107,9 +117,18 @@ static void tx_tick(struct mbox_chan *chan, int r)
 	if (!mssg)
 		return;
 
+	if (chan->mbox->ops->power_get) {
+		ret = chan->mbox->ops->power_get(chan);
+		if (ret < 0)
+			return;
+	}
+
 	/* Notify the client */
 	if (chan->cl->tx_done)
 		chan->cl->tx_done(chan->cl, mssg, r);
+
+	if (chan->mbox->ops->power_put)
+		chan->mbox->ops->power_put(chan);
 
 	if (r != -ETIME && chan->cl->tx_block)
 		complete(&chan->tx_complete);
@@ -223,8 +242,15 @@ EXPORT_SYMBOL_GPL(mbox_client_txdone);
  */
 bool mbox_client_peek_data(struct mbox_chan *chan)
 {
+	if (chan->mbox->ops->power_get)
+		if (chan->mbox->ops->power_get(chan) < 0)
+			return false;
+
 	if (chan->mbox->ops->peek_data)
 		return chan->mbox->ops->peek_data(chan);
+
+	if (chan->mbox->ops->power_put)
+		chan->mbox->ops->power_put(chan);
 
 	return false;
 }
@@ -310,9 +336,18 @@ int mbox_flush(struct mbox_chan *chan, unsigned long timeout)
 	if (!chan->mbox->ops->flush)
 		return -ENOTSUPP;
 
+	if (chan->mbox->ops->power_get) {
+		ret = chan->mbox->ops->power_get(chan);
+		if (ret < 0)
+			return ret;
+	}
+
 	ret = chan->mbox->ops->flush(chan, timeout);
 	if (ret < 0)
 		tx_tick(chan, ret);
+
+	if (chan->mbox->ops->power_put)
+		chan->mbox->ops->power_put(chan);
 
 	return ret;
 }
@@ -340,6 +375,12 @@ static int __mbox_bind_client(struct mbox_chan *chan, struct mbox_client *cl)
 		chan->txdone_method = TXDONE_BY_ACK;
 
 	spin_unlock_irqrestore(&chan->lock, flags);
+
+	if (chan->mbox->ops->power_get) {
+		ret = chan->mbox->ops->power_get(chan);
+		if (ret < 0)
+			return ret;
+	}
 
 	if (chan->mbox->ops->startup) {
 		ret = chan->mbox->ops->startup(chan);
@@ -441,7 +482,11 @@ struct mbox_chan *mbox_request_channel(struct mbox_client *cl, int index)
 	if (ret)
 		chan = ERR_PTR(ret);
 
+	if (chan->mbox->ops->power_put)
+		chan->mbox->ops->power_put(chan);
+
 	mutex_unlock(&con_mutex);
+
 	return chan;
 }
 EXPORT_SYMBOL_GPL(mbox_request_channel);
@@ -485,12 +530,22 @@ EXPORT_SYMBOL_GPL(mbox_request_channel_byname);
 void mbox_free_channel(struct mbox_chan *chan)
 {
 	unsigned long flags;
+	int ret;
 
 	if (!chan || !chan->cl)
 		return;
 
+	if (chan->mbox->ops->power_get) {
+		ret = chan->mbox->ops->power_get(chan);
+		if (ret < 0)
+			return;
+	}
+
 	if (chan->mbox->ops->shutdown)
 		chan->mbox->ops->shutdown(chan);
+
+	if (chan->mbox->ops->power_put)
+		chan->mbox->ops->power_put(chan);
 
 	/* The queued TX requests are simply aborted, no callbacks are made */
 	spin_lock_irqsave(&chan->lock, flags);

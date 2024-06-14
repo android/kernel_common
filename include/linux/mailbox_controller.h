@@ -42,6 +42,15 @@ struct mbox_chan;
  *		  Used only if txdone_poll:=true && txdone_irq:=false
  * @peek_data: Atomic check for any received data. Return true if controller
  *		  has some data to push to the client. False otherwise.
+ * @power_get:	Called when the controller need to get the reference to keep
+ *		the power on for the device of mailbox controller. It is
+ *		optional to implement this function with pm_runtime APIs or
+ *		more complicated operation.
+ *		Return 0 is success, otherwise are fail.
+ * @power_put:	Called when the controller need to put the reference to release
+ *		the power for the device of mailbox controller. It is optional
+ *		to implement this function with pm_runtime APIs or more
+ *		complicated operation.
  */
 struct mbox_chan_ops {
 	int (*send_data)(struct mbox_chan *chan, void *data);
@@ -50,6 +59,8 @@ struct mbox_chan_ops {
 	void (*shutdown)(struct mbox_chan *chan);
 	bool (*last_tx_done)(struct mbox_chan *chan);
 	bool (*peek_data)(struct mbox_chan *chan);
+	int (*power_get)(struct mbox_chan *chan);
+	void (*power_put)(struct mbox_chan *chan);
 };
 
 /**
