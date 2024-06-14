@@ -457,10 +457,8 @@ static int cmdq_mbox_send_data(struct mbox_chan *chan, void *data)
 		return ret;
 
 	task = kzalloc(sizeof(*task), GFP_ATOMIC);
-	if (!task) {
-		pm_runtime_put_autosuspend(cmdq->mbox.dev);
+	if (!task)
 		return -ENOMEM;
-	}
 
 	task->cmdq = cmdq;
 	INIT_LIST_HEAD(&task->list_entry);
@@ -508,7 +506,6 @@ static int cmdq_mbox_send_data(struct mbox_chan *chan, void *data)
 	list_move_tail(&task->list_entry, &thread->task_busy_list);
 
 	pm_runtime_mark_last_busy(cmdq->mbox.dev);
-	pm_runtime_put_autosuspend(cmdq->mbox.dev);
 
 	return 0;
 }
@@ -556,7 +553,6 @@ done:
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 
 	pm_runtime_mark_last_busy(cmdq->mbox.dev);
-	pm_runtime_put_autosuspend(cmdq->mbox.dev);
 }
 
 static int cmdq_mbox_flush(struct mbox_chan *chan, unsigned long timeout)
@@ -596,7 +592,6 @@ static int cmdq_mbox_flush(struct mbox_chan *chan, unsigned long timeout)
 out:
 	spin_unlock_irqrestore(&thread->chan->lock, flags);
 	pm_runtime_mark_last_busy(cmdq->mbox.dev);
-	pm_runtime_put_autosuspend(cmdq->mbox.dev);
 
 	return 0;
 
@@ -611,8 +606,22 @@ wait:
 		return -EFAULT;
 	}
 	pm_runtime_mark_last_busy(cmdq->mbox.dev);
-	pm_runtime_put_autosuspend(cmdq->mbox.dev);
+
 	return 0;
+}
+
+static int cmdq_mbox_pm_resume(struct mbox_chan *chan)
+{
+	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
+
+	return pm_runtime_get_sync(cmdq->mbox.dev);
+}
+
+static void cmdq_mbox_pm_susepnd(struct mbox_chan *chan)
+{
+	struct cmdq *cmdq = dev_get_drvdata(chan->mbox->dev);
+
+	pm_runtime_put_autosuspend(cmdq->mbox.dev);
 }
 
 static const struct mbox_chan_ops cmdq_mbox_chan_ops = {
@@ -620,6 +629,8 @@ static const struct mbox_chan_ops cmdq_mbox_chan_ops = {
 	.startup = cmdq_mbox_startup,
 	.shutdown = cmdq_mbox_shutdown,
 	.flush = cmdq_mbox_flush,
+	.power_get = cmdq_mbox_pm_resume,
+	.power_put = cmdq_mbox_pm_susepnd,
 };
 
 static struct mbox_chan *cmdq_xlate(struct mbox_controller *mbox,
