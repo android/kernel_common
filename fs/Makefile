@@ -6,7 +6,11 @@
 # Rewritten to use lists instead of if-statements.
 # 
 
+ifdef CONFIG_GKI_HACKS_TO_FIX
 subdir-ccflags-y += -DANDROID_GKI_VFS_EXPORT_ONLY=VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver
+else
+subdir-ccflags-y += -DANDROID_GKI_VFS_EXPORT_ONLY=""
+endif
 
 obj-y :=	open.o read_write.o file_table.o super.o \
 		char_dev.o stat.o exec.o pipe.o namei.o fcntl.o \

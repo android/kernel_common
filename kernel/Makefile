@@ -3,7 +3,11 @@
 # Makefile for the linux kernel.
 #
 
+ifdef CONFIG_GKI_HACKS_TO_FIX
 CFLAGS_cred.o = -DANDROID_GKI_VFS_EXPORT_ONLY=VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver
+else
+CFLAGS_cred.o = -DANDROID_GKI_VFS_EXPORT_ONLY=""
+endif
 obj-y     = fork.o exec_domain.o panic.o \
 	    cpu.o exit.o softirq.o resource.o \
 	    sysctl.o capability.o ptrace.o user.o \
