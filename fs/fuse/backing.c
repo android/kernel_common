@@ -89,9 +89,13 @@ int fuse_backing_open(struct fuse_conn *fc, struct fuse_backing_map *map)
 	pr_debug("%s: fd=%d flags=0x%x\n", __func__, map->fd, map->flags);
 
 	/* TODO: relax CAP_SYS_ADMIN once backing files are visible to lsof */
+	/* Android already restricts access here, and we don't want to grant extra
+	 * Permissions to the daemon */
+#if 0
 	res = -EPERM;
 	if (!fc->passthrough || !capable(CAP_SYS_ADMIN))
 		goto out;
+#endif
 
 	res = -EINVAL;
 	if (map->flags || map->padding)
@@ -145,9 +149,13 @@ int fuse_backing_close(struct fuse_conn *fc, int backing_id)
 	pr_debug("%s: backing_id=%d\n", __func__, backing_id);
 
 	/* TODO: relax CAP_SYS_ADMIN once backing files are visible to lsof */
+	/* Android already restricts access here, and we don't want to grant extra
+	 * Permissions to the daemon */
+#if 0
 	err = -EPERM;
 	if (!fc->passthrough || !capable(CAP_SYS_ADMIN))
 		goto out;
+#endif
 
 	err = -EINVAL;
 	if (backing_id <= 0)
