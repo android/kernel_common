@@ -7,6 +7,7 @@
 #include <dt-bindings/clock/mt8196-clk.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/mailbox/mediatek,mt8196-gce.h>
 #include <dt-bindings/memory/mtk-smi-user.h>
 #include <dt-bindings/memory/mt8196-larb-port.h>
 #include <dt-bindings/phy/phy.h>
@@ -1226,6 +1227,22 @@
 			mediatek,smi = <&mdp_ssc4_smi_2x1_sub_comm>;
 			mediatek,common-id = <1>;
 			mediatek,skip-rpm-cb;
+		};
+
+		gce0: gce@300c0000 {
+			compatible = "mediatek,mt8196-gce";
+			reg = <0 0x300c0000 0 0x80000>;
+			interrupts = <GIC_SPI 483 IRQ_TYPE_LEVEL_HIGH 0>;
+			#mbox-cells = <2>;
+			iommus = <&mm_smmu 199>;
+		};
+
+		gce1: gce@30140000 {
+			compatible = "mediatek,mt8196-gce";
+			reg = <0 0x30140000 0 0x80000>;
+			interrupts = <GIC_SPI 482 IRQ_TYPE_LEVEL_HIGH 0>;
+			#mbox-cells = <2>;
+			iommus = <&mm_smmu 183>;
 		};
 
 		mm_smmu: iommu@30800000 {
