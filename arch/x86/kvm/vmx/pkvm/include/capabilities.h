@@ -55,4 +55,26 @@ static inline bool vmx_has_invept_context(void)
 	return vmx_ept_capability_check(VMX_EPT_EXTENT_CONTEXT_BIT);
 }
 
+static inline bool vmx_vpid_capability_check(u32 bit)
+{
+	struct vmx_capability *vmx_cap = &PKVM_HYP->vmx_cap;
+
+	return vmx_cap->vpid & bit;
+}
+
+static inline bool vmx_has_invvpid(void)
+{
+	return vmx_vpid_capability_check(VMX_VPID_INVVPID_BIT);
+}
+
+static inline bool vmx_has_invvpid_single(void)
+{
+	return vmx_vpid_capability_check(VMX_VPID_EXTENT_SINGLE_CONTEXT_BIT);
+}
+
+static inline bool vmx_has_invvpid_global(void)
+{
+	return vmx_vpid_capability_check(VMX_VPID_EXTENT_GLOBAL_CONTEXT_BIT);
+}
+
 #endif

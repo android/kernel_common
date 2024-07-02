@@ -349,7 +349,9 @@ switch_pgt:
 	vmcs_write64(EPT_POINTER, eptp);
 
 	/* enable vpid */
-	if (pkvm_hyp->vmcs_config.cpu_based_2nd_exec_ctrl & SECONDARY_EXEC_ENABLE_VPID) {
+	if (pkvm_hyp->vmcs_config.cpu_based_2nd_exec_ctrl & SECONDARY_EXEC_ENABLE_VPID &&
+		vmx_has_invvpid() &&
+		(vmx_has_invvpid_single() || vmx_has_invvpid_global())) {
 		static u16 pkvm_host_vpid = VMX_NR_VPIDS - 1;
 
 		/*
