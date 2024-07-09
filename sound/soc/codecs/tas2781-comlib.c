@@ -242,7 +242,7 @@ struct tasdevice_priv *tasdevice_kzalloc(struct i2c_client *i2c)
 }
 EXPORT_SYMBOL_GPL(tasdevice_kzalloc);
 
-void tas2781_reset(struct tasdevice_priv *tas_dev)
+void tasdevice_reset(struct tasdevice_priv *tas_dev)
 {
 	int ret, i;
 
@@ -253,8 +253,8 @@ void tas2781_reset(struct tasdevice_priv *tas_dev)
 	} else {
 		for (i = 0; i < tas_dev->ndev; i++) {
 			ret = tasdevice_dev_write(tas_dev, i,
-				TAS2781_REG_SWRESET,
-				TAS2781_REG_SWRESET_RESET);
+				TASDEVICE_REG_SWRESET,
+				TASDEVICE_REG_SWRESET_RESET);
 			if (ret < 0)
 				dev_err(tas_dev->dev,
 					"dev %d swreset fail, %d\n",
@@ -263,7 +263,7 @@ void tas2781_reset(struct tasdevice_priv *tas_dev)
 	}
 	usleep_range(1000, 1050);
 }
-EXPORT_SYMBOL_GPL(tas2781_reset);
+EXPORT_SYMBOL_GPL(tasdevice_reset);
 
 int tascodec_init(struct tasdevice_priv *tas_priv, void *codec,
 	struct module *module,
