@@ -46,3 +46,6 @@
 	>;
 };
 
+&u2port0 {
+	mediatek,eye-term = <2>;
+};
