@@ -120,6 +120,7 @@ config PKVM_INTEL
 	depends on KVM_INTEL=y
 	depends on X86_64
 	depends on !KSM
+	depends on INTEL_IOMMU
 	select INTEL_IOMMU_DEFAULT_ON
 	select INTEL_IOMMU_SCALABLE_MODE_DEFAULT_ON
 	help
