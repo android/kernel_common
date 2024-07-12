@@ -85,7 +85,7 @@ static struct pkvm_pio_handler *get_pio_handler(struct pkvm_pio_emul_table *tabl
 			if (pio_access_valid(req->size) && (req->size & handler->size_mask))
 				return handler;
 
-			pkvm_err("pkvm: I/O port 0x%x mismatched access witdth %d",
+			pkvm_err("pkvm: I/O port 0x%x mismatched access width %d\n",
 				req->port, req->size);
 			return NULL;
 		}
@@ -133,7 +133,7 @@ int handle_host_pio(struct kvm_vcpu *vcpu)
 	req.value = &vcpu->arch.regs[VCPU_REGS_RAX];
 	req.direction = (exit_qual & 8) == 0;
 
-	pkvm_dbg("pkvm: host %s I/O port 0x%x width %d value %lx", req.direction ?
+	pkvm_dbg("pkvm: host %s I/O port 0x%x width %d value %lx\n", req.direction ?
 		"write" : "read", req.port, req.size, *req.value);
 
 	return emulate_host_pio(vcpu, &req);
@@ -350,11 +350,11 @@ static int handle_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
 	struct pkvm_mmio_req req;
 
 	if (mmio_instruction_decode(vcpu, gpa, &req)) {
-		pkvm_dbg("pkvm: MMIO instruction decode failed");
+		pkvm_dbg("pkvm: MMIO instruction decode failed\n");
 		return -EINVAL;
 	}
 
-	pkvm_dbg("pkvm: host %s MMIO gpa 0x%lx width %d value 0x%lx", req.direction ?
+	pkvm_dbg("pkvm: host %s MMIO gpa 0x%lx width %d value 0x%lx\n", req.direction ?
 		"write" : "read", req.address, req.size, *req.value);
 
 	return emulate_host_mmio(vcpu, &req);

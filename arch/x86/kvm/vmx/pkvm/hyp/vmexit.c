@@ -289,7 +289,7 @@ int pkvm_main(struct kvm_vcpu *vcpu)
 				break;
 			case EXIT_REASON_EPT_VIOLATION:
 				if (handle_host_ept_violation(vcpu, &skip_instruction))
-					pkvm_err("pkvm: handle host ept violation failed");
+					pkvm_err("pkvm: handle host ept violation failed\n");
 				break;
 			case EXIT_REASON_INTERRUPT_WINDOW:
 				handle_irq_window(vcpu);
@@ -304,7 +304,7 @@ int pkvm_main(struct kvm_vcpu *vcpu)
 				break;
 			case EXIT_REASON_IO_INSTRUCTION:
 				if (handle_host_pio(vcpu))
-					pkvm_err("pkvm: handle host port I/O access failed.");
+					pkvm_err("pkvm: handle host port I/O access failed\n");
 				skip_instruction = true;
 				break;
 			default:
