@@ -1235,6 +1235,8 @@
 			interrupts = <GIC_SPI 483 IRQ_TYPE_LEVEL_HIGH 0>;
 			#mbox-cells = <2>;
 			iommus = <&mm_smmu 199>;
+			mboxes = <&gce0 15 CMDQ_THR_PRIO_1>;
+			mediatek,gce-events = <CMDQ_SYNC_SECURE_THR_EOF>;
 		};
 
 		gce1: gce@30140000 {
