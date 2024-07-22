@@ -102,7 +102,7 @@ static bool pkvm_handle_virt_exception(struct pt_regs *regs, struct ve_info *ve)
 
 __init void pkvm_guest_init_coco(void)
 {
-	cc_set_vendor(CC_VENDOR_PKVM);
+	cc_vendor = CC_VENDOR_PKVM;
 
 	pkvm_guest_detected = true;
 
