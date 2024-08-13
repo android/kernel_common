@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2024 Google LLC
+ */
+
+/dts-v1/;
+#include "mt8186-corsola-veluza.dtsi"
+
+/ {
+	model = "Google veluza sku131082 board";
+	compatible = "google,veluza-sku131082", "google,veluza",
+		     "google,corsola", "mediatek,mt8186";
+};
+
+&usb_c1 {
+	status = "disabled";
+};
+
+&gpio_keys {
+	status = "okay";
+};
