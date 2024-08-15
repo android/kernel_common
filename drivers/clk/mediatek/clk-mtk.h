@@ -20,6 +20,17 @@
 
 #define MHZ (1000 * 1000)
 
+/* hw voter timeout configures */
+#define MTK_WAIT_HWV_PREPARE_CNT	200000
+#define MTK_WAIT_HWV_PREPARE_US		1
+#define MTK_WAIT_HWV_DONE_CNT		5000000
+#define MTK_WAIT_HWV_DONE_US		1
+#define MTK_WAIT_FENC_DONE_CNT		5000000
+#define MTK_WAIT_FENC_DONE_US		1
+
+#define CLK_USE_HW_VOTER		BIT(30)
+#define CLK_FENC_ENABLE			BIT(31)
+
 struct platform_device;
 
 /*

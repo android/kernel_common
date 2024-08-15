@@ -13,6 +13,7 @@
 #include <linux/of_address.h>
 #include <linux/slab.h>
 
+#include "clk-mtk.h"
 #include "clk-pll.h"
 
 #define MHZ			(1000 * 1000)
@@ -35,6 +36,13 @@ int mtk_pll_is_prepared(struct clk_hw *hw)
 	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
 
 	return (readl(pll->en_addr) & BIT(pll->data->pll_en_bit)) != 0;
+}
+
+static int mtk_pll_fenc_is_prepared(struct clk_hw *hw)
+{
+	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+
+	return  (((readl(pll->fenc_addr) & pll->fenc_mask) != 0) || (pll->onoff_cnt != 0));
 }
 
 static unsigned long __mtk_pll_recalc_rate(struct mtk_clk_pll *pll, u32 fin,
@@ -273,10 +281,44 @@ void mtk_pll_unprepare(struct clk_hw *hw)
 	writel(r, pll->pwr_addr);
 }
 
+static int mtk_pll_fenc_prepare(struct clk_hw *hw)
+{
+	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+
+	if (pll->onoff_cnt == 1) {
+		pr_err("%s: %s is already prepared\n", __func__, clk_hw_get_name(hw));
+		return -EPERM;
+	}
+
+	pll->onoff_cnt = 1;
+
+	return 0;
+}
+
+static void mtk_pll_fenc_unprepare(struct clk_hw *hw)
+{
+	struct mtk_clk_pll *pll = to_mtk_clk_pll(hw);
+
+	if (pll->onoff_cnt == 0)
+		pr_err("%s: %s is not prepared\n", __func__, clk_hw_get_name(hw));
+	else
+		pll->onoff_cnt = 0;
+
+}
+
 const struct clk_ops mtk_pll_ops = {
 	.is_prepared	= mtk_pll_is_prepared,
 	.prepare	= mtk_pll_prepare,
 	.unprepare	= mtk_pll_unprepare,
+	.recalc_rate	= mtk_pll_recalc_rate,
+	.round_rate	= mtk_pll_round_rate,
+	.set_rate	= mtk_pll_set_rate,
+};
+
+static const struct clk_ops mtk_pll_fenc_ops = {
+	.is_prepared	= mtk_pll_fenc_is_prepared,
+	.prepare	= mtk_pll_fenc_prepare,
+	.unprepare	= mtk_pll_fenc_unprepare,
 	.recalc_rate	= mtk_pll_recalc_rate,
 	.round_rate	= mtk_pll_round_rate,
 	.set_rate	= mtk_pll_set_rate,
@@ -312,6 +354,11 @@ struct clk_hw *mtk_clk_register_pll_ops(struct mtk_clk_pll *pll,
 
 	init.name = data->name;
 	init.flags = (data->flags & PLL_AO) ? CLK_IS_CRITICAL : 0;
+	if (data->flags & CLK_FENC_ENABLE) {
+		pll->fenc_addr = base + data->fenc_sta_ofs;
+		pll->fenc_mask = BIT(data->fenc_sta_bit);
+	}
+
 	init.ops = pll_ops;
 	if (data->parent_name)
 		init.parent_names = &data->parent_name;
@@ -337,7 +384,10 @@ struct clk_hw *mtk_clk_register_pll(const struct mtk_pll_data *data,
 	if (!pll)
 		return ERR_PTR(-ENOMEM);
 
-	hw = mtk_clk_register_pll_ops(pll, data, base, &mtk_pll_ops);
+	if (data->flags & CLK_FENC_ENABLE)
+		hw = mtk_clk_register_pll_ops(pll, data, base, &mtk_pll_fenc_ops);
+	else
+		hw = mtk_clk_register_pll_ops(pll, data, base, &mtk_pll_ops);
 	if (IS_ERR(hw))
 		kfree(pll);
 
