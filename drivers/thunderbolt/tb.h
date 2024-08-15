@@ -1389,6 +1389,7 @@ struct usb4_port_margining_params {
 	u32 voltage_time_offset;
 	bool optional_voltage_offset_range;
 	bool right_high;
+	bool upper_eye;
 	bool time;
 };
 
