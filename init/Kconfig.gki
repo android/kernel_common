@@ -1,5 +1,6 @@
 config GKI_HIDDEN_DRM_CONFIGS
 	bool "Hidden DRM configs needed for GKI"
+	select AUXILIARY_BUS if (X86)
 	select DRM_KMS_HELPER if (HAS_IOMEM && DRM)
 	select DRM_GEM_SHMEM_HELPER if (DRM)
 	select DRM_MIPI_DSI
