@@ -13,6 +13,7 @@
 #include <linux/types.h>
 #include <linux/workqueue.h>
 
+struct drm_file;
 struct xe_bo;
 struct xe_exec_queue;
 struct xe_device;
@@ -130,6 +131,16 @@ struct xe_pxp {
 	 * suspend cycles.
 	 */
 	u32 last_suspend_key_instance;
+
+	/**
+	 * @multi_session: track state for user clients and their sessions
+	 */
+	struct {
+		/** @multi_session.mutex: protects the session and client management */
+		struct mutex mutex;
+		/** @multi_session.client_list: list of user clients */
+		struct list_head client_list;
+	} multi_session;
 };
 
 #endif /* __XE_PXP_TYPES_H__ */

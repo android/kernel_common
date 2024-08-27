@@ -20,6 +20,7 @@
 #include "xe_huc.h"
 #include "xe_mmio.h"
 #include "xe_pm.h"
+#include "xe_pxp_multi_session.h"
 #include "xe_pxp_submit.h"
 #include "xe_pxp_types.h"
 #include "xe_uc_fw.h"
@@ -423,6 +424,8 @@ int xe_pxp_init(struct xe_device *xe)
 	complete_all(&pxp->activation);
 
 	mutex_init(&pxp->mutex);
+
+	xe_pxp_multi_session_init(pxp);
 
 	pxp->irq.wq = alloc_ordered_workqueue("pxp-wq", 0);
 	if (!pxp->irq.wq) {

@@ -70,10 +70,16 @@ u64 xe_gsc_create_host_session_id(void)
 u32 xe_gsc_emit_header(struct xe_device *xe, struct iosys_map *map, u32 offset,
 		       u8 heci_client_id, u64 host_session_id, u32 payload_size)
 {
+	u32 flags = 0;
+
 	xe_assert(xe, !(host_session_id & HOST_SESSION_CLIENT_MASK));
 
 	if (host_session_id)
 		host_session_id |= FIELD_PREP(HOST_SESSION_CLIENT_MASK, heci_client_id);
+
+	/* empty messages are used for cleanup */
+	if (!payload_size)
+		flags |= GSC_INFLAG_MSG_CLEANUP;
 
 	xe_map_memset(xe, map, offset, 0, GSC_HDR_SIZE);
 
@@ -82,6 +88,7 @@ u32 xe_gsc_emit_header(struct xe_device *xe, struct iosys_map *map, u32 offset,
 	mtl_gsc_header_wr(xe, map, offset, host_session_handle, host_session_id);
 	mtl_gsc_header_wr(xe, map, offset, header_version, MTL_GSC_HEADER_VERSION);
 	mtl_gsc_header_wr(xe, map, offset, message_size, payload_size + GSC_HDR_SIZE);
+	mtl_gsc_header_wr(xe, map, offset, flags, flags);
 
 	return offset + GSC_HDR_SIZE;
 };

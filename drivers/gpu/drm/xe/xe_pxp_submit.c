@@ -92,6 +92,7 @@ static int allocate_gsc_client_resources(struct xe_gt *gt,
 	struct xe_bo *bo;
 	struct xe_exec_queue *q;
 	struct dma_fence *fence;
+	bool is_user = (gsc_res != &xe->pxp->gsc_res);
 	long timeout;
 	int err = 0;
 
@@ -131,7 +132,7 @@ static int allocate_gsc_client_resources(struct xe_gt *gt,
 
 	q = xe_exec_queue_create(xe, vm, BIT(hwe->logical_instance), 1, hwe,
 				 EXEC_QUEUE_FLAG_KERNEL |
-				 EXEC_QUEUE_FLAG_PERMANENT, 0);
+				 (is_user ? 0 : EXEC_QUEUE_FLAG_PERMANENT), 0);
 	if (IS_ERR(q)) {
 		err = PTR_ERR(q);
 		goto bo_out;
@@ -585,4 +586,24 @@ int xe_pxp_submit_session_invalidation(struct xe_pxp_gsc_client_resources *gsc_r
 	}
 
 	return ret;
+}
+
+#define PXP_CLIENT_PKT_SIZE (PXP_MAX_PACKET_SIZE + XE_PAGE_SIZE)
+int xe_pxp_allocate_client_resources(struct xe_pxp *pxp,
+				     struct xe_pxp_gsc_client_resources *gsc_res)
+{
+	return allocate_gsc_client_resources(pxp->gt, gsc_res, PXP_CLIENT_PKT_SIZE);
+}
+
+void xe_pxp_destroy_client_resources(struct xe_pxp *pxp,
+				     struct xe_pxp_gsc_client_resources *gsc_res)
+{
+	int ret;
+
+	ret = gsccs_send_message(gsc_res, NULL, 0, NULL, 0);
+	if (ret)
+		drm_err(&pxp->xe->drm, "Failed to clean PXP client: %d\n", ret);
+
+	xe_exec_queue_kill(gsc_res->q);
+	destroy_gsc_client_resources(gsc_res);
 }

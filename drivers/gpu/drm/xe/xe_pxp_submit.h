@@ -19,4 +19,9 @@ int xe_pxp_submit_session_termination(struct xe_pxp *pxp, u32 id);
 int xe_pxp_submit_session_invalidation(struct xe_pxp_gsc_client_resources *gsc_res,
 				       u32 id);
 
+int xe_pxp_allocate_client_resources(struct xe_pxp *pxp,
+				     struct xe_pxp_gsc_client_resources *gsc_res);
+void xe_pxp_destroy_client_resources(struct xe_pxp *pxp,
+				     struct xe_pxp_gsc_client_resources *gsc_res);
+
 #endif /* __XE_PXP_SUBMIT_H__ */
