@@ -500,6 +500,64 @@ static int gsccs_send_message(struct xe_pxp_gsc_client_resources *gsc_res,
 	return ret;
 }
 
+#define mtl_gsc_header_rd(xe_, map_, field_) \
+	xe_map_rd_field(xe_, map_, 0, struct intel_gsc_mtl_header, field_)
+int xe_pxp_gsccs_send_user_message(struct xe_pxp_gsc_client_resources *gsc_res,
+				   void *msg_in, size_t msg_in_size,
+				   void *msg_out, size_t msg_out_size_max,
+				   u32 *msg_out_size_actual)
+{
+	const size_t max_msg_size = gsc_res->inout_size - sizeof(struct intel_gsc_mtl_header);
+	struct xe_device *xe = gsc_res->vm->xe;
+	size_t reply_size;
+	int ret = 0;
+
+	if (!msg_in || !msg_in_size)
+		return -ENODATA;
+
+	if (msg_in_size > max_msg_size || msg_out_size_max > max_msg_size)
+		return -ENOSPC;
+
+	/* copy the input message */
+	xe_map_memcpy_to(xe, &gsc_res->msg_in, 0, msg_in, msg_in_size);
+
+	/* Make sure the reply header does not contain stale data */
+	xe_gsc_poison_header(xe, &gsc_res->msg_out, 0);
+
+	emit_pxp_heci_cmd(xe, &gsc_res->batch, PXP_BB_SIZE, msg_in_size,
+			  PXP_BB_SIZE + gsc_res->inout_size,
+			  msg_out_size_max);
+
+	xe_device_wmb(xe);
+
+	ret = pxp_pkt_submit(gsc_res->q, 0);
+	if (ret) {
+		drm_err(&xe->drm, "failed to submit GSC PXP user message: %d\n", ret);
+		return ret;
+	}
+
+	/* make sure the reply is sane */
+	if (mtl_gsc_header_rd(xe, &gsc_res->msg_out, validity_marker) != GSC_HECI_VALIDITY_MARKER)
+		return -EPROTO;
+
+	reply_size = mtl_gsc_header_rd(xe, &gsc_res->msg_out, message_size);
+	if (reply_size > msg_out_size_max) {
+		drm_dbg(&xe->drm,
+			"PXP reply size (0x%zx) greater than allocated mem (0x%zx)\n",
+			reply_size, msg_out_size_max);
+		reply_size = msg_out_size_max;
+	}
+
+	xe_map_memcpy_from(xe, msg_out, &gsc_res->msg_out, 0, reply_size);
+
+	if (msg_out_size_actual)
+		*msg_out_size_actual = reply_size;
+
+	xe_gsc_poison_header(xe, &gsc_res->msg_in, 0);
+
+	return 0;
+}
+
 /**
  * xe_pxp_submit_session_init - submits a PXP GSC session initialization
  * @gsc_res: the pxp client resources

@@ -123,6 +123,22 @@ struct drm_xe_prelim_pxp_query_tag {
 } __attribute__((packed));
 
 /*
+ * struct drm_xe_prelim_pxp_io_message - Params to send/receive message to/from TEE.
+ */
+struct drm_xe_prelim_pxp_io_message {
+	/** @msg_in: pointer to memory containing input message */
+	__u64 msg_in;
+	/** @msg_in_size: input message size */
+	__u32 msg_in_size;
+	/** @msg_out: pointer to memory to store the output message */
+	__u64 msg_out;
+	/* @msg_out_buf_size: size of the memory available for msg_out */
+	__u32 msg_out_buf_size;
+	/* @msg_out_ret_size: actual size of the message returned from the TEE */
+	__u32 msg_out_ret_size;
+} __attribute__((packed));
+
+/*
  * drm_xe_prelim_pxp_ops
  *
  * PXP is an Xe componment, that helps user space to establish the hardware
@@ -142,6 +158,7 @@ struct drm_xe_prelim_pxp_ops {
 #define DRM_XE_PRELIM_PXP_ACTION_HOST_SESSION_HANDLE_REQ 0
 #define DRM_XE_PRELIM_PXP_ACTION_SESSION_OP 1
 #define DRM_XE_PRELIM_PXP_ACTION_QUERY_PXP_TAG 2
+#define DRM_XE_PRELIM_PXP_ACTION_TEE_IO_MESSAGE 3
 
 	/** @status: returned outcome of the operation */
 	__u32 status;
@@ -161,6 +178,8 @@ struct drm_xe_prelim_pxp_ops {
 		struct drm_xe_prelim_pxp_session_op session_op;
 		/** @query_tag: parameters for the QUERY_PXP_TAG action */
 		struct drm_xe_prelim_pxp_query_tag query_tag;
+		/** @io_message: parameters for the TEE_IO_MESSAGE action */
+		struct drm_xe_prelim_pxp_io_message io_message;
 	};
 } __attribute__((packed));
 

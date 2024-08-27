@@ -24,4 +24,9 @@ int xe_pxp_allocate_client_resources(struct xe_pxp *pxp,
 void xe_pxp_destroy_client_resources(struct xe_pxp *pxp,
 				     struct xe_pxp_gsc_client_resources *gsc_res);
 
+int xe_pxp_gsccs_send_user_message(struct xe_pxp_gsc_client_resources *gsc_res,
+				   void *msg_in, size_t msg_in_size,
+				   void *msg_out, size_t msg_out_size_max,
+				   u32 *msg_out_size_actual);
+
 #endif /* __XE_PXP_SUBMIT_H__ */

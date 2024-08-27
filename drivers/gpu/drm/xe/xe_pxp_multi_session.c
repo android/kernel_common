@@ -293,6 +293,66 @@ static int pxp_session_op(struct xe_pxp *pxp,
 	return ret;
 }
 
+static bool ioctl_buffer_size_valid(struct xe_pxp_client *client, u32 size)
+{
+	return size > 0 && size <= client->res.inout_size;
+}
+
+static int pxp_send_msg(struct xe_pxp *pxp,
+			struct drm_xe_prelim_pxp_io_message *io_message,
+			struct xe_pxp_client *client)
+{
+	struct xe_device *xe = pxp->xe;
+	void *msg_in = NULL;
+	void *msg_out = NULL;
+	int ret = 0;
+
+	lockdep_assert_held(&pxp->multi_session.mutex);
+
+	if (XE_IOCTL_DBG(xe, !io_message->msg_in) ||
+	    XE_IOCTL_DBG(xe, !io_message->msg_out) ||
+	    XE_IOCTL_DBG(xe, !ioctl_buffer_size_valid(client, io_message->msg_out_buf_size)) ||
+	    XE_IOCTL_DBG(xe, !ioctl_buffer_size_valid(client, io_message->msg_in_size)))
+		return -EINVAL;
+
+	msg_in = kzalloc(io_message->msg_in_size, GFP_KERNEL);
+	if (!msg_in)
+		return -ENOMEM;
+
+	msg_out = kzalloc(io_message->msg_out_buf_size, GFP_KERNEL);
+	if (!msg_out) {
+		ret = -ENOMEM;
+		goto end;
+	}
+
+	if (copy_from_user(msg_in, u64_to_user_ptr(io_message->msg_in), io_message->msg_in_size)) {
+		drm_dbg(&xe->drm, "Failed to copy_from_user for PXP message\n");
+		ret = -EFAULT;
+		goto end;
+	}
+
+	ret = xe_pxp_gsccs_send_user_message(&client->res, msg_in,
+					     io_message->msg_in_size, msg_out,
+					     io_message->msg_out_buf_size,
+					     &io_message->msg_out_ret_size);
+	if (ret) {
+		drm_dbg(&xe->drm, "Failed to send/receive user PXP message\n");
+		goto end;
+	}
+
+	if (copy_to_user(u64_to_user_ptr(io_message->msg_out), msg_out,
+			 io_message->msg_out_ret_size)) {
+		drm_dbg(&xe->drm, "Failed copy_to_user for TEE message\n");
+		ret = -EFAULT;
+		goto end;
+	}
+
+end:
+	kfree(msg_in);
+	kfree(msg_out);
+	return ret;
+}
+
 static bool pxp_session_is_in_play(struct xe_pxp *pxp, u32 id)
 {
 	unsigned int fw_ref;
@@ -364,7 +424,7 @@ int xe_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmfil
 	if (XE_IOCTL_DBG(xe, pxp_ops->extensions))
 		return -EINVAL;
 
-	if (XE_IOCTL_DBG(xe, action > DRM_XE_PRELIM_PXP_ACTION_QUERY_PXP_TAG))
+	if (XE_IOCTL_DBG(xe, action > DRM_XE_PRELIM_PXP_ACTION_TEE_IO_MESSAGE))
 		return -EINVAL;
 
 	if (pxp_op_needs_rpm(action) && !xe_pm_runtime_get_if_in_use(xe)) {
@@ -411,6 +471,9 @@ pxp_start:
 		break;
 	case DRM_XE_PRELIM_PXP_ACTION_QUERY_PXP_TAG:
 		ret = pxp_query_tag(pxp, &pxp_ops->query_tag);
+		break;
+	case DRM_XE_PRELIM_PXP_ACTION_TEE_IO_MESSAGE:
+		ret = pxp_send_msg(pxp, &pxp_ops->io_message, client);
 		break;
 	default:
 		ret = -EINVAL;
