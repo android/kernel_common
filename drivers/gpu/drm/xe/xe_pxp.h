@@ -32,4 +32,7 @@ int xe_pxp_key_assign(struct xe_pxp *pxp, struct xe_bo *bo);
 int xe_pxp_bo_key_check(struct xe_pxp *pxp, struct xe_bo *bo);
 int xe_pxp_obj_key_check(struct xe_pxp *pxp, struct drm_gem_object *obj);
 
+int xe_pxp_start(struct xe_pxp *pxp, u8 type, struct xe_exec_queue *q);
+int xe_pxp_wait_for_session_state(struct xe_pxp *pxp, u32 id, bool in_play);
+
 #endif /* __XE_PXP_H__ */

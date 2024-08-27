@@ -280,22 +280,30 @@ static u32 pxp_emit_session_termination(struct xe_device *xe, struct iosys_map *
 /**
  * xe_pxp_submit_session_termination - submits a PXP inline termination
  * @pxp: the xe_pxp structure
- * @id: the session to terminate
+ * @session_mask: bitmask of sessions to terminate
  *
  * Emit an inline termination via the VCS engine to terminate a session.
  *
  * Returns 0 if the submission is successful, an errno value otherwise.
  */
-int xe_pxp_submit_session_termination(struct xe_pxp *pxp, u32 id)
+int xe_pxp_submit_session_termination(struct xe_pxp *pxp, u32 session_mask)
 {
 	struct xe_sched_job *job;
 	struct dma_fence *fence;
 	long timeout;
 	u32 offset = 0;
 	u64 addr = xe_bo_ggtt_addr(pxp->vcs_exec.bo);
+	u32 id;
 
-	offset = pxp_emit_session_termination(pxp->xe, &pxp->vcs_exec.bo->vmap, offset, id);
-	offset = pxp_emit_wait(pxp->xe, &pxp->vcs_exec.bo->vmap, offset);
+	for (id = 0; id < INTEL_PXP_MAX_HWDRM_SESSIONS; id++) {
+		if (!(session_mask & BIT(id)))
+			continue;
+
+		offset = pxp_emit_session_termination(pxp->xe, &pxp->vcs_exec.bo->vmap,
+						      offset, id);
+		offset = pxp_emit_wait(pxp->xe, &pxp->vcs_exec.bo->vmap, offset);
+	}
+
 	emit_cmd(pxp->xe, &pxp->vcs_exec.bo->vmap, offset, MI_BATCH_BUFFER_END);
 
 	job = xe_sched_job_create(pxp->vcs_exec.q, &addr);

@@ -31,6 +31,8 @@ enum xe_pxp_status {
 	XE_PXP_SUSPENDED,
 };
 
+#define INTEL_PXP_MAX_HWDRM_SESSIONS 16
+
 /**
  * struct xe_pxp_gsc_client_resources - resources for GSC submission by a PXP
  * client. The GSC FW supports multiple GSC client active at the same time.
@@ -140,6 +142,15 @@ struct xe_pxp {
 		struct mutex mutex;
 		/** @multi_session.client_list: list of user clients */
 		struct list_head client_list;
+		/** @multi_session.reserved_sessions: bitmap of sessions in use */
+		DECLARE_BITMAP(reserved_sessions, INTEL_PXP_MAX_HWDRM_SESSIONS);
+		/** @multi_session.sessions: per-session information */
+		struct {
+			/** @multi_session.sessions.owner: client owning this session */
+			struct drm_file *owner;
+			/** @multi_session.sessions.instance: reservation instance */
+			u8 instance;
+		} sessions[INTEL_PXP_MAX_HWDRM_SESSIONS];
 	} multi_session;
 };
 

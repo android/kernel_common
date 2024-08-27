@@ -26,6 +26,23 @@
 
 /* End PRELIM ioctl's */
 
+/**
+ * PXP Tag format:
+ * bits   0-6: session id
+ * bit      7: rsvd
+ * bits  8-15: instance id
+ * bit     16: session enabled
+ * bit     17: mode hm
+ * bit     18: rsvd
+ * bit     19: mode sm
+ * bits 20-31: rsvd
+ */
+#define DRM_XE_PRELIM_PXP_TAG_SESSION_ID_MASK		(0x7f)
+#define DRM_XE_PRELIM_PXP_TAG_INSTANCE_ID_MASK		(0xff << 8)
+#define DRM_XE_PRELIM_PXP_TAG_SESSION_ENABLED		(0x1 << 16)
+#define DRM_XE_PRELIM_PXP_TAG_SESSION_HM		(0x1 << 17)
+#define DRM_XE_PRELIM_PXP_TAG_SESSION_SM		(0x1 << 19)
+
 /*
  * struct drm_xe_prelim_pxp_query_host_session_handle
  * Contains params to get a host-session-handle that the user-space
@@ -51,6 +68,42 @@ struct drm_xe_prelim_pxp_query_host_session_handle {
 } __attribute__((packed));
 
 /*
+ * struct drm_xe_prelim_pxp_session_op - Params to reserve or release a PXP
+ * session. the pxp_tag
+ */
+struct drm_xe_prelim_pxp_session_op {
+	/** @action: session operation to perform (reserve or release). */
+	__u32 action;
+#define DRM_XE_PRELIM_PXP_SESSION_RESERVE 0
+#define DRM_XE_PRELIM_PXP_SESSION_RELEASE 1
+
+	/**
+	 * @pxp_tag: when reserving a session, this variable MBZ as input and
+	 * will be filled with the pxp_tag as output (see defines in
+	 * struct prelim_drm_xe_pxp_query_tag for the format of the tag). When
+	 * releasing a session this must be set to either the full tag or
+	 * just the ID of the session to be released.
+	 */
+	__u32 pxp_tag;
+
+	/** @session_type: When reserving a PXP session, specify the of session.
+	 * The only supported value is DRM_XE_PXP_TYPE_HWDRM. Ignored when
+	 * releasing the session.
+	 */
+	__u32 session_type;
+
+	/**
+	 * @session_mode: When reserving a PXP session, specify the protection
+	 * mode. This information is stored in the PXP tag. Ignored when
+	 * releasing the session.
+	 */
+	__u32 session_mode;
+#define DRM_XE_PRELIM_PXP_MODE_LM 0
+#define DRM_XE_PRELIM_PXP_MODE_HM 1
+#define DRM_XE_PRELIM_PXP_MODE_SM 2
+} __attribute__((packed));
+
+/*
  * drm_xe_prelim_pxp_ops
  *
  * PXP is an Xe componment, that helps user space to establish the hardware
@@ -68,10 +121,14 @@ struct drm_xe_prelim_pxp_ops {
 	/** @action: operation to perform */
 	__u32 action;
 #define DRM_XE_PRELIM_PXP_ACTION_HOST_SESSION_HANDLE_REQ 0
+#define DRM_XE_PRELIM_PXP_ACTION_SESSION_OP 1
 
 	/** @status: returned outcome of the operation */
 	__u32 status;
 #define DRM_XE_PRELIM_PXP_OP_STATUS_SUCCESS 0
+#define DRM_XE_PRELIM_PXP_OP_STATUS_RETRY_REQUIRED 1
+#define DRM_XE_PRELIM_PXP_OP_STATUS_SESSION_NOT_AVAILABLE 2
+#define DRM_XE_PRELIM_PXP_OP_STATUS_POWER_OFF 3
 
 	/*
 	 * in/out: action-specific data. Must fill the structure matching the
@@ -80,6 +137,8 @@ struct drm_xe_prelim_pxp_ops {
 	union {
 		/** @query_handle: parameters for the HOST_SESSION_HANDLE_REQ action */
 		struct drm_xe_prelim_pxp_query_host_session_handle query_handle;
+		/** @session_op: parameters for the SESSION_OP action */
+		struct drm_xe_prelim_pxp_session_op session_op;
 	};
 } __attribute__((packed));
 
