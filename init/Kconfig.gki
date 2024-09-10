@@ -98,6 +98,7 @@ config GKI_HIDDEN_GPIO_CONFIGS
 config GKI_HIDDEN_X86_CONFIGS
 	bool "Hidden X86 configs needed for GKI"
 	select ACPI_THERMAL_LIB if (X86 && ACPI)
+	select CHECK_SIGNATURE if (X86 && DMI)
 	select INTEL_SCU if (X86)
 	select INTEL_TCC if (X86)
 	select P2SB if (X86)
