@@ -421,6 +421,7 @@ error:
 	}
 	return ret;
 }
+
 EXPORT_SYMBOL(ttm_tt_populate);
 
 void ttm_tt_unpopulate(struct ttm_device *bdev, struct ttm_tt *ttm)
