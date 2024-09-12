@@ -98,6 +98,7 @@ config GKI_HIDDEN_GPIO_CONFIGS
 config GKI_HIDDEN_X86_CONFIGS
 	bool "Hidden X86 configs needed for GKI"
 	select INTEL_SCU if (X86)
+	select INTEL_TCC if (X86)
 	help
 	  Dummy config option used to enable hidden X86 configs.
 	  These are normally selected implicitly when a module
