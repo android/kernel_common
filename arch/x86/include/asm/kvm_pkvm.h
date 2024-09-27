@@ -16,6 +16,10 @@
 
 /* PKVM Hypercalls */
 #define PKVM_HC_INIT_FINALISE		1
+#define PKVM_HC_INIT_SHADOW_VM		2
+#define PKVM_HC_INIT_SHADOW_VCPU	3
+#define PKVM_HC_TEARDOWN_SHADOW_VM	4
+#define PKVM_HC_TEARDOWN_SHADOW_VCPU	5
 
 extern struct memblock_region pkvm_sym(hyp_memory)[];
 extern unsigned int pkvm_sym(hyp_memblock_nr);

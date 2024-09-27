@@ -8,6 +8,7 @@
 #include <pkvm.h>
 #include "vmexit.h"
 #include "ept.h"
+#include "pkvm_hyp.h"
 #include "debug.h"
 
 #define CR4	4
@@ -87,6 +88,18 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	switch (nr) {
 	case PKVM_HC_INIT_FINALISE:
 		__pkvm_init_finalise(vcpu, a0, a1);
+		break;
+	case PKVM_HC_INIT_SHADOW_VM:
+		ret = __pkvm_init_shadow_vm(a0, a1, a2);
+		break;
+	case PKVM_HC_INIT_SHADOW_VCPU:
+		ret = __pkvm_init_shadow_vcpu(vcpu, a0, a1, a2, a3);
+		break;
+	case PKVM_HC_TEARDOWN_SHADOW_VM:
+		ret = __pkvm_teardown_shadow_vm(a0);
+		break;
+	case PKVM_HC_TEARDOWN_SHADOW_VCPU:
+		ret = __pkvm_teardown_shadow_vcpu(a0);
 		break;
 	default:
 		ret = -EINVAL;
