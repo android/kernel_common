@@ -10,6 +10,7 @@ lib-dir		:= lib
 
 pkvm-hyp-y	:= vmx_asm.o vmexit.o memory.o
 
+pkvm-hyp-y	+= $(lib-dir)/memset_64.o
 pkvm-hyp-$(CONFIG_MITIGATION_RETPOLINE)	+= $(lib-dir)/retpoline.o
 pkvm-hyp-$(CONFIG_LIST_HARDENED)	+= $(lib-dir)/list_debug.o
 
