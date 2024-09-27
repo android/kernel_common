@@ -14,6 +14,7 @@
 #include <linux/remoteproc/mtk_apu_config.h>
 #include <linux/remoteproc/mtk_apu_hw_logger.h>
 #include "mtk_apu_rproc.h"
+#include "linux/soc/mediatek/apu_mvpu_config.h"
 
 #define MTK_APU_CONFIG_HEADER_MAGIC	(0xc0de0101)
 #define MTK_APU_CONFIG_HEADER_REV	(0x1)
@@ -107,6 +108,12 @@ int mtk_apu_config_setup(struct mtk_apu *apu)
 		}
 	}
 
+	ret = mvpu_config_init(apu);
+	if (ret) {
+		dev_info(apu->dev, "mvpu config init failed\n");
+		goto free_apu_conf_buf;
+	}
+
 	mdla_rv_mem = (struct mtk_apu_mdla_rv_mem *)
 		get_mtk_apu_config_user_ptr(apu->conf_buf, eMDLA_MEM_INFO);
 
@@ -131,6 +138,7 @@ free_apu_conf_buf:
 void mtk_apu_config_remove(struct mtk_apu *apu)
 {
 	mtk_apu_ipi_config_remove(apu);
+	mvpu_config_remove(apu);
 
 	dma_free_coherent(apu->dev, CONFIG_SIZE, apu->conf_buf, apu->conf_da);
 }

@@ -455,6 +455,8 @@ static int mtk_apu_probe(struct platform_device *pdev)
 				     ret);
 	}
 
+	mtk_apu_init_mdw_dev(dev);
+
 	spin_lock_init(&apu->reg_lock);
 
 	if (!hw_ops->mtk_apu_memmap_init) {
@@ -541,6 +543,8 @@ int mtk_apu_rproc_init(void)
 }
 
 MODULE_IMPORT_NS(MTK_APU_PWR);
+MODULE_IMPORT_NS(MTK_APU_MDW);
+MODULE_IMPORT_NS(MTK_APU_MVPU);
 
 MODULE_SOFTDEP("pre: mtk-apu-mailbox");
 

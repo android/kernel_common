@@ -27,6 +27,45 @@ struct mtk_apu_mbox_send_hdr {
 	struct mtk_apu_mbox_hdr *hdr;
 };
 
+static int power_dtime;
+
+static void mtk_apu_update_power_dtime(int dtime)
+{
+	power_dtime = dtime;
+}
+
+static void mtk_apu_timer_callback(struct timer_list *timer)
+{
+	struct mtk_apu *apu = container_of(timer, struct mtk_apu, power_off_timer);
+
+	mtk_apu_power_on_off(apu->pdev, MTK_APU_IPI_MIDDLEWARE, 0, 1);
+}
+
+static void mtk_apu_power_dtime_handler(struct mtk_apu *apu, int dtime)
+{
+	uint64_t ts = sched_clock();
+	uint64_t dtime_ts;
+	unsigned long power_dtime = 0;
+
+	dtime = (dtime > MAX_DTIME)? MAX_DTIME: dtime;
+	dtime = (dtime < MIN_DTIME)? MIN_DTIME: dtime;
+
+	dtime_ts = ts + dtime;
+	if (apu->cur_dtime_ts < dtime_ts)
+		apu->cur_dtime_ts = dtime_ts;
+	else
+		return;
+
+	if (timer_pending(&apu->power_off_timer)) {
+		apu->ipi_pwr_ref_cnt[MTK_APU_IPI_MIDDLEWARE]--;
+		apu->local_pwr_ref_cnt--;
+	}
+
+	power_dtime = msecs_to_jiffies(apu->cur_dtime_ts - ts);
+
+	mod_timer(&apu->power_off_timer, jiffies + power_dtime);
+}
+
 static uint32_t calculate_csum(void *data, uint32_t len)
 {
 	uint32_t csum = 0, res = 0, i;
@@ -235,6 +274,7 @@ static void mtk_apu_ipi_bottom_handle(struct mbox_client *cl, void *mssg)
 
 	struct device *dev = apu->dev;
 	ipi_handler_t handler;
+	bool power_off_directly;
 
 	id = apu->ipi_task.id;
 	len = apu->ipi_task.len;
@@ -266,8 +306,22 @@ static void mtk_apu_ipi_bottom_handle(struct mbox_client *cl, void *mssg)
 
 	wake_up(&apu->ack_wq);
 
-	if (apu->platdata->flags.fast_on_off && ipi_attrs[id].direction == IPI_HOST_INITIATE)
-		mtk_apu_power_on_off(apu->pdev, id, 0, 1);
+	if (apu->platdata->flags.fast_on_off && ipi_attrs[id].direction == IPI_HOST_INITIATE) {
+		if (power_dtime == 0) {
+			power_off_directly = true;
+		} else {
+			mutex_lock(&apu->forbid_ipi_lock);
+			power_off_directly = apu->forbid_ipi_send;
+			mutex_unlock(&apu->forbid_ipi_lock);
+		}
+
+		if (power_off_directly) {
+			mtk_apu_power_on_off(apu->pdev, id, 0, 1);
+		} else {
+			mtk_apu_power_dtime_handler(apu, power_dtime);
+			power_dtime = 0;
+		}
+	}
 }
 
 static void mtk_apu_ipi_handle_rx(struct mbox_client *cl, void *mssg)
@@ -521,6 +575,9 @@ int mtk_apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu)
 		goto remove_rpmsg_subdev;
 	}
 
+	timer_setup(&apu->power_off_timer, mtk_apu_timer_callback, 0);
+	mtk_apu_init_mdw_dtime_setting(mtk_apu_update_power_dtime);
+
 	return 0;
 
 remove_rpmsg_subdev:
@@ -532,6 +589,9 @@ remove_rpmsg_subdev:
 
 void mtk_apu_ipi_remove(struct mtk_apu *apu)
 {
+	if (timer_pending(&apu->power_off_timer))
+		del_timer(&apu->power_off_timer);
+
 	if (!IS_ERR(apu->ch))
 		mbox_free_channel(apu->ch);
 	mtk_apu_remove_rpmsg_subdev(apu);
