@@ -808,7 +808,7 @@ static int guest_ack_unshare(const struct pkvm_mem_transition *tx)
 					      size, PKVM_PAGE_SHARED_BORROWED);
 }
 
-int check_unshare(const struct pkvm_mem_transition *tx)
+static int check_unshare(const struct pkvm_mem_transition *tx)
 {
 	int ret;
 
@@ -918,7 +918,7 @@ static int __do_unshare(struct pkvm_mem_transition *tx)
  * Initiator: SHARED_OWNED	=> OWNED
  * Completer: SHARED_BORROWED	=> NOPAGE
  */
-int do_unshare(struct pkvm_mem_transition *share)
+static int do_unshare(struct pkvm_mem_transition *share)
 {
 	int ret;
 

@@ -227,14 +227,14 @@ static int host_vpci_mmcfg_get_bdf_offset(u64 address, u32 *bdf, u64 *offset)
 	return -EINVAL;
 }
 
-int host_vpci_mmcfg_read(struct kvm_vcpu *vcpu, struct pkvm_mmio_req *req)
+static int host_vpci_mmcfg_read(struct kvm_vcpu *vcpu, struct pkvm_mmio_req *req)
 {
 	u64 address = (u64)host_mmio2hva(req->address);
 
 	return pci_mmcfg_read(address, req->size, req->value);
 }
 
-int host_vpci_mmcfg_write(struct kvm_vcpu *vcpu, struct pkvm_mmio_req *req)
+static int host_vpci_mmcfg_write(struct kvm_vcpu *vcpu, struct pkvm_mmio_req *req)
 {
 	struct pkvm_ptdev *ptdev;
 	u64 offset, address = (u64)host_mmio2hva(req->address);

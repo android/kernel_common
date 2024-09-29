@@ -9,6 +9,7 @@
 #include "pkvm_hyp.h"
 #include "vmx.h"
 #include "debug.h"
+#include "irq.h"
 
 void handle_noop(void)
 {

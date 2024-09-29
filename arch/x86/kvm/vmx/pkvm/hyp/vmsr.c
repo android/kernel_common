@@ -8,6 +8,7 @@
 #include "nested.h"
 #include "lapic.h"
 #include "debug.h"
+#include "vmsr.h"
 
 #define INTERCEPT_DISABLE		(0U)
 #define INTERCEPT_READ			(1U << 0U)

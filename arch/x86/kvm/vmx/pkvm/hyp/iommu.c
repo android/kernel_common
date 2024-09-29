@@ -16,6 +16,7 @@
 #include "ptdev.h"
 #include "iommu_spgt.h"
 #include "bug.h"
+#include "iommu.h"
 
 #define for_each_valid_iommu(p)						\
 	for ((p) = iommus; (p) < iommus + PKVM_MAX_IOMMU_NUM; (p)++)	\

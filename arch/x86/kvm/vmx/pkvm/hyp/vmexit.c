@@ -16,13 +16,11 @@
 #include "lapic.h"
 #include "io_emulate.h"
 #include "debug.h"
+#include "init_finalise.h"
 
 #define CR4	4
 
 #define MOV_TO_CR		0
-
-extern int __pkvm_init_finalise(struct kvm_vcpu *vcpu,
-		phys_addr_t phys, unsigned long size);
 
 static void skip_emulated_instruction(void)
 {
@@ -99,7 +97,7 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 		pkvm_handle_dump_vmexit_trace(a0, a1);
 		break;
 	case PKVM_HC_INIT_FINALISE:
-		__pkvm_init_finalise(vcpu, a0, a1);
+		__pkvm_init_finalise(vcpu, (struct pkvm_section *)a0, a1);
 		break;
 	case PKVM_HC_INIT_SHADOW_VM:
 		ret = __pkvm_init_shadow_vm(vcpu, a0, a1, a2);

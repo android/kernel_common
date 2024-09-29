@@ -9,6 +9,7 @@
 #include "pgtable.h"
 #include "bug.h"
 #include "pkvm_hyp.h"
+#include "lapic.h"
 
 struct pkvm_lapic {
 	bool x2apic;

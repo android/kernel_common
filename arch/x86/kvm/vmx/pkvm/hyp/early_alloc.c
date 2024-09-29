@@ -8,6 +8,7 @@
 #include <pkvm.h>
 
 #include "pgtable.h"
+#include "early_alloc.h"
 
 static unsigned long base;
 static unsigned long end;

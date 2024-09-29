@@ -26,6 +26,7 @@
 #include "mem_protect.h"
 #include "lapic.h"
 #include "pci.h"
+#include "init_finalise.h"
 
 void *pkvm_mmu_pgt_base;
 void *pkvm_vmemmap_base;
