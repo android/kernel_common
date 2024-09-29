@@ -19,7 +19,7 @@
  * that the software components which uses IPU driver can get the hw stepping
  * information.
  */
-#define IPU_MEDIA_DEV_MODEL_NAME		"ipu6"
+#define IPU_MEDIA_DEV_MODEL_NAME		"ipu6-downstream"
 
 #define IPU6SE_ISYS_NUM_STREAMS          IPU6SE_NONSECURE_STREAM_ID_MAX
 #define IPU6_ISYS_NUM_STREAMS            IPU6_NONSECURE_STREAM_ID_MAX
