@@ -47,14 +47,6 @@ static inline enum pkvm_page_state pkvm_getstate(u64 pte)
 	return pte & PKVM_PAGE_STATE_PROT_MASK;
 }
 
-static inline bool owned_this_page(void *ptep)
-{
-	enum pkvm_page_state page_state = pkvm_getstate(*(u64 *)ptep);
-
-	return (page_state == PKVM_PAGE_OWNED) || (page_state == PKVM_PAGE_SHARED_OWNED);
-}
-
-
 typedef u32 pkvm_id;
 
 #define OWNER_ID_HYP	0UL

@@ -146,6 +146,8 @@ struct pkvm_shadow_vm {
 
 #define sept_to_shadow_vm(_sept) sept_desc_to_shadow_vm(sept_to_shadow_ept_desc(_sept))
 
+#define pgstate_pgt_to_shadow_vm(_pgt) container_of(_pgt, struct pkvm_shadow_vm, pgstate_pgt)
+
 int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
 			  unsigned long shadow_pa,  size_t shadow_size);
 unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle);

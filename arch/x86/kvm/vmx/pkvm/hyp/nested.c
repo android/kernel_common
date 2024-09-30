@@ -1313,7 +1313,7 @@ static bool nested_handle_vmcall(struct kvm_vcpu *vcpu)
 {
 	u64 nr, a0, a1, a2, a3;
 	struct shadow_vcpu_state *shadow_vcpu = to_pkvm_hvcpu(vcpu)->current_shadow_vcpu;
-	struct pkvm_pgtable *guest_pgt = &shadow_vcpu->vm->sept_desc.sept;
+	struct pkvm_pgtable *pgstate_pgt = &shadow_vcpu->vm->pgstate_pgt;
 	bool handled = false;
 	int ret = 0;
 
@@ -1329,11 +1329,11 @@ static bool nested_handle_vmcall(struct kvm_vcpu *vcpu)
 
 	switch (nr) {
 	case PKVM_GHC_SHARE_MEM:
-		ret = __pkvm_guest_share_host(guest_pgt, a0, a1);
+		ret = __pkvm_guest_share_host(pgstate_pgt, a0, a1);
 		handled = true;
 		break;
 	case PKVM_GHC_UNSHARE_MEM:
-		ret = __pkvm_guest_unshare_host(guest_pgt, a0, a1);
+		ret = __pkvm_guest_unshare_host(pgstate_pgt, a0, a1);
 		handled = true;
 		break;
 	case PKVM_GHC_GET_VE_INFO:

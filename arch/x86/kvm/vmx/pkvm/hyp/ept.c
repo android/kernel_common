@@ -218,6 +218,11 @@ struct pkvm_pgtable_ops ept_ops = {
 	.default_prot = EPT_PROT_DEF,
 };
 
+static bool is_pgt_ops_ept(struct pkvm_pgtable *pgt)
+{
+	return pgt && (pgt->pgt_ops == &ept_ops);
+}
+
 int pkvm_host_ept_map(unsigned long vaddr_start, unsigned long phys_start,
 		unsigned long size, int pgsz_mask, u64 prot)
 {
@@ -246,28 +251,6 @@ void pkvm_flush_host_ept(void)
 	u64 eptp = pkvm_construct_eptp(host_ept.root_pa, host_ept.level);
 
 	flush_ept(eptp);
-}
-
-static void ept_mk_nopresent(struct pkvm_pgtable *pgt, void *ptep)
-{
-	u64 val;
-
-	val = READ_ONCE(*(u64 *)ptep) & ~VMX_EPT_RWX_MASK;
-	pgt->pgt_ops->pgt_set_entry(ptep, val);
-}
-
-static void ept_remap_with_newprot(struct pkvm_pgtable *pgt, int level, void *ptep, u64 new_prot)
-{
-	u64 old_pte = READ_ONCE(*(u64 *)ptep);
-	u64 new_pte;
-
-	if ((old_pte & EPT_PROT_MASK) == new_prot)
-		return;
-
-	new_pte = (old_pte & ~EPT_PROT_MASK) | new_prot;
-	if (level != PG_LEVEL_4K)
-		pgt->pgt_ops->pgt_entry_mkhuge(&new_pte);
-	pgt->pgt_ops->pgt_set_entry(ptep, new_pte);
 }
 
 static void reset_rsvds_bits_mask_ept(struct rsvd_bits_validate *rsvd_check,
@@ -475,14 +458,14 @@ static struct pkvm_mm_ops pgstate_pgt_mm_ops = {
 	.flush_tlb = flush_tlb_noop,
 };
 
-static int pkvm_shadow_ept_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
-				    void *ptep, struct pgt_flush_data *flush_data, void *arg)
+static int pkvm_pgstate_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
+				     void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {
 	struct pkvm_pgtable_map_data *data = arg;
 	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
 	unsigned long level_size = pgt_ops->pgt_level_to_size(level);
 	unsigned long map_phys = data->phys & PAGE_MASK;
-	struct pkvm_shadow_vm *vm = sept_to_shadow_vm(pgt);
+	struct pkvm_shadow_vm *vm = pgstate_pgt_to_shadow_vm(pgt);
 	int ret;
 
 	/*
@@ -490,11 +473,23 @@ static int pkvm_shadow_ept_map_leaf(struct pkvm_pgtable *pgt, unsigned long vadd
 	 * multiple EPT violations happen on different CPUs.
 	 */
 	if (pgt_ops->pgt_entry_present(ptep)) {
+		unsigned long phys = pgt_ops->pgt_entry_to_phys(ptep);
+
 		/*
-		 * Update the present entry with the newprot as a mismatching
-		 * property bits can also cause EPT violation.
+		 * Check if the existing mapping is the same as the wanted one.
+		 * If not the same, report an error so that the map_leaf caller
+		 * will not map the different addresses in its shadow EPT.
 		 */
-		ept_remap_with_newprot(pgt, level, ptep, data->prot);
+		if (phys != map_phys) {
+			pkvm_err("%s: gpa 0x%lx @level%d old_phys 0x%lx != new_phys 0x%lx\n",
+				 __func__, vaddr, level, phys, map_phys);
+			return -EPERM;
+		}
+
+		/*
+		 * The pgstate_pgt now is EPT format with fixed property bits. No
+		 * need to check and update property bits for pgstate_pgt.
+		 */
 		goto out;
 	}
 
@@ -503,33 +498,7 @@ static int pkvm_shadow_ept_map_leaf(struct pkvm_pgtable *pgt, unsigned long vadd
 		ret = __pkvm_host_share_guest(map_phys, pgt, vaddr, level_size, data->prot);
 		break;
 	case KVM_X86_PROTECTED_VM:
-		if (owned_this_page(ptep)) {
-			unsigned long phys = pgt_ops->pgt_entry_to_phys(ptep);
-
-			/*
-			 * pkvm doesn't allow changing the final page mapping
-			 * in shadow EPT if this page has been used by protected
-			 * VM. This is due to security concern. So before reusing
-			 * the mapping, do a sanity check and report an error if
-			 * not the same.
-			 */
-			if (phys != map_phys) {
-				pkvm_err("%s: gpa 0x%lx @level%d old_phys 0x%lx != new_phys 0x%lx\n",
-						__func__, vaddr, level, phys, map_phys);
-				ret = -EPERM;
-			} else {
-				/*
-				 * Invept has invalid this entry for protected VM but keep
-				 * the phys address remained. Re-use this phys address and
-				 * its page state to create the mapping with new property
-				 * bits.
-				 */
-				ept_remap_with_newprot(pgt, level, ptep, data->prot);
-				ret = 0;
-			}
-		} else {
-			ret = __pkvm_host_donate_guest(map_phys, pgt, vaddr, level_size, data->prot);
-		}
+		ret = __pkvm_host_donate_guest(map_phys, pgt, vaddr, level_size, data->prot);
 		break;
 	default:
 		ret = -EINVAL;
@@ -549,13 +518,16 @@ out:
 	return 0;
 }
 
-static int pkvm_shadow_ept_free_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
-				     void *ptep, struct pgt_flush_data *flush_data, void *arg)
+static int pkvm_pgstate_pgt_free_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
+				      void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {
 	unsigned long phys = pgt->pgt_ops->pgt_entry_to_phys(ptep);
 	unsigned long size = pgt->pgt_ops->pgt_level_to_size(level);
-	struct pkvm_shadow_vm *vm = sept_to_shadow_vm(pgt);
-	int ret = 0;
+	struct pkvm_shadow_vm *vm = pgstate_pgt_to_shadow_vm(pgt);
+	int ret;
+
+	if (!pgt->pgt_ops->pgt_entry_present(ptep))
+		return 0;
 
 	/*
 	 * For normal VM, call __pkvm_host_unshare_guest() to unshare all previous
@@ -564,89 +536,14 @@ static int pkvm_shadow_ept_free_leaf(struct pkvm_pgtable *pgt, unsigned long vad
 	 *
 	 * For protected VM, call __pkvm_host_undonate_guest() to undonate all
 	 * previous donated pages, the donated pages are indicated by their page
-	 * table entry whose page state show it owned this page - check by API
-	 * owned_this_page(). The reason to check page state is because for
-	 * invalidation operation(below) of a protected VM, we will make the page
-	 * table entry non-present while still keep its page state information in
-	 * the page table entry. So either a donated page is invalidated or not,
-	 * it's kept in donated state.
+	 * table entry which is present.
 	 *
 	 * And the pgtable_free_cb in this current page walker is still walking
-	 * the shadow EPT so cannot allow the  __pkvm_host_unshare_guest()
-	 * or __pkvm_host_undonate_guest() release shadow EPT table pages. So
-	 * we shall get_page befor these APIs called, then put_page to allow
+	 * the page state table so cannot allow the  __pkvm_host_unshare_guest()
+	 * or __pkvm_host_undonate_guest() release page state table pages. So
+	 * we shall get_page before these APIs called, then put_page to allow
 	 * pgtable_free_cb free table pages with correct refcount.
 	 *
-	 */
-	switch (vm->vm_type) {
-	case KVM_X86_DEFAULT_VM:
-		if (pgt->pgt_ops->pgt_entry_present(ptep)) {
-			pgt->mm_ops->get_page(ptep);
-			ret = __pkvm_host_unshare_guest(phys, pgt, vaddr, size);
-			pgt->mm_ops->put_page(ptep);
-			flush_data->flushtlb |= true;
-		}
-		break;
-	case KVM_X86_PROTECTED_VM:
-		if (owned_this_page(ptep)) {
-			void *virt = pgt->mm_ops->phys_to_virt(phys);
-
-			/*
-			 * before return to host, the page previously owned by
-			 * protected VM shall be memset to 0 to avoid secret leakage.
-			 */
-			memset(virt, 0, size);
-
-			pgt->mm_ops->get_page(ptep);
-			ret = __pkvm_host_undonate_guest(phys, pgt, vaddr, size);
-			pgt->mm_ops->put_page(ptep);
-			flush_data->flushtlb |= true;
-		} else if (*(u64 *)ptep == SHADOW_EPT_MMIO_ENTRY) {
-			pgt->pgt_ops->pgt_set_entry(ptep, pgt->pgt_ops->default_prot);
-			pgt->mm_ops->put_page(ptep);
-		}
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-
-	if (ret)
-		pkvm_err("%s failed: ret %d vm_type %d phys 0x%lx GPA 0x%lx size 0x%lx\n",
-			 __func__, ret, vm->vm_type, phys, vaddr, size);
-
-	return ret;
-}
-
-static int pkvm_shadow_ept_invalidate_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr,
-					   int level, void *ptep, struct pgt_flush_data *flush_data,
-					   void *arg)
-{
-	unsigned long phys = pgt->pgt_ops->pgt_entry_to_phys(ptep);
-	unsigned long size = pgt->pgt_ops->pgt_level_to_size(level);
-	struct pkvm_shadow_vm *vm = sept_to_shadow_vm(pgt);
-	int ret = 0;
-
-	if (!pgt->pgt_ops->pgt_entry_present(ptep)) {
-		if (*(u64 *)ptep == SHADOW_EPT_MMIO_ENTRY) {
-			pgt->pgt_ops->pgt_set_entry(ptep, pgt->pgt_ops->default_prot);
-			pgt->mm_ops->put_page(ptep);
-		}
-		return 0;
-	}
-
-	/*
-	 * We need do invalidation for all present page table entry.
-	 *
-	 * For normal VM, do same as free_leaf, unshare the page from guest,
-	 * and do not allow the __pkvm_host_unshare_guest() release shadow
-	 * EPT table pages.
-	 *
-	 * For protected VM, from security consideration, we shall not allow a
-	 * donated page to be undonated back to host during ept invalidation,
-	 * as it will cause secret leakage during runtime; so we just make the
-	 * page table entry not present and keep all the other page entry information
-	 * like page state, ADDR, PAGE_SIZE etc.
 	 */
 	switch(vm->vm_type) {
 	case KVM_X86_DEFAULT_VM:
@@ -655,10 +552,20 @@ static int pkvm_shadow_ept_invalidate_leaf(struct pkvm_pgtable *pgt, unsigned lo
 		pgt->mm_ops->put_page(ptep);
 		flush_data->flushtlb |= true;
 		break;
-	case KVM_X86_PROTECTED_VM:
-		ept_mk_nopresent(pgt, ptep);
+	case KVM_X86_PROTECTED_VM: {
+		void *virt = pgt->mm_ops->phys_to_virt(phys);
+
+		/*
+		 * before returning to host, the page previously owned by
+		 * protected VM shall be memset to 0 to avoid secret leakage.
+		 */
+		memset(virt, 0, size);
+		pgt->mm_ops->get_page(ptep);
+		ret = __pkvm_host_undonate_guest(phys, pgt, vaddr, size);
+		pgt->mm_ops->put_page(ptep);
 		flush_data->flushtlb |= true;
 		break;
+	}
 	default:
 		ret = -EINVAL;
 		break;
@@ -684,7 +591,19 @@ static void __invalidate_shadow_ept_with_range(struct shadow_ept_desc *desc,
 	if (!is_valid_eptp(desc->shadow_eptp))
 		goto out;
 
-	pkvm_pgtable_unmap_nosplit(sept, vaddr, size, pkvm_shadow_ept_invalidate_leaf);
+	pkvm_pgtable_unmap_nosplit(sept, vaddr, size, NULL);
+
+	/*
+	 * As for normal VM, its memory might need to be swapped out
+	 * or other kinds of management from primary VM thus should
+	 * unmap from pgstate pgt as well.
+	 *
+	 * As for protected VM, its memory is pinned thus no need to
+	 * unmap from pgstate pgt.
+	 */
+	if (vm->vm_type == KVM_X86_DEFAULT_VM)
+		pkvm_pgtable_unmap_nosplit(&vm->pgstate_pgt, vaddr, size,
+					   pkvm_pgstate_pgt_free_leaf);
 out:
 	pkvm_spin_unlock(&vm->lock);
 }
@@ -705,16 +624,14 @@ void pkvm_invalidate_shadow_ept_with_range(struct shadow_ept_desc *desc,
 
 void pkvm_shadow_ept_deinit(struct shadow_ept_desc *desc)
 {
-	struct pkvm_pgtable *sept = &desc->sept;
 	struct pkvm_shadow_vm *vm = sept_desc_to_shadow_vm(desc);
 
 	pkvm_spin_lock(&vm->lock);
 
-	if (desc->shadow_eptp) {
-		pkvm_pgtable_destroy(sept, pkvm_shadow_ept_free_leaf);
-		memset(sept, 0, sizeof(struct pkvm_pgtable));
-		desc->shadow_eptp = 0;
-	}
+	if (desc->shadow_eptp)
+		pkvm_pgtable_destroy(&desc->sept, NULL);
+
+	memset(desc, 0, sizeof(struct shadow_ept_desc));
 
 	pkvm_spin_unlock(&vm->lock);
 }
@@ -744,7 +661,7 @@ void pkvm_pgstate_pgt_deinit(struct pkvm_shadow_vm *vm)
 {
 	pkvm_spin_lock(&vm->lock);
 
-	pkvm_pgtable_destroy(&vm->pgstate_pgt, NULL);
+	pkvm_pgtable_destroy(&vm->pgstate_pgt, pkvm_pgstate_pgt_free_leaf);
 
 	pkvm_spin_unlock(&vm->lock);
 }
@@ -810,6 +727,58 @@ static bool is_access_violation(u64 ept_entry, u64 exit_qual)
 	return access_violation;
 }
 
+static bool allow_shadow_ept_mapping(struct pkvm_shadow_vm *vm,
+				     u64 gpa, unsigned long hpa,
+				     unsigned long size)
+{
+	struct pkvm_pgtable *pgstate_pgt = &vm->pgstate_pgt;
+	unsigned long mapped_hpa;
+	int level;
+
+	/*
+	 * Lookup the page state pgt to check if the mapping is already created
+	 * or not.
+	 */
+	pkvm_pgtable_lookup(pgstate_pgt, gpa, &mapped_hpa, NULL, &level);
+
+	if ((pgstate_pgt->pgt_ops->pgt_level_to_size(level) < size) ||
+	    mapped_hpa == INVALID_ADDR) {
+		u64 prot;
+		/*
+		 * Page state pgt doesn't have mapping yet, or it has mapping
+		 * but with a smaller size, so try to map with the desired size
+		 * in page state pgt first. Although page state pgt may already
+		 * have all the desired mappings with smaller size, map_leaf
+		 * can help to check if the mapped phys matches with the desired
+		 * hpa to guarantee shadow EPT maps GPA to the right HPA.
+		 */
+		if (is_pgt_ops_ept(pgstate_pgt)) {
+			prot = VMX_EPT_RWX_MASK;
+		} else {
+			pkvm_err("%s: pgstate_pgt format not supported\n", __func__);
+			return false;
+		}
+
+		if (pkvm_pgtable_map(pgstate_pgt, gpa, hpa, size,
+				     0, prot, pkvm_pgstate_pgt_map_leaf)) {
+			pkvm_err("%s: pgstate_pgt map gpa 0x%llx hpa 0x%lx size 0x%lx failed\n",
+				 __func__, gpa, hpa, size);
+			return false;
+		}
+	} else if (mapped_hpa != hpa) {
+		/*
+		 * Page state pgt has mapping already, so check if the mapped
+		 * phys matches with the hpa, and report an error if doesn't
+		 * match.
+		 */
+		pkvm_err("pgstate_pgt not match: mapped_hpa 0x%lx != 0x%lx for gpa 0x%llx\n",
+			 mapped_hpa, hpa, gpa);
+		return false;
+	}
+
+	return true;
+}
+
 enum sept_handle_ret
 pkvm_handle_shadow_ept_violation(struct shadow_vcpu_state *shadow_vcpu, u64 l2_gpa, u64 exit_quali)
 {
@@ -852,8 +821,8 @@ pkvm_handle_shadow_ept_violation(struct shadow_vcpu_state *shadow_vcpu, u64 l2_g
 		 */
 		u64 prot = (gprot & EPT_PROT_MASK) | EPT_PROT_DEF;
 
-		if (!pkvm_pgtable_map(sept, gpa, hpa, level_size, 0,
-					prot, pkvm_shadow_ept_map_leaf))
+		if (allow_shadow_ept_mapping(vm, gpa, hpa, level_size) &&
+		    !pkvm_pgtable_map(sept, gpa, hpa, level_size, 0, prot, NULL))
 			ret = PKVM_HANDLED;
 	}
 out:
