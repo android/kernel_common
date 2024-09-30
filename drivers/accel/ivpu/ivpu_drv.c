@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/pm_runtime.h>
+#include <generated/utsrelease.h>
 
 #include <drm/drm_accel.h>
 #include <drm/drm_file.h>
@@ -32,8 +33,7 @@
 #include "vpu_boot_api.h"
 
 #ifndef DRIVER_VERSION_STR
-#define DRIVER_VERSION_STR __stringify(DRM_IVPU_DRIVER_MAJOR) "." \
-			   __stringify(DRM_IVPU_DRIVER_MINOR) "."
+#define DRIVER_VERSION_STR "1.0.0 " UTS_RELEASE
 #endif
 
 int ivpu_dbg_mask;
@@ -448,9 +448,16 @@ static const struct drm_driver driver = {
 
 	.name = DRIVER_NAME,
 	.desc = DRIVER_DESC,
+
+#ifdef DRIVER_DATE
 	.date = DRIVER_DATE,
-	.major = DRM_IVPU_DRIVER_MAJOR,
-	.minor = DRM_IVPU_DRIVER_MINOR,
+	.major = DRIVER_MAJOR,
+	.minor = DRIVER_MINOR,
+	.patchlevel = DRIVER_PATCHLEVEL,
+#else
+	.date = UTS_RELEASE,
+	.major = 1,
+#endif
 };
 
 static irqreturn_t ivpu_irq_thread_handler(int irq, void *arg)
