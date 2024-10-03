@@ -2806,6 +2806,7 @@ struct rtw89_btc_dm {
 
 	u8 wl_pre_agc: 2;
 	u8 wl_lna2: 1;
+	u8 freerun_chk: 1;
 	u8 wl_pre_agc_rb: 2;
 	u8 slot_req_more: 1;
 };
@@ -2843,6 +2844,7 @@ enum rtw89_btc_btf_fw_event {
 	BTF_EVNT_BT_REG = 3,
 	BTF_EVNT_CX_RUNINFO = 4,
 	BTF_EVNT_BT_PSD = 5,
+	BTF_EVNT_BT_DEV_INFO = 6,
 	BTF_EVNT_BUF_OVERFLOW,
 	BTF_EVNT_C2H_LOOPBACK,
 	BTF_EVNT_MAX,
