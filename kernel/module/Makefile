@@ -46,13 +46,11 @@ include/generated/gki_module_unprotected.h: $(ALL_KMI_SYMBOLS) \
 	"$(srctree)" \
 	$(ALL_KMI_SYMBOLS)
 
+# AARCH is the same as ARCH, except that arm64 becomes aarch64
+AARCH := $(if $(filter arm64,$(ARCH)),aarch64,$(ARCH))
+
 # ABI protected exports list file specific to ARCH if exists else empty
-ABI_PROTECTED_EXPORTS_FILE :=
-ifeq ($(ARCH),arm64)
-	ABI_PROTECTED_EXPORTS_FILE := $(wildcard $(srctree)/android/abi_gki_protected_exports_aarch64)
-else
-	ABI_PROTECTED_EXPORTS_FILE := $(wildcard $(srctree)/android/abi_gki_protected_exports_$(ARCH))
-endif
+ABI_PROTECTED_EXPORTS_FILE := $(wildcard $(srctree)/android/abi_gki_protected_exports_$(AARCH))
 
 include/generated/gki_module_protected_exports.h: $(ABI_PROTECTED_EXPORTS_FILE) \
 				$(srctree)/scripts/gen_gki_modules_headers.sh
