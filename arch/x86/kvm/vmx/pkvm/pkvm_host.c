@@ -15,9 +15,8 @@
 #include <mmu.h>
 #include <mmu/spte.h>
 #include <pkvm.h>
+#include <pkvm_debugfs.h>
 #include "pkvm_constants.h"
-
-extern void pkvm_init_debugfs(void);
 
 MODULE_LICENSE("GPL");
 

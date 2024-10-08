@@ -6,6 +6,7 @@
 #include <asm/vmx.h>
 #include <asm/kvm_para.h>
 #include <pkvm_trace.h>
+#include <pkvm_debugfs.h>
 
 static void set_vmexit_trace_func(void *data)
 {
