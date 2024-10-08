@@ -111,8 +111,12 @@ int uvc_query_ctrl(struct uvc_device *dev, u8 query, u8 unit,
 	error = *(u8 *)data;
 	*(u8 *)data = tmp;
 
-	if (ret != 1)
-		return ret < 0 ? ret : -EPIPE;
+	if (ret != 1) {
+		dev_err(&dev->udev->dev,
+			"Failed to query (%s) UVC error code control %u on unit %u: %d (exp. 1).\n",
+			uvc_query_name(query), cs, unit, ret);
+		return ret ? ret : -EPIPE;
+	}
 
 	uvc_dbg(dev, CONTROL, "Control error %u\n", error);
 
