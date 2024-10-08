@@ -76,14 +76,29 @@ int uvc_query_ctrl(struct uvc_device *dev, u8 query, u8 unit,
 
 	ret = __uvc_query_ctrl(dev, query, unit, intfnum, cs, data, size,
 				UVC_CTRL_CONTROL_TIMEOUT);
-	if (likely(ret == size))
+	if (ret > 0) {
+		if (size == ret)
+			return 0;
+
+		/*
+		 * In UVC the data is represented in little-endian by default.
+		 * Some devices return shorter control packages that expected
+		 * for GET_DEF/MAX/MIN if the return value can fit in less
+		 * bytes.
+		 * Zero all the bytes that the device have not written.
+		 */
+		memset(data + ret, 0, size - ret);
+		dev_warn(&dev->udev->dev,
+			 "UVC non compliance: %s control %u on unit %u returned %d bytes when we expected %u.\n",
+			 uvc_query_name(query), cs, unit, ret, size);
 		return 0;
+	}
 
 	if (ret != -EPIPE) {
 		dev_err(&dev->udev->dev,
 			"Failed to query (%s) UVC control %u on unit %u: %d (exp. %u).\n",
 			uvc_query_name(query), cs, unit, ret, size);
-		return ret < 0 ? ret : -EPIPE;
+		return ret ? ret : -EPIPE;
 	}
 
 	/* Reuse data[0] to request the error code. */
