@@ -84,6 +84,7 @@
 #include <asm/intel_pt.h>
 #include <asm/emulate_prefix.h>
 #include <asm/sgx.h>
+#include <asm/kvm_pkvm.h>
 #include <clocksource/hyperv_timer.h>
 
 #define CREATE_TRACE_POINTS
@@ -9779,8 +9780,10 @@ int kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 	if (IS_ENABLED(CONFIG_KVM_SW_PROTECTED_VM) && tdp_mmu_enabled)
 		kvm_caps.supported_vm_types |= BIT(KVM_X86_SW_PROTECTED_VM);
 
-	if (IS_ENABLED(CONFIG_PKVM_INTEL) && tdp_mmu_enabled)
+#ifdef CONFIG_PKVM_INTEL
+	if (enable_pkvm && tdp_mmu_enabled)
 		kvm_caps.supported_vm_types |= BIT(KVM_X86_PROTECTED_VM);
+#endif
 
 	if (!kvm_cpu_cap_has(X86_FEATURE_XSAVES))
 		kvm_caps.supported_xss = 0;

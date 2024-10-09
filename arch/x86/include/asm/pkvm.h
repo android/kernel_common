@@ -30,6 +30,11 @@
 #define PKVM_MAX_PASID		(1 << PKVM_MAX_PASID_BITS)
 
 #ifdef CONFIG_PKVM_INTEL
+
+#ifndef __PKVM_HYP__
+extern bool __read_mostly enable_pkvm;	/* kernel command-line flag */
+#endif
+
 DECLARE_PER_CPU_READ_MOSTLY(bool, pkvm_enabled);
 
 static inline u64 pkvm_readq(void __iomem *reg, unsigned long reg_phys,
@@ -74,6 +79,11 @@ static inline void pkvm_writel(void __iomem *reg, unsigned long reg_phys,
 
 static inline void pkvm_update_iommu_virtual_caps(u64 *cap, u64 *ecap)
 {
+#ifndef __PKVM_HYP__
+	if (!enable_pkvm)
+		return;
+#endif
+
 	if (cap)
 		/*
 		 * Set caching mode as linux OS will runs in a VM

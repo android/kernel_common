@@ -53,6 +53,9 @@ void __init kvm_hyp_reserve(void)
 {
 	int ret;
 
+	if (!enable_pkvm)
+		return;
+
 	if (hyp_pre_reserve_check() < 0)
 		return;
 

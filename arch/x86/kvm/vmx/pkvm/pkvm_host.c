@@ -20,6 +20,14 @@
 
 MODULE_LICENSE("GPL");
 
+bool __read_mostly enable_pkvm = false;
+
+static int __init early_pkvm_parse_cmdline(char *buf)
+{
+	return kstrtobool(buf, &enable_pkvm);
+}
+early_param("kvm-intel.pkvm", early_pkvm_parse_cmdline);
+
 static struct pkvm_hyp *pkvm;
 
 struct pkvm_deprivilege_param {
@@ -1089,6 +1097,9 @@ int pkvm_init_shadow_vm(struct kvm *kvm)
 	void *shadow_addr;
 	int ret;
 
+	if (!enable_pkvm)
+		return 0;
+
 	INIT_LIST_HEAD(&pkvm->pinned_pages);
 
 	shadow_sz = PAGE_ALIGN(PKVM_SHADOW_VM_SIZE);
@@ -1115,6 +1126,9 @@ void pkvm_teardown_shadow_vm(struct kvm *kvm)
 	struct kvm_pinned_page *ppage, *n;
 	unsigned long pa;
 
+	if (!enable_pkvm)
+		return;
+
 	pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VM, pkvm->shadow_vm_handle);
 	if (!pa)
 		return;
@@ -1139,6 +1153,9 @@ int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
 	size_t shadow_sz;
 	void *shadow_addr;
 
+	if (!enable_pkvm)
+		return 0;
+
 	shadow_sz = PAGE_ALIGN(PKVM_SHADOW_VCPU_STATE_SIZE);
 	shadow_addr = alloc_pages_exact(shadow_sz, GFP_KERNEL_ACCOUNT);
 	if (!shadow_addr)
@@ -1161,9 +1178,12 @@ free_page:
 
 void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu)
 {
-	unsigned long pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VCPU,
-					  vcpu->pkvm_shadow_vcpu_handle);
+	unsigned long pa;
 
+	if (!enable_pkvm)
+		return;
+
+	pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VCPU, vcpu->pkvm_shadow_vcpu_handle);
 	if (!pa)
 		return;
 
@@ -1253,6 +1273,9 @@ static __init int pkvm_init_pci(struct pkvm_hyp *pkvm)
 int __init pkvm_init(void)
 {
 	int ret = 0, cpu;
+
+	if (!enable_pkvm)
+		return 0;
 
 	if (pkvm_sym(pkvm_hyp)) {
 		pr_err("pkvm hypervisor is running!");

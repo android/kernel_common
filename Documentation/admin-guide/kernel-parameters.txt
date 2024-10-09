@@ -2838,6 +2838,13 @@
 			[KVM,Intel] Control nested virtualization feature in
 			KVM/VMX. Default is 1 (enabled).
 
+	kvm-intel.pkvm= [KVM,Intel] If CONFIG_PKVM_INTEL is set, control whether
+			to enable pKVM hypervisor, i.e. deprivilege the host as
+			a VM running in non-root VMX mode under the control of
+			pKVM hypervisor that is running in root VMX mode and
+			allows running guests whose state is protected from the
+			host. Default is 0 (disabled).
+
 	kvm-intel.unrestricted_guest=
 			[KVM,Intel] Control KVM's use of unrestricted guest
 			feature (virtualized real and unpaged mode). Default
