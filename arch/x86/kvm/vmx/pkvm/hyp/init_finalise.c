@@ -28,6 +28,10 @@
 #include "pci.h"
 #include "init_finalise.h"
 
+bool pvmfw_present;
+phys_addr_t pvmfw_base;
+phys_addr_t pvmfw_size;
+
 void *pkvm_mmu_pgt_base;
 void *pkvm_vmemmap_base;
 void *host_ept_pgt_base;

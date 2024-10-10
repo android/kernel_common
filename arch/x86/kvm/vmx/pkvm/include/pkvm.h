@@ -132,6 +132,10 @@ extern unsigned long pkvm_sym(__symbol_base_offset);
 extern struct pkvm_hyp *pkvm_sym(pkvm_hyp);
 extern unsigned long pkvm_sym(__x86_clflush_size);
 
+extern bool pkvm_sym(pvmfw_present);
+extern phys_addr_t pkvm_sym(pvmfw_base);
+extern phys_addr_t pkvm_sym(pvmfw_size);
+
 PKVM_DECLARE(void, __pkvm_vmx_vmexit(void));
 PKVM_DECLARE(int, pkvm_main(struct kvm_vcpu *vcpu));
 PKVM_DECLARE(void, pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu));

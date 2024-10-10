@@ -4949,6 +4949,13 @@
 			[KNL] Number of legacy pty's. Overwrites compiled-in
 			default number.
 
+	pvmfw=size[KMG][@offset[KMG]]
+			[KVM,X86-64] Physical memory region containing the Protected VM
+			Firmware (pvmfw) provided by the bootloader. If pKVM hypervisor
+			is enabled, it protects the pvmfw memory region from the host
+			and runs protected guests with pvmfw as their entry point
+			to ensure their secure boot.
+
 	quiet		[KNL,EARLY] Disable most log messages
 
 	r128=		[HW,DRM]

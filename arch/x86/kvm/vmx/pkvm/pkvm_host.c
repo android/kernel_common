@@ -10,6 +10,7 @@
 #include <linux/pci.h>
 #include <asm/pci_x86.h>
 #include <asm/trapnr.h>
+#include <asm/e820/api.h>
 #include <asm/kvm_pkvm.h>
 
 #include <mmu.h>
@@ -22,11 +23,40 @@ MODULE_LICENSE("GPL");
 
 bool __read_mostly enable_pkvm = false;
 
+static bool cmdline_pvmfw_present;
+static u64 cmdline_pvmfw_base;
+static u64 cmdline_pvmfw_size;
+
 static int __init early_pkvm_parse_cmdline(char *buf)
 {
 	return kstrtobool(buf, &enable_pkvm);
 }
 early_param("kvm-intel.pkvm", early_pkvm_parse_cmdline);
+
+static int __init early_pvmfw_parse_cmdline(char *buf)
+{
+	u64 start, size;
+	char *p;
+
+	size = memparse(buf, &p);
+	if (p == buf || *p != '@')
+		return -EINVAL;
+
+	buf = p + 1;
+	start = memparse(buf, &p);
+	if (p == buf)
+		return -EINVAL;
+
+	/* clflush_cache_range() takes size as int */
+	if (size > UINT_MAX)
+		return -EINVAL;
+
+	cmdline_pvmfw_present = true;
+	cmdline_pvmfw_base = start;
+	cmdline_pvmfw_size = size;
+	return 0;
+}
+early_param("pvmfw", early_pvmfw_parse_cmdline);
 
 static struct pkvm_hyp *pkvm;
 
@@ -1270,12 +1300,68 @@ static __init int pkvm_init_pci(struct pkvm_hyp *pkvm)
 	return 0;
 }
 
+static int __init pkvm_firmware_rmem_init(void)
+{
+	phys_addr_t start, end, size;
+
+	if (!cmdline_pvmfw_present)
+		return 0;
+
+	start = cmdline_pvmfw_base;
+	end = cmdline_pvmfw_base + cmdline_pvmfw_size - 1;
+	size = cmdline_pvmfw_size;
+
+	if (e820__get_entry_type(start, end) != E820_TYPE_RESERVED) {
+		pr_err("pkvm: pvmfw memory [0x%llx-0x%llx] is not reserved in e820\n",
+		       start, end);
+		return -EINVAL;
+	}
+
+	if (!PAGE_ALIGNED(start) || !PAGE_ALIGNED(size)) {
+		pr_err("pkvm: pvmfw memory [0x%llx-0x%llx] is not page-aligned\n",
+		       start, end);
+		return -EINVAL;
+	}
+
+	pkvm_sym(pvmfw_present) = true;
+	pkvm_sym(pvmfw_base) = start;
+	pkvm_sym(pvmfw_size) = size;
+	return 0;
+}
+
+static int __init pkvm_firmware_rmem_clear(void)
+{
+	void *addr;
+	phys_addr_t size;
+
+	if (!cmdline_pvmfw_present)
+		return 0;
+
+	size = cmdline_pvmfw_size;
+	addr = memremap(cmdline_pvmfw_base, size, MEMREMAP_WB);
+	if (!addr)
+		return -EINVAL;
+
+	memset(addr, 0, size);
+	clflush_cache_range(addr, size);
+	memunmap(addr);
+
+	pr_info("pkvm: Cleared pvmfw memory\n");
+	return 0;
+}
+
 int __init pkvm_init(void)
 {
 	int ret = 0, cpu;
 
-	if (!enable_pkvm)
+	ret = pkvm_firmware_rmem_init();
+	if (ret)
+		return ret;
+
+	if (!enable_pkvm) {
+		pkvm_firmware_rmem_clear();
 		return 0;
+	}
 
 	if (pkvm_sym(pkvm_hyp)) {
 		pr_err("pkvm hypervisor is running!");
@@ -1334,9 +1420,13 @@ int __init pkvm_init(void)
 	pkvm->num_cpus = num_possible_cpus();
 	pkvm_init_debugfs();
 
-	return pkvm_init_finalise();
+	ret = pkvm_init_finalise();
+	if (ret)
+		pkvm_firmware_rmem_clear();
+	return ret;
 
 out:
+	pkvm_firmware_rmem_clear();
 	pkvm_sym(pkvm_hyp) = NULL;
 	return ret;
 }
