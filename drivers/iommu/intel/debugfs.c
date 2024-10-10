@@ -366,13 +366,13 @@ static int domain_translation_struct_show(struct seq_file *m,
 		if (seg != iommu->segment)
 			continue;
 
-		sts = dmar_readl(iommu->reg + DMAR_GSTS_REG);
+		sts = dmar_readl(iommu, DMAR_GSTS_REG);
 		if (!(sts & DMA_GSTS_TES)) {
 			seq_printf(m, "DMA Remapping is not enabled on %s\n",
 				   iommu->name);
 			continue;
 		}
-		if (dmar_readq(iommu->reg + DMAR_RTADDR_REG) & DMA_RTADDR_SMT)
+		if (dmar_readq(iommu, DMAR_RTADDR_REG) & DMA_RTADDR_SMT)
 			scalable = true;
 		else
 			scalable = false;
