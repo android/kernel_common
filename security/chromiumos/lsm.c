@@ -206,25 +206,38 @@ static int chromiumos_security_file_open(struct file *file)
 	enum chromiumos_inode_security_policy policy;
 	struct dentry *dentry = file->f_path.dentry;
 
-	/* Returns 0 if file is not a FIFO */
-	if (!S_ISFIFO(file->f_inode->i_mode))
-		return 0;
+	if (S_ISFIFO(file->f_inode->i_mode)) {
 
-	policy = chromiumos_get_inode_security_policy(
-		dentry, dentry->d_inode,
-		CHROMIUMOS_FIFO_ACCESS);
+		policy = chromiumos_get_inode_security_policy(
+			dentry, dentry->d_inode,
+			CHROMIUMOS_FIFO_ACCESS);
 
-	/*
-	 * Emit a warning in cases of blocked fifo access attempts. These will
-	 * show up in kernel warning reports collected by the crash reporter,
-	 * so we have some insight on spurious failures that need addressing.
-	 */
-	WARN(policy == CHROMIUMOS_INODE_POLICY_BLOCK,
-	     "Blocked fifo access for path %x:%x:%s\n (see https://goo.gl/8xICW6 for context and rationale)\n",
-	     MAJOR(dentry->d_sb->s_dev), MINOR(dentry->d_sb->s_dev),
-	     dentry_path(dentry, accessed_path, PATH_MAX));
+		/*
+		 * Emit a warning in cases of blocked fifo access attempts. These will
+		 * show up in kernel warning reports collected by the crash reporter,
+		 * so we have some insight on spurious failures that need addressing.
+		 */
+		WARN(policy == CHROMIUMOS_INODE_POLICY_BLOCK,
+			 "Blocked fifo access for path %x:%x:%s\n (see https://goo.gl/8xICW6 for context and rationale)\n",
+			 MAJOR(dentry->d_sb->s_dev), MINOR(dentry->d_sb->s_dev),
+			 dentry_path(dentry, accessed_path, PATH_MAX));
 
-	return policy == CHROMIUMOS_INODE_POLICY_BLOCK ? -EACCES : 0;
+		return policy == CHROMIUMOS_INODE_POLICY_BLOCK ? -EACCES : 0;
+	}
+
+	if (S_ISDIR(file->f_inode->i_mode) || S_ISREG(file->f_inode->i_mode)) {
+
+		policy = chromiumos_get_inode_security_policy(
+			dentry, dentry->d_inode,
+			CHROMIUMOS_BLK_CRYPTO_PASSTHROUGH);
+
+		if (policy == CHROMIUMOS_INODE_POLICY_ALLOW)
+			file->f_inode->i_flags |= S_BLKCRYPTO_PASSTHROUGH;
+		else
+			file->f_inode->i_flags &= ~S_BLKCRYPTO_PASSTHROUGH;
+	}
+
+	return 0;
 }
 
 static int chromiumos_sb_eat_lsm_opts(char *options, void **mnt_opts)
