@@ -335,59 +335,26 @@ static const struct file_operations sched_debug_fops = {
 	.release	= seq_release,
 };
 
-enum dl_param {
-	DL_RUNTIME = 0,
-	DL_PERIOD,
-};
-
 static unsigned long fair_server_period_max = (1UL << 22) * NSEC_PER_USEC; /* ~4 seconds */
 static unsigned long fair_server_period_min = (100) * NSEC_PER_USEC;     /* 100 us */
+#define DLSERVER_PARAMS_STR_MAXLEN	32
 
-static ssize_t sched_fair_server_write(struct file *filp, const char __user *ubuf,
-				       size_t cnt, loff_t *ppos, enum dl_param param)
+static int sched_fair_server_write(long cpu, u64 period, u64 runtime)
 {
-	long cpu = (long) ((struct seq_file *) filp->private_data)->private;
 	struct rq *rq = cpu_rq(cpu);
-	u64 runtime, period;
-	size_t err;
-	int retval;
-	u64 value;
-
-	err = kstrtoull_from_user(ubuf, cnt, 10, &value);
-	if (err)
-		return err;
+	int ret = 0;
 
 	scoped_guard (rq_lock_irqsave, rq) {
-		runtime  = rq->fair_server.dl_runtime;
-		period = rq->fair_server.dl_period;
 
-		switch (param) {
-		case DL_RUNTIME:
-			if (runtime == value)
-				break;
-			runtime = value;
-			break;
-		case DL_PERIOD:
-			if (value == period)
-				break;
-			period = value;
-			break;
-		}
-
-		if (runtime > period ||
-		    period > fair_server_period_max ||
-		    period < fair_server_period_min) {
-			return  -EINVAL;
-		}
+		if (period == rq->fair_server.dl_period && runtime == rq->fair_server.dl_runtime)
+			return 0;
 
 		if (rq->cfs.h_nr_running) {
 			update_rq_clock(rq);
 			dl_server_stop(&rq->fair_server);
 		}
 
-		retval = dl_server_apply_params(&rq->fair_server, runtime, period, 0);
-		if (retval)
-			cnt = retval;
+		ret = dl_server_apply_params(&rq->fair_server, runtime, period, 0);
 
 		if (!runtime)
 			printk_deferred("Fair server disabled in CPU %d, system may crash due to starvation.\n",
@@ -397,75 +364,90 @@ static ssize_t sched_fair_server_write(struct file *filp, const char __user *ubu
 			dl_server_start(&rq->fair_server);
 	}
 
-	*ppos += cnt;
-	return cnt;
+	return ret;
 }
 
-static size_t sched_fair_server_show(struct seq_file *m, void *v, enum dl_param param)
+static ssize_t sched_fair_server_params_write(struct file *filp, const char __user *ubuf,
+				       size_t cnt, loff_t *ppos)
 {
-	unsigned long cpu = (unsigned long) m->private;
-	struct rq *rq = cpu_rq(cpu);
-	u64 value;
+	long cpu = (long) ((struct seq_file *) filp->private_data)->private;
+	char buf[DLSERVER_PARAMS_STR_MAXLEN];
+	char *runtime_str, *period_str;
+	u64 period, runtime;
+	char *p = buf;
+	int err;
 
-	switch (param) {
-	case DL_RUNTIME:
-		value = rq->fair_server.dl_runtime;
-		break;
-	case DL_PERIOD:
-		value = rq->fair_server.dl_period;
-		break;
+	if (cnt == 0 || cnt > DLSERVER_PARAMS_STR_MAXLEN)
+		return -EINVAL;
+
+	if (copy_from_user(buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt - 1] = '\0';
+	period_str = strsep(&p, ",");
+	runtime_str = p;
+	if (!p || !strlen(p))
+		return -EINVAL;
+
+	err = kstrtoull(period_str, 10, &period);
+	if (err)
+		return -EINVAL;
+
+	err = kstrtoull(runtime_str, 10, &runtime);
+	if (err)
+		return -EINVAL;
+
+	if (runtime > period || period > fair_server_period_max ||
+			period < fair_server_period_min)
+		return -EINVAL;
+
+	if (cpu == -1) {
+		for_each_possible_cpu(cpu) {
+			err = sched_fair_server_write(cpu, period, runtime);
+			if (err)
+				break;
+		}
+	} else {
+		err = sched_fair_server_write(cpu, period, runtime);
 	}
 
-	seq_printf(m, "%llu\n", value);
+	if (!err)
+		*ppos += cnt;
+
+	return err ? err : cnt;
+}
+
+static inline void sched_fair_server_show(struct seq_file *m, long cpu)
+{
+	struct rq *rq = cpu_rq(cpu);
+
+	seq_printf(m, "cpu%ld: %llu,%llu\n", cpu,
+			rq->fair_server.dl_period,
+			rq->fair_server.dl_runtime);
+}
+
+static int sched_fair_server_params_show(struct seq_file *m, void *v)
+{
+	long cpu = (long) m->private;
+
+	if (cpu == -1) {
+		for_each_possible_cpu(cpu) {
+			sched_fair_server_show(m, cpu);
+		}
+	} else {
+		sched_fair_server_show(m, cpu);
+	}
 	return 0;
-
 }
 
-static ssize_t
-sched_fair_server_runtime_write(struct file *filp, const char __user *ubuf,
-				size_t cnt, loff_t *ppos)
+static int sched_fair_server_params_open(struct inode *inode, struct file *filp)
 {
-	return sched_fair_server_write(filp, ubuf, cnt, ppos, DL_RUNTIME);
+	return single_open(filp, sched_fair_server_params_show, inode->i_private);
 }
 
-static int sched_fair_server_runtime_show(struct seq_file *m, void *v)
-{
-	return sched_fair_server_show(m, v, DL_RUNTIME);
-}
-
-static int sched_fair_server_runtime_open(struct inode *inode, struct file *filp)
-{
-	return single_open(filp, sched_fair_server_runtime_show, inode->i_private);
-}
-
-static const struct file_operations fair_server_runtime_fops = {
-	.open		= sched_fair_server_runtime_open,
-	.write		= sched_fair_server_runtime_write,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release,
-};
-
-static ssize_t
-sched_fair_server_period_write(struct file *filp, const char __user *ubuf,
-			       size_t cnt, loff_t *ppos)
-{
-	return sched_fair_server_write(filp, ubuf, cnt, ppos, DL_PERIOD);
-}
-
-static int sched_fair_server_period_show(struct seq_file *m, void *v)
-{
-	return sched_fair_server_show(m, v, DL_PERIOD);
-}
-
-static int sched_fair_server_period_open(struct inode *inode, struct file *filp)
-{
-	return single_open(filp, sched_fair_server_period_show, inode->i_private);
-}
-
-static const struct file_operations fair_server_period_fops = {
-	.open		= sched_fair_server_period_open,
-	.write		= sched_fair_server_period_write,
+static const struct file_operations fair_server_params_fops = {
+	.open		= sched_fair_server_params_open,
+	.write		= sched_fair_server_params_write,
 	.read		= seq_read,
 	.llseek		= seq_lseek,
 	.release	= single_release,
@@ -482,6 +464,8 @@ static void debugfs_fair_server_init(void)
 	if (!d_fair)
 		return;
 
+	debugfs_create_file("params", 0644, d_fair, (void *)-1, &fair_server_params_fops);
+
 	for_each_possible_cpu(cpu) {
 		struct dentry *d_cpu;
 		char buf[32];
@@ -489,8 +473,7 @@ static void debugfs_fair_server_init(void)
 		snprintf(buf, sizeof(buf), "cpu%lu", cpu);
 		d_cpu = debugfs_create_dir(buf, d_fair);
 
-		debugfs_create_file("runtime", 0644, d_cpu, (void *) cpu, &fair_server_runtime_fops);
-		debugfs_create_file("period", 0644, d_cpu, (void *) cpu, &fair_server_period_fops);
+		debugfs_create_file("params", 0644, d_cpu, (void *) cpu, &fair_server_params_fops);
 	}
 }
 
