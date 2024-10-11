@@ -1074,7 +1074,7 @@ int kvm_arch_add_device_to_pkvm(struct kvm *kvm, struct iommu_group *grp)
 	kvm_get_kvm(kvm);
 
 	if (kvm->arch.vm_type == KVM_X86_PROTECTED_VM)
-		ret = iommu_group_for_each_dev(grp, &kvm->pkvm,
+		ret = iommu_group_for_each_dev(grp, &kvm->arch.pkvm,
 					       add_device_to_pkvm);
 
 	kvm_put_kvm(kvm);
@@ -1084,12 +1084,12 @@ int kvm_arch_add_device_to_pkvm(struct kvm *kvm, struct iommu_group *grp)
 
 int pkvm_init_shadow_vm(struct kvm *kvm)
 {
-	struct kvm_protected_vm *pkvm = &kvm->pkvm;
+	struct kvm_protected_vm *pkvm = &kvm->arch.pkvm;
 	size_t shadow_sz;
 	void *shadow_addr;
 	int ret;
 
-	INIT_LIST_HEAD(&kvm->pkvm.pinned_pages);
+	INIT_LIST_HEAD(&pkvm->pinned_pages);
 
 	shadow_sz = PAGE_ALIGN(PKVM_SHADOW_VM_SIZE);
 	shadow_addr = alloc_pages_exact(shadow_sz, GFP_KERNEL_ACCOUNT);
@@ -1111,7 +1111,7 @@ free_page:
 
 void pkvm_teardown_shadow_vm(struct kvm *kvm)
 {
-	struct kvm_protected_vm *pkvm = &kvm->pkvm;
+	struct kvm_protected_vm *pkvm = &kvm->arch.pkvm;
 	struct kvm_pinned_page *ppage, *n;
 	unsigned long pa;
 
@@ -1133,7 +1133,7 @@ void pkvm_teardown_shadow_vm(struct kvm *kvm)
 
 int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
 {
-	struct kvm_protected_vm *pkvm = &vcpu->kvm->pkvm;
+	struct kvm_protected_vm *pkvm = &vcpu->kvm->arch.pkvm;
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	s64 shadow_vcpu_handle;
 	size_t shadow_sz;
@@ -1173,7 +1173,7 @@ void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu)
 static int __pkvm_tlb_remote_flush_with_range(struct kvm *kvm,
 					      struct pkvm_tlb_range *range)
 {
-	int shadow_vm_handle = kvm->pkvm.shadow_vm_handle;
+	int shadow_vm_handle = kvm->arch.pkvm.shadow_vm_handle;
 	u64 start_gpa = 0;
 	u64 size = 0;
 

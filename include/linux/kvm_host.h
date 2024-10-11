@@ -865,10 +865,6 @@ struct kvm {
 	struct xarray mem_attr_array;
 #endif
 	char stats_id[KVM_STATS_NAME_SIZE];
-
-#if IS_ENABLED(CONFIG_PKVM_INTEL)
-	struct kvm_protected_vm pkvm;
-#endif
 };
 
 #define kvm_err(fmt, ...) \

@@ -4754,9 +4754,9 @@ int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 		if (r == RET_PF_FIXED && (page = kvm_pfn_to_refcounted_page(fault->pfn))) {
 			ppage->page = page;
 			get_page(page);
-			spin_lock(&vcpu->kvm->pkvm.pinned_page_lock);
-			list_add(&ppage->list, &vcpu->kvm->pkvm.pinned_pages);
-			spin_unlock(&vcpu->kvm->pkvm.pinned_page_lock);
+			spin_lock(&vcpu->kvm->arch.pkvm.pinned_page_lock);
+			list_add(&ppage->list, &vcpu->kvm->arch.pkvm.pinned_pages);
+			spin_unlock(&vcpu->kvm->arch.pkvm.pinned_page_lock);
 		} else {
 			kfree(ppage);
 		}
