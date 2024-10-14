@@ -38,7 +38,6 @@
 #include "t7xx_mhccif.h"
 #include "t7xx_modem_ops.h"
 #include "t7xx_pci.h"
-#include "t7xx_pci_rescan.h"
 #include "t7xx_pcie_mac.h"
 #include "t7xx_reg.h"
 #include "t7xx_state_monitor.h"
@@ -736,7 +735,6 @@ static int t7xx_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		return ret;
 	}
 
-	t7xx_rescan_done();
 	t7xx_pcie_mac_set_int(t7xx_dev, MHCCIF_INT);
 	t7xx_pcie_mac_interrupts_en(t7xx_dev);
 
@@ -776,59 +774,7 @@ static struct pci_driver t7xx_pci_driver = {
 	.shutdown = t7xx_pci_shutdown,
 };
 
-static int __init t7xx_pci_init(void)
-{
-	int ret;
-
-	t7xx_pci_dev_rescan();
-	ret = t7xx_rescan_init();
-	if (ret) {
-		pr_err("Failed to init t7xx rescan work\n");
-		return ret;
-	}
-
-	return pci_register_driver(&t7xx_pci_driver);
-}
-module_init(t7xx_pci_init);
-
-static int t7xx_always_match(struct device *dev, const void *data)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-	const struct pci_device_id *id = data;
-
-	if (pci_match_id(id, pdev))
-		return 1;
-
-	return 0;
-}
-
-static void __exit t7xx_pci_cleanup(void)
-{
-	int remove_flag = 0;
-	struct device *dev;
-
-	dev = driver_find_device(&t7xx_pci_driver.driver, NULL, &t7xx_pci_table[0],
-				 t7xx_always_match);
-	if (dev) {
-		pr_debug("unregister t7xx PCIe driver while device is still exist.\n");
-		put_device(dev);
-		remove_flag = 1;
-	} else {
-		pr_debug("no t7xx PCIe driver found.\n");
-	}
-
-	pci_lock_rescan_remove();
-	pci_unregister_driver(&t7xx_pci_driver);
-	pci_unlock_rescan_remove();
-
-	t7xx_rescan_deinit();
-	if (remove_flag) {
-		pr_debug("remove t7xx PCI device\n");
-		pci_stop_and_remove_bus_device_locked(to_pci_dev(dev));
-	}
-}
-
-module_exit(t7xx_pci_cleanup);
+module_pci_driver(t7xx_pci_driver);
 
 MODULE_AUTHOR("MediaTek Inc");
 MODULE_DESCRIPTION("MediaTek PCIe 5G WWAN modem T7xx driver");
