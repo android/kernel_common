@@ -40,7 +40,6 @@
 #define Q_IDX_CTRL			0
 #define Q_IDX_MBIM			2
 #define Q_IDX_AT_CMD			5
-#define Q_IDX_AP_MSG			2
 
 #define INVALID_SEQ_NUM			GENMASK(15, 0)
 
@@ -98,18 +97,7 @@ static const struct t7xx_port_conf t7xx_port_conf[] = {
 		.path_id = CLDMA_ID_AP,
 		.ops = &ctl_port_ops,
 		.name = "t7xx_ap_ctrl",
-	}, {
-		.tx_ch = PORT_CH_AP_MSG_TX,
-		.rx_ch = PORT_CH_AP_MSG_RX,
-		.txq_index = Q_IDX_AP_MSG,
-		.rxq_index = Q_IDX_AP_MSG,
-		.txq_exp_index = Q_IDX_AP_MSG,
-		.rxq_exp_index = Q_IDX_AP_MSG,
-		.path_id = CLDMA_ID_AP,
-		.ops = &ap_msg_port_ops,
-		.name = "ap_msg",
 	},
-
 };
 
 static struct t7xx_port_conf t7xx_early_port_conf[] = {
@@ -121,8 +109,6 @@ static struct t7xx_port_conf t7xx_early_port_conf[] = {
 		.txq_exp_index = CLDMA_Q_IDX_DUMP,
 		.rxq_exp_index = CLDMA_Q_IDX_DUMP,
 		.path_id = CLDMA_ID_AP,
-		.ops = &devlink_port_ops,
-		.name = "devlink",
 	},
 };
 
@@ -337,24 +323,6 @@ int t7xx_port_send_skb(struct t7xx_port *port, struct sk_buff *skb, unsigned int
 	}
 
 	return t7xx_port_send_ccci_skb(port, skb, pkt_header, ex_msg);
-}
-
-int t7xx_port_enable_chl(struct t7xx_port *port)
-{
-	spin_lock(&port->port_update_lock);
-	port->chan_enable = true;
-	spin_unlock(&port->port_update_lock);
-
-	return 0;
-}
-
-int t7xx_port_disable_chl(struct t7xx_port *port)
-{
-	spin_lock(&port->port_update_lock);
-	port->chan_enable = false;
-	spin_unlock(&port->port_update_lock);
-
-	return 0;
 }
 
 static void t7xx_proxy_setup_ch_mapping(struct port_proxy *port_prox)

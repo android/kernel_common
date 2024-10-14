@@ -42,8 +42,6 @@ enum port_ch {
 	/* to AP */
 	PORT_CH_AP_CONTROL_RX = 0x1000,
 	PORT_CH_AP_CONTROL_TX = 0x1001,
-	PORT_CH_AP_MSG_RX = 0x101E,
-	PORT_CH_AP_MSG_TX = 0x101F,
 
 	/* to MD */
 	PORT_CH_CONTROL_RX = 0x2000,
