@@ -7,7 +7,6 @@
 #define pr_fmt(fmt) KBUILD_MODNAME ":t7xx:%s: " fmt, __func__
 #define dev_fmt(fmt) "t7xx: " fmt
 
-#include <linux/acpi.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
 #include <linux/spinlock.h>
@@ -42,37 +41,13 @@ static void t7xx_remove_rescan(struct work_struct *work)
 {
 	int num_retries = RESCAN_RETRIES;
 	struct pci_dev *pdev;
-#ifdef CONFIG_ACPI
-	acpi_status status;
-	acpi_handle handle;
-	bool cold_reboot;
-#endif
 
 	atomic_set(&t7xx_rescan_ctx.rescan_done, 0);
 	pdev = t7xx_rescan_ctx.dev;
-#ifdef CONFIG_ACPI
-	cold_reboot = t7xx_rescan_ctx.cold_reboot;
-#endif
 
 	if (pdev) {
-		pr_debug("start remove and rescan flow\n");
 		pci_stop_and_remove_bus_device_locked(pdev);
-#ifdef CONFIG_ACPI
-		handle = ACPI_HANDLE(&pdev->dev);
-		if (cold_reboot) {
-			pr_info("Performing cold modem reboot\n");
-			status = acpi_execute_simple_method(handle, "FHRF", 1);
-			if (ACPI_FAILURE(status)) {
-				dev_err(&pdev->dev, "Failed to call _FHRF: %d\n",
-					status);
-			}
-			status = acpi_evaluate_object(handle, "SHRF", NULL, NULL);
-			if (ACPI_FAILURE(status)) {
-				dev_err(&pdev->dev, "Failed to call _SHRF: %d\n",
-					status);
-			}
-		}
-#endif
+		pr_debug("start remove and rescan flow\n");
 	}
 
 	do {
@@ -85,7 +60,7 @@ static void t7xx_remove_rescan(struct work_struct *work)
 	} while (num_retries--);
 }
 
-void t7xx_rescan_queue_work(struct pci_dev *pdev, bool cold_reboot)
+void t7xx_rescan_queue_work(struct pci_dev *pdev)
 {
 	if (!atomic_read(&t7xx_rescan_ctx.rescan_done)) {
 		dev_err(&pdev->dev, "Rescan failed\n");
@@ -93,7 +68,6 @@ void t7xx_rescan_queue_work(struct pci_dev *pdev, bool cold_reboot)
 	}
 
 	t7xx_rescan_ctx.dev = pdev;
-	t7xx_rescan_ctx.cold_reboot = cold_reboot;
 	queue_work(t7xx_rescan_ctx.pcie_rescan_wq, &t7xx_rescan_ctx.service_task);
 }
 

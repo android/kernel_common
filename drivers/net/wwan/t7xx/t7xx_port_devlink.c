@@ -442,7 +442,7 @@ static int t7xx_devlink_reload_up(struct devlink *devlink,
 	switch (action) {
 	case DEVLINK_RELOAD_ACTION_DRIVER_REINIT:
 	case DEVLINK_RELOAD_ACTION_FW_ACTIVATE:
-		t7xx_rescan_queue_work(dl->t7xx_dev->pdev, false);
+		t7xx_rescan_queue_work(dl->t7xx_dev->pdev);
 		return 0;
 	default:
 		/* Unsupported action should not get to this function */

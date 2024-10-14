@@ -61,26 +61,6 @@ enum t7xx_pm_state {
 	MTK_PM_RESUMED,
 };
 
-static ssize_t cold_reboot_store(struct device *dev, struct device_attribute *attr,
-				 const char *buf, size_t count)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-
-	t7xx_rescan_queue_work(pdev, true);
-	return count;
-}
-
-static DEVICE_ATTR_WO(cold_reboot);
-
-static struct attribute *cold_reboot_attr[] = {
-	&dev_attr_cold_reboot.attr,
-	NULL
-};
-
-static const struct attribute_group cold_reboot_attribute_group = {
-	.attrs = cold_reboot_attr,
-};
-
 static void t7xx_dev_set_sleep_capability(struct t7xx_pci_dev *t7xx_dev, bool enable)
 {
 	void __iomem *ctrl_reg = IREG_BASE(t7xx_dev) + T7XX_PCIE_MISC_CTRL;
@@ -755,17 +735,8 @@ static int t7xx_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	t7xx_pcie_mac_interrupts_dis(t7xx_dev);
 
-	ret = sysfs_create_group(&t7xx_dev->pdev->dev.kobj,
-				 &cold_reboot_attribute_group);
-	if (ret) {
-		t7xx_md_exit(t7xx_dev);
-		goto err_devlink_unregister;
-	}
-
 	ret = t7xx_interrupt_init(t7xx_dev);
 	if (ret) {
-		sysfs_remove_group(&t7xx_dev->pdev->dev.kobj,
-				   &cold_reboot_attribute_group);
 		t7xx_md_exit(t7xx_dev);
 		goto err_devlink_unregister;
 	}
@@ -789,9 +760,6 @@ static void t7xx_pci_remove(struct pci_dev *pdev)
 	t7xx_dev = pci_get_drvdata(pdev);
 	t7xx_md_exit(t7xx_dev);
 	t7xx_devlink_unregister(t7xx_dev);
-
-	sysfs_remove_group(&t7xx_dev->pdev->dev.kobj,
-			   &cold_reboot_attribute_group);
 
 	for (i = 0; i < EXT_INT_NUM; i++) {
 		if (!t7xx_dev->intr_handler[i])

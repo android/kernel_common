@@ -17,11 +17,10 @@ struct remove_rescan_context {
 	struct workqueue_struct *pcie_rescan_wq;
 	struct pci_dev *dev;
 	atomic_t rescan_done;
-	bool cold_reboot;
 };
 
 void t7xx_pci_dev_rescan(void);
-void t7xx_rescan_queue_work(struct pci_dev *pdev, bool cold_reboot);
+void t7xx_rescan_queue_work(struct pci_dev *pdev);
 int t7xx_rescan_init(void);
 void t7xx_rescan_deinit(void);
 void t7xx_rescan_done(void);
