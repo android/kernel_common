@@ -12,7 +12,6 @@
 #include "t7xx_port_devlink.h"
 #include "t7xx_port_proxy.h"
 #include "t7xx_state_monitor.h"
-#include "t7xx_uevent.h"
 
 static struct t7xx_devlink_region_info t7xx_devlink_region_infos[] = {
 	[T7XX_MRDUMP_INDEX] = {"mr_dump", T7XX_MRDUMP_SIZE},
@@ -205,7 +204,6 @@ static int t7xx_devlink_fb_flash_partition(struct t7xx_port *port, const char *p
 
 static int t7xx_devlink_fb_get_core(struct t7xx_port *port)
 {
-	char mrdump_complete_event[T7XX_FB_EVENT_SIZE];
 	u32 mrd_mb = T7XX_MRDUMP_SIZE / (1024 * 1024);
 	struct t7xx_devlink *dl = port->t7xx_dev->dl;
 	char mcmd[T7XX_FB_MCMD_SIZE + 1];
@@ -255,15 +253,11 @@ static int t7xx_devlink_fb_get_core(struct t7xx_port *port)
 		} else if ((clen == strlen(T7XX_FB_RESP_MRDUMP_DONE)) &&
 			   (!strcmp(mcmd, T7XX_FB_RESP_MRDUMP_DONE))) {
 			dev_dbg(port->dev, "%s! size:%zd\n", T7XX_FB_RESP_MRDUMP_DONE, offset_dlen);
-			snprintf(mrdump_complete_event, sizeof(mrdump_complete_event),
-				 "%s size=%zu", T7XX_UEVENT_MRDUMP_READY, offset_dlen);
-			t7xx_uevent_send(dl->port->dev, mrdump_complete_event);
 			clear_bit(T7XX_MRDUMP_STATUS, &dl->status);
 			return 0;
 		}
 		dev_err(port->dev, "getcore protocol error (read len %05d, response %s)\n",
 			clen, mcmd);
-		t7xx_uevent_send(dl->port->dev, T7XX_UEVENT_MRD_DISCD);
 		ret = -EPROTO;
 		goto free_mem;
 	}
@@ -278,7 +272,6 @@ free_mem:
 
 static int t7xx_devlink_fb_dump_log(struct t7xx_port *port)
 {
-	char lkdump_complete_event[T7XX_FB_EVENT_SIZE];
 	struct t7xx_devlink *dl = port->t7xx_dev->dl;
 	struct t7xx_devlink_region *lkdump_region;
 	char rsp[T7XX_FB_RESPONSE_SIZE];
@@ -309,7 +302,6 @@ static int t7xx_devlink_fb_dump_log(struct t7xx_port *port)
 	if (datasize > lkdump_region->info->size) {
 		dev_err(port->dev, "lkdump size is more than %dKB. Discarded!\n",
 			T7XX_LKDUMP_SIZE / 1024);
-		t7xx_uevent_send(dl->port->dev, T7XX_UEVENT_LKD_DISCD);
 		clear_bit(T7XX_LKDUMP_STATUS, &dl->status);
 		return -EPROTO;
 	}
@@ -333,9 +325,6 @@ static int t7xx_devlink_fb_dump_log(struct t7xx_port *port)
 	}
 
 	dev_dbg(port->dev, "LKDUMP DONE! size:%zd\n", offset);
-	snprintf(lkdump_complete_event, sizeof(lkdump_complete_event), "%s size=%zu",
-		 T7XX_UEVENT_LKDUMP_READY, offset);
-	t7xx_uevent_send(dl->port->dev, lkdump_complete_event);
 	clear_bit(T7XX_LKDUMP_STATUS, &dl->status);
 	return t7xx_devlink_fb_handle_response(port, NULL);
 }
@@ -347,7 +336,6 @@ static int t7xx_devlink_flash_update(struct devlink *devlink,
 	struct t7xx_devlink *dl = devlink_priv(devlink);
 	const char *component = params->component;
 	const struct firmware *fw = params->fw;
-	char flash_event[T7XX_FB_EVENT_SIZE];
 	struct t7xx_port *port;
 	int ret;
 
@@ -375,15 +363,10 @@ static int t7xx_devlink_flash_update(struct devlink *devlink,
 	if (ret) {
 		devlink_flash_update_status_notify(devlink, "flashing failure!",
 						   params->component, 0, 0);
-		snprintf(flash_event, sizeof(flash_event), "%s for [%s]",
-			 T7XX_UEVENT_FLASHING_FAILURE, params->component);
 	} else {
 		devlink_flash_update_status_notify(devlink, "flashing success!",
 						   params->component, 0, 0);
-		snprintf(flash_event, sizeof(flash_event), "%s for [%s]",
-			 T7XX_UEVENT_FLASHING_SUCCESS, params->component);
 	}
-	t7xx_uevent_send(dl->port->dev, flash_event);
 	clear_bit(T7XX_FLASH_STATUS, &dl->status);
 
 err_out:
