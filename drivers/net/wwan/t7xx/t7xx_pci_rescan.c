@@ -51,12 +51,12 @@ static void t7xx_remove_rescan(struct work_struct *work)
 	}
 
 	do {
-		msleep(DELAY_RESCAN_MTIME);
 		t7xx_pci_dev_rescan();
 
 		if (atomic_read(&t7xx_rescan_ctx.rescan_done))
 			break;
 
+		msleep(DELAY_RESCAN_MTIME);
 	} while (num_retries--);
 }
 
