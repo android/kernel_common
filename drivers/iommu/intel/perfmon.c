@@ -96,10 +96,10 @@ IOMMU_PMU_ATTR(filter_page_table,	"config2:32-36",	IOMMU_PMU_FILTER_PAGE_TABLE);
 #define iommu_pmu_get_ats(filter)		(((filter) >> 24) & 0x1f)
 #define iommu_pmu_get_page_table(filter)	(((filter) >> 32) & 0x1f)
 
-#define dmar_pmu_readq(pmu, o)		dmar_readq((pmu)->iommu, (u64)(o) - (u64)(pmu)->iommu->reg)
-#define dmar_pmu_writeq(pmu, o, v)	dmar_writeq((pmu)->iommu, (u64)(o) - (u64)(pmu)->iommu->reg, (v))
-#define dmar_pmu_readl(pmu, o)		dmar_readl((pmu)->iommu, (u64)(o) - (u64)(pmu)->iommu->reg)
-#define dmar_pmu_writel(pmu, o, v)	dmar_writel((pmu)->iommu, (u64)(o) - (u64)(pmu)->iommu->reg, (v))
+#define dmar_pmu_readq(pmu, o)		dmar_readq((pmu)->iommu, (unsigned long)(o) - (unsigned long)(pmu)->iommu->reg)
+#define dmar_pmu_writeq(pmu, o, v)	dmar_writeq((pmu)->iommu, (unsigned long)(o) - (unsigned long)(pmu)->iommu->reg, (v))
+#define dmar_pmu_readl(pmu, o)		dmar_readl((pmu)->iommu, (unsigned long)(o) - (unsigned long)(pmu)->iommu->reg)
+#define dmar_pmu_writel(pmu, o, v)	dmar_writel((pmu)->iommu, (unsigned long)(o) - (unsigned long)(pmu)->iommu->reg, (v))
 
 #define iommu_pmu_set_filter(_name, _config, _filter, _idx, _econfig)		\
 {										\
