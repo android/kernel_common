@@ -441,10 +441,8 @@ static int t7xx_devlink_reload_up(struct devlink *devlink,
 	*actions_performed = BIT(action);
 	switch (action) {
 	case DEVLINK_RELOAD_ACTION_DRIVER_REINIT:
-		t7xx_rescan_queue_work(dl->t7xx_dev->pdev, false);
-		return 0;
 	case DEVLINK_RELOAD_ACTION_FW_ACTIVATE:
-		/* the modem sends rgu interrupt after the reboot */
+		t7xx_rescan_queue_work(dl->t7xx_dev->pdev, false);
 		return 0;
 	default:
 		/* Unsupported action should not get to this function */
