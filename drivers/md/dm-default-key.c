@@ -67,9 +67,11 @@ lookup_cipher(const char *cipher_string)
 static void default_key_dtr(struct dm_target *ti)
 {
 	struct default_key_c *dkc = ti->private;
+	struct blk_crypto_key *blk_key = &dkc->key;
 
 	if (dkc->dev) {
-		blk_crypto_evict_key(dkc->dev->bdev, &dkc->key);
+		if (blk_key->size > 0)
+			blk_crypto_evict_key(dkc->dev->bdev, blk_key);
 		dm_put_device(ti, dkc->dev);
 	}
 	kfree_sensitive(dkc->cipher_string);
