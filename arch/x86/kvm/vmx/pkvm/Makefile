@@ -4,6 +4,7 @@ ccflags-y += -I $(srctree)/arch/x86/kvm
 ccflags-y += -I $(srctree)/arch/x86/kvm/vmx/pkvm/include
 
 pkvm-obj		:= pkvm_host.o pkvm.o pkvm_debugfs.o
+pkvm-obj		+= ../pkvm_high.o
 ifdef CONFIG_PKVM_INTEL_DEBUG
 pkvm-obj		+= debug.o
 endif
