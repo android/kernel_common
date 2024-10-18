@@ -68,7 +68,7 @@ struct shadow_vcpu_state {
 	u8 vmcs02[PAGE_SIZE] __aligned(PAGE_SIZE);
 	u8 cached_vmcs12[VMCS12_SIZE] __aligned(PAGE_SIZE);
 
-	struct pkvm_ve_info ve_info;
+	struct pkvm_ve_info ve_info __aligned(PAGE_SIZE);
 
 	/* The last cpu this vmcs02 runs with */
 	int last_cpu;
