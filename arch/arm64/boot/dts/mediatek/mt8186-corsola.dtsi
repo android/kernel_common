@@ -373,6 +373,23 @@
 	supply-names = "mali";
 	mali-supply = <&mt6366_vgpu_reg>;
 	status = "okay";
+
+	/*
+	 * The power models below are not part of the upstream binding
+	 * but are required by the proprietary Mali driver.
+	 */
+	power_model@0 {
+		compatible = "arm,mali-simple-power-model";
+		static-coefficient = <2427750>;
+		dynamic-coefficient = <4687>;
+		ts = <20000 2000 (-20) 2>;
+		thermal-zone = "soc_max";
+	};
+
+	power_model@1 {
+		compatible = "arm,mali-g52_r1-power-model";
+		scale = <1>;
+	};
 };
 
 &i2c0 {
