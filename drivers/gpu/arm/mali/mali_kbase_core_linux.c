@@ -82,6 +82,7 @@
 #include <linux/poll.h>
 #include <linux/kernel.h>
 #include <linux/errno.h>
+#include <linux/nvmem-consumer.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
@@ -4833,6 +4834,7 @@ int power_control_init(struct kbase_device *kbdev)
 	struct platform_device *pdev;
 	int err = 0;
 	unsigned int i;
+	u32 val;
 #if defined(CONFIG_REGULATOR)
 	const char *regulator_names[BASE_MAX_NR_CLOCKS_REGULATORS+1] = {};
 #endif /* CONFIG_REGULATOR */
@@ -4945,6 +4947,26 @@ int power_control_init(struct kbase_device *kbdev)
 	}
 #endif /* (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE) */
 #endif /* CONFIG_REGULATOR */
+
+	err = nvmem_cell_read_variable_le_u32(kbdev->dev, "speed-bin", &val);
+	if (err) {
+		/*
+		 * -ENOENT means that this platform doesn't support speedbins
+		 * as it didn't declare any speed-bin nvmem: in this case, we
+		 * keep going without it; any other error means that we are
+		 * supposed to read the bin value, but we failed doing so.
+		 */
+		if (err != -ENOENT && err != -EOPNOTSUPP) {
+			dev_err(kbdev->dev, "Cannot read speed-bin (%d).", err);
+			return err;
+		}
+
+		goto no_speedbin;
+	}
+	dev_info(kbdev->dev, "Using speed-bin = 0x%x\n", val);
+	devm_pm_opp_set_supported_hw(kbdev->dev, &val, 1);
+
+no_speedbin:
 	err = dev_pm_opp_of_add_table(kbdev->dev);
 	CSTD_UNUSED(err);
 #endif /* CONFIG_PM_OPP */
