@@ -369,25 +369,8 @@
 };
 
 &gpu {
-	supply-names = "mali","sram";
 	mali-supply = <&mt6366_vgpu_reg>;
-	sram-supply = <&mt6366_vsram_gpu_reg>;
-	operating-points-v2 = <&gpu_opp_table>;
-	volt-bin-mapping = <3 4 5>;
 	status = "okay";
-
-	power_model@0 {
-		compatible = "arm,mali-simple-power-model";
-		static-coefficient = <2427750>;
-		dynamic-coefficient = <4687>;
-		ts = <20000 2000 (-20) 2>;
-		thermal-zone = "soc_max";
-	};
-
-	power_model@1 {
-		compatible = "arm,mali-g52_r1-power-model";
-		scale = <1>;
-	};
 };
 
 &i2c0 {
