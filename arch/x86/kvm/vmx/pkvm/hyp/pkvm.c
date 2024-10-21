@@ -96,8 +96,9 @@ out:
 int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
 			  unsigned long shadow_pa,  size_t shadow_size)
 {
+	typeof_member(struct kvm, arch.vm_type) vm_type;
 	unsigned long offset = offsetof(struct kvm, arch.vm_type);
-	unsigned long vm_type, bytes = sizeof(u8);
+	unsigned long bytes = sizeof(vm_type);
 	struct pkvm_shadow_vm *vm;
 	struct x86_exception e;
 	int shadow_vm_handle;
