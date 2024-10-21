@@ -1721,18 +1721,7 @@
 				     "arm,mali-bifrost";
 			reg = <0 0x13040000 0 0x4000>;
 
-			clocks = <&topckgen CLK_TOP_MFG>,
-				 <&apmixedsys CLK_APMIXED_MFGPLL>,
-				 <&apmixedsys CLK_APMIXED_MFGPLL>,
-				 <&topckgen CLK_TOP_MAINPLL_D5>,
-				 <&mfgsys CLK_MFG_BG3D>;
-
-			clock-names = "clk_mux",
-				      "clk_pll_src",
-				      "clk_main_parent",
-				      "clk_sub_parent",
-				      "subsys_mfg_cg";
-
+			clocks = <&mfgsys CLK_MFG_BG3D>;
 			interrupts = <GIC_SPI 276 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 275 IRQ_TYPE_LEVEL_HIGH 0>,
 				     <GIC_SPI 274 IRQ_TYPE_LEVEL_HIGH 0>;
