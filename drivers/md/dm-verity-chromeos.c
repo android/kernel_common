@@ -90,9 +90,6 @@ static void chromeos_invalidate_kernel_endio(struct bio *bio)
 }
 
 static int chromeos_invalidate_kernel_submit(struct bio *bio,
-					     struct block_device *bdev,
-					     unsigned int op,
-					     unsigned int op_flags,
 					     sector_t sector,
 					     unsigned int len_byte,
 					     struct page *page)
@@ -101,14 +98,12 @@ static int chromeos_invalidate_kernel_submit(struct bio *bio,
 
 	bio->bi_private = &wait;
 	bio->bi_end_io = chromeos_invalidate_kernel_endio;
-	bio_set_dev(bio, bdev);
 
 	bio->bi_iter.bi_sector = sector;
 	bio->bi_vcnt = 1;
 	bio->bi_iter.bi_idx = 0;
 	bio->bi_iter.bi_size = len_byte;
 	bio->bi_iter.bi_bvec_done = 0;
-	bio->bi_opf =  op | op_flags;
 	bio->bi_io_vec[0].bv_page = page;
 	bio->bi_io_vec[0].bv_len = len_byte;
 	bio->bi_io_vec[0].bv_offset = 0;
@@ -204,7 +199,7 @@ static int chromeos_invalidate_kernel_bio(struct block_device *root_bdev)
 		goto failed_to_read;
 	}
 
-	bio = bio_alloc(NULL, 1, 0, GFP_NOIO);
+	bio = bio_alloc(bdev, 1, REQ_OP_READ | REQ_SYNC, GFP_NOIO);
 	if (!bio) {
 		ret = -1;
 		goto failed_bio_alloc;
@@ -226,10 +221,7 @@ static int chromeos_invalidate_kernel_bio(struct block_device *root_bdev)
 	 * cache of non-volatile storage device has been flushed before read is
 	 * started.
 	 */
-	if (chromeos_invalidate_kernel_submit(bio, bdev,
-					      REQ_OP_READ,
-					      REQ_SYNC,
-					      0,
+	if (chromeos_invalidate_kernel_submit(bio, 0,
 					      bdev_logical_block_size(bdev),
 					      page)) {
 		ret = -1;
@@ -263,15 +255,14 @@ static int chromeos_invalidate_kernel_bio(struct block_device *root_bdev)
 	/* We re-use the same bio to do the write after the read. Need to reset
 	 * it to initialize bio->bi_remaining.
 	 */
-	bio_reset(bio, NULL, 0);
+	bio_reset(bio, bdev, REQ_OP_WRITE | REQ_SYNC | REQ_FUA);
 
 	/*
 	 * Request write operation with REQ_FUA flag to ensure that I/O
 	 * completion for the write is signaled only after the data has been
 	 * committed to non-volatile storage.
 	 */
-	if (chromeos_invalidate_kernel_submit(bio, bdev, REQ_OP_WRITE,
-					      REQ_SYNC | REQ_FUA, 0,
+	if (chromeos_invalidate_kernel_submit(bio, 0,
 					      bdev_logical_block_size(bdev),
 					      page)) {
 		ret = -1;
@@ -319,9 +310,8 @@ static int chromeos_gpt_io_submit(struct bio *bio,
 	if (bdev_logical_block_size(bdev) > page_size(hdr_page))
 		return -1;
 
-	bio_reset(bio, NULL, 0);
-	if (chromeos_invalidate_kernel_submit(bio, bdev,
-					      op, op_flags,
+	bio_reset(bio, bdev, op | op_flags);
+	if (chromeos_invalidate_kernel_submit(bio,
 					      hdr_lba * sectors_per_lba,
 					      block_size,
 					      hdr_page)) {
@@ -331,9 +321,8 @@ static int chromeos_gpt_io_submit(struct bio *bio,
 	header = page_address(hdr_page);
 	tbl_sector = le64_to_cpu(header->partition_entry_lba) * sectors_per_lba;
 
-	bio_reset(bio, NULL, 0);
-	if (chromeos_invalidate_kernel_submit(bio, bdev,
-					      op, op_flags,
+	bio_reset(bio, bdev, op | op_flags);
+	if (chromeos_invalidate_kernel_submit(bio,
 					      tbl_sector,
 					      GPT_TABLE_SIZE,
 					      tbl_pages)) {
