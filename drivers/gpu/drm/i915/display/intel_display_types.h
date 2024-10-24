@@ -2238,6 +2238,10 @@ to_intel_frontbuffer(struct drm_framebuffer *fb)
 	__drm_device_to_intel_display((p)->base.dev)
 #define __intel_hdmi_to_intel_display(p)	\
 	__drm_device_to_intel_display(hdmi_to_dig_port(p)->base.base.dev)
+#define __intel_plane_to_intel_display(p)		\
+	__drm_device_to_intel_display((p)->base.dev)
+#define __intel_plane_state_to_intel_display(p)			\
+	__drm_device_to_intel_display((p)->uapi.plane->dev)
 
 /* Helper for generic association. Map types to conversion functions/macros. */
 #define __assoc(type, p) \
@@ -2256,6 +2260,8 @@ to_intel_frontbuffer(struct drm_framebuffer *fb)
 		 __assoc(intel_digital_port, p),	\
 		 __assoc(intel_dp, p),			\
 		 __assoc(intel_encoder, p),		\
-		 __assoc(intel_hdmi, p))
+		 __assoc(intel_hdmi, p),		\
+		 __assoc(intel_plane, p),		\
+		 __assoc(intel_plane_state, p))
 
 #endif /*  __INTEL_DISPLAY_TYPES_H__ */
