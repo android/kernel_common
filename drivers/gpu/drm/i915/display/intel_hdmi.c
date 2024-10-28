@@ -2914,7 +2914,6 @@ static struct intel_encoder *
 get_encoder_by_ddc_pin(struct intel_encoder *encoder, u8 ddc_pin)
 {
 	struct intel_display *display = to_intel_display(encoder);
-	struct drm_i915_private *i915 = to_i915(encoder->base.dev);
 	struct intel_encoder *other;
 
 	for_each_intel_encoder(display->drm, other) {
@@ -2928,7 +2927,7 @@ get_encoder_by_ddc_pin(struct intel_encoder *encoder, u8 ddc_pin)
 
 		connector = enc_to_dig_port(other)->hdmi.attached_connector;
 
-		if (connector && connector->base.ddc == intel_gmbus_get_adapter(i915, ddc_pin))
+		if (connector && connector->base.ddc == intel_gmbus_get_adapter(display, ddc_pin))
 			return other;
 	}
 
@@ -2938,7 +2937,6 @@ get_encoder_by_ddc_pin(struct intel_encoder *encoder, u8 ddc_pin)
 static u8 intel_hdmi_ddc_pin(struct intel_encoder *encoder)
 {
 	struct intel_display *display = to_intel_display(encoder);
-	struct drm_i915_private *i915 = to_i915(encoder->base.dev);
 	struct intel_encoder *other;
 	const char *source;
 	u8 ddc_pin;
@@ -2951,7 +2949,7 @@ static u8 intel_hdmi_ddc_pin(struct intel_encoder *encoder)
 		source = "platform default";
 	}
 
-	if (!intel_gmbus_is_valid_pin(i915, ddc_pin)) {
+	if (!intel_gmbus_is_valid_pin(display, ddc_pin)) {
 		drm_dbg_kms(display->drm,
 			    "[ENCODER:%d:%s] Invalid DDC pin %d\n",
 			    encoder->base.base.id, encoder->base.name, ddc_pin);
@@ -3049,7 +3047,7 @@ void intel_hdmi_init_connector(struct intel_digital_port *dig_port,
 	drm_connector_init_with_ddc(dev, connector,
 				    &intel_hdmi_connector_funcs,
 				    DRM_MODE_CONNECTOR_HDMIA,
-				    intel_gmbus_get_adapter(dev_priv, ddc_pin));
+				    intel_gmbus_get_adapter(display, ddc_pin));
 
 	drm_connector_helper_add(connector, &intel_hdmi_connector_helper_funcs);
 
