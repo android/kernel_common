@@ -1077,8 +1077,10 @@ static ssize_t mem_rw(struct file *file, char __user *buf,
 
 	if (write && __mem_rw_block_writes(file)) {
 		task = get_proc_task(file->f_inode);
-		if (task)
+		if (task) {
 			report_mem_rw_reject("write call", task);
+			put_task_struct(task);
+		}
 		return -EACCES;
 	}
 
