@@ -182,9 +182,14 @@ int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid);
 
 extern struct pkvm_hyp *pkvm_hyp;
 
+static inline bool shadow_vm_is_protected(struct pkvm_shadow_vm *vm)
+{
+	return vm->vm_type == KVM_X86_PROTECTED_VM;
+}
+
 static inline bool shadow_vcpu_is_protected(struct shadow_vcpu_state *shadow_vcpu)
 {
-	return shadow_vcpu->vm->vm_type == KVM_X86_PROTECTED_VM;
+	return shadow_vm_is_protected(shadow_vcpu->vm);
 }
 
 #endif

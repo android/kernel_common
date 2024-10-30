@@ -574,11 +574,9 @@ static int pkvm_pgstate_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vad
 		goto out;
 	}
 
-	switch (vm->vm_type) {
-	case KVM_X86_DEFAULT_VM:
+	if (!shadow_vm_is_protected(vm))
 		ret = __pkvm_host_share_guest(map_phys, pgt, vaddr, level_size, data->prot);
-		break;
-	case KVM_X86_PROTECTED_VM:
+	else {
 		if (vm->need_prepopulation)
 			/*
 			 * As pgstate pgt is the source of the shadow EPT, only after pgstate
@@ -594,10 +592,6 @@ static int pkvm_pgstate_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vad
 		else
 			ret = __pkvm_host_donate_guest(map_phys, pgt, vaddr,
 						       level_size, data->prot);
-		break;
-	default:
-		ret = -EINVAL;
-		break;
 	}
 
 	if (ret) {
@@ -640,14 +634,12 @@ static int pkvm_pgstate_pgt_free_leaf(struct pkvm_pgtable *pgt, unsigned long va
 	 * pgtable_free_cb free table pages with correct refcount.
 	 *
 	 */
-	switch(vm->vm_type) {
-	case KVM_X86_DEFAULT_VM:
+	if (!shadow_vm_is_protected(vm)) {
 		pgt->mm_ops->get_page(ptep);
 		ret = __pkvm_host_unshare_guest(phys, pgt, vaddr, size);
 		pgt->mm_ops->put_page(ptep);
 		flush_data->flushtlb |= true;
-		break;
-	case KVM_X86_PROTECTED_VM: {
+	} else {
 		struct mem_range range;
 		/*
 		 * before returning to host, the memory page previously owned by
@@ -659,11 +651,6 @@ static int pkvm_pgstate_pgt_free_leaf(struct pkvm_pgtable *pgt, unsigned long va
 		ret = __pkvm_host_undonate_guest(phys, pgt, vaddr, size);
 		pgt->mm_ops->put_page(ptep);
 		flush_data->flushtlb |= true;
-		break;
-	}
-	default:
-		ret = -EINVAL;
-		break;
 	}
 
 	if (ret)
@@ -696,7 +683,7 @@ static void __invalidate_shadow_ept_with_range(struct shadow_ept_desc *desc,
 	 * As for protected VM, its memory is pinned thus no need to
 	 * unmap from pgstate pgt.
 	 */
-	if (vm->vm_type == KVM_X86_DEFAULT_VM)
+	if (!shadow_vm_is_protected(vm))
 		pkvm_pgtable_unmap_nosplit(&vm->pgstate_pgt, vaddr, size,
 					   pkvm_pgstate_pgt_free_leaf);
 out:

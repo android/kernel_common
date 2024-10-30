@@ -464,7 +464,7 @@ int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid)
 	if (!vm)
 		return -EINVAL;
 
-	if (vm->vm_type != KVM_X86_DEFAULT_VM)
+	if (shadow_vm_is_protected(vm))
 		ret = pkvm_attach_ptdev(bdf, pasid, vm);
 
 	put_shadow_vm(shadow_vm_handle);
