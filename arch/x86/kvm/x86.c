@@ -10135,7 +10135,7 @@ int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 	int op_64_bit;
 	int cpl;
 
-	if (vcpu->kvm->arch.vm_type == KVM_X86_PROTECTED_VM)
+	if (pkvm_is_protected_vcpu(vcpu))
 		return kvm_pkvm_hypercall(vcpu);
 
 	if (kvm_xen_hypercall_enabled(vcpu->kvm))

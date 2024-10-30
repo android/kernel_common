@@ -227,6 +227,16 @@ static inline unsigned long pkvm_host_shadow_iommu_pgtable_pages(int nr_pdev)
 
 u64 hyp_total_reserve_pages(void);
 
+static inline bool pkvm_is_protected_vm(struct kvm *kvm)
+{
+	return kvm->arch.vm_type == KVM_X86_PROTECTED_VM;
+}
+
+static inline bool pkvm_is_protected_vcpu(struct kvm_vcpu *vcpu)
+{
+	return pkvm_is_protected_vm(vcpu->kvm);
+}
+
 int pkvm_init_shadow_vm(struct kvm *kvm);
 void pkvm_teardown_shadow_vm(struct kvm *kvm);
 int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu);
@@ -237,6 +247,8 @@ int pkvm_tlb_remote_flush_with_range(struct kvm *kvm,
 int pkvm_set_mmio_ve(struct kvm_vcpu *vcpu, unsigned long gfn);
 #else
 static inline void kvm_hyp_reserve(void) {}
+static inline bool pkvm_is_protected_vm(struct kvm *kvm) { return false; }
+static inline bool pkvm_is_protected_vcpu(struct kvm_vcpu *vcpu) { return false; }
 static inline int pkvm_init_shadow_vm(struct kvm *kvm) { return 0; }
 static inline void pkvm_teardown_shadow_vm(struct kvm *kvm) {}
 static inline int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu) { return 0; }
