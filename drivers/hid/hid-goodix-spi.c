@@ -357,7 +357,7 @@ static int goodix_hid_check_ack_status(struct goodix_ts_data *ts, u32 *resp_len)
 				dev_err(ts->dev, "hrd.size too short: %d", len);
 				return -EINVAL;
 			}
-			*resp_len = len;
+			*resp_len = len - GOODIX_HID_PKG_LEN_SIZE;
 			return 0;
 		}
 
@@ -447,7 +447,10 @@ static int goodix_hid_get_raw_report(struct hid_device *hid,
 	if (error)
 		return error;
 
-	len = min(len, response_data_len - GOODIX_HID_PKG_LEN_SIZE);
+	/* Empty reprot response */
+	if (!response_data_len)
+		return 0;
+	len = min(len, response_data_len);
 	/* Step3: read response data(skip 2bytes of hid pkg length) */
 	error = goodix_spi_read(ts, GOODIX_HID_CMD_ADDR +
 				GOODIX_HID_ACK_HEADER_SIZE +
