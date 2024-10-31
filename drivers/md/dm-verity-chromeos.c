@@ -404,7 +404,7 @@ static int chromeos_handle_retries(struct bio *bio,
 	}
 
 	/* The block dev was being changed on read. Let's reopen here. */
-	blkdev_put(bdev, dev_mode);
+	blkdev_put(bdev, chromeos_handle_retries);
 	dev_mode = FMODE_WRITE;
 	bdev = blkdev_get_by_dev(devt, dev_mode,
 				 chromeos_handle_retries, NULL);
@@ -431,7 +431,7 @@ static int chromeos_handle_retries(struct bio *bio,
 
 failed:
 	if (dev_mode)
-		blkdev_put(bdev, dev_mode);
+		blkdev_put(bdev, chromeos_handle_retries);
 
 	if (!ret)
 		DMERR("update_tries: updated %s GPT",
@@ -467,7 +467,7 @@ static int chromeos_update_tries(struct block_device *root_bdev)
 	 * is 1 based, so subtract 1.
 	 */
 	kernel_gpt_entry_id = kernel_bdev->bd_partno - 1;
-	blkdev_put(kernel_bdev, FMODE_READ);
+	blkdev_put(kernel_bdev, chromeos_update_tries);
 
 	bio = bio_alloc(root_bdev, 1, 0, GFP_NOIO);
 	if (!bio) {
