@@ -408,7 +408,6 @@ static void mtk_dip_fill_ipi_img_param_mp(struct mtk_dip_pipe *pipe,
 	struct v4l2_pix_format_mplane *pix_mp = &dev_buf->fmt.fmt.pix_mp;
 	const struct mtk_dip_dev_format *mdp_fmt = dev_buf->dev_fmt;
 	unsigned int i;
-	unsigned int total_plane_size = 0;
 
 	b->usage = dev_buf->dma_port;
 	b->format.colorformat = dev_buf->dev_fmt->mdp_color;
@@ -432,7 +431,6 @@ static void mtk_dip_fill_ipi_img_param_mp(struct mtk_dip_pipe *pipe,
 			dip_mdp_fmt_get_plane_size(mdp_fmt, stride,
 						   pix_mp->height, i);
 		b->iova[i] = dev_buf->isp_daddr[i];
-		total_plane_size += b->format.plane_fmt[i].size;
 	}
 
 	if (!mtk_dip_is_contig_mp_buffer(dev_buf))
@@ -447,7 +445,6 @@ static void mtk_dip_fill_ipi_img_param_mp(struct mtk_dip_pipe *pipe,
 			dip_mdp_fmt_get_plane_size(mdp_fmt, stride,
 						   pix_mp->height, i);
 		b->iova[i] = b->iova[i - 1] + b->format.plane_fmt[i - 1].size;
-		total_plane_size += b->format.plane_fmt[i].size;
 	}
 }
 
