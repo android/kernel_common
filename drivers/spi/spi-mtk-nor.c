@@ -99,6 +99,8 @@
 
 #define CLK_TO_US(sp, clkcnt)		DIV_ROUND_UP(clkcnt, sp->spi_freq / 1000000)
 
+#define MAX_CLOCK_CNT		6
+
 struct mtk_nor_caps {
 	u8 dma_bits;
 
@@ -116,10 +118,8 @@ struct mtk_nor {
 	void __iomem *base;
 	u8 *buffer;
 	dma_addr_t buffer_dma;
-	struct clk *spi_clk;
-	struct clk *ctlr_clk;
-	struct clk *axi_clk;
-	struct clk *axi_s_clk;
+	struct clk_bulk_data clocks[MAX_CLOCK_CNT];
+	int clock_cnt;
 	unsigned int spi_freq;
 	bool wbuf_en;
 	bool has_irq;
@@ -703,42 +703,66 @@ msg_done:
 
 static void mtk_nor_disable_clk(struct mtk_nor *sp)
 {
-	clk_disable_unprepare(sp->spi_clk);
-	clk_disable_unprepare(sp->ctlr_clk);
-	clk_disable_unprepare(sp->axi_clk);
-	clk_disable_unprepare(sp->axi_s_clk);
+	clk_bulk_disable_unprepare(sp->clock_cnt, sp->clocks);
 }
 
 static int mtk_nor_enable_clk(struct mtk_nor *sp)
 {
 	int ret;
+	int i;
 
-	ret = clk_prepare_enable(sp->spi_clk);
-	if (ret)
-		return ret;
-
-	ret = clk_prepare_enable(sp->ctlr_clk);
+	ret = clk_bulk_prepare_enable(sp->clock_cnt, sp->clocks);
 	if (ret) {
-		clk_disable_unprepare(sp->spi_clk);
+		dev_err(sp->dev, "enable clk failed\n");
 		return ret;
 	}
 
-	ret = clk_prepare_enable(sp->axi_clk);
-	if (ret) {
-		clk_disable_unprepare(sp->spi_clk);
-		clk_disable_unprepare(sp->ctlr_clk);
-		return ret;
-	}
+	for (i = 0; i < sp->clock_cnt; i++) {
+		if (IS_ERR(sp->clocks[i].clk)) {
+			dev_err(sp->dev, "get %s fail\n",sp->clocks[i].id);
+			return PTR_ERR(sp->clocks[i].clk);
+		}
 
-	ret = clk_prepare_enable(sp->axi_s_clk);
-	if (ret) {
-		clk_disable_unprepare(sp->spi_clk);
-		clk_disable_unprepare(sp->ctlr_clk);
-		clk_disable_unprepare(sp->axi_clk);
-		return ret;
+		if(strcmp(sp->clocks[i].id, "spi"))
+			sp->spi_freq = clk_get_rate(sp->clocks[i].clk);
 	}
 
 	return 0;
+}
+
+static int mtk_nor_parse_clk(struct device *dev, struct mtk_nor *sp)
+{
+	struct device_node *np = dev->of_node;
+	int ret;
+	const char *name;
+	int cnt,i;
+
+	cnt = of_property_count_strings(np, "clock-names");
+	if (!cnt || (cnt == -EINVAL)) {
+		dev_err(dev, "Unable to find clocks\n");
+		ret = -EINVAL;
+		goto out;
+	} else if (cnt < 0) {
+		dev_err(dev, "Count clock strings failed, err %d\n", cnt);
+		ret = cnt;
+		goto out;
+	}
+
+	sp->clock_cnt = cnt;
+	for (i = 0; i < cnt; i ++) {
+		ret = of_property_read_string_index(np, "clock-names", i, &name);
+		if (ret) {
+			dev_err(dev, "failed to get clock string\n");
+			return ret;
+		}
+
+		sp->clocks[i].id = name;
+	}
+
+	ret = devm_clk_bulk_get(dev, sp->clock_cnt, sp->clocks);
+
+out:
+	return ret;
 }
 
 static void mtk_nor_init(struct mtk_nor *sp)
@@ -813,28 +837,11 @@ static int mtk_nor_probe(struct platform_device *pdev)
 	struct mtk_nor *sp;
 	struct mtk_nor_caps *caps;
 	void __iomem *base;
-	struct clk *spi_clk, *ctlr_clk, *axi_clk, *axi_s_clk;
 	int ret, irq;
 
 	base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(base))
 		return PTR_ERR(base);
-
-	spi_clk = devm_clk_get(&pdev->dev, "spi");
-	if (IS_ERR(spi_clk))
-		return PTR_ERR(spi_clk);
-
-	ctlr_clk = devm_clk_get(&pdev->dev, "sf");
-	if (IS_ERR(ctlr_clk))
-		return PTR_ERR(ctlr_clk);
-
-	axi_clk = devm_clk_get_optional(&pdev->dev, "axi");
-	if (IS_ERR(axi_clk))
-		return PTR_ERR(axi_clk);
-
-	axi_s_clk = devm_clk_get_optional(&pdev->dev, "axi_s");
-	if (IS_ERR(axi_s_clk))
-		return PTR_ERR(axi_s_clk);
 
 	caps = (struct mtk_nor_caps *)of_device_get_match_data(&pdev->dev);
 
@@ -868,10 +875,6 @@ static int mtk_nor_probe(struct platform_device *pdev)
 	sp->wbuf_en = false;
 	sp->ctlr = ctlr;
 	sp->dev = &pdev->dev;
-	sp->spi_clk = spi_clk;
-	sp->ctlr_clk = ctlr_clk;
-	sp->axi_clk = axi_clk;
-	sp->axi_s_clk = axi_s_clk;
 	sp->caps = caps;
 	sp->high_dma = caps->dma_bits > 32;
 	sp->buffer = dmam_alloc_coherent(&pdev->dev,
@@ -885,11 +888,13 @@ static int mtk_nor_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	ret = mtk_nor_enable_clk(sp);
+	ret = mtk_nor_parse_clk(sp->dev, sp);
 	if (ret < 0)
 		return ret;
 
-	sp->spi_freq = clk_get_rate(sp->spi_clk);
+	ret = mtk_nor_enable_clk(sp);
+	if (ret < 0)
+		return ret;
 
 	mtk_nor_init(sp);
 
