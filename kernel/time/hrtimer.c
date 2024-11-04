@@ -710,7 +710,11 @@ hrtimer_force_reprogram(struct hrtimer_cpu_base *cpu_base, int skip_equal)
 /*
  * High resolution timer enabled ?
  */
+#ifdef CONFIG_X86
+static bool hrtimer_hres_enabled __read_mostly  = false;
+#else
 static bool hrtimer_hres_enabled __read_mostly  = true;
+#endif
 unsigned int hrtimer_resolution __read_mostly = LOW_RES_NSEC;
 EXPORT_SYMBOL_GPL(hrtimer_resolution);
 
