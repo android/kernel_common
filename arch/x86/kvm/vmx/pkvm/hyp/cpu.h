@@ -37,14 +37,10 @@ do {                                            	\
 #define pkvm_wrmsrl(msr, val)   pkvm_msr_write(msr, val)
 
 #ifdef CONFIG_PKVM_INTEL_DEBUG
-#include <linux/smp.h>
-static inline u64 get_pcpu_id(void)
-{
-	return raw_smp_processor_id();
-}
+extern unsigned long get_pcpu_id(void);
 #else
 /* this function shall only be used during pkvm runtime */
-static inline u64 get_pcpu_id(void)
+static inline unsigned long get_pcpu_id(void)
 {
 	return pkvm_msr_read(MSR_GS_BASE);
 }

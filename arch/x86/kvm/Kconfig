@@ -134,12 +134,12 @@ config PKVM_INTEL
 	  If unsure, say N.
 
 config PKVM_INTEL_DEBUG
-        bool "Debug pKVM"
-        depends on PKVM_INTEL
-        help
-          Provides debug support for pKVM.
+	bool "Debug pKVM"
+	depends on PKVM_INTEL
+	help
+	Provides debug support for pKVM.
 
-          If unsure, say N.
+	If unsure, say N.
 
 config X86_SGX_KVM
 	bool "Software Guard eXtensions (SGX) Virtualization"

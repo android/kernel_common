@@ -252,8 +252,8 @@ int pkvm_later_mmu_init(void *mmu_pool_base, unsigned long mmu_pool_pages)
 void pkvm_mmu_clone_host(int level, unsigned long start_vaddr)
 {
 	int i = mmu_entry_to_index(start_vaddr, level);
-	u64 *ptep = __va(hyp_mmu.root_pa);
-	u64 *host_cr3 = __va(__read_cr3() & PAGE_MASK);
+	u64 *ptep = __pkvm_va(hyp_mmu.root_pa);
+	u64 *host_cr3 = __pkvm_va(__native_read_cr3() & PAGE_MASK);
 
 	for (; i < PTRS_PER_PTE; i++)
 		ptep[i] = host_cr3[i];
