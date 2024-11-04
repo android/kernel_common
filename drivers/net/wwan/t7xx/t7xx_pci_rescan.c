@@ -56,20 +56,23 @@ static void t7xx_remove_rescan(struct work_struct *work)
 
 	if (pdev) {
 		pr_debug("start remove and rescan flow\n");
-		pci_stop_and_remove_bus_device_locked(pdev);
 #ifdef CONFIG_ACPI
 		handle = ACPI_HANDLE(&pdev->dev);
+#endif
+		pci_stop_and_remove_bus_device_locked(pdev);
+#ifdef CONFIG_ACPI
 		if (cold_reboot) {
 			pr_info("Performing cold modem reboot\n");
 			status = acpi_execute_simple_method(handle, "FHRF", 1);
 			if (ACPI_FAILURE(status)) {
-				dev_err(&pdev->dev, "Failed to call _FHRF: %d\n",
-					status);
+				pr_err("t7xx: Failed to call _FHRF: 0x%x\n",
+				       status);
 			}
-			status = acpi_evaluate_object(handle, "SHRF", NULL, NULL);
+			status = acpi_evaluate_object(handle, "SHRF", NULL,
+						      NULL);
 			if (ACPI_FAILURE(status)) {
-				dev_err(&pdev->dev, "Failed to call _SHRF: %d\n",
-					status);
+				pr_err("t7xX: Failed to call _SHRF: 0x%x\n",
+				       status);
 			}
 		}
 #endif
