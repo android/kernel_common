@@ -47,6 +47,11 @@
 # define __percpu_seg_override	__seg_fs
 #endif
 
+#ifdef __PKVM_HYP__
+#undef __percpu_seg_override
+# define __percpu_seg_override	__seg_fs
+#endif
+
 #define __percpu_prefix		""
 
 #else /* !CONFIG_CC_HAS_NAMED_AS: */
