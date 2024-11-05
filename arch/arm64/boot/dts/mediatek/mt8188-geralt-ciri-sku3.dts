@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2024 Google LLC
+ */
+/dts-v1/;
+#include "mt8188-geralt-ciri.dtsi"
+
+/ {
+	model = "Google Ciri sku3 board";
+	compatible = "google,ciri-sku3", "google,ciri", "mediatek,mt8188";
+};
+
+&dsi_panel {
+	compatible = "ivo,t109nw41", "himax,hx83102";
+};
