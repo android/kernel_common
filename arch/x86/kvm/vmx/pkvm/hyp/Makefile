@@ -5,6 +5,7 @@ ccflags-y += -I $(srctree)/arch/x86/kvm/vmx/pkvm/include
 ccflags-y += -fno-stack-protector
 ccflags-y += -D__DISABLE_EXPORTS
 ccflags-y += -D__PKVM_HYP__
+ccflags-y += -include $(srctree)/arch/x86/kvm/pkvm/def.h
 
 pkvm-hyp-y	:= vmx_asm.o vmexit.o memory.o page_alloc.o early_alloc.o pgtable.o mmu.o pkvm.o \
 		   init_finalise.o ept.o idt.o irq.o nested.o vmx.o vmsr.o mem_protect.o lapic.o \
