@@ -563,7 +563,10 @@ static u64 emulate_field_for_vmcs02(struct vcpu_vmx *vmx, u16 field, u64 virt_va
 	case SECONDARY_VM_EXEC_CONTROL:
 		val &= ~NESTED_UNSUPPORTED_2NDEXEC;
 		/* Enable the #VE, but only protected VM will use it. */
-		val |= SECONDARY_EXEC_EPT_VIOLATION_VE;
+		if (pkvm_hyp->vmcs_config.cpu_based_2nd_exec_ctrl &
+		    SECONDARY_EXEC_EPT_VIOLATION_VE) {
+			val |= SECONDARY_EXEC_EPT_VIOLATION_VE;
+		}
 		break;
 	}
 	return val;
@@ -868,7 +871,9 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 						/*
 						 * Write the #VE information physical address.
 						 */
-						if (shadow_vcpu_is_protected(shadow_vcpu)) {
+						if ((pkvm_hyp->vmcs_config.cpu_based_2nd_exec_ctrl &
+						     SECONDARY_EXEC_EPT_VIOLATION_VE) &&
+						    shadow_vcpu_is_protected(shadow_vcpu)) {
 							memset(&shadow_vcpu->ve_info, 0, sizeof(shadow_vcpu->ve_info));
 							vmcs_write64(VE_INFORMATION_ADDRESS, __pkvm_pa(&shadow_vcpu->ve_info));
 						}

@@ -641,7 +641,8 @@ static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
 			SECONDARY_EXEC_ENABLE_INVPCID |
 			SECONDARY_EXEC_ENABLE_XSAVES |
 			SECONDARY_EXEC_ENABLE_RDTSCP |
-			SECONDARY_EXEC_ENABLE_USR_WAIT_PAUSE,
+			SECONDARY_EXEC_ENABLE_USR_WAIT_PAUSE |
+			SECONDARY_EXEC_EPT_VIOLATION_VE,
 		.tertiary_vm_exec_ctrl_opt = 0,
 		.pin_based_vm_exec_ctrl_req = 0,
 		.pin_based_vm_exec_ctrl_opt = 0,
