@@ -820,8 +820,8 @@ struct intel_initial_plane_config {
 };
 
 struct intel_scaler {
-	int in_use;
 	u32 mode;
+	bool in_use;
 };
 
 struct intel_crtc_scaler_state {
