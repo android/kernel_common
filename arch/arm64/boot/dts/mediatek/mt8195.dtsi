@@ -1143,7 +1143,7 @@
 			clock-names = "main";
 			nvmem-cells = <&svs_calib_data &lvts_efuse_data1>;
 			nvmem-cell-names = "svs-calibration-data", "t-calibration-data";
-			resets = <&infracfg_ao MT8195_INFRA_RST3_THERM_CTRL_PTP_SWRST>;
+			resets = <&infracfg_ao 3>;
 			reset-names = "svs_rst";
 		};
 
