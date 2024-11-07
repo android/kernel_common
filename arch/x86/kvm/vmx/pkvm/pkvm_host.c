@@ -349,20 +349,20 @@ fault:
 	return -EFAULT;
 }
 
-static __init int pkvm_enable_vmx(struct pkvm_host_vcpu *vcpu)
+static __init int pkvm_enable_vmx(struct pkvm_host_vcpu *hvcpu)
 {
 	u64 phys_addr;
 
-	vcpu->vmxarea = pkvm_sym(pkvm_early_alloc_page)();
-	if (!vcpu->vmxarea)
+	hvcpu->vmxarea = pkvm_sym(pkvm_early_alloc_page)();
+	if (!hvcpu->vmxarea)
 		return -ENOMEM;
 
-	phys_addr = __pa(vcpu->vmxarea);
+	phys_addr = __pa(hvcpu->vmxarea);
 	if (!is_aligned(phys_addr, PAGE_SIZE))
 		return -ENOMEM;
 
 	/*setup revision id in vmxon region*/
-	vmxon_setup_revid(vcpu->vmxarea);
+	vmxon_setup_revid(hvcpu->vmxarea);
 
 	return pkvm_cpu_vmxon(phys_addr);
 }
@@ -461,7 +461,7 @@ static __init void init_guest_state_area_from_native(int cpu)
 	vmcs_write64(GUEST_IA32_PAT, msrl);
 }
 
-static __init void init_guest_state_area(struct pkvm_host_vcpu *vcpu, int cpu)
+static __init void init_guest_state_area(struct pkvm_host_vcpu *hvcpu, int cpu)
 {
 	init_guest_state_area_from_native(cpu);
 
@@ -472,9 +472,9 @@ static __init void init_guest_state_area(struct pkvm_host_vcpu *vcpu, int cpu)
 	vmcs_write64(VMCS_LINK_POINTER, -1ull);
 }
 
-static __init void init_host_state_area(struct pkvm_host_vcpu *vcpu, int cpu)
+static __init void init_host_state_area(struct pkvm_host_vcpu *hvcpu, int cpu)
 {
-	struct pkvm_pcpu *pcpu = vcpu->pcpu;
+	struct pkvm_pcpu *pcpu = hvcpu->pcpu;
 
 	pkvm_sym(pkvm_init_host_state_area)(pcpu, cpu);
 
@@ -482,11 +482,11 @@ static __init void init_host_state_area(struct pkvm_host_vcpu *vcpu, int cpu)
 	vmcs_writel(HOST_RIP, (unsigned long)pkvm_sym(__pkvm_vmx_vmexit));
 }
 
-static __init void init_execution_control(struct pkvm_host_vcpu *vcpu,
+static __init void init_execution_control(struct pkvm_host_vcpu *hvcpu,
 			    struct vmcs_config *vmcs_config_ptr,
 			    struct vmx_capability *vmx_cap)
 {
-	struct vcpu_vmx *vmx = &vcpu->vmx;
+	struct vcpu_vmx *vmx = &hvcpu->vmx;
 	u32 cpu_based_exec_ctrl = vmcs_config_ptr->cpu_based_exec_ctrl;
 	u32 cpu_based_2nd_exec_ctrl = vmcs_config_ptr->cpu_based_2nd_exec_ctrl;
 
@@ -513,8 +513,8 @@ static __init void init_execution_control(struct pkvm_host_vcpu *vcpu,
 	/* guest handles exception directly */
 	vmcs_write32(EXCEPTION_BITMAP, 0);
 
-	vmcs_write64(IO_BITMAP_A, __pa(vcpu->io_bitmap));
-	vmcs_write64(IO_BITMAP_B, __pa(vcpu->io_bitmap) + PAGE_SIZE);
+	vmcs_write64(IO_BITMAP_A, __pa(hvcpu->io_bitmap));
+	vmcs_write64(IO_BITMAP_B, __pa(hvcpu->io_bitmap) + PAGE_SIZE);
 
 	pkvm_sym(init_msr_emulation)(vmx);
 	vmcs_write64(MSR_BITMAP, __pa(vmx->vmcs01.msr_bitmap));
@@ -544,12 +544,12 @@ static __init void init_vmentry_control(struct vcpu_vmx *vmx, struct vmcs_config
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, 0);
 }
 
-static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *vcpu, int cpu)
+static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *hvcpu, int cpu)
 {
-	struct vcpu_vmx *vmx = &vcpu->vmx;
+	struct vcpu_vmx *vmx = &hvcpu->vmx;
 	int ret;
 
-	ret = pkvm_enable_vmx(vcpu);
+	ret = pkvm_enable_vmx(hvcpu);
 	if (ret)
 		return ret;
 
@@ -564,24 +564,24 @@ static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *vcpu, int cpu)
 		return -ENOMEM;
 	}
 
-	vcpu->io_bitmap = pkvm->host_vm.io_bitmap;
+	hvcpu->io_bitmap = pkvm->host_vm.io_bitmap;
 
 	vmx->loaded_vmcs = &vmx->vmcs01;
 	vmcs_load(vmx->loaded_vmcs->vmcs);
-	vcpu->current_vmcs = vmx->loaded_vmcs->vmcs;
+	hvcpu->current_vmcs = vmx->loaded_vmcs->vmcs;
 
-	init_guest_state_area(vcpu, cpu);
-	init_host_state_area(vcpu, cpu);
-	init_execution_control(vcpu, &pkvm->vmcs_config, &pkvm->vmx_cap);
+	init_guest_state_area(hvcpu, cpu);
+	init_host_state_area(hvcpu, cpu);
+	init_execution_control(hvcpu, &pkvm->vmcs_config, &pkvm->vmx_cap);
 	init_vmexit_control(vmx, &pkvm->vmcs_config);
 	init_vmentry_control(vmx, &pkvm->vmcs_config);
 
 	return ret;
 }
 
-static __init void pkvm_host_deinit_vmx(struct pkvm_host_vcpu *vcpu)
+static __init void pkvm_host_deinit_vmx(struct pkvm_host_vcpu *hvcpu)
 {
-	struct vcpu_vmx *vmx = &vcpu->vmx;
+	struct vcpu_vmx *vmx = &hvcpu->vmx;
 
 	pkvm_cpu_vmxoff();
 
@@ -806,19 +806,19 @@ static __init int pkvm_setup_pcpu(struct pkvm_hyp *pkvm, int cpu)
 
 static __init int pkvm_host_setup_vcpu(struct pkvm_hyp *pkvm, int cpu)
 {
-	struct pkvm_host_vcpu *pkvm_host_vcpu;
+	struct pkvm_host_vcpu *hvcpu;
 
 	if (cpu >= CONFIG_NR_CPUS)
 		return -ENOMEM;
 
-	pkvm_host_vcpu = pkvm_sym(pkvm_early_alloc_contig)(PKVM_HOST_VCPU_PAGES);
-	if (!pkvm_host_vcpu)
+	hvcpu = pkvm_sym(pkvm_early_alloc_contig)(PKVM_HOST_VCPU_PAGES);
+	if (!hvcpu)
 		return -ENOMEM;
 
-	pkvm_host_vcpu->pcpu = pkvm->pcpus[cpu];
-	pkvm_host_vcpu->vmx.vcpu.cpu = cpu;
+	hvcpu->pcpu = pkvm->pcpus[cpu];
+	hvcpu->vmx.vcpu.cpu = cpu;
 
-	pkvm->host_vm.host_vcpus[cpu] = pkvm_host_vcpu;
+	pkvm->host_vm.host_vcpus[cpu] = hvcpu;
 
 	return 0;
 }
@@ -838,10 +838,10 @@ static inline void enable_feature_control(void)
 #define savegpr(gpr, value) 		\
 	asm("mov %%" #gpr ",%0":"=r" (value) : : "memory")
 
-static noinline int pkvm_host_run_vcpu(struct pkvm_host_vcpu *vcpu)
+static noinline int pkvm_host_run_vcpu(struct pkvm_host_vcpu *hvcpu)
 {
 	u64 host_rsp;
-	unsigned long *regs = vcpu->vmx.vcpu.arch.regs;
+	unsigned long *regs = hvcpu->vmx.vcpu.arch.regs;
 	volatile int ret = 0;
 
 	/*
@@ -875,7 +875,7 @@ static noinline int pkvm_host_run_vcpu(struct pkvm_host_vcpu *vcpu)
 	savegpr(r13, regs[__VCPU_REGS_R13]);
 	savegpr(r14, regs[__VCPU_REGS_R14]);
 	savegpr(r15, regs[__VCPU_REGS_R15]);
-	host_rsp = (u64)vcpu->pcpu->stack + STACK_SIZE;
+	host_rsp = (u64)hvcpu->pcpu->stack + STACK_SIZE;
 	asm volatile(
 		"pushfq\n"
 		"popq %%rax\n"
@@ -901,7 +901,7 @@ static noinline int pkvm_host_run_vcpu(struct pkvm_host_vcpu *vcpu)
 	 * if pkvm_main not return - vmlaunch success:
 	 *     guest ret to vmentry_point, ret = 0
 	 */
-	pkvm_sym(pkvm_main)(&vcpu->vmx.vcpu);
+	pkvm_sym(pkvm_main)(&hvcpu->vmx.vcpu);
 	asm volatile(
 			"popq %%rdx\n"
 			"movq %%rdx, %%rsp\n"
@@ -918,20 +918,20 @@ static __init void pkvm_host_deprivilege_cpu(void *data)
 	struct pkvm_deprivilege_param *p = data;
 	unsigned long flags;
 	int cpu = get_cpu(), ret;
-	struct pkvm_host_vcpu *vcpu =
+	struct pkvm_host_vcpu *hvcpu =
 		p->pkvm->host_vm.host_vcpus[cpu];
 
 	local_irq_save(flags);
 
 	enable_feature_control();
 
-	ret = pkvm_host_init_vmx(vcpu, cpu);
+	ret = pkvm_host_init_vmx(hvcpu, cpu);
 	if (ret) {
 		pr_err("%s: init vmx failed\n", __func__);
 		goto out;
 	}
 
-	ret = pkvm_host_run_vcpu(vcpu);
+	ret = pkvm_host_run_vcpu(hvcpu);
 	if (ret == 0) {
 		pr_info("%s: CPU%d in guest mode\n", __func__, cpu);
 		goto ok;
@@ -939,7 +939,7 @@ static __init void pkvm_host_deprivilege_cpu(void *data)
 
 out:
 	p->ret = ret;
-	pkvm_host_deinit_vmx(vcpu);
+	pkvm_host_deinit_vmx(hvcpu);
 	pr_err("%s: failed to deprivilege CPU%d\n", __func__, cpu);
 
 ok:

@@ -19,14 +19,14 @@ void handle_noop(void)
 void handle_nmi(void)
 {
 	int cpu_id = get_pcpu_id();
-	struct pkvm_host_vcpu *pkvm_host_vcpu =
+	struct pkvm_host_vcpu *hvcpu =
 		pkvm_hyp->host_vm.host_vcpus[cpu_id];
-	struct vcpu_vmx *vmx = &pkvm_host_vcpu->vmx;
+	struct vcpu_vmx *vmx = &hvcpu->vmx;
 
-	if (!pkvm_host_vcpu || !vmx)
+	if (!hvcpu || !vmx)
 		return;
 
-	if (pkvm_host_vcpu->pending_nmi) {
+	if (hvcpu->pending_nmi) {
 		pkvm_dbg("%s: CPU%d already has a pending NMI\n",
 			__func__, cpu_id);
 		return;
@@ -45,7 +45,7 @@ void handle_nmi(void)
 	 * again but injecting it in the next round should also
 	 * be fine. So simply record a pending NMI here.
 	 */
-	pkvm_host_vcpu->pending_nmi = true;
+	hvcpu->pending_nmi = true;
 
 	pkvm_dbg("%s: CPU%d pending NMI\n", __func__, cpu_id);
 
@@ -56,7 +56,7 @@ void handle_nmi(void)
 	vmx_enable_irq_window(vmx);
 
 	/* switch if the current one is not host vcpu vmcs */
-	if (pkvm_host_vcpu->current_vmcs &&
-			(pkvm_host_vcpu->current_vmcs != vmx->loaded_vmcs->vmcs))
-		vmcs_load(pkvm_host_vcpu->current_vmcs);
+	if (hvcpu->current_vmcs &&
+			(hvcpu->current_vmcs != vmx->loaded_vmcs->vmcs))
+		vmcs_load(hvcpu->current_vmcs);
 }

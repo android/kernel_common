@@ -32,20 +32,20 @@ static inline void vmx_enable_irq_window(struct vcpu_vmx *vmx)
 
 static inline void vmcs_load_track(struct vcpu_vmx *vmx, struct vmcs *vmcs)
 {
-	struct pkvm_host_vcpu *pkvm_host_vcpu = vmx_to_pkvm_hvcpu(vmx);
+	struct pkvm_host_vcpu *hvcpu = vmx_to_pkvm_hvcpu(vmx);
 
-	pkvm_host_vcpu->current_vmcs = vmcs;
+	hvcpu->current_vmcs = vmcs;
 	barrier();
 	vmcs_load(vmcs);
 }
 
 static inline void vmcs_clear_track(struct vcpu_vmx *vmx, struct vmcs *vmcs)
 {
-	struct pkvm_host_vcpu *pkvm_host_vcpu = vmx_to_pkvm_hvcpu(vmx);
+	struct pkvm_host_vcpu *hvcpu = vmx_to_pkvm_hvcpu(vmx);
 
 	/* vmcs_clear might clear non-current vmcs */
-	if (pkvm_host_vcpu->current_vmcs == vmcs)
-		pkvm_host_vcpu->current_vmcs = NULL;
+	if (hvcpu->current_vmcs == vmcs)
+		hvcpu->current_vmcs = NULL;
 
 	barrier();
 	vmcs_clear(vmcs);

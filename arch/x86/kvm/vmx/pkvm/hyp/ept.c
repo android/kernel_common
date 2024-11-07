@@ -1029,8 +1029,8 @@ void pkvm_flush_shadow_ept(struct shadow_ept_desc *desc)
 void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 {
 	unsigned long gpa = gfn * PAGE_SIZE;
-	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
-	struct shadow_vcpu_state *shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *shadow_vcpu = hvcpu->current_shadow_vcpu;
 	struct pkvm_shadow_vm *vm = shadow_vcpu->vm;
 	struct shadow_ept_desc *desc = &vm->sept_desc;
 	struct pkvm_pgtable *sept = &desc->sept;

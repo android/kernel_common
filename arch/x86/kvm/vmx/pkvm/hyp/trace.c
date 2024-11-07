@@ -98,16 +98,16 @@ void pkvm_handle_set_vmexit_trace(struct kvm_vcpu *vcpu, bool en)
 void pkvm_handle_dump_vmexit_trace(unsigned long pa, unsigned long size)
 {
 	void *out = pkvm_phys_to_virt(pa);
-	struct pkvm_host_vcpu *p;
+	struct pkvm_host_vcpu *hvcpu;
 	struct vmexit_perf *perf;
 	int cpu, index;
 
 	for (index = 0; index < CONFIG_NR_CPUS; index++) {
-		p = pkvm_hyp->host_vm.host_vcpus[index];
-		if (!p)
+		hvcpu = pkvm_hyp->host_vm.host_vcpus[index];
+		if (!hvcpu)
 			continue;
 
-		cpu = p->vmx.vcpu.cpu;
+		cpu = hvcpu->vmx.vcpu.cpu;
 		perf = &hvcpu_perf[cpu];
 
 		pkvm_spin_lock(&perf->lock);

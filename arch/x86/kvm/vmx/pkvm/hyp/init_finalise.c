@@ -297,8 +297,8 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 {
 	int i, ret = 0;
 	static bool pkvm_init;
-	struct pkvm_host_vcpu *pkvm_host_vcpu = to_pkvm_hvcpu(vcpu);
-	struct pkvm_pcpu *pcpu = pkvm_host_vcpu->pcpu;
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	struct pkvm_pcpu *pcpu = hvcpu->pcpu;
 	struct pkvm_section tmp_sections[TMP_SECTION_SZ];
 	phys_addr_t hyp_mem_base;
 	unsigned long hyp_mem_size = 0;
@@ -378,7 +378,7 @@ switch_pgt:
 
 	/* enable ept */
 	eptp = pkvm_construct_eptp(pkvm_hyp->host_vm.ept->root_pa, pkvm_hyp->host_vm.ept->level);
-	secondary_exec_controls_setbit(&pkvm_host_vcpu->vmx, SECONDARY_EXEC_ENABLE_EPT);
+	secondary_exec_controls_setbit(&hvcpu->vmx, SECONDARY_EXEC_ENABLE_EPT);
 	vmcs_write64(EPT_POINTER, eptp);
 
 	/* enable vpid */
@@ -395,7 +395,7 @@ switch_pgt:
 		 * with EP4TA, which is managed by pKVM and unique for every guest.
 		 */
 		vmcs_write16(VIRTUAL_PROCESSOR_ID, pkvm_host_vpid--);
-		secondary_exec_controls_setbit(&pkvm_host_vcpu->vmx, SECONDARY_EXEC_ENABLE_VPID);
+		secondary_exec_controls_setbit(&hvcpu->vmx, SECONDARY_EXEC_ENABLE_VPID);
 	}
 
 	ept_sync_global();

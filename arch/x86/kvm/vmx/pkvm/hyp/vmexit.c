@@ -157,13 +157,13 @@ static void handle_irq_window(struct kvm_vcpu *vcpu)
 
 static void handle_pending_events(struct kvm_vcpu *vcpu)
 {
-	struct pkvm_host_vcpu *pkvm_host_vcpu = to_pkvm_hvcpu(vcpu);
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
 
-	if (!is_guest_mode(vcpu) && pkvm_host_vcpu->pending_nmi) {
+	if (!is_guest_mode(vcpu) && hvcpu->pending_nmi) {
 		/* Inject if NMI is not blocked */
 		vmcs_write32(VM_ENTRY_INTR_INFO_FIELD,
 			     INTR_TYPE_NMI_INTR | INTR_INFO_VALID_MASK | NMI_VECTOR);
-		pkvm_host_vcpu->pending_nmi = false;
+		hvcpu->pending_nmi = false;
 	}
 
 	if (kvm_check_request(PKVM_REQ_TLB_FLUSH_HOST_EPT, vcpu))

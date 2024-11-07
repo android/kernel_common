@@ -661,8 +661,8 @@ static void prepare_vmcs01_guest_state(struct vcpu_vmx *vmx, struct vmcs12 *vmcs
 static void nested_release_vmcs12(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
-	struct shadow_vcpu_state *cur_shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *cur_shadow_vcpu = hvcpu->current_shadow_vcpu;
 	struct vmcs *vmcs02;
 	struct vmcs12 *vmcs12;
 
@@ -686,7 +686,7 @@ static void nested_release_vmcs12(struct kvm_vcpu *vcpu)
 	write_gpa(vcpu, vmx->nested.current_vmptr, vmcs12, VMCS12_SIZE);
 	vmx->nested.dirty_vmcs12 = false;
 	vmx->nested.current_vmptr = INVALID_GPA;
-	pkvm_hvcpu->current_shadow_vcpu = NULL;
+	hvcpu->current_shadow_vcpu = NULL;
 
 	WRITE_ONCE(cur_shadow_vcpu->vcpu, NULL);
 	/*
@@ -703,8 +703,8 @@ static void nested_release_vmcs12(struct kvm_vcpu *vcpu)
 static void nested_vmx_run(struct kvm_vcpu *vcpu, bool launch)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
-	struct shadow_vcpu_state *cur_shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *cur_shadow_vcpu = hvcpu->current_shadow_vcpu;
 	struct vmcs *vmcs02 = (struct vmcs *)cur_shadow_vcpu->vmcs02;
 	struct vmcs12 *vmcs12 = (struct vmcs12 *)cur_shadow_vcpu->cached_vmcs12;
 
@@ -815,7 +815,7 @@ int handle_vmxoff(struct kvm_vcpu *vcpu)
 int handle_vmptrld(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
 	struct shadow_vcpu_state *shadow_vcpu;
 	struct vmcs *vmcs02;
 	struct vmcs12 *vmcs12;
@@ -850,7 +850,7 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 						memset(vmcs02, 0, vmx_basic_vmcs_size(pkvm_hyp->vmcs_config.basic));
 						vmcs02->hdr.revision_id = vmx_basic_vmcs_revision_id(pkvm_hyp->vmcs_config.basic);
 						vmcs_load_track(vmx, vmcs02);
-						pkvm_init_host_state_area(pkvm_hvcpu->pcpu, vcpu->cpu);
+						pkvm_init_host_state_area(hvcpu->pcpu, vcpu->cpu);
 						vmcs_writel(HOST_RIP, (unsigned long)__pkvm_vmx_vmexit);
 						/*
 						 * EPTP is mantained by pKVM and configured with
@@ -883,12 +883,12 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 					} else {
 						vmcs_load_track(vmx, vmcs02);
 						if (shadow_vcpu->last_cpu != vcpu->cpu) {
-							pkvm_init_host_state_area(pkvm_hvcpu->pcpu, vcpu->cpu);
+							pkvm_init_host_state_area(hvcpu->pcpu, vcpu->cpu);
 							shadow_vcpu->last_cpu = vcpu->cpu;
 						}
 					}
 
-					pkvm_hvcpu->current_shadow_vcpu = shadow_vcpu;
+					hvcpu->current_shadow_vcpu = shadow_vcpu;
 
 					copy_shadow_fields_vmcs12_to_vmcs02(vmx, vmcs12);
 					sync_vmcs12_dirty_fields_to_vmcs02(vmx, vmcs12);
@@ -947,8 +947,8 @@ int handle_vmclear(struct kvm_vcpu *vcpu)
 int handle_vmwrite(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
-	struct shadow_vcpu_state *cur_shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *cur_shadow_vcpu = hvcpu->current_shadow_vcpu;
 	struct vmcs12 *vmcs12 = (struct vmcs12 *)cur_shadow_vcpu->cached_vmcs12;
 	u32 instr_info = vmcs_read32(VMX_INSTRUCTION_INFO);
 	struct x86_exception e;
@@ -1027,8 +1027,8 @@ int handle_vmwrite(struct kvm_vcpu *vcpu)
 int handle_vmread(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
-	struct shadow_vcpu_state *cur_shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *cur_shadow_vcpu = hvcpu->current_shadow_vcpu;
 	struct vmcs12 *vmcs12 = (struct vmcs12 *)cur_shadow_vcpu->cached_vmcs12;
 	u32 instr_info = vmcs_read32(VMX_INSTRUCTION_INFO);
 	struct x86_exception e;
@@ -1398,8 +1398,8 @@ static bool nested_handle_cpuid(struct kvm_vcpu *vcpu)
 int nested_vmexit(struct kvm_vcpu *vcpu, bool *skip_instruction)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
-	struct shadow_vcpu_state *cur_shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *cur_shadow_vcpu = hvcpu->current_shadow_vcpu;
 	struct vmcs *vmcs02 = (struct vmcs *)cur_shadow_vcpu->vmcs02;
 	struct vmcs12 *vmcs12 = (struct vmcs12 *)cur_shadow_vcpu->cached_vmcs12;
 
@@ -1460,8 +1460,8 @@ int nested_vmexit(struct kvm_vcpu *vcpu, bool *skip_instruction)
 
 void nested_flush_shadow_ept(struct kvm_vcpu *vcpu)
 {
-	struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
-	struct shadow_vcpu_state *cur_shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	struct shadow_vcpu_state *cur_shadow_vcpu = hvcpu->current_shadow_vcpu;
 
 	/*
 	 * If the shadow vcpu is released from this CPU, no need to
