@@ -1,0 +1,86 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2022 Google LLC
+ */
+
+/dts-v1/;
+#include "mt8186-corsola-steelix.dtsi"
+#include <dt-bindings/spmi/spmi.h>
+
+/ {
+	model = "Google Rusty sku196612/196613/196614 board";
+	compatible = "google,steelix-sku196612", "google,steelix-sku196613",
+		     "google,steelix-sku196614", "google,steelix", "mediatek,mt8186";
+};
+
+&cpu6 {
+	proc-supply = <&mt6315_6_vbuck1>;
+	sram-supply = <&mt6366_vsram_proc11_reg>;
+};
+
+&cpu7 {
+	proc-supply = <&mt6315_6_vbuck1>;
+	sram-supply = <&mt6366_vsram_proc11_reg>;
+};
+
+&gpio_keys {
+	status = "disabled";
+};
+
+&cluster1_opp_14 {
+	opp-hz = /bits/ 64 <2050000000>;
+	opp-microvolt = <1118750>;
+};
+
+&cluster1_opp_15 {
+	opp-hz = /bits/ 64 <2200000000>;
+};
+
+&touchscreen {
+	status = "disabled";
+};
+
+&spmi {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&spmi_pins>;
+	#address-cells = <2>;
+	#size-cells = <0>;
+
+	mt6315@6 {
+		compatible = "mediatek,mt6315-regulator";
+		reg = <0x6 SPMI_USID>;
+
+	regulators {
+		mt6315_6_vbuck1: buck1 {
+			regulator-compatible = "vbuck1";
+			regulator-name = "6_vbuck1";
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <1193750>;
+			regulator-enable-ramp-delay = <256>;
+			regulator-allowed-modes = <0 1 2>;
+			regulator-always-on;
+		};
+
+		mt6315_6_vbuck3: buck3 {
+			regulator-compatible = "vbuck3";
+			regulator-name = "6_vbuck3";
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <1193750>;
+			regulator-enable-ramp-delay = <256>;
+			regulator-allowed-modes = <0 1 2>;
+			regulator-always-on;
+		};
+
+		mt6315_6_vbuck4: buck4 {
+			regulator-compatible = "vbuck4";
+			regulator-name = "6_vbuck4";
+			regulator-min-microvolt = <300000>;
+			regulator-max-microvolt = <1193750>;
+			regulator-enable-ramp-delay = <256>;
+			regulator-allowed-modes = <0 1 2>;
+			regulator-always-on;
+			};
+		};
+	};
+};
