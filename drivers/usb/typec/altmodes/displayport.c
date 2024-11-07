@@ -611,8 +611,11 @@ int dp_altmode_probe(struct typec_altmode *alt)
 
 	typec_altmode_set_drvdata(alt, dp);
 
-	dp->state = DP_STATE_ENTER;
-	schedule_work(&dp->work);
+	/* Only attempt to enter altmode if port is active. */
+	if (port->active) {
+		dp->state = DP_STATE_ENTER;
+		schedule_work(&dp->work);
+	}
 
 	return 0;
 }
