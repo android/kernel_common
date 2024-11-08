@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-
+#include <pkvm/smp.h>
 #include <pkvm.h>
 #include "cpu.h"
 
@@ -27,8 +27,16 @@ void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu)
 	vmcs_write16(HOST_ES_SELECTOR, selector);
 	savesegment(fs, selector);
 	vmcs_write16(HOST_FS_SELECTOR, selector);
-	pkvm_rdmsrl(MSR_FS_BASE, a);
-	vmcs_writel(HOST_FS_BASE, a);
+	/*
+	 * FIXME:
+	 * GS_BASE is used by the linux host to store its own percpu offset.
+	 * In this debug mode, linux host printk symbols are used to print logs
+	 * which may still using the percpu. And with CONFIG_X86_64, FS_BASE
+	 * seems not being used. To avoid breaking linux host symbols, choose to
+	 * use FS_BASE for pKVM percpu offset instead of usng GS_BASE.
+	 */
+	vmcs_writel(HOST_FS_BASE, per_cpu_offset(cpu));
+
 	savesegment(gs, selector);
 	vmcs_write16(HOST_GS_SELECTOR, selector);
 	pkvm_rdmsrl(MSR_GS_BASE, a);
@@ -57,7 +65,8 @@ void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu)
 	vmcs_write16(HOST_TR_SELECTOR, GDT_ENTRY_TSS*8);
 	vmcs_write16(HOST_FS_SELECTOR, 0);
 	vmcs_write16(HOST_GS_SELECTOR, 0);
-	vmcs_writel(HOST_FS_BASE, 0);
+	/* FIXME: see the comments for HOST_FS_BASE in the above */
+	vmcs_writel(HOST_FS_BASE, per_cpu_offset(cpu));
 	vmcs_writel(HOST_GS_BASE, 0);
 
 	vmcs_writel(HOST_TR_BASE, (unsigned long)&pcpu->tss);
