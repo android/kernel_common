@@ -704,11 +704,13 @@ static struct usb_power_delivery_capabilities *ucsi_get_pd_caps(struct ucsi_conn
 	pd_caps.role = role;
 
 	/* Check for DRP partner */
-	for (int i = 0; i < ret; i++) {
-		if (pdo_type(pd_caps.pdo[i]) == PDO_TYPE_FIXED &&
-		    pd_caps.pdo[i] & PDO_FIXED_DUAL_ROLE) {
-			con->drp_partner = true;
-			break;
+	if (is_partner) {
+		for (int i = 0; i < ret; i++) {
+			if (pdo_type(pd_caps.pdo[i]) == PDO_TYPE_FIXED &&
+			    pd_caps.pdo[i] & PDO_FIXED_DUAL_ROLE) {
+				con->drp_partner = true;
+				break;
+			}
 		}
 	}
 
