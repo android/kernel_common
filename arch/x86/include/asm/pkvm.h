@@ -11,6 +11,7 @@
 #include <asm/virt_exception.h>
 
 /* PKVM Hypercalls */
+#define PKVM_HC_KVM_CALL		0
 #define PKVM_HC_INIT_FINALISE		1
 #define PKVM_HC_INIT_SHADOW_VM		2
 #define PKVM_HC_INIT_SHADOW_VCPU	3
