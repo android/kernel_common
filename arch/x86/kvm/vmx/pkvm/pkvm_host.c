@@ -262,7 +262,9 @@ u64 hyp_total_reserve_pages(void)
 {
 	u64 total;
 
-	total = pkvm_data_struct_pages(PKVM_GLOBAL_PAGES, PKVM_PERCPU_PAGES, num_possible_cpus());
+	total = pkvm_data_struct_pages(PKVM_GLOBAL_PAGES,
+				       PKVM_PERCPU_PAGES,
+				       num_possible_cpus());
 	total += pkvm_vmemmap_pages(PKVM_VMEMMAP_ENTRY_SIZE);
 	total += pkvm_mmu_pgtable_pages();
 	total += host_ept_pgtable_pages();
@@ -784,9 +786,20 @@ static __init void init_tss(struct pkvm_pcpu *pcpu)
 static __init int pkvm_setup_pcpu(struct pkvm_hyp *pkvm, int cpu)
 {
 	struct pkvm_pcpu *pcpu;
+	int nr_pages;
 
 	if (cpu >= CONFIG_NR_CPUS)
 		return -ENOMEM;
+
+	nr_pages = pkvm_sym(pkvm_per_cpu_nr_pages)();
+	if (nr_pages) {
+		void *per_cpu_base = pkvm_sym(pkvm_early_alloc_contig)(nr_pages);
+
+		if (!per_cpu_base || pkvm_sym(setup_pkvm_per_cpu)(cpu, __pa(per_cpu_base))) {
+			pr_err("%s: No page for pKVM per cpu data\n", __func__);
+			return -ENOMEM;
+		}
+	}
 
 	pcpu = pkvm_sym(pkvm_early_alloc_contig)(PKVM_PCPU_PAGES);
 	if (!pcpu)
@@ -1437,8 +1450,9 @@ int __init pkvm_init(void)
 		goto out;
 	}
 	pkvm_sym(pkvm_early_alloc_init)(__va(hyp_mem_base),
-			pkvm_data_struct_pages(PKVM_GLOBAL_PAGES, PKVM_PERCPU_PAGES,
-				num_possible_cpus()) << PAGE_SHIFT);
+			pkvm_data_struct_pages(PKVM_GLOBAL_PAGES,
+					       PKVM_PERCPU_PAGES,
+					       num_possible_cpus()) << PAGE_SHIFT);
 
 	/* pkvm hypervisor keeps same VA mapping as deprivileged host */
 	pkvm = pkvm_sym(pkvm_hyp) = pkvm_sym(pkvm_early_alloc_contig)(PKVM_PAGES);

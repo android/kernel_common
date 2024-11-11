@@ -120,7 +120,8 @@ struct pkvm_section {
 #define PKVM_PCPU_PAGES (ALIGN(sizeof(struct pkvm_pcpu), PAGE_SIZE) >> PAGE_SHIFT)
 #define PKVM_HOST_VCPU_PAGES (ALIGN(sizeof(struct pkvm_host_vcpu), PAGE_SIZE) >> PAGE_SHIFT)
 #define PKVM_HOST_VCPU_VMCS_PAGES 3 /*vmxarea+vmcs+msr_bitmap*/
-#define PKVM_PERCPU_PAGES (PKVM_PCPU_PAGES + PKVM_HOST_VCPU_PAGES + PKVM_HOST_VCPU_VMCS_PAGES)
+#define PKVM_PERCPU_PAGES (PKVM_PCPU_PAGES + PKVM_HOST_VCPU_PAGES + \
+			   PKVM_HOST_VCPU_VMCS_PAGES + pkvm_sym(pkvm_per_cpu_nr_pages)())
 
 extern char __pkvm_text_start[], __pkvm_text_end[];
 extern char __pkvm_rodata_start[], __pkvm_rodata_end[];
@@ -149,5 +150,8 @@ PKVM_DECLARE(void, init_msr_emulation, (struct vcpu_vmx *vmx));
 
 PKVM_DECLARE(void, noop_handler, (void));
 PKVM_DECLARE(void, nmi_handler, (void));
+
+PKVM_DECLARE(unsigned int, pkvm_per_cpu_nr_pages, (void));
+PKVM_DECLARE(int, setup_pkvm_per_cpu, (int cpu, unsigned long base));
 
 #endif
