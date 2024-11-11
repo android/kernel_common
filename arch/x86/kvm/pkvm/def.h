@@ -10,5 +10,11 @@
  * disabled. (This list needs to be extended when new variants are added.)
  */
 #undef CONFIG_DEBUG_PREEMPT
+#ifndef CONFIG_PKVM_INTEL_DEBUG
+#undef CONFIG_PRINTK
+#undef CONFIG_DYNAMIC_DEBUG
+#undef CONFIG_DYNAMIC_DEBUG_CORE
+#undef CONFIG_TRACING
+#endif
 
 #endif /* __PKVM_X86_DEF_H */
