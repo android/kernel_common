@@ -5,6 +5,18 @@
 #include <pkvm/pkvm.h>
 #include <vmx/pkvm/hyp/pkvm_hyp_types.h>
 
+/* pkvm_vcpu_vmx is appeneded in the end of pkvm_vcpu */
+/*
+ * Struct pkvm_vcpu_vmx represents a vcpu structure for VMX. It requires struct
+ * kvm_vcpu sitting at offset 0 so that it can be appended in the end of
+ * pkvm_vcpu (see comments for pkvm_vcpu). As struct kvm_vcpu is the first field
+ * of struct vcpu_vmx, vcpu_vmx would also be the first field of pkvm_vcpu_vmx.
+ */
+struct pkvm_vcpu_vmx {
+	/* Point to the vcpu_vmx structure in pkvm */
+	struct vcpu_vmx vmx;
+};
+
 /*
  * Struct pkvm_vm_vmx represents a vm structure for VMX. It requires struct kvm
  * sitting at offset 0 so that it can be appended in the end of pkvm_vm
