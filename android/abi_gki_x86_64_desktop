@@ -804,6 +804,7 @@
   drm_connector_attach_encoder
   drm_connector_attach_hdr_output_metadata_property
   drm_connector_attach_max_bpc_property
+  drm_connector_attach_min_bpc_property
   drm_connector_attach_privacy_screen_provider
   drm_connector_attach_scaling_mode_property
   drm_connector_attach_vrr_capable_property

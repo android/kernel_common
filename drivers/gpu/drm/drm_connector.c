@@ -1390,6 +1390,13 @@ static const u32 dp_colorspaces =
  *	drm_connector_attach_max_bpc_property() to create and attach the
  *	property to the connector during initialization.
  *
+ * min bpc:
+ *	This range property is used by userspace to set a lower bound for the bit
+ *	depth. When used the driver would set the bpc in accordance with the
+ *	valid range supported by the hardware and sink. Drivers to use the function
+ *	drm_connector_attach_min_bpc_property() to create and attach the
+ *	property to the connector during initialization.
+ *
  * Connectors also have one standardized atomic property:
  *
  * CRTC_ID:
@@ -2450,6 +2457,40 @@ int drm_connector_attach_max_bpc_property(struct drm_connector *connector,
 	return 0;
 }
 EXPORT_SYMBOL(drm_connector_attach_max_bpc_property);
+
+/**
+ * drm_connector_attach_min_bpc_property - attach "min bpc" property
+ * @connector: connector to attach min bpc property on.
+ * @min: The minimum bit depth supported by the connector.
+ * @max: The maximum bit depth supported by the connector.
+ *
+ * This is used to add support for limiting the bit depth on a connector.
+ *
+ * Returns:
+ * Zero on success, negative errno on failure.
+ */
+int drm_connector_attach_min_bpc_property(struct drm_connector *connector,
+					  int min, int max)
+{
+	struct drm_device *dev = connector->dev;
+	struct drm_property *prop;
+
+	prop = connector->min_bpc_property;
+	if (!prop) {
+		prop = drm_property_create_range(dev, 0, "min bpc", min, max);
+		if (!prop)
+			return -ENOMEM;
+
+		connector->min_bpc_property = prop;
+	}
+
+	drm_object_attach_property(&connector->base, prop, min);
+	connector->state->min_requested_bpc = min;
+	connector->state->min_bpc = min;
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_connector_attach_min_bpc_property);
 
 /**
  * drm_connector_attach_hdr_output_metadata_property - attach "HDR_OUTPUT_METADA" property
