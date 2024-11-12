@@ -708,6 +708,10 @@ drm_atomic_helper_check_modeset(struct drm_device *dev,
 			if (old_connector_state->max_requested_bpc !=
 			    new_connector_state->max_requested_bpc)
 				new_crtc_state->connectors_changed = true;
+
+			if (old_connector_state->min_requested_bpc !=
+			    new_connector_state->min_requested_bpc)
+				new_crtc_state->connectors_changed = true;
 		}
 
 		if (funcs->atomic_check)

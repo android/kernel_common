@@ -4648,13 +4648,13 @@ compute_sink_pipe_bpp(const struct drm_connector_state *conn_state,
 	}
 
 	if (bpp < crtc_state->pipe_bpp) {
-		drm_dbg_kms(&i915->drm,
-			    "[CONNECTOR:%d:%s] Limiting display bpp to %d "
-			    "(EDID bpp %d, max requested bpp %d, max platform bpp %d)\n",
-			    connector->base.id, connector->name,
-			    bpp, 3 * info->bpc,
-			    3 * conn_state->max_requested_bpc,
-			    crtc_state->pipe_bpp);
+		drm_dbg_kms(
+			&i915->drm,
+			"[CONNECTOR:%d:%s] Limiting display bpp to %d (EDID bpp %d, min requested bpp %d, max requested bpp %d, max platform bpp %d)\n",
+			connector->base.id, connector->name, bpp, 3 * info->bpc,
+			3 * conn_state->min_requested_bpc,
+			3 * conn_state->max_requested_bpc,
+			crtc_state->pipe_bpp);
 
 		crtc_state->pipe_bpp = bpp;
 	}

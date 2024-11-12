@@ -1880,6 +1880,7 @@ struct intel_dp {
 		int max_dotclock;
 		int pcon_max_frl_bw;
 		u8 max_bpc;
+		u8 min_bpc;
 		bool ycbcr_444_to_420;
 		bool ycbcr420_passthrough;
 		bool rgb_to_ycbcr;
