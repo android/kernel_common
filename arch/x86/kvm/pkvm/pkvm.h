@@ -12,6 +12,33 @@
 DECLARE_PER_CPU(struct kvm_vcpu *, host_vcpu);
 
 extern size_t pkvm_vm_sz;
+extern size_t pkvm_vcpu_sz;
+
+/*
+ * Struct kvm_vcpu can be appended in the end of pkvm_vcpu as below:
+ *  ---------------------
+ *  | struct pkvm_vcpu  |
+ *  ---------------------
+ *  | struct kvm_vcpu   |
+ *  ---------------------
+ *
+ * The reason of *NOT* explicitly putting struct kvm_vcpu inside the pkvm_vcpu
+ * is that the struct kvm may be wrapped by the architecture specific structure
+ * e.g. struct vcpu_vmx. Appending struct kvm_vcpu in the end is friendly to
+ * this case as the architecture specific structure can be appended in the end
+ * if the struct kvm_vcpu is wrapped at the offset 0.
+ */
+struct pkvm_vcpu {
+	/* Pointer to the shared structure kvm_vcpu in host */
+	struct kvm_vcpu *shared_vcpu;
+	/* The donated structure size */
+	size_t size;
+	/* Vcpu index inside the vm */
+	int vcpu_idx;
+	/* Point to the pkvm_vm this pkvm_vcpu belongs to */
+	struct pkvm_vm *pkvm_vm;
+} __aligned(PAGE_SIZE);
+
 /*
  * Struct kvm can be appended in the end of pkvm_vm as below:
  *  -------------------
@@ -46,6 +73,12 @@ static inline struct kvm *to_kvm(struct pkvm_vm *pkvm_vm)
 {
 	/* See comments for pkvm_vm */
 	return (struct kvm *)((unsigned long)pkvm_vm + sizeof(struct pkvm_vm));
+}
+
+static inline struct kvm_vcpu *to_kvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
+{
+	/* See comments for pkvm_vcpu */
+	return (struct kvm_vcpu *)((unsigned long)pkvm_vcpu + sizeof(struct pkvm_vcpu));
 }
 
 /*

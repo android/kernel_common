@@ -19,6 +19,7 @@ bool tdp_enabled = true;
 DEFINE_PER_CPU(struct kvm_vcpu *, host_vcpu);
 
 size_t pkvm_vm_sz = sizeof(struct pkvm_vm);
+size_t pkvm_vcpu_sz = sizeof(struct pkvm_vcpu);
 
 static DECLARE_BITMAP(pkvm_vms_bitmap, MAX_PKVM_VMS);
 static pkvm_spinlock_t pkvm_vms_lock = __PKVM_SPINLOCK_UNLOCKED;
