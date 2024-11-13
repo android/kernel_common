@@ -1035,8 +1035,6 @@ static int i915_drm_suspend(struct drm_device *dev)
 
 	intel_display_driver_suspend(dev_priv);
 
-	intel_dp_mst_suspend(dev_priv);
-
 	intel_irq_suspend(dev_priv);
 	intel_hpd_cancel_work(dev_priv);
 
@@ -1199,8 +1197,6 @@ static int i915_drm_resume(struct drm_device *dev)
 
 	intel_hpd_init(dev_priv);
 
-	/* MST sideband requires HPD interrupts enabled */
-	intel_dp_mst_resume(dev_priv);
 	intel_display_driver_resume(dev_priv);
 
 	if (HAS_DISPLAY(dev_priv)) {
