@@ -531,7 +531,15 @@ static __init void init_execution_control(struct pkvm_host_vcpu *hvcpu,
 	/* disable EPT/VPID first, enable after EPT pgtable created */
 	cpu_based_2nd_exec_ctrl &= ~(SECONDARY_EXEC_ENABLE_EPT |
 				SECONDARY_EXEC_ENABLE_VPID);
+	/*
+	 * SECONDARY_EXEC_SHADOW_VMCS is enabled when L1 executes VMPTRLD
+	 * (handle_vmptrld).
+	 * We can NOT enable shadow_vmcs here because we don't have yet
+	 * a current VMCS12
+	 */
+	cpu_based_2nd_exec_ctrl &= ~SECONDARY_EXEC_SHADOW_VMCS;
 	secondary_exec_controls_set(vmx, cpu_based_2nd_exec_ctrl);
+	vmcs_write64(VMCS_LINK_POINTER, INVALID_GPA);
 
 	/* guest owns cr3 */
 	vmcs_write32(CR3_TARGET_COUNT, 0);
