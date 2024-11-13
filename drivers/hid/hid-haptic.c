@@ -377,8 +377,8 @@ static int hid_haptic_change_control(struct input_dev *dev, int effect_id,
 				goto exit;
 			}
 			effect_node->file = file;
+			list_add(&effect_node->node, &effect->control);
 		}
-		list_add(&effect_node->node, &effect->control);
 	} else {
 		if (found) {
 			list_del(&effect_node->node);
