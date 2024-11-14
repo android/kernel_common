@@ -109,6 +109,54 @@ void kvm_enable_efer_bits(u64 mask)
 }
 EXPORT_SYMBOL_GPL(kvm_enable_efer_bits);
 
+bool kvm_msr_allowed(struct kvm_vcpu *vcpu, u32 index, u32 type)
+{
+#ifdef __PKVM_HYP__
+	/* TODO: Support MSR filter */
+	return true;
+#else
+	struct kvm_x86_msr_filter *msr_filter;
+	struct msr_bitmap_range *ranges;
+	struct kvm *kvm = vcpu->kvm;
+	bool allowed;
+	int idx;
+	u32 i;
+
+	/* x2APIC MSRs do not support filtering. */
+	if (index >= 0x800 && index <= 0x8ff)
+		return true;
+
+	idx = srcu_read_lock(&kvm->srcu);
+
+	msr_filter = srcu_dereference(kvm->arch.msr_filter, &kvm->srcu);
+	if (!msr_filter) {
+		allowed = true;
+		goto out;
+	}
+
+	allowed = msr_filter->default_allow;
+	ranges = msr_filter->ranges;
+
+	for (i = 0; i < msr_filter->count; i++) {
+		u32 start = ranges[i].base;
+		u32 end = start + ranges[i].nmsrs;
+		u32 flags = ranges[i].flags;
+		unsigned long *bitmap = ranges[i].bitmap;
+
+		if ((index >= start) && (index < end) && (flags & type)) {
+			allowed = test_bit(index - start, bitmap);
+			break;
+		}
+	}
+
+out:
+	srcu_read_unlock(&kvm->srcu, idx);
+
+	return allowed;
+#endif
+}
+EXPORT_SYMBOL_GPL(kvm_msr_allowed);
+
 static bool kvm_is_vm_type_supported(unsigned long type)
 {
 	return type < 32 && (kvm_caps.supported_vm_types & BIT(type));

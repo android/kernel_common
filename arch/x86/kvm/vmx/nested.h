@@ -24,6 +24,7 @@ static inline __init int nested_vmx_hardware_setup(int (*exit_handlers[])(struct
 {
 	return 0;
 }
+static inline void nested_vmx_free_vcpu(struct kvm_vcpu *vcpu) {}
 #else
 void vmx_leave_nested(struct kvm_vcpu *vcpu);
 void nested_vmx_setup_ctls_msrs(struct vmcs_config *vmcs_conf, u32 ept_caps);

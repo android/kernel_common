@@ -178,6 +178,12 @@ static inline u32 kvm_lapic_get_reg(struct kvm_lapic *apic, int reg_off)
 	return __kvm_lapic_get_reg(apic->regs, reg_off);
 }
 
+#ifdef __PKVM_HYP__
+static inline bool lapic_in_kernel(struct kvm_vcpu *vcpu)
+{
+	return vcpu->arch.apic;
+}
+#else
 DECLARE_STATIC_KEY_FALSE(kvm_has_noapic_vcpu);
 
 static inline bool lapic_in_kernel(struct kvm_vcpu *vcpu)
@@ -186,6 +192,7 @@ static inline bool lapic_in_kernel(struct kvm_vcpu *vcpu)
 		return vcpu->arch.apic;
 	return true;
 }
+#endif
 
 extern struct static_key_false_deferred apic_hw_disabled;
 

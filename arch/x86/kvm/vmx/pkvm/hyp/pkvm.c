@@ -601,3 +601,31 @@ void pkvm_teardown_shadow_vm(struct kvm *kvm)
 	list_for_each_entry_safe(ptdev, tmp, &vm->ptdev_head, vm_node)
 		pkvm_detach_ptdev(ptdev, vm);
 }
+
+int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
+{
+	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
+	int vm_handle = vcpu->kvm->arch.pkvm.shadow_vm_handle;
+	struct pkvm_vcpu *pkvm_vcpu = to_pkvm_vcpu(vcpu);
+
+	shadow_vcpu->shadow_vcpu_handle =
+		to_shadow_vcpu_handle(vm_handle, pkvm_vcpu->vcpu_idx);
+	shadow_vcpu->vm = kvm_to_shadow(vcpu->kvm);
+
+	shadow_vcpu->vmcs12_pa = __pkvm_pa(to_vmx(vcpu)->vmcs01.vmcs);
+	add_shadow_vcpu_vmcs12_map(shadow_vcpu);
+
+	if (!shadow_vm_is_protected(shadow_vcpu->vm))
+		shadow_vcpu->allowed_to_run = true;
+
+	return 0;
+}
+
+void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu)
+{
+	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
+
+	remove_shadow_vcpu_vmcs12_map(shadow_vcpu);
+	shadow_vcpu->vm = NULL;
+	shadow_vcpu->shadow_vcpu_handle = 0;
+}

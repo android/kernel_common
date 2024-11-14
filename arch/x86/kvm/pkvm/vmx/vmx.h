@@ -15,6 +15,12 @@
 struct pkvm_vcpu_vmx {
 	/* Point to the vcpu_vmx structure in pkvm */
 	struct vcpu_vmx vmx;
+
+	/*
+	 * FIXME: This is to compatible with the current emulation method.
+	 * Revisit this later when PV method is functional.
+	 */
+	struct shadow_vcpu_state shadow_vcpu;
 };
 
 /*
@@ -42,6 +48,14 @@ static inline struct pkvm_shadow_vm *kvm_to_shadow(struct kvm *kvm)
 	pkvm_vm_vmx = container_of(kvm_vmx, struct pkvm_vm_vmx, kvm_vmx);
 
 	return &pkvm_vm_vmx->shadow_vm;
+}
+
+static inline struct shadow_vcpu_state *kvm_vcpu_to_shadow(struct kvm_vcpu *vcpu)
+{
+	struct pkvm_vcpu_vmx *pkvm_vcpu_vmx =
+		container_of(to_vmx(vcpu), struct pkvm_vcpu_vmx, vmx);
+
+	return &pkvm_vcpu_vmx->shadow_vcpu;
 }
 
 int setup_vmcs_config_with_setting(struct vmcs_config *vmcs_conf,

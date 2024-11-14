@@ -81,6 +81,12 @@ static inline struct kvm_vcpu *to_kvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
 	return (struct kvm_vcpu *)((unsigned long)pkvm_vcpu + sizeof(struct pkvm_vcpu));
 }
 
+static inline struct pkvm_vcpu *to_pkvm_vcpu(struct kvm_vcpu *vcpu)
+{
+	/* See comments for pkvm_vcpu */
+	return (struct pkvm_vcpu *)((unsigned long)vcpu - sizeof(struct pkvm_vcpu));
+}
+
 /*
  * Convert a linux host kernel direct mapping virtual address to pKVM mapping
  * virtual address. Currently the two virtual address are the same.

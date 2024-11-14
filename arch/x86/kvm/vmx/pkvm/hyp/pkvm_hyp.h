@@ -75,4 +75,6 @@ static inline bool gpa_range_has_pvmfw(struct pkvm_shadow_vm *vm, u64 gpa_start,
 
 int pkvm_init_shadow_vm(struct kvm *kvm);
 void pkvm_teardown_shadow_vm(struct kvm *kvm);
+int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu);
+void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu);
 #endif
