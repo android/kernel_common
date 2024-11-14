@@ -1407,6 +1407,8 @@ static void __init setup_pkvm_syms(void)
 {
 	memcpy(&pkvm_sym(boot_cpu_data), &boot_cpu_data, sizeof(struct cpuinfo_x86));
 	pkvm_sym(tsc_khz) = tsc_khz;
+	cpumask_copy(&pkvm_sym(__cpu_possible_mask), cpu_possible_mask);
+	pkvm_sym(nr_cpu_ids) = nr_cpu_ids;
 }
 
 int __init vmx_pkvm_init(void)

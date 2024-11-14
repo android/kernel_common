@@ -10,6 +10,8 @@
 unsigned long __per_cpu_offset[NR_CPUS];
 DEFINE_PER_CPU_READ_MOSTLY(unsigned long, this_cpu_off);
 DEFINE_PER_CPU_ALIGNED(struct pcpu_hot, pcpu_hot);
+struct cpumask __cpu_possible_mask __ro_after_init;
+unsigned int nr_cpu_ids;
 
 unsigned int pkvm_per_cpu_nr_pages(void)
 {
