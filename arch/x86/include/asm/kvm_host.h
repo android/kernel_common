@@ -1904,8 +1904,22 @@ extern bool __read_mostly allow_smaller_maxphyaddr;
 extern bool __read_mostly enable_apicv;
 extern struct kvm_x86_ops kvm_x86_ops;
 
+#ifdef __PKVM_HYP__
+/*
+ * TODO:
+ * Simplify define kvm_x86_call(func) to call the kvm_x86_ops.func directly.
+ * Better to have similar mechanism like the linux KVM to check and call the
+ * optional noop function if an optional callback is not implemenmted.
+ */
+#define kvm_x86_call(func)				\
+({							\
+	BUG_ON(!kvm_x86_ops.func);			\
+	(kvm_x86_ops.func);				\
+})
+#else
 #define kvm_x86_call(func) static_call(kvm_x86_##func)
 #define kvm_pmu_call(func) static_call(kvm_x86_pmu_##func)
+#endif
 
 #define KVM_X86_OP(func) \
 	DECLARE_STATIC_CALL(kvm_x86_##func, *(((struct kvm_x86_ops *)0)->func));

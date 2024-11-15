@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <asm/processor.h>
+#include <asm/kvm_pkvm.h>
 #include "pkvm.h"
 
 struct cpuinfo_x86 boot_cpu_data;
@@ -16,5 +17,19 @@ DEFINE_PER_CPU(struct kvm_vcpu *, host_vcpu);
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3)
 {
-	return -EINVAL;
+	unsigned long ret = 0;
+
+	switch (fn) {
+	case __pkvm__enable_virtualization_cpu:
+		ret = kvm_arch_enable_virtualization_cpu();
+		break;
+	case __pkvm__disable_virtualization_cpu:
+		kvm_arch_disable_virtualization_cpu();
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	return ret;
 }

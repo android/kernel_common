@@ -262,4 +262,9 @@ static inline int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_ca
 { return -EINVAL; }
 #endif
 
+enum pkvm_fn {
+	__pkvm__enable_virtualization_cpu,
+	__pkvm__disable_virtualization_cpu,
+};
+
 #endif
