@@ -5,6 +5,10 @@
 #include <asm/kvm_host.h>
 #include <asm/pkvm_spinlock.h>
 
+#define PKVM_MAX_NORMAL_VM_NUM		8
+#define PKVM_MAX_PROTECTED_VM_NUM	2
+#define MAX_PKVM_VMS			(PKVM_MAX_NORMAL_VM_NUM + PKVM_MAX_PROTECTED_VM_NUM)
+
 DECLARE_PER_CPU(struct kvm_vcpu *, host_vcpu);
 
 extern size_t pkvm_vm_sz;

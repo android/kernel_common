@@ -13,6 +13,7 @@
 #include "ptdev.h"
 #include "memory.h"
 #include "debug.h"
+#include <pkvm/pkvm.h>
 
 struct pkvm_hyp *pkvm_hyp;
 

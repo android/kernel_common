@@ -10,6 +10,7 @@
 #include <pkvm.h>
 #include "hyp/pkvm_hyp_types.h"
 #include "hyp/pkvm_iommu_types.h"
+#include <pkvm/pkvm.h>
 
 int main(void)
 {
