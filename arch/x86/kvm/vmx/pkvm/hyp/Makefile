@@ -21,6 +21,7 @@ pkvm-hyp-y	+= $(lib-dir)/memset_64.o
 pkvm-hyp-y	+= $(lib-dir)/memcpy_64.o
 pkvm-hyp-y	+= $(lib2-dir)/find_bit.o
 pkvm-hyp-y	+= $(lib2-dir)/hweight.o
+pkvm-hyp-y	+= $(lib2-dir)/ctype.o $(lib2-dir)/string.o
 pkvm-hyp-$(CONFIG_MITIGATION_RETPOLINE)	+= $(lib-dir)/retpoline.o
 pkvm-hyp-$(CONFIG_LIST_HARDENED)	+= $(lib-dir)/list_debug.o
 

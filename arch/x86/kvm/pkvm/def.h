@@ -27,6 +27,7 @@
 /* FIXME: Disable SGX to simplify POC */
 #undef CONFIG_X86_SGX_KVM
 #undef CONFIG_PREEMPT_COUNT
+#define __NO_FORTIFY
 
 unsigned long pkvm_virt_to_phys(void *virt);
 #undef __pa
