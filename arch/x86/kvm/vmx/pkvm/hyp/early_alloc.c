@@ -5,6 +5,7 @@
 
 #include <asm/string.h>
 #include <asm/pkvm_spinlock.h>
+#include <asm/kvm_pkvm.h>
 #include <pkvm.h>
 
 #include "pgtable.h"

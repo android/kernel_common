@@ -10,6 +10,8 @@
 #include "iommu_spgt.h"
 #include "bug.h"
 #include "pci.h"
+#include "debug.h"
+#include "memory.h"
 
 #define MAX_PTDEV_NUM	(PKVM_MAX_PDEV_NUM + PKVM_MAX_PASID_PDEV_NUM)
 static DEFINE_HASHTABLE(ptdev_hasht, 8);

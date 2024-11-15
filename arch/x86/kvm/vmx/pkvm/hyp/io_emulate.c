@@ -4,6 +4,8 @@
 #include "ept.h"
 #include "io.h"
 #include "io_emulate.h"
+#include "memory.h"
+#include "debug.h"
 
 struct pkvm_pio_emul_table host_pio_emul_table;
 struct pkvm_mmio_emul_table host_mmio_emul_table;

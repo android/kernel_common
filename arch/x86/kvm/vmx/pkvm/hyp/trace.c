@@ -4,8 +4,10 @@
  */
 #include <linux/kvm_host.h>
 #include <asm/pkvm_spinlock.h>
+#include <asm/kvm_pkvm.h>
 #include <pkvm.h>
 #include "trace.h"
+#include "debug.h"
 
 /*
  * memset/memcpy can be re-defined by include/linux/fortify-string.h, which

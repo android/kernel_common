@@ -9,6 +9,8 @@
 #include "mmu.h"
 #include "ptdev.h"
 #include "pci.h"
+#include "memory.h"
+#include "debug.h"
 
 static union pci_cfg_addr_reg host_vpci_cfg_addr;
 static pkvm_spinlock_t pci_cfg_lock = __PKVM_SPINLOCK_UNLOCKED;

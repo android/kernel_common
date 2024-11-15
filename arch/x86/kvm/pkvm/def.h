@@ -15,6 +15,8 @@
 #undef CONFIG_DYNAMIC_DEBUG
 #undef CONFIG_DYNAMIC_DEBUG_CORE
 #undef CONFIG_TRACING
+#undef CONFIG_BUG
+#undef CONFIG_GENERIC_BUG
 #endif
 #undef CONFIG_PARAVIRT
 #undef CONFIG_PARAVIRT_XXL
@@ -22,5 +24,9 @@
 #undef CONFIG_TRACEPOINTS
 #undef CONFIG_TRACE_IRQFLAGS
 #undef CONFIG_DEBUG_IRQFLAGS
+
+unsigned long pkvm_virt_to_phys(void *virt);
+#undef __pa
+#define __pa(x) pkvm_virt_to_phys((void *)(x))
 
 #endif /* __PKVM_X86_DEF_H */

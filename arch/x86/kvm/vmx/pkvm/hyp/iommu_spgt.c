@@ -12,6 +12,7 @@
 #include "iommu_spgt.h"
 #include "ept.h"
 #include "bug.h"
+#include "debug.h"
 
 static DEFINE_HASHTABLE(iommu_spgt_hasht, 8);
 static DECLARE_BITMAP(iommu_spgt_bitmap, PKVM_MAX_PDEV_NUM);

@@ -11,6 +11,8 @@
 #include "mem_protect.h"
 #include "lapic.h"
 #include "ptdev.h"
+#include "memory.h"
+#include "debug.h"
 
 struct pkvm_hyp *pkvm_hyp;
 

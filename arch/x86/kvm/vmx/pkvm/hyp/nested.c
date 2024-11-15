@@ -13,6 +13,7 @@
 #include "ept.h"
 #include "debug.h"
 #include "mem_protect.h"
+#include "memory.h"
 
 /*
  * Not support shadow vmcs & vmfunc;
@@ -1111,25 +1112,6 @@ int handle_invept(struct kvm_vcpu *vcpu)
 out:
 	nested_vmx_result(VMsucceed, 0);
 	return 0;
-}
-
-void vpid_sync_context(int vpid)
-{
-	if (vmx_has_invvpid_single())
-		vpid_sync_vcpu_single(vpid);
-	else if (vpid != 0)
-		vpid_sync_vcpu_global();
-}
-
-void vpid_sync_vcpu_addr(int vpid, gva_t addr)
-{
-	if (vpid == 0)
-		return;
-
-	if (vmx_has_invvpid_individual_addr())
-		__invvpid(VMX_VPID_EXTENT_INDIVIDUAL_ADDR, vpid, addr);
-	else
-		vpid_sync_context(vpid);
 }
 
 #define VMX_VPID_EXTENT_SUPPORTED_MASK		\

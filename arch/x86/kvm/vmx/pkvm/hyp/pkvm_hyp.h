@@ -5,6 +5,7 @@
 #ifndef __PKVM_HYP_H
 #define __PKVM_HYP_H
 
+#include <asm/kvm_pkvm.h>
 #include "pkvm_hyp_types.h"
 
 #define SHADOW_VM_HANDLE_SHIFT		32

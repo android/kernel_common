@@ -7,6 +7,7 @@
 
 SECTIONS {
 	PKVM_SECTION(.text)
+	PKVM_SECTION(.noinstr.text)
 	PKVM_SECTION(.rodata)
 	/*
 	 * .pkvm.data..percpu needs to be defined before .data section

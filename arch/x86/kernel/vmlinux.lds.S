@@ -115,6 +115,7 @@ PHDRS {
 	. = ALIGN(PAGE_SIZE);						\
 	__pkvm_text_start = .;						\
 	*(PKVM_SECTION_NAME(.text))					\
+	*(PKVM_SECTION_NAME(.noinstr.text))				\
 	. = ALIGN(PAGE_SIZE);						\
 	__pkvm_text_end = .;
 

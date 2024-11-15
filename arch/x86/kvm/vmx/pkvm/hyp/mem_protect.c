@@ -11,6 +11,7 @@
 #include "pgtable.h"
 #include "ept.h"
 #include "iommu.h"
+#include "memory.h"
 
 struct check_walk_data {
 	int 			nstate;
