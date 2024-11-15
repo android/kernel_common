@@ -925,6 +925,10 @@ struct kvm_hyperv_eventfd {
 #define KVM_X86_SEV_ES_VM	3
 #define KVM_X86_SNP_VM		4
 
-#define KVM_X86_PROTECTED_VM	5
+/*
+ * TODO: this is a temporary vm_type value to avoid conflicts with the above
+ * vm_type values from upstream. Update this value when upstreaming pKVM-IA.
+ */
+#define KVM_X86_PROTECTED_VM    28
 
 #endif /* _ASM_X86_KVM_H */
