@@ -162,9 +162,6 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {
-#ifdef CONFIG_PKVM_INTEL
-	.pkvm_init = pkvm_init,
-#endif
 	.hardware_setup = vmx_hardware_setup,
 	.handle_intel_pt_intr = NULL,
 

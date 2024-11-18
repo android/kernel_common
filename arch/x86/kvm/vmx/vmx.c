@@ -78,6 +78,9 @@ MODULE_AUTHOR("Qumranet");
 MODULE_DESCRIPTION("KVM support for VMX (Intel VT-x) extensions");
 MODULE_LICENSE("GPL");
 
+static struct kvm_x86_ops *x86_ops = &vt_x86_ops;
+static struct kvm_x86_init_ops *x86_init_ops = &vt_init_ops;
+
 #ifdef MODULE
 static const struct x86_cpu_id vmx_cpu_id[] = {
 	X86_MATCH_FEATURE(X86_FEATURE_VMX, NULL),
@@ -581,7 +584,7 @@ static __init void hv_init_evmcs(void)
 		}
 
 		if (ms_hyperv.nested_features & HV_X64_NESTED_DIRECT_FLUSH)
-			vt_x86_ops.enable_l2_tlb_flush
+			x86_ops->enable_l2_tlb_flush
 				= hv_enable_l2_tlb_flush;
 	} else {
 		enlightened_vmcs = false;
@@ -8496,28 +8499,28 @@ __init int vmx_hardware_setup(void)
 	 * using the APIC_ACCESS_ADDR VMCS field.
 	 */
 	if (!flexpriority_enabled)
-		vt_x86_ops.set_apic_access_page_addr = NULL;
+		x86_ops->set_apic_access_page_addr = NULL;
 
 	if (!cpu_has_vmx_tpr_shadow())
-		vt_x86_ops.update_cr8_intercept = NULL;
+		x86_ops->update_cr8_intercept = NULL;
 
 #if IS_ENABLED(CONFIG_HYPERV)
 	if (ms_hyperv.nested_features & HV_X64_NESTED_GUEST_MAPPING_FLUSH
 	    && enable_ept) {
-		vt_x86_ops.flush_remote_tlbs = hv_flush_remote_tlbs;
-		vt_x86_ops.flush_remote_tlbs_range = hv_flush_remote_tlbs_range;
+		x86_ops->flush_remote_tlbs = hv_flush_remote_tlbs;
+		x86_ops->flush_remote_tlbs_range = hv_flush_remote_tlbs_range;
 	}
 #endif
 
 #if IS_ENABLED(CONFIG_PKVM_INTEL)
 	if (enable_pkvm) {
-		if (!enable_ept || vt_x86_ops.flush_remote_tlbs ||
-				vt_x86_ops.flush_remote_tlbs_range) {
+		if (!enable_ept || x86_ops->flush_remote_tlbs ||
+				x86_ops->flush_remote_tlbs_range) {
 			pr_err_ratelimited("kvm: EPT or flush_remote_tlbs ops not available to pKVM-IA\n");
 			return -EOPNOTSUPP;
 		}
-		vt_x86_ops.flush_remote_tlbs = pkvm_tlb_remote_flush;
-		vt_x86_ops.flush_remote_tlbs_range =
+		x86_ops->flush_remote_tlbs = pkvm_tlb_remote_flush;
+		x86_ops->flush_remote_tlbs_range =
 				pkvm_tlb_remote_flush_with_range;
 	}
 #endif
@@ -8533,7 +8536,7 @@ __init int vmx_hardware_setup(void)
 	if (!cpu_has_vmx_apicv())
 		enable_apicv = 0;
 	if (!enable_apicv)
-		vt_x86_ops.sync_pir_to_irr = NULL;
+		x86_ops->sync_pir_to_irr = NULL;
 
 	if (!enable_apicv || !cpu_has_vmx_ipiv())
 		enable_ipiv = false;
@@ -8569,7 +8572,7 @@ __init int vmx_hardware_setup(void)
 		enable_pml = 0;
 
 	if (!enable_pml)
-		vt_x86_ops.cpu_dirty_log_size = 0;
+		x86_ops->cpu_dirty_log_size = 0;
 
 	if (!cpu_has_vmx_preemption_timer())
 		enable_preemption_timer = false;
@@ -8594,8 +8597,8 @@ __init int vmx_hardware_setup(void)
 	}
 
 	if (!enable_preemption_timer) {
-		vt_x86_ops.set_hv_timer = NULL;
-		vt_x86_ops.cancel_hv_timer = NULL;
+		x86_ops->set_hv_timer = NULL;
+		x86_ops->cancel_hv_timer = NULL;
 	}
 
 	kvm_caps.supported_mce_cap |= MCG_LMCE_P;
@@ -8606,9 +8609,9 @@ __init int vmx_hardware_setup(void)
 	if (!enable_ept || !enable_pmu || !cpu_has_vmx_intel_pt())
 		pt_mode = PT_MODE_SYSTEM;
 	if (pt_mode == PT_MODE_HOST_GUEST)
-		vt_init_ops.handle_intel_pt_intr = vmx_handle_intel_pt_intr;
+		x86_init_ops->handle_intel_pt_intr = vmx_handle_intel_pt_intr;
 	else
-		vt_init_ops.handle_intel_pt_intr = NULL;
+		x86_init_ops->handle_intel_pt_intr = NULL;
 
 	setup_default_sgx_lepubkeyhash();
 
@@ -8664,13 +8667,20 @@ static int __init vmx_init(void)
 	if (!kvm_is_vmx_supported())
 		return -EOPNOTSUPP;
 
+#ifdef CONFIG_PKVM_INTEL
+	if (enable_pkvm) {
+		x86_ops = &pkvm_host_x86_ops;
+		x86_init_ops = &pkvm_host_init_ops;
+	}
+#endif
+
 	/*
 	 * Note, hv_init_evmcs() touches only VMX knobs, i.e. there's nothing
 	 * to unwind if a later step fails.
 	 */
 	hv_init_evmcs();
 
-	r = kvm_x86_vendor_init(&vt_init_ops);
+	r = kvm_x86_vendor_init(x86_init_ops);
 	if (r)
 		return r;
 
