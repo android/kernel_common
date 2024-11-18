@@ -334,7 +334,7 @@ struct vcpu_vmx {
 
 	/* Support for PML */
 #define PML_ENTITY_NUM		512
-	struct page *pml_pg;
+	void *pml_pg;
 
 	/* apic deadline value in host tsc */
 	u64 hv_deadline_tsc;
