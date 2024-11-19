@@ -7,8 +7,9 @@
 
 / {
 	compatible = "google,tentacruel-sku262151", "google,tentacruel-sku262150",
-		     "google,tentacruel-sku262149", "google,tentacruel-sku262148",
-		     "google,tentacruel", "mediatek,mt8186";
+				"google,tentacruel-sku262149", "google,tentacruel-sku262148",
+				"google,tentacruel-sku327682", "google,tentacruel-sku327683",
+				"google,tentacruel", "mediatek,mt8186";
 };
 
 /* This variant replaces only the trackpad controller. */

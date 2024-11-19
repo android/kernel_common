@@ -9,8 +9,9 @@
 / {
 	model = "Google Tentacruel board";
 	compatible = "google,tentacruel-sku262147", "google,tentacruel-sku262146",
-		     "google,tentacruel-sku262145", "google,tentacruel-sku262144",
-		     "google,tentacruel", "mediatek,mt8186";
+				"google,tentacruel-sku262145", "google,tentacruel-sku262144",
+				"google,tentacruel-sku327680", "google,tentacruel-sku327681",
+				"google,tentacruel", "mediatek,mt8186";
 	chassis-type = "convertible";
 };
 
