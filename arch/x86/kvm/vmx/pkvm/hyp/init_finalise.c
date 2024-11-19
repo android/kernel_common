@@ -186,6 +186,14 @@ static int create_mmu_mapping(const struct pkvm_section sections[],
 	if (ret)
 		return ret;
 
+	if (pvmfw_present) {
+		ret = pkvm_mmu_map((unsigned long)__pkvm_va(pvmfw_base),
+				   pvmfw_base, pvmfw_size, 0,
+				   (u64)pgprot_val(PAGE_KERNEL_RO));
+		if (ret)
+			return ret;
+	}
+
 	/* Switch the mmu pgtable to enable pkvm_vmemmap */
 	native_write_cr3(pkvm_hyp->mmu->root_pa);
 
