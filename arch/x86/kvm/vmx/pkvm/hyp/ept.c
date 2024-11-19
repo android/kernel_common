@@ -349,11 +349,16 @@ int pkvm_host_ept_init(struct pkvm_pgtable_cap *cap,
 	return 0;
 }
 
+static bool is_pvmfw_memory(unsigned long pa)
+{
+	return pvmfw_present && pa >= pvmfw_base && pa < pvmfw_base + pvmfw_size;
+}
+
 int handle_host_ept_violation(struct kvm_vcpu *vcpu, bool *skip_instruction)
 {
 	unsigned long hpa, gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
 	struct mem_range range, cur;
-	bool is_memory = find_mem_range(gpa, &range);
+	bool is_memory = find_mem_range(gpa, &range) || is_pvmfw_memory(gpa);
 	u64 prot = pkvm_mkstate(HOST_EPT_DEF_MMIO_PROT, PKVM_PAGE_OWNED);
 	int level;
 	int ret;

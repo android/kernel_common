@@ -269,6 +269,14 @@ static int protect_pkvm_pages(const struct pkvm_section sections[],
 		return ret;
 	}
 
+	if (pvmfw_present) {
+		ret = pkvm_host_ept_unmap(pvmfw_base, pvmfw_base, pvmfw_size);
+		if (ret) {
+			pkvm_err("%s: failed to protect pvmfw memory\n", __func__);
+			return ret;
+		}
+	}
+
 	return 0;
 }
 
