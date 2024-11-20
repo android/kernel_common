@@ -10,6 +10,7 @@
 #include <drm/drm_damage_helper.h>
 #include <drm/drm_fourcc.h>
 
+#include "i915_drv.h"
 #include "i915_reg.h"
 #include "intel_atomic.h"
 #include "intel_atomic_plane.h"

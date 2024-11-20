@@ -5,6 +5,7 @@
 
 #include <linux/kernel.h>
 
+#include "i915_drv.h"
 #include "intel_de.h"
 #include "intel_dmc.h"
 #include "intel_dmc_regs.h"

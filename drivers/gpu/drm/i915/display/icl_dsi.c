@@ -30,6 +30,7 @@
 #include <drm/drm_fixed.h>
 #include <drm/drm_mipi_dsi.h>
 
+#include "i915_drv.h"
 #include "i915_reg.h"
 #include "icl_dsi.h"
 #include "icl_dsi_regs.h"
