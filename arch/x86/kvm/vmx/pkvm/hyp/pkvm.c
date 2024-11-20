@@ -127,6 +127,8 @@ int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
 	vm->host_kvm_va = kvm_va;
 	vm->shadow_size = shadow_size;
 	vm->vm_type = vm_type;
+	vm->pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
+	vm->finalized = !shadow_vm_is_protected(vm);
 
 	if (pkvm_pgstate_pgt_init(vm))
 		goto undonate;
@@ -148,6 +150,71 @@ undonate:
 	memset(vm, 0, shadow_size);
 	__pkvm_hyp_donate_host(shadow_pa, shadow_size);
 	return -EINVAL;
+}
+
+int __pkvm_finalize_shadow_vm(int shadow_vm_handle, s64 primary_vcpu_handle,
+			      gpa_t pvmfw_load_addr)
+{
+	struct pkvm_shadow_vm *vm;
+	int idx;
+	int ret = 0;
+
+	vm = get_shadow_vm(shadow_vm_handle);
+	if (!vm)
+		return -EINVAL;
+
+	pkvm_spin_lock(&vm->lock);
+
+	if (vm->finalized) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	if (pvmfw_load_addr != PVMFW_INVALID_LOAD_ADDR) {
+		if (!pvmfw_present) {
+			ret = -EINVAL;
+			goto unlock;
+		}
+		if (!shadow_vm_is_protected(vm)) {
+			ret = -EPERM;
+			goto unlock;
+		}
+
+		vm->pvmfw_load_addr = pvmfw_load_addr;
+	}
+
+	for (idx = 0; idx < vm->created_vcpus; idx++) {
+		struct shadow_vcpu_state *vcpu = SHADOW_VCPU_ARRAY(vm)->ref[idx].vcpu;
+
+		if (vcpu->shadow_vcpu_handle == primary_vcpu_handle &&
+		    vm->pvmfw_load_addr != PVMFW_INVALID_LOAD_ADDR) {
+			/*
+			 * If a protected VM is running with pvmfw, enforce the pvmfw
+			 * as the VM entry point on its primary vCPU.
+			 *
+			 * TODO: also need to prevent running secondary vCPUs
+			 * until the VM itself allows it (probably via a hypercall
+			 * to pKVM) at the moment when it boots a secondary vCPU.
+			 */
+			vcpu->pvmfw_entry_pending = true;
+		}
+
+		/*
+		 * Make sure to update pvmfw_entry_pending and pvmfw_load_addr
+		 * before allowing primary vCPU to run. Paired with __smp_rmb()
+		 * in nested_vmx_run().
+		 */
+		__smp_wmb();
+		WRITE_ONCE(vcpu->allowed_to_run, true);
+	}
+
+	vm->finalized = true;
+
+unlock:
+	pkvm_spin_unlock(&vm->lock);
+
+	put_shadow_vm(shadow_vm_handle);
+	return ret;
 }
 
 unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle)
@@ -326,6 +393,10 @@ static s64 attach_shadow_vcpu_to_vm(struct pkvm_shadow_vm *vm,
 	vcpu_idx = vm->created_vcpus;
 	shadow_vcpu->shadow_vcpu_handle =
 		to_shadow_vcpu_handle(vm->shadow_vm_handle, vcpu_idx);
+
+	if (!shadow_vm_is_protected(vm))
+		shadow_vcpu->allowed_to_run = true;
+
 	vcpu_ref = &SHADOW_VCPU_ARRAY(vm)->ref[vcpu_idx];
 	vcpu_ref->vcpu = shadow_vcpu;
 	vm->created_vcpus++;

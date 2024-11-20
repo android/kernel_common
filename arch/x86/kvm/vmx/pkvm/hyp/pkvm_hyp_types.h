@@ -70,6 +70,9 @@ struct shadow_vcpu_state {
 
 	struct pkvm_ve_info ve_info __aligned(PAGE_SIZE);
 
+	bool allowed_to_run;
+	bool pvmfw_entry_pending;
+
 	/* The last cpu this vmcs02 runs with */
 	int last_cpu;
 
@@ -137,6 +140,15 @@ struct pkvm_shadow_vm {
 
 	/* link the passthrough devices of a protected VM */
 	struct list_head ptdev_head;
+
+	/*
+	 * Address where the pvmfw is loaded in a protected VM memory
+	 * or PVMFW_INVALID_LOAD_ADDR if the VM is running without pvmfw
+	 */
+	gpa_t pvmfw_load_addr;
+
+	/* Indicate if the VM and its vCPUs are set up and ready to run */
+	bool finalized;
 
 	/* The vm_type to indicate if this is a protected VM */
 	unsigned long vm_type;

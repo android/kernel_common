@@ -239,6 +239,7 @@ static inline bool pkvm_is_protected_vcpu(struct kvm_vcpu *vcpu)
 }
 
 int pkvm_init_shadow_vm(struct kvm *kvm);
+int pkvm_finalize_shadow_vm(struct kvm *kvm, struct kvm_vcpu *vcpu);
 void pkvm_teardown_shadow_vm(struct kvm *kvm);
 int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu);
 void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu);
@@ -252,6 +253,7 @@ static inline void kvm_hyp_reserve(void) {}
 static inline bool pkvm_is_protected_vm(struct kvm *kvm) { return false; }
 static inline bool pkvm_is_protected_vcpu(struct kvm_vcpu *vcpu) { return false; }
 static inline int pkvm_init_shadow_vm(struct kvm *kvm) { return 0; }
+static inline int pkvm_finalize_shadow_vm(struct kvm *kvm, struct kvm_vcpu *vcpu) { return 0; }
 static inline void pkvm_teardown_shadow_vm(struct kvm *kvm) {}
 static inline int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu) { return 0; }
 static inline void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu) {}

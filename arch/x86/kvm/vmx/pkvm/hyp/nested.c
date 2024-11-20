@@ -711,7 +711,16 @@ static void nested_vmx_run(struct kvm_vcpu *vcpu, bool launch)
 		/* VMLAUNCH_NONCLEAR_VMCS or VMRESUME_NONLAUNCHED_VMCS */
 		nested_vmx_result(VMfailValid,
 			launch ? VMXERR_VMLAUNCH_NONCLEAR_VMCS : VMXERR_VMRESUME_NONLAUNCHED_VMCS);
+	} else if (!READ_ONCE(cur_shadow_vcpu->allowed_to_run)) {
+		nested_vmx_result(VMfailInvalid, 0);
 	} else {
+		/*
+		 * Ensure that pvmfw_entry_pending and pvmfw_load_addr are read
+		 * after allowed_to_run, so they are read with up-to-date values.
+		 * Paired with __smp_wmb() in __pkvm_finalize_shadow_vm().
+		 */
+		__smp_rmb();
+
 		/* save vmcs01 guest state for possible emulation */
 		save_vmcs01_fields_for_emulation(vmx);
 
@@ -726,6 +735,11 @@ static void nested_vmx_run(struct kvm_vcpu *vcpu, bool launch)
 
 		/* mark guest mode */
 		vcpu->arch.hflags |= HF_GUEST_MASK;
+
+		if (cur_shadow_vcpu->pvmfw_entry_pending) {
+			vmcs_writel(GUEST_RIP, cur_shadow_vcpu->vm->pvmfw_load_addr);
+			cur_shadow_vcpu->pvmfw_entry_pending = false;
+		}
 	}
 }
 

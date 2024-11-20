@@ -105,6 +105,9 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	case PKVM_HC_INIT_SHADOW_VCPU:
 		ret = __pkvm_init_shadow_vcpu(vcpu, a0, a1, a2, a3);
 		break;
+	case PKVM_HC_FINALIZE_SHADOW_VM:
+		ret = __pkvm_finalize_shadow_vm(a0, a1, a2);
+		break;
 	case PKVM_HC_TEARDOWN_SHADOW_VM:
 		ret = __pkvm_teardown_shadow_vm(a0);
 		break;

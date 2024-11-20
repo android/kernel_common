@@ -23,6 +23,8 @@
 
 int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
 			  unsigned long shadow_pa,  size_t shadow_size);
+int __pkvm_finalize_shadow_vm(int shadow_vm_handle, s64 primary_vcpu_handle,
+			      gpa_t pvmfw_load_addr);
 unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle);
 struct pkvm_shadow_vm *get_shadow_vm(int shadow_vm_handle);
 void put_shadow_vm(int shadow_vm_handle);
