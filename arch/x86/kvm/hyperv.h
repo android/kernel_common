@@ -24,7 +24,7 @@
 #include <linux/kvm_host.h>
 #include "x86.h"
 
-#ifdef CONFIG_KVM_HYPERV
+#if defined(CONFIG_KVM_HYPERV) && !defined(__PKVM_HYP__)
 
 /* "Hv#1" signature */
 #define HYPERV_CPUID_SIGNATURE_EAX 0x31237648
