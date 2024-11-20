@@ -9,7 +9,7 @@
 #include <buddy_memory.h>
 #include <pkvm.h>
 #include "hyp/pkvm_hyp_types.h"
-#include "hyp/iommu_internal.h"
+#include "hyp/pkvm_iommu_types.h"
 
 int main(void)
 {
