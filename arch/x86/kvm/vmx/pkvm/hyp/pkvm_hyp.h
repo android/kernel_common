@@ -41,6 +41,7 @@ void put_shadow_vcpu(s64 shadow_vcpu_handle);
 s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa);
 void pkvm_kick_vcpu(struct kvm_vcpu *vcpu);
 int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid);
+int pkvm_load_pvmfw_pages(struct pkvm_shadow_vm *vm, u64 gpa, u64 phys, u64 size);
 
 #define PKVM_REQ_TLB_FLUSH_HOST_EPT			KVM_ARCH_REQ(0)
 #define PKVM_REQ_TLB_FLUSH_SHADOW_EPT			KVM_ARCH_REQ(1)
@@ -55,6 +56,19 @@ static inline bool shadow_vm_is_protected(struct pkvm_shadow_vm *vm)
 static inline bool shadow_vcpu_is_protected(struct shadow_vcpu_state *shadow_vcpu)
 {
 	return shadow_vm_is_protected(shadow_vcpu->vm);
+}
+
+static inline bool gpa_range_has_pvmfw(struct pkvm_shadow_vm *vm, u64 gpa_start, u64 gpa_end)
+{
+	u64 pvmfw_load_end = vm->pvmfw_load_addr + pvmfw_size;
+
+	if (!pvmfw_present)
+		return false;
+
+	if (vm->pvmfw_load_addr == PVMFW_INVALID_LOAD_ADDR)
+		return false;
+
+	return gpa_end > vm->pvmfw_load_addr && gpa_start < pvmfw_load_end;
 }
 
 #endif

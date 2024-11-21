@@ -582,6 +582,15 @@ static int pkvm_pgstate_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vad
 	if (!shadow_vm_is_protected(vm))
 		ret = __pkvm_host_share_guest(map_phys, pgt, vaddr, level_size, data->prot);
 	else {
+		if (gpa_range_has_pvmfw(vm, vaddr, vaddr + level_size)) {
+			ret = pkvm_load_pvmfw_pages(vm, vaddr, map_phys, level_size);
+			if (ret) {
+				pkvm_err("%s: failed to load pvmfw at gpa 0x%lx, hpa 0x%lx, size 0x%lx\n",
+					 __func__, vaddr, map_phys, level_size);
+				return ret;
+			}
+		}
+
 		if (vm->need_prepopulation)
 			/*
 			 * As pgstate pgt is the source of the shadow EPT, only after pgstate
