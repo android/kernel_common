@@ -13,3 +13,7 @@
 &dsi_panel {
 	compatible = "ivo,t109nw41", "himax,hx83102";
 };
+
+&touchscreen {
+	firmware-name = "himax_i2chid_1003.bin";
+};

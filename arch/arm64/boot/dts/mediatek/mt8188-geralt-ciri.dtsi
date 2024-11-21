@@ -184,6 +184,18 @@
 	num-cs = <1>;
 	#address-cells = <1>;
 	#size-cells = <0>;
+	touchscreen: touchscreen@0 {
+		compatible = "himax,hx83102j";
+		reg = <0>;
+		firmware-name = "himax_i2chid_1002.bin";
+		interrupts-extended = <&pio 143 IRQ_TYPE_LEVEL_LOW>;
+		panel = <&dsi_panel>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&touchscreen_int &touchscreen_rst>;
+		reset-gpios = <&pio 5 GPIO_ACTIVE_LOW>;
+		spi-max-frequency = <12500000>;
+		status = "okay";
+	};
 };
 
 &pio {
