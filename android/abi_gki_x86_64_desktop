@@ -998,7 +998,6 @@
   drm_plane_create_zpos_immutable_property
   drm_plane_enable_fb_damage_clips
   drm_plane_from_index
-  drm_plane_helper_atomic_check
   drm_poll
   drm_prime_gem_destroy
   drm_prime_pages_to_sg
