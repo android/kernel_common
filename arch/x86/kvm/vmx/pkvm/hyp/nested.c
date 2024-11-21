@@ -30,6 +30,11 @@ static const unsigned int vmx_msrs[] = {
 	LIST_OF_VMX_MSRS
 };
 
+static inline bool nested_cpu_has_vmwrite_any_field(struct vcpu_vmx *vmx)
+{
+	return vmx->nested.msrs.misc_low & VMX_MISC_VMWRITE_SHADOW_RO_FIELDS;
+}
+
 bool is_vmx_msr(unsigned long msr)
 {
 	bool found = false;
@@ -459,65 +464,6 @@ static void set_shadow_indicator(struct vmcs *vmcs)
 	vmcs->hdr.shadow_vmcs = 1;
 }
 
-/* current vmcs is vmcs02 */
-static void copy_shadow_fields_vmcs02_to_vmcs12(struct vcpu_vmx *vmx, struct vmcs12 *vmcs12)
-{
-	const struct shadow_vmcs_field *fields[] = {
-		shadow_read_write_fields,
-		shadow_read_only_fields
-	};
-	const int max_fields[] = {
-		max_shadow_read_write_fields,
-		max_shadow_read_only_fields
-	};
-	struct shadow_vmcs_field field;
-	unsigned long val;
-	int i, q;
-
-	for (q = 0; q < ARRAY_SIZE(fields); q++) {
-		for (i = 0; i < max_fields[q]; i++) {
-			field = fields[q][i];
-			val = __vmcs_readl(field.encoding);
-			if (is_host_fields((field.encoding))) {
-				pkvm_err("%s: field 0x%x is host field, please remove from shadowing!",
-						__func__, field.encoding);
-				continue;
-			}
-			vmcs12_write_any(vmcs12, field.encoding, field.offset, val);
-		}
-	}
-}
-
-/* current vmcs is vmcs02 */
-static void copy_shadow_fields_vmcs12_to_vmcs02(struct vcpu_vmx *vmx, struct vmcs12 *vmcs12)
-{
-	const struct shadow_vmcs_field *fields[] = {
-		shadow_read_write_fields,
-		shadow_read_only_fields
-	};
-	const int max_fields[] = {
-		max_shadow_read_write_fields,
-		max_shadow_read_only_fields
-	};
-	struct shadow_vmcs_field field;
-	unsigned long val;
-	int i, q;
-
-	for (q = 0; q < ARRAY_SIZE(fields); q++) {
-		for (i = 0; i < max_fields[q]; i++) {
-			field = fields[q][i];
-			val = vmcs12_read_any(vmcs12, field.encoding,
-					      field.offset);
-			if (is_host_fields((field.encoding))) {
-				pkvm_err("%s: field 0x%x is host field, please remove from shadowing!",
-						__func__, field.encoding);
-				continue;
-			}
-			__vmcs_writel(field.encoding, val);
-		}
-	}
-}
-
 /* current vmcs is vmcs01*/
 static void save_vmcs01_fields_for_emulation(struct vcpu_vmx *vmx)
 {
@@ -673,7 +619,6 @@ static void nested_release_vmcs12(struct kvm_vcpu *vcpu)
 	vmcs02 = (struct vmcs *)cur_shadow_vcpu->vmcs02;
 	vmcs12 = (struct vmcs12 *)cur_shadow_vcpu->cached_vmcs12;
 	vmcs_load_track(vmx, vmcs02);
-	copy_shadow_fields_vmcs02_to_vmcs12(vmx, vmcs12);
 
 	vmcs_clear_track(vmx, vmcs02);
 	clear_shadow_indicator(vmcs02);
@@ -890,7 +835,6 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 
 					hvcpu->current_shadow_vcpu = shadow_vcpu;
 
-					copy_shadow_fields_vmcs12_to_vmcs02(vmx, vmcs12);
 					sync_vmcs12_dirty_fields_to_vmcs02(vmx, vmcs12);
 					vmcs_clear_track(vmx, vmcs02);
 					set_shadow_indicator(vmcs02);
@@ -987,7 +931,7 @@ int handle_vmwrite(struct kvm_vcpu *vcpu)
 			}
 
 			/*TODO: check vcpu supports "VMWRITE to any supported field in the VMCS"*/
-			if (vmcs_field_readonly(field)) {
+			if (vmcs_field_readonly(field) && !nested_cpu_has_vmwrite_any_field(vmx)) {
 				nested_vmx_result(VMfailInvalid, VMXERR_VMWRITE_READ_ONLY_VMCS_COMPONENT);
 				return 0;
 			}
