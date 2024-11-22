@@ -311,7 +311,9 @@ SYM_FUNC_END(entry_untrain_ret)
 
 	.align 64
 SYM_FUNC_START(call_depth_return_thunk)
+	ANNOTATE_UNRET_SAFE
 	ret
+	int3
 SYM_FUNC_END(call_depth_return_thunk)
 
 #endif /* CONFIG_MITIGATION_CALL_DEPTH_TRACKING */
