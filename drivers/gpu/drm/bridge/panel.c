@@ -308,7 +308,7 @@ struct drm_bridge *drm_panel_bridge_add_typed(struct drm_panel *panel,
 	panel_bridge->bridge.ops = DRM_BRIDGE_OP_MODES;
 	panel_bridge->bridge.type = connector_type;
 
-	drm_bridge_add(&panel_bridge->bridge);
+	devm_drm_bridge_add(panel->dev, &panel_bridge->bridge);
 
 	return &panel_bridge->bridge;
 }
@@ -332,7 +332,6 @@ void drm_panel_bridge_remove(struct drm_bridge *bridge)
 
 	panel_bridge = drm_bridge_to_panel_bridge(bridge);
 
-	drm_bridge_remove(bridge);
 	devm_kfree(panel_bridge->panel->dev, bridge);
 }
 EXPORT_SYMBOL(drm_panel_bridge_remove);
@@ -364,8 +363,6 @@ static void devm_drm_panel_bridge_release(struct device *dev, void *res)
 
 	if (!bridge)
 		return;
-
-	drm_bridge_remove(bridge);
 }
 
 /**
