@@ -4056,8 +4056,6 @@ ttwu_do_activate(struct rq *rq, struct task_struct *p, int wake_flags,
 		rq->idle_stamp = 0;
 	}
 #endif
-
-	p->dl_server = NULL;
 }
 
 /*
@@ -5051,6 +5049,7 @@ int sched_fork(unsigned long clone_flags, struct task_struct *p)
 	init_entity_runnable_average(&p->se);
 	trace_android_rvh_finish_prio_fork(p);
 
+	p->dl_server = NULL;
 
 #ifdef CONFIG_SCHED_INFO
 	if (likely(sched_info_on()))
@@ -6331,17 +6330,11 @@ __pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 
 		/*
 		 * This is a normal CFS pick, but the previous could be a DL pick.
-		 * Clear it as previous is no longer picked.
+		 * Clear it as previous is no longer picked. We also clear this if
+		 * @p == @prev, as this is not a dlserver pick.
 		 */
 		if (prev->dl_server)
 			prev->dl_server = NULL;
-
-		/*
-		 * This is the fast path; it cannot be a DL server pick;
-		 * therefore even if @p == @prev, ->dl_server must be NULL.
-		 */
-		if (p->dl_server)
-			p->dl_server = NULL;
 
 		return p;
 	}
@@ -6419,7 +6412,10 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 		 * coming online. core_pick would already be migrated to
 		 * another cpu during offline.
 		 */
-		rq->core_pick = NULL;
+		if (rq->core_pick) {
+			rq->core_pick->dl_server = NULL;
+			rq->core_pick = NULL;
+		}
 		return __pick_next_task(rq, prev, rf);
 	}
 
@@ -6440,6 +6436,7 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 		next = rq->core_pick;
 		if (next != prev) {
 			put_prev_task(rq, prev);
+			prev->dl_server = NULL;
 			set_next_task(rq, next);
 		}
 
@@ -6487,7 +6484,10 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 	if (!need_sync) {
 		next = pick_task(rq);
 		if (!next->core_cookie) {
-			rq->core_pick = NULL;
+			if (rq->core_pick) {
+				rq->core_pick->dl_server = NULL;
+				rq->core_pick = NULL;
+			}
 			/*
 			 * For robustness, update the min_vruntime_fi for
 			 * unconstrained picks as well.
