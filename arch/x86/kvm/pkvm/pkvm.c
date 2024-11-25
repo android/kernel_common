@@ -60,7 +60,7 @@ static int allocate_pkvm_vm_handle(struct pkvm_vm *pkvm_vm)
 	}
 	__set_bit(idx, pkvm_vms_bitmap);
 
-	to_kvm(pkvm_vm)->arch.pkvm.shadow_vm_handle = idx_to_vm_handle(idx);
+	to_kvm(pkvm_vm)->arch.pkvm.pkvm_vm_handle = idx_to_vm_handle(idx);
 	pkvm_vm_ref = &pkvm_vms_ref[idx];
 	pkvm_vm_ref->pkvm_vm = pkvm_vm;
 	atomic_set(&pkvm_vm_ref->refcount, 1);
@@ -146,7 +146,7 @@ static int pkvm_vm_init(struct kvm *shared_kvm, unsigned long gpa)
 	if (ret)
 		goto vm_destroy;
 
-	return kvm->arch.pkvm.shadow_vm_handle;
+	return kvm->arch.pkvm.pkvm_vm_handle;
 
 vm_destroy:
 	kvm_x86_call(vm_destroy)(kvm);
@@ -225,7 +225,7 @@ struct pkvm_vm *get_pkvm_vm(int handle)
 
 void put_pkvm_vm(struct pkvm_vm *pkvm_vm)
 {
-	int idx = vm_handle_to_idx(to_kvm(pkvm_vm)->arch.pkvm.shadow_vm_handle);
+	int idx = vm_handle_to_idx(to_kvm(pkvm_vm)->arch.pkvm.pkvm_vm_handle);
 	struct pkvm_vm_ref *pkvm_vm_ref;
 
 	if (idx < 0 || idx >= MAX_PKVM_VMS)
@@ -264,7 +264,7 @@ static int pkvm_vcpu_create(struct kvm_vcpu *shared_vcpu, unsigned long gpa)
 	pkvm_vcpu->shared_vcpu = shared_vcpu;
 
 	shared_kvm = kern_pkvm_va(pkvm_vcpu->shared_vcpu->kvm);
-	pkvm_vm = get_pkvm_vm(shared_kvm->arch.pkvm.shadow_vm_handle);
+	pkvm_vm = get_pkvm_vm(shared_kvm->arch.pkvm.pkvm_vm_handle);
 	if (!pkvm_vm) {
 		ret = -EBUSY;
 		goto undonate;

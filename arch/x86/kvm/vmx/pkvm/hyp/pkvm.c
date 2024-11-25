@@ -605,7 +605,7 @@ void pkvm_teardown_shadow_vm(struct kvm *kvm)
 int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
 {
 	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
-	int vm_handle = vcpu->kvm->arch.pkvm.shadow_vm_handle;
+	int vm_handle = vcpu->kvm->arch.pkvm.pkvm_vm_handle;
 	struct pkvm_vcpu *pkvm_vcpu = to_pkvm_vcpu(vcpu);
 
 	shadow_vcpu->shadow_vcpu_handle =

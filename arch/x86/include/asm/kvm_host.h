@@ -1044,6 +1044,12 @@ struct kvm_vcpu_arch {
 #if IS_ENABLED(CONFIG_HYPERV)
 	hpa_t hv_root_tdp;
 #endif
+
+	/*
+	 * Save the handle returned from the pkvm when create a pkvm_vcpu. This
+	 * will be used by pkvm hypervisor to get the corresponding pkvm_vcpu.
+	 */
+	int pkvm_vcpu_handle;
 };
 
 struct kvm_lpage_info {
@@ -1342,7 +1348,7 @@ struct kvm_pinned_page {
 };
 
 struct kvm_protected_vm {
-	int shadow_vm_handle;
+	int pkvm_vm_handle;
 
 	struct pkvm_memcache teardown_mc;
 	struct list_head pinned_pages;

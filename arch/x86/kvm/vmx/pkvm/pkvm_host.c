@@ -1093,7 +1093,7 @@ static int add_device_to_pkvm(struct device *dev, void *data)
 	pdev = to_pci_dev(dev);
 	devid = PCI_DEVID(pdev->bus->number, pdev->devfn);
 
-	return kvm_hypercall3(PKVM_HC_ADD_PTDEV, pkvm->shadow_vm_handle, devid, 0);
+	return kvm_hypercall3(PKVM_HC_ADD_PTDEV, pkvm->pkvm_vm_handle, devid, 0);
 }
 
 int kvm_arch_add_device_to_pkvm(struct kvm *kvm, struct iommu_group *grp)
@@ -1134,7 +1134,7 @@ int pkvm_init_shadow_vm(struct kvm *kvm)
 	if (ret < 0)
 		goto free_page;
 
-	pkvm->shadow_vm_handle = ret;
+	pkvm->pkvm_vm_handle = ret;
 
 	return 0;
 free_page:
@@ -1156,8 +1156,8 @@ int pkvm_finalize_shadow_vm(struct kvm *kvm, struct kvm_vcpu *vcpu)
 	if (!kvm_vcpu_is_reset_bsp(vcpu))
 		return 0;
 
-	return kvm_hypercall3(PKVM_HC_FINALIZE_SHADOW_VM, pkvm->shadow_vm_handle,
-			      vcpu->pkvm_shadow_vcpu_handle,
+	return kvm_hypercall3(PKVM_HC_FINALIZE_SHADOW_VM, pkvm->pkvm_vm_handle,
+			      vcpu->arch.pkvm_vcpu_handle,
 			      smp_load_acquire(&pkvm->pvmfw_load_addr));
 }
 
@@ -1170,7 +1170,7 @@ void pkvm_teardown_shadow_vm(struct kvm *kvm)
 	if (!enable_pkvm)
 		return;
 
-	pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VM, pkvm->shadow_vm_handle);
+	pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VM, pkvm->pkvm_vm_handle);
 	if (!pa)
 		return;
 
@@ -1203,12 +1203,12 @@ int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
 		return -ENOMEM;
 
 	shadow_vcpu_handle = kvm_hypercall4(PKVM_HC_INIT_SHADOW_VCPU,
-					    pkvm->shadow_vm_handle, (unsigned long)vmx,
+					    pkvm->pkvm_vm_handle, (unsigned long)vmx,
 					    (unsigned long)__pa(shadow_addr), shadow_sz);
 	if (shadow_vcpu_handle < 0)
 		goto free_page;
 
-	vcpu->pkvm_shadow_vcpu_handle = shadow_vcpu_handle;
+	vcpu->arch.pkvm_vcpu_handle = shadow_vcpu_handle;
 
 	return 0;
 
@@ -1224,7 +1224,7 @@ void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu)
 	if (!enable_pkvm)
 		return;
 
-	pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VCPU, vcpu->pkvm_shadow_vcpu_handle);
+	pa = kvm_hypercall1(PKVM_HC_TEARDOWN_SHADOW_VCPU, vcpu->arch.pkvm_vcpu_handle);
 	if (!pa)
 		return;
 
@@ -1234,11 +1234,11 @@ void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu)
 static int __pkvm_tlb_remote_flush_with_range(struct kvm *kvm,
 					      struct pkvm_tlb_range *range)
 {
-	int shadow_vm_handle = kvm->arch.pkvm.shadow_vm_handle;
+	int pkvm_vm_handle = kvm->arch.pkvm.pkvm_vm_handle;
 	u64 start_gpa = 0;
 	u64 size = 0;
 
-	if (shadow_vm_handle <= 0)
+	if (pkvm_vm_handle <= 0)
 		return -EOPNOTSUPP;
 
 	if (range) {
@@ -1247,7 +1247,7 @@ static int __pkvm_tlb_remote_flush_with_range(struct kvm *kvm,
 	}
 
 	return kvm_hypercall3(PKVM_HC_TLB_REMOTE_FLUSH_RANGE,
-			      shadow_vm_handle, start_gpa, size);
+			      pkvm_vm_handle, start_gpa, size);
 }
 
 int pkvm_tlb_remote_flush_with_range(struct kvm *kvm, gfn_t start_gfn, gfn_t nr_pages)
