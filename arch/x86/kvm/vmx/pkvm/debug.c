@@ -112,9 +112,9 @@ void pkvm_debug_sym(__warn_printk)(const char *fmt, ...)
 {
 	va_list args;
 
+	pr_warn(CUT_HERE);
+
 	va_start(args, fmt);
-
-	__warn_printk(fmt, args);
-
+	vprintk(fmt, args);
 	va_end(args);
 }
