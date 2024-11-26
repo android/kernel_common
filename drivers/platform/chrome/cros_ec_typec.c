@@ -291,9 +291,11 @@ static int cros_typec_register_port_altmodes(struct cros_typec_data *typec,
 	struct typec_altmode *amode;
 
 	/* All PD capable CrOS devices are assumed to support DP altmode. */
+	memset(&desc, 0, sizeof(desc));
 	desc.svid = USB_TYPEC_DP_SID;
 	desc.mode = USB_TYPEC_DP_MODE;
 	desc.vdo = DP_PORT_VDO;
+	desc.inactive = false;
 	amode = cros_typec_register_displayport(port, &desc,
 						typec->ap_driven_altmode);
 	if (IS_ERR(amode))
