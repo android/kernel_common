@@ -834,16 +834,20 @@ int arch_decode_hint_reg(u8 sp_reg, int *base)
 
 bool arch_is_retpoline(struct symbol *sym)
 {
-	return !strncmp(sym->name, "__x86_indirect_", 15);
+	return !strncmp(sym->name, "__x86_indirect_", 15) ||
+	       !strncmp(sym->name, "__pkvm___x86_indirect_", 22);
 }
 
 bool arch_is_rethunk(struct symbol *sym)
 {
-	return !strcmp(sym->name, "__x86_return_thunk");
+	return !strcmp(sym->name, "__x86_return_thunk") ||
+	       !strcmp(sym->name, "__pkvm___x86_return_thunk");
 }
 
 bool arch_is_embedded_insn(struct symbol *sym)
 {
 	return !strcmp(sym->name, "retbleed_return_thunk") ||
-	       !strcmp(sym->name, "srso_safe_ret");
+	       !strcmp(sym->name, "srso_safe_ret") ||
+	       !strcmp(sym->name, "__pkvm_retbleed_return_thunk") ||
+	       !strcmp(sym->name, "__pkvm_srso_safe_ret");
 }
