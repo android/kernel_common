@@ -10,6 +10,11 @@
 # define __percpu_rel
 #endif
 
+#ifdef __PKVM_HYP__
+#undef __percpu_seg
+# define __percpu_seg		fs
+#endif
+
 #ifdef __ASSEMBLY__
 
 #ifdef CONFIG_SMP
