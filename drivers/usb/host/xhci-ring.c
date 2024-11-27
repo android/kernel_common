@@ -158,54 +158,6 @@ static void next_trb(struct xhci_hcd *xhci,
 	}
 }
 
-/* Forward dequeue pointer to the specific position,
- * walk through the ring and reclaim free trb slots to num_trbs_free
- */
-static int move_deq(struct xhci_hcd *xhci, struct xhci_ring *ep_ring,
-		    struct xhci_segment *new_seg, union xhci_trb *new_deq)
-{
-	unsigned int steps;
-	union xhci_trb *deq;
-	struct xhci_segment *seg = ep_ring->deq_seg;
-
-	/* direct paths */
-	if (ep_ring->dequeue == new_deq) {
-		return 0;
-	} else if ((ep_ring->deq_seg == new_seg) &&
-	    (ep_ring->dequeue <= new_deq)) {
-		steps = new_deq - ep_ring->dequeue;
-		deq = new_deq;
-		goto found;
-	}
-
-	/* fast walk to the next segment */
-	seg = seg->next;
-	steps = (TRBS_PER_SEGMENT - 1) -
-		(ep_ring->dequeue - ep_ring->deq_seg->trbs);
-	deq = &seg->trbs[0];
-
-	while (deq != new_deq) {
-		if (trb_is_link(deq)) {
-			seg = seg->next;
-			deq = seg->trbs;
-		} else {
-			steps++;
-			deq++;
-		}
-		if (deq == ep_ring->dequeue) {
-			xhci_warn(xhci, "Unable to find new dequeue pointer\n");
-			return -ENOENT;
-		}
-	}
-
-found:
-	ep_ring->deq_seg = seg;
-	ep_ring->dequeue = deq;
-	ep_ring->num_trbs_free += steps;
-
-	return 0;
-}
-
 /*
  * See Cycle bit rules. SW is the consumer for the event ring only.
  */
@@ -1376,6 +1328,43 @@ void xhci_hc_died(struct xhci_hcd *xhci)
 		usb_hc_died(xhci_to_hcd(xhci));
 }
 
+static void update_ring_for_set_deq_completion(struct xhci_hcd *xhci,
+		struct xhci_virt_device *dev,
+		struct xhci_ring *ep_ring,
+		unsigned int ep_index)
+{
+	union xhci_trb *dequeue_temp;
+
+	dequeue_temp = ep_ring->dequeue;
+
+	/* If we get two back-to-back stalls, and the first stalled transfer
+	 * ends just before a link TRB, the dequeue pointer will be left on
+	 * the link TRB by the code in the while loop.  So we have to update
+	 * the dequeue pointer one segment further, or we'll jump off
+	 * the segment into la-la-land.
+	 */
+	if (trb_is_link(ep_ring->dequeue)) {
+		ep_ring->deq_seg = ep_ring->deq_seg->next;
+		ep_ring->dequeue = ep_ring->deq_seg->trbs;
+	}
+
+	while (ep_ring->dequeue != dev->eps[ep_index].queued_deq_ptr) {
+		/* We have more usable TRBs */
+		ep_ring->dequeue++;
+		if (trb_is_link(ep_ring->dequeue)) {
+			if (ep_ring->dequeue ==
+					dev->eps[ep_index].queued_deq_ptr)
+				break;
+			ep_ring->deq_seg = ep_ring->deq_seg->next;
+			ep_ring->dequeue = ep_ring->deq_seg->trbs;
+		}
+		if (ep_ring->dequeue == dequeue_temp) {
+			xhci_dbg(xhci, "Unable to find new dequeue pointer\n");
+			break;
+		}
+	}
+}
+
 /*
  * When we get a completion for a Set Transfer Ring Dequeue Pointer command,
  * we need to clear the set deq pending flag in the endpoint ring state, so that
@@ -1476,8 +1465,8 @@ static void xhci_handle_cmd_set_deq(struct xhci_hcd *xhci, int slot_id,
 			/* Update the ring's dequeue segment and dequeue pointer
 			 * to reflect the new position.
 			 */
-			move_deq(xhci, ep_ring, ep->queued_deq_seg,
-				 ep->queued_deq_ptr);
+			update_ring_for_set_deq_completion(xhci, ep->vdev,
+				ep_ring, ep_index);
 		} else {
 			xhci_warn(xhci, "Mismatch between completed Set TR Deq Ptr command & xHCI internal state.\n");
 			xhci_warn(xhci, "ep deq seg = %p, deq ptr = %p\n",
@@ -2352,7 +2341,8 @@ static int finish_td(struct xhci_hcd *xhci, struct xhci_virt_ep *ep,
 	}
 
 	/* Update ring dequeue pointer */
-	move_deq(xhci, ep_ring, td->last_trb_seg, td->last_trb);
+	ep_ring->dequeue = td->last_trb;
+	ep_ring->deq_seg = td->last_trb_seg;
 	inc_deq(xhci, ep_ring);
 
 	return xhci_td_cleanup(xhci, td, ep_ring, td->status);
