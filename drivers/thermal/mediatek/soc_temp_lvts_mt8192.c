@@ -1635,7 +1635,7 @@ static const struct of_device_id lvts_of_match[] = {
 		.data = (void *)&mt8195_lvts_data,
 	},
 	{
-		.compatible = "mediatek,mt8186-lvts",
+		.compatible = "mediatek,mt8186-lvts-legacy",
 		.data = (void *)&mt8186_lvts_data,
 	},
 	{
