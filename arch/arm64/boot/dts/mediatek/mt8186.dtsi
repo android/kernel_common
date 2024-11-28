@@ -1357,7 +1357,7 @@
 		};
 
 		lvts: thermal-sensor@1100b000 {
-			compatible = "mediatek,mt8186-lvts";
+			compatible = "mediatek,mt8186-lvts-legacy";
 			reg = <0 0x1100b000 0 0x1000>;
 			interrupts = <GIC_SPI 99 IRQ_TYPE_LEVEL_HIGH 0>;
 			clocks = <&infracfg_ao CLK_INFRA_AO_THERM>;
