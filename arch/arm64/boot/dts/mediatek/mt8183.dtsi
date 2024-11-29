@@ -1194,7 +1194,6 @@
 				      <&thermal_calibration>;
 			nvmem-cell-names = "svs-calibration-data",
 					   "t-calibration-data";
-			status = "disabled";
 		};
 
 		thermal: thermal@1100b000 {
