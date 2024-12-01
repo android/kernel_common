@@ -528,6 +528,16 @@ int iwl_trans_pcie_gen2_start_fw(struct iwl_trans *trans,
 
 	if (trans->trans_cfg->device_family >= IWL_DEVICE_FAMILY_BZ) {
 		iwl_write32(trans, CSR_FUNC_SCRATCH, CSR_FUNC_SCRATCH_INIT_VALUE);
+		/*
+		 * If we can't read the value we just wrote and get 0xFFFFFFFF
+		 * just re-enumerate
+		 */
+		if (iwl_read32(trans, CSR_FUNC_SCRATCH) == ~0U) {
+			IWL_WARN(trans,
+				 "Readback verification failed (0xFFFFFFFF) after write. Re-enumerating device\n");
+			iwl_trans_pcie_remove(trans, true);
+			goto out;
+		}
 		iwl_set_bit(trans, CSR_GP_CNTRL,
 			    CSR_GP_CNTRL_REG_FLAG_ROM_START);
 	} else if (trans->trans_cfg->device_family >= IWL_DEVICE_FAMILY_AX210) {
