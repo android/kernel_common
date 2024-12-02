@@ -5,6 +5,7 @@
 
 void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu)
 {
+	unsigned long host_rsp_top = get_host_stack_top(pcpu);
 	unsigned long a;
 #ifdef CONFIG_PKVM_INTEL_DEBUG
 	u32 high, low;
@@ -83,4 +84,5 @@ void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu)
 
 	pkvm_rdmsrl(MSR_IA32_CR_PAT, a);
 	vmcs_write64(HOST_IA32_PAT, a);
+	vmcs_writel(HOST_RSP, host_rsp_top - PKVM_STACK_TOP_RESV);
 }

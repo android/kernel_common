@@ -474,13 +474,37 @@ static __init void init_guest_state_area(struct pkvm_host_vcpu *hvcpu, int cpu)
 	vmcs_write64(VMCS_LINK_POINTER, -1ull);
 }
 
+/*
+ * [pcpu->stack, pcpu->stack + PKVM_STACK_SIZE) is per cpu pvm stack.
+ * It is used as stack when the pcpu enters pKVM, i.e. HOST stack from
+ * VMX point of view.
+ *
+ * Within the top of stack, a small region starting from stack_resv
+ * is reserved  to store private paremeters,
+ *
+ *
+ * ------------ Stack layout ----------
+ * stack_top:
+ * stack_resv + 8:	struct kvm_vcpu *vcpu
+ * stack_resv + 0:	pointer to vcpu->arch.regs
+ * stack_resv: (stack_top - PKVM_STACK_TOP_RESV)
+ * 		VMCS.HOST_RSP for host VCPU
+ *              .........
+ *              .........
+ * hstack_bottom:
+ *
+ */
 static __init void init_host_state_area(struct pkvm_host_vcpu *hvcpu, int cpu)
 {
 	struct pkvm_pcpu *pcpu = hvcpu->pcpu;
+	unsigned long host_rsp = get_host_stack_top(pcpu) - PKVM_STACK_TOP_RESV;
+	struct kvm_vcpu *vcpu = &hvcpu->vmx.vcpu;
 
 	pkvm_sym(pkvm_init_host_state_area)(pcpu, cpu);
 
-	/*host RIP*/
+	*((struct kvm_vcpu **) (host_rsp + 8)) = vcpu;
+	*((unsigned long **) host_rsp) = vcpu->arch.regs;
+
 	vmcs_writel(HOST_RIP, (unsigned long)pkvm_sym(__pkvm_vmx_vmexit));
 }
 
@@ -851,7 +875,7 @@ static inline void enable_feature_control(void)
 #define savegpr(gpr, value) 		\
 	asm("mov %%" #gpr ",%0":"=r" (value) : : "memory")
 
-static noinline int pkvm_host_run_vcpu(struct pkvm_host_vcpu *hvcpu)
+static noinline int local_deprivilege_cpu(struct pkvm_host_vcpu *hvcpu)
 {
 	u64 host_rsp;
 	unsigned long *regs = hvcpu->vmx.vcpu.arch.regs;
@@ -888,7 +912,7 @@ static noinline int pkvm_host_run_vcpu(struct pkvm_host_vcpu *hvcpu)
 	savegpr(r13, regs[__VCPU_REGS_R13]);
 	savegpr(r14, regs[__VCPU_REGS_R14]);
 	savegpr(r15, regs[__VCPU_REGS_R15]);
-	host_rsp = (u64)hvcpu->pcpu->stack + STACK_SIZE;
+	host_rsp = (u64)get_host_stack_top(hvcpu->pcpu) - PKVM_STACK_TOP_RESV;
 	asm volatile(
 		"pushfq\n"
 		"popq %%rax\n"
@@ -944,7 +968,7 @@ static __init void pkvm_host_deprivilege_cpu(void *data)
 		goto out;
 	}
 
-	ret = pkvm_host_run_vcpu(hvcpu);
+	ret = local_deprivilege_cpu(hvcpu);
 	if (ret == 0) {
 		pr_info("%s: CPU%d in guest mode\n", __func__, cpu);
 		goto ok;

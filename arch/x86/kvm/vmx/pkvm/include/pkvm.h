@@ -9,7 +9,9 @@
 #include <asm/pkvm_image.h>
 #include <vmx/vmx.h>
 
-#define STACK_SIZE SZ_16K
+#define PKVM_STACK_SIZE 	SZ_16K
+/* Size of reserved space for private parameter in pkvm stack */
+#define PKVM_STACK_TOP_RESV	16
 #define PKVM_MAX_IOMMU_NUM	32
 #define PKVM_MAX_PASID_PDEV_NUM	32
 #define PKVM_MAX_PDEV_NUM	512
@@ -25,7 +27,7 @@ struct idt_page {
 } __aligned(PAGE_SIZE);
 
 struct pkvm_pcpu {
-	u8 stack[STACK_SIZE] __aligned(16);
+	u8 stack[PKVM_STACK_SIZE] __aligned(16);
 	unsigned long cr3;
 	struct gdt_page gdt_page;
 	struct idt_page idt_page;
@@ -102,6 +104,11 @@ static inline struct pkvm_host_vcpu *to_pkvm_hvcpu(struct kvm_vcpu *vcpu)
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 
 	return vmx_to_pkvm_hvcpu(vmx);
+}
+
+static inline unsigned long get_host_stack_top(struct pkvm_pcpu *pcpu)
+{
+	return (unsigned long) &pcpu->stack[sizeof(pcpu->stack)];
 }
 
 struct pkvm_section {
