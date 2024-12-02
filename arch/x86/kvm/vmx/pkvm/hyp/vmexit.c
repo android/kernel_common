@@ -329,23 +329,3 @@ handle_events:
 
 	return launch;
 }
-
-/* we take use of kvm_vcpu structure, but not used all the fields */
-int pkvm_main(struct kvm_vcpu *vcpu)
-{
-	int launch = 1;
-
-	vcpu->mode = IN_GUEST_MODE;
-
-	do {
-		if (__pkvm_vmx_vcpu_run(vcpu->arch.regs, launch)) {
-			pkvm_err("%s: CPU%d run_vcpu failed with error 0x%x\n",
-				__func__, vcpu->cpu, vmcs_read32(VM_INSTRUCTION_ERROR));
-			return -EINVAL;
-		}
-
-		launch = pkvm_vmexit_main(vcpu);
-	} while (1);
-
-	return 0;
-}
