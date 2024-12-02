@@ -796,7 +796,7 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 						vmcs02->hdr.revision_id = vmx_basic_vmcs_revision_id(pkvm_hyp->vmcs_config.basic);
 						vmcs_load_track(vmx, vmcs02);
 						pkvm_init_host_state_area(hvcpu->pcpu, vcpu->cpu);
-						vmcs_writel(HOST_RIP, (unsigned long)__pkvm_vmx_vmexit);
+						vmcs_writel(HOST_RIP, (unsigned long)__pkvm_vmexit_entry);
 						/*
 						 * EPTP is mantained by pKVM and configured with
 						 * shadow EPTP from its corresponding shadow VM.
