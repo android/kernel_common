@@ -465,6 +465,25 @@
 		status = "disabled";
 	};
 
+	vtemp: vtemp {
+		compatible = "mediatek,virtual-temp";
+		#thermal-sensor-cells = <1>;
+		mediatek,tz-names = "cpu-little0-thermal",
+				    "cpu-little1-thermal",
+				    "cpu-little2-thermal",
+				    "cpu-little3-thermal",
+				    "cpu-big0-thermal",
+				    "cpu-big1-thermal",
+				    "apu-thermal",
+				    "gpu-thermal",
+				    "gpu1-thermal",
+				    "adsp-thermal",
+				    "vdo-thermal",
+				    "infra-thermal",
+				    "cam1-thermal",
+				    "cam2-thermal";
+	};
+
 	thermal_zones: thermal-zones {
 		cpu-little0-thermal {
 			polling-delay = <1000>;
