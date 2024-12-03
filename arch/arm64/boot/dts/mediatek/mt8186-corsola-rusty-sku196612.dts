@@ -51,35 +51,32 @@
 		compatible = "mediatek,mt6315-regulator";
 		reg = <0x6 SPMI_USID>;
 
-	regulators {
-		mt6315_6_vbuck1: buck1 {
-			regulator-compatible = "vbuck1";
-			regulator-name = "6_vbuck1";
-			regulator-min-microvolt = <300000>;
-			regulator-max-microvolt = <1193750>;
-			regulator-enable-ramp-delay = <256>;
-			regulator-allowed-modes = <0 1 2>;
-			regulator-always-on;
-		};
+		regulators {
+			mt6315_6_vbuck1: vbuck1 {
+				regulator-name = "6_vbuck1";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
 
-		mt6315_6_vbuck3: buck3 {
-			regulator-compatible = "vbuck3";
-			regulator-name = "6_vbuck3";
-			regulator-min-microvolt = <300000>;
-			regulator-max-microvolt = <1193750>;
-			regulator-enable-ramp-delay = <256>;
-			regulator-allowed-modes = <0 1 2>;
-			regulator-always-on;
-		};
+			mt6315_6_vbuck3: vbuck3 {
+				regulator-name = "6_vbuck3";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
+			};
 
-		mt6315_6_vbuck4: buck4 {
-			regulator-compatible = "vbuck4";
-			regulator-name = "6_vbuck4";
-			regulator-min-microvolt = <300000>;
-			regulator-max-microvolt = <1193750>;
-			regulator-enable-ramp-delay = <256>;
-			regulator-allowed-modes = <0 1 2>;
-			regulator-always-on;
+			mt6315_6_vbuck4: vbuck4 {
+				regulator-name = "6_vbuck4";
+				regulator-min-microvolt = <300000>;
+				regulator-max-microvolt = <1193750>;
+				regulator-enable-ramp-delay = <256>;
+				regulator-allowed-modes = <0 1 2>;
+				regulator-always-on;
 			};
 		};
 	};
