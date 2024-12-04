@@ -456,15 +456,8 @@ static const struct drm_driver driver = {
 	.name = DRIVER_NAME,
 	.desc = DRIVER_DESC,
 
-#ifdef DRIVER_DATE
-	.date = DRIVER_DATE,
-	.major = DRIVER_MAJOR,
-	.minor = DRIVER_MINOR,
-	.patchlevel = DRIVER_PATCHLEVEL,
-#else
 	.date = UTS_RELEASE,
 	.major = 1,
-#endif
 };
 
 static irqreturn_t ivpu_irq_thread_handler(int irq, void *arg)
