@@ -22,11 +22,16 @@
 #include <linux/swap.h>
 #include <linux/splice.h>
 #include <linux/sched.h>
+#include <linux/kthread.h>
+#include <linux/sched/sysctl.h>
+#include <linux/freezer.h>
 
 #include <trace/hooks/fuse.h>
 
 MODULE_ALIAS_MISCDEV(FUSE_MINOR);
 MODULE_ALIAS("devname:fuse");
+
+#define FUSE_WATCHDOG_TIMEOUT (60 * HZ)
 
 /* Ordinary requests have even IDs, while interrupts IDs are odd */
 #define FUSE_INT_REQ_BIT (1ULL << 0)
@@ -43,6 +48,131 @@ static struct fuse_dev *fuse_get_dev(struct file *file)
 	return READ_ONCE(file->private_data);
 }
 
+static unsigned long fuse_watchdog_timeout(void)
+{
+	unsigned long hang_check = sysctl_hung_task_timeout_secs;
+
+	if (hang_check)
+		return hang_check * (HZ / 2);
+	return FUSE_WATCHDOG_TIMEOUT;
+}
+
+static bool request_expired(struct fuse_conn *fc, struct list_head *list)
+{
+	struct fuse_req *req;
+
+	req = list_first_entry_or_null(list, struct fuse_req, list);
+	if (!req)
+		return false;
+	return time_after(jiffies, req->create_time + fuse_watchdog_timeout());
+}
+
+static struct task_struct *fuse_watchdog_detach(struct fuse_conn *fc)
+{
+	struct task_struct *watchdog = NULL;
+
+	spin_lock(&fc->lock);
+	if (!IS_ERR_OR_NULL(fc->watchdog))
+		watchdog = get_task_struct(fc->watchdog);
+	fc->watchdog = NULL;
+	spin_unlock(&fc->lock);
+
+	return watchdog;
+}
+
+static int fuse_watchdog_fn(void *conn)
+{
+	struct task_struct *watchdog;
+	struct fuse_conn *fc = (struct fuse_conn *)conn;
+	struct fuse_iqueue *fiq = &fc->iq;
+	struct fuse_dev *fud;
+	struct fuse_pqueue *fpq;
+	int i;
+
+	set_freezable();
+	while (!kthread_should_stop()) {
+		bool connected;
+		bool expired;
+
+		spin_lock(&fc->bg_lock);
+		connected = fc->connected;
+		spin_unlock(&fc->bg_lock);
+		if (!connected)
+			goto sleep;
+
+		spin_lock(&fiq->lock);
+		expired = request_expired(fc, &fiq->pending);
+		spin_unlock(&fiq->lock);
+		if (expired)
+			goto abort_conn;
+
+		spin_lock(&fc->bg_lock);
+		expired = request_expired(fc, &fc->bg_queue);
+		spin_unlock(&fc->bg_lock);
+		if (expired)
+			goto abort_conn;
+
+		spin_lock(&fc->lock);
+		list_for_each_entry(fud, &fc->devices, entry) {
+			fpq = &fud->pq;
+			spin_lock(&fpq->lock);
+			if (request_expired(fc, &fpq->io))
+				goto fpq_abort;
+
+			for (i = 0; i < FUSE_PQ_HASH_SIZE; i++) {
+				if (request_expired(fc, &fpq->processing[i]))
+					goto fpq_abort;
+			}
+			spin_unlock(&fpq->lock);
+		}
+		spin_unlock(&fc->lock);
+
+sleep:
+		schedule_timeout_interruptible(fuse_watchdog_timeout());
+		try_to_freeze();
+	}
+
+	watchdog = fuse_watchdog_detach(fc);
+	if (watchdog)
+		put_task_struct(watchdog);
+	return 0;
+
+fpq_abort:
+	spin_unlock(&fpq->lock);
+	spin_unlock(&fc->lock);
+abort_conn:
+	watchdog = fuse_watchdog_detach(fc);
+	if (watchdog)
+		put_task_struct(watchdog);
+
+	pr_err("%s: connection timeout\n", current->comm);
+	fuse_abort_conn(fc);
+	return 0;
+}
+
+void init_fuse_watchdog(struct fuse_conn *fc)
+{
+	/* PIDs can have multiple connections, distinguish them */
+	static atomic_t num;
+
+	fc->watchdog = kthread_create(fuse_watchdog_fn, fc,
+				      "fusedog%d/%d",
+				      atomic_inc_return(&num),
+				      task_pid_nr(current));
+	if (!IS_ERR_OR_NULL(fc->watchdog))
+		wake_up_process(fc->watchdog);
+}
+
+void terminate_fuse_watchdog(struct fuse_conn *fc)
+{
+	struct task_struct *watchdog = fuse_watchdog_detach(fc);
+
+	if (watchdog) {
+		kthread_stop(watchdog);
+		put_task_struct(watchdog);
+	}
+}
+
 static void fuse_request_init(struct fuse_mount *fm, struct fuse_req *req)
 {
 	INIT_LIST_HEAD(&req->list);
@@ -51,6 +181,7 @@ static void fuse_request_init(struct fuse_mount *fm, struct fuse_req *req)
 	refcount_set(&req->count, 1);
 	__set_bit(FR_PENDING, &req->flags);
 	req->fm = fm;
+	req->create_time = jiffies;
 }
 
 static struct fuse_req *fuse_request_alloc(struct fuse_mount *fm, gfp_t flags)
@@ -2162,6 +2293,8 @@ static void end_polls(struct fuse_conn *fc)
 void fuse_abort_conn(struct fuse_conn *fc)
 {
 	struct fuse_iqueue *fiq = &fc->iq;
+
+	terminate_fuse_watchdog(fc);
 
 	spin_lock(&fc->lock);
 	if (fc->connected) {
