@@ -240,6 +240,7 @@ static int cros_ucsi_event(struct notifier_block *nb,
 static void cros_ucsi_destroy(struct cros_ucsi_data *udata)
 {
 	cros_usbpd_unregister_notify(&udata->nb);
+	cancel_delayed_work_sync(&udata->write_tmo);
 	cancel_work_sync(&udata->work);
 	ucsi_destroy(udata->ucsi);
 }
@@ -308,6 +309,7 @@ static int __maybe_unused cros_ucsi_suspend(struct device *dev)
 {
 	struct cros_ucsi_data *udata = dev_get_drvdata(dev);
 
+	cancel_delayed_work_sync(&udata->write_tmo);
 	cancel_work_sync(&udata->work);
 
 	return 0;
