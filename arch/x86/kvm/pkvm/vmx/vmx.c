@@ -500,6 +500,24 @@ void vmx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 #endif
 }
 
+void vmx_vcpu_put(struct kvm_vcpu *vcpu)
+{
+#ifdef __PKVM_HYP__
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	int cpu = raw_smp_processor_id();
+
+	if (vmx->loaded_vmcs->cpu == -1 ||
+			WARN_ON_ONCE(vmx->loaded_vmcs->cpu != cpu))
+		return;
+
+	__loaded_vmcs_clear(vmx->loaded_vmcs);
+#else
+	vmx_vcpu_pi_put(vcpu);
+
+	vmx_prepare_switch_to_host(to_vmx(vcpu));
+#endif
+}
+
 /*
  * There is no X86_FEATURE for SGX yet, but anyway we need to query CPUID
  * directly instead of going through cpu_has(), to ensure KVM is trapping
@@ -1808,6 +1826,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.vcpu_free = vmx_vcpu_free,
 
 	.vcpu_load = vmx_vcpu_load,
+	.vcpu_put = vmx_vcpu_put,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {
