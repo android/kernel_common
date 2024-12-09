@@ -493,6 +493,24 @@ noinline void invept_error(unsigned long ext, u64 eptp, gpa_t gpa)
 			ext, eptp, gpa);
 }
 
+noinline void vmptrst_error(void)
+{
+	vmx_insn_failed("vmptrst failed\n");
+}
+
+#ifndef CONFIG_CC_HAS_ASM_GOTO_OUTPUT
+noinstr void vmptrst_error_trampoline2(bool fault)
+{
+	if (fault) {
+		kvm_spurious_fault();
+	} else {
+		instrumentation_begin();
+		vmptrst_error();
+		instrumentation_end();
+	}
+}
+#endif
+
 static DEFINE_PER_CPU(struct vmcs *, vmxarea);
 DEFINE_PER_CPU(struct vmcs *, current_vmcs);
 /*

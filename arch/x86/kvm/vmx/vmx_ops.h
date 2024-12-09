@@ -16,6 +16,7 @@ void vmclear_error(struct vmcs *vmcs, u64 phys_addr);
 void vmptrld_error(struct vmcs *vmcs, u64 phys_addr);
 void invvpid_error(unsigned long ext, u16 vpid, gva_t gva);
 void invept_error(unsigned long ext, u64 eptp, gpa_t gpa);
+void vmptrst_error(void);
 
 #ifndef CONFIG_CC_HAS_ASM_GOTO_OUTPUT
 /*
@@ -37,6 +38,26 @@ extern unsigned long vmread_error_trampoline;
  * exists primarily to enable instrumentation for the VM-Fail path.
  */
 void vmread_error_trampoline2(unsigned long field, bool fault);
+
+/*
+ * The VMPTRST error trampoline _always_ uses the stack to pass parameters, even
+ * for 64-bit targets.  Preserving all registers allows the VMPTRST inline asm
+ * blob to avoid clobbering GPRs, which in turn allows the compiler to better
+ * optimize sequences of VMREADs.
+ *
+ * Declare the trampoline as an opaque label as it's not safe to call from C
+ * code; there is no way to tell the compiler to pass params on the stack for
+ * 64-bit targets.
+ *
+ * void vmptrst_error_trampoline(bool fault);
+ */
+extern unsigned long vmptrst_error_trampoline;
+
+/*
+ * The second VMPTRST error trampoline, called from the assembly trampoline,
+ * exists primarily to enable instrumentation for the VM-Fail path.
+ */
+void vmptrst_error_trampoline2(bool fault);
 
 #endif
 
@@ -299,6 +320,68 @@ static inline void vmcs_load(struct vmcs *vmcs)
 		return evmcs_load(phys_addr);
 
 	vmx_asm1(vmptrld, "m"(phys_addr), vmcs, phys_addr);
+}
+
+static inline u64 vmcs_store(void)
+{
+	u64 phys_addr = INVALID_PAGE;
+
+#ifdef CONFIG_CC_HAS_ASM_GOTO_OUTPUT
+	asm_goto_output("1: vmptrst %[output]\n\t"
+			  "jna %l[do_fail]\n\t"
+
+			  _ASM_EXTABLE(1b, %l[do_exception])
+
+			  : [output] "=m" (phys_addr) :
+			  : "cc", "memory"
+			  : do_fail, do_exception);
+
+	return phys_addr;
+
+do_fail:
+	instrumentation_begin();
+	vmptrst_error();
+	instrumentation_end();
+	return INVALID_PAGE;
+
+do_exception:
+	kvm_spurious_fault();
+	return INVALID_PAGE;
+#else
+	unsigned long fault = 0;
+
+	asm volatile("1: vmptrst %2\n\t"
+		     ".byte 0x3e\n\t" /* branch taken hint */
+		     "ja 3f\n\t"
+
+		     /*
+		      * VMPTRST failed. Push '0' for @fault, 'INVALID_PAGE' for
+		      * @phys_addr, and bounce through the trampoline to preserve
+		      * volatile registers.
+		      */
+		     "2:\n\t"
+		     "push %1\n\t"
+		     "push %2\n\t"
+		     "call vmptrst_error_trampoline\n\t"
+
+		     /*
+		      * Unwind the stack. Note, the trampoline set the memory
+		      * for @phys_addr as -1 so that the phys_addr is INVALID_PAGE
+		      * on error.
+		      */
+		     "pop %2\n\t"
+		     "pop %1\n\t"
+		     "3:\n\t"
+
+		     /* VMPTRST faulted. As above, except push '1' for @fault. */
+		     _ASM_EXTABLE_TYPE_REG(1b, 2b, EX_TYPE_ONE_REG, %1)
+
+		     : ASM_CALL_CONSTRAINT, "=r" (fault), "=m" (phys_addr) :
+		     : "cc", "memory");
+
+	return phys_addr;
+
+#endif /* CONFIG_CC_HAS_ASM_GOTO_OUTPUT */
 }
 
 static inline void __invvpid(unsigned long ext, u16 vpid, gva_t gva)

@@ -177,6 +177,24 @@ noinline void invept_error(unsigned long ext, u64 eptp, gpa_t gpa)
 			ext, eptp, gpa);
 }
 
+noinline void vmptrst_error(void)
+{
+	vmx_insn_failed("vmptrst failed\n");
+}
+
+#ifndef CONFIG_CC_HAS_ASM_GOTO_OUTPUT
+noinstr void vmptrst_error_trampoline2(bool fault)
+{
+	if (fault) {
+		kvm_spurious_fault();
+	} else {
+		instrumentation_begin();
+		vmptrst_error();
+		instrumentation_end();
+	}
+}
+#endif
+
 DEFINE_PER_CPU(struct vmcs *, current_vmcs);
 /*
  * We maintain a per-CPU linked-list of VMCS loaded on that CPU. This is needed
