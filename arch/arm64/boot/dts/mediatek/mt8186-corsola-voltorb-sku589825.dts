@@ -8,8 +8,9 @@
 
 / {
 	model = "Google Voltorb sku589825 board";
-	compatible = "google,voltorb-sku589825", "google,voltorb",
-		     "mediatek,mt8186";
+	compatible = "google,voltorb-sku589825",
+		"google,voltorb-sku2147483647", "google,voltorb-sku2147483391",
+		"google,voltorb", "mediatek,mt8186";
 };
 
 &i2c1 {
