@@ -888,7 +888,11 @@ struct kvm {
 static inline void kvm_vm_dead(struct kvm *kvm)
 {
 	kvm->vm_dead = true;
+#ifdef __PKVM_HYP__
+	/* TODO: Handle vm dead */
+#else
 	kvm_make_all_cpus_request(kvm, KVM_REQ_VM_DEAD);
+#endif
 }
 
 static inline void kvm_vm_bugged(struct kvm *kvm)

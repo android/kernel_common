@@ -534,6 +534,49 @@ void vmx_vcpu_put(struct kvm_vcpu *vcpu)
 #endif
 }
 
+void vmx_cache_reg(struct kvm_vcpu *vcpu, enum kvm_reg reg)
+{
+	unsigned long guest_owned_bits;
+
+	kvm_register_mark_available(vcpu, reg);
+
+	switch (reg) {
+	case VCPU_REGS_RSP:
+		vcpu->arch.regs[VCPU_REGS_RSP] = vmcs_readl(GUEST_RSP);
+		break;
+	case VCPU_REGS_RIP:
+		vcpu->arch.regs[VCPU_REGS_RIP] = vmcs_readl(GUEST_RIP);
+		break;
+	case VCPU_EXREG_PDPTR:
+		if (enable_ept)
+			ept_save_pdptrs(vcpu);
+		break;
+	case VCPU_EXREG_CR0:
+		guest_owned_bits = vcpu->arch.cr0_guest_owned_bits;
+
+		vcpu->arch.cr0 &= ~guest_owned_bits;
+		vcpu->arch.cr0 |= vmcs_readl(GUEST_CR0) & guest_owned_bits;
+		break;
+	case VCPU_EXREG_CR3:
+		/*
+		 * When intercepting CR3 loads, e.g. for shadowing paging, KVM's
+		 * CR3 is loaded into hardware, not the guest's CR3.
+		 */
+		if (!(exec_controls_get(to_vmx(vcpu)) & CPU_BASED_CR3_LOAD_EXITING))
+			vcpu->arch.cr3 = vmcs_readl(GUEST_CR3);
+		break;
+	case VCPU_EXREG_CR4:
+		guest_owned_bits = vcpu->arch.cr4_guest_owned_bits;
+
+		vcpu->arch.cr4 &= ~guest_owned_bits;
+		vcpu->arch.cr4 |= vmcs_readl(GUEST_CR4) & guest_owned_bits;
+		break;
+	default:
+		KVM_BUG_ON(1, vcpu->kvm);
+		break;
+	}
+}
+
 /*
  * There is no X86_FEATURE for SGX yet, but anyway we need to query CPUID
  * directly instead of going through cpu_has(), to ensure KVM is trapping
@@ -1013,6 +1056,21 @@ static __init int alloc_kvm_area(void)
 	}
 #endif
 	return 0;
+}
+
+void ept_save_pdptrs(struct kvm_vcpu *vcpu)
+{
+	struct kvm_mmu *mmu = vcpu->arch.walk_mmu;
+
+	if (WARN_ON_ONCE(!is_pae_paging(vcpu)))
+		return;
+
+	mmu->pdptrs[0] = vmcs_read64(GUEST_PDPTR0);
+	mmu->pdptrs[1] = vmcs_read64(GUEST_PDPTR1);
+	mmu->pdptrs[2] = vmcs_read64(GUEST_PDPTR2);
+	mmu->pdptrs[3] = vmcs_read64(GUEST_PDPTR3);
+
+	kvm_register_mark_available(vcpu, VCPU_EXREG_PDPTR);
 }
 
 int allocate_vpid(void)
@@ -2063,6 +2121,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 
 	.vcpu_load = vmx_vcpu_load,
 	.vcpu_put = vmx_vcpu_put,
+
+	.cache_reg = vmx_cache_reg,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {
