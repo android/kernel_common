@@ -859,6 +859,18 @@ struct kvm {
 	char stats_id[KVM_STATS_NAME_SIZE];
 };
 
+#ifdef __PKVM_HYP__
+#define kvm_err(fmt, ...) \
+	pr_err("pkvm: " fmt, ## __VA_ARGS__)
+#define kvm_info(fmt, ...) \
+	pr_info("pkvm: " fmt, ## __VA_ARGS__)
+#define kvm_debug(fmt, ...) \
+	pr_debug("pkvm: " fmt, ## __VA_ARGS__)
+#define kvm_debug_ratelimited(fmt, ...) \
+	pr_debug_ratelimited("pkvm: " fmt, ## __VA_ARGS__)
+#define kvm_pr_unimpl(fmt, ...) \
+	pr_err_ratelimited("pkvm: " fmt, ## __VA_ARGS__)
+#else
 #define kvm_err(fmt, ...) \
 	pr_err("kvm [%i]: " fmt, task_pid_nr(current), ## __VA_ARGS__)
 #define kvm_info(fmt, ...) \
@@ -871,6 +883,7 @@ struct kvm {
 #define kvm_pr_unimpl(fmt, ...) \
 	pr_err_ratelimited("kvm [%i]: " fmt, \
 			   task_tgid_nr(current), ## __VA_ARGS__)
+#endif
 
 /* The guest did something we don't support. */
 #define vcpu_unimpl(vcpu, fmt, ...)					\
