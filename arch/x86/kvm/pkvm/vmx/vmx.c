@@ -1393,7 +1393,11 @@ __init int vmx_hardware_setup(void)
 	    !cpu_has_vmx_ept_4levels() ||
 	    !cpu_has_vmx_ept_mt_wb() ||
 	    !cpu_has_vmx_invept_global())
+#ifdef __PKVM_HYP__
+		return -EINVAL;
+#else
 		enable_ept = 0;
+#endif
 
 	/* NX support is required for shadow paging. */
 	if (!enable_ept && !boot_cpu_has(X86_FEATURE_NX)) {
