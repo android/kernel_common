@@ -5342,6 +5342,12 @@ static const struct of_device_id himax_table[] = {
 MODULE_DEVICE_TABLE(of, himax_table);
 #endif
 
+static const struct spi_device_id himax_spi_id[] = {
+	{ "hx83102j" },
+	{ },
+};
+MODULE_DEVICE_TABLE(spi, himax_spi_id);
+
 static struct spi_driver himax_hid_over_spi_driver = {
 	.driver = {
 		.name =		"hx83102j",
