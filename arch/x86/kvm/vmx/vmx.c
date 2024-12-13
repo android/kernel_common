@@ -1393,8 +1393,9 @@ void vmx_prepare_switch_to_guest(struct kvm_vcpu *vcpu)
 	vmx->guest_state_loaded = true;
 }
 
-void vmx_prepare_switch_to_host(struct vcpu_vmx *vmx)
+void vmx_prepare_switch_to_host(struct kvm_vcpu *vcpu)
 {
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	struct vmcs_host_state *host_state;
 
 	if (!vmx->guest_state_loaded)
@@ -1569,7 +1570,7 @@ void vmx_vcpu_put(struct kvm_vcpu *vcpu)
 {
 	vmx_vcpu_pi_put(vcpu);
 
-	vmx_prepare_switch_to_host(to_vmx(vcpu));
+	vmx_prepare_switch_to_host(vcpu);
 }
 
 bool vmx_emulation_required(struct kvm_vcpu *vcpu)

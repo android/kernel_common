@@ -316,7 +316,7 @@ static void pkvm_vcpu_put(struct kvm_vcpu *vcpu)
 	 * is done by the host VMM. They will be moved to the pkvm hypervisor
 	 * together.
 	 */
-	vmx_prepare_switch_to_host(to_vmx(vcpu));
+	vmx_prepare_switch_to_host(vcpu);
 }
 
 static int pkvm_get_feature_msr(u32 msr, u64 *data)
