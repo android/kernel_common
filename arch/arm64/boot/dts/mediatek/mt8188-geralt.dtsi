@@ -391,6 +391,23 @@
 	supply-names = "mali";
 	mali-supply = <&mt6359_vproc2_buck_reg>;
 	status = "okay";
+
+	/*
+	 * The power models below are not part of the upstream binding
+	 * but are required by the proprietary Mali driver.
+	 */
+	power_model@0 {
+		compatible = "arm,mali-simple-power-model";
+		dynamic-coefficient = <4687>;
+		static-coefficient = <2427750>;
+		thermal-zone = "soc_max";
+		ts = <20000 2000 (-20) 2>;
+	};
+
+	power_model@1 {
+		compatible = "arm,mali-tnax-power-model";
+		scale = <5>;
+	};
 };
 
 &i2c0 {
