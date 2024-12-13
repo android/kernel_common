@@ -820,12 +820,6 @@ static inline void vmx_segment_cache_clear(struct vcpu_vmx *vmx)
 int __init vmx_pkvm_init(void);
 #endif
 
-/*
- * FIXME: Should be removed when it is not required by the pkvm_vcpu_put
- * function.
- */
-void vmx_prepare_switch_to_host(struct kvm_vcpu *vcpu);
-
 extern bool __read_mostly enable_vnmi;
 DECLARE_STATIC_KEY_FALSE(vmx_l1d_should_flush);
 noinstr void vmx_l1d_flush(struct kvm_vcpu *vcpu);
