@@ -426,16 +426,7 @@ EXPORT_SYMBOL(hci_devcd_register);
 
 static inline bool hci_devcd_enabled(struct hci_dev *hdev)
 {
-	/* The 'supported' flag is true when the driver registers with the HCI
-	 * devcoredump API, whereas, the 'enabled' is controlled via a sysfs
-	 * entry. For drivers like btusb which supports multiple vendor drivers,
-	 * it is possible that the vendor driver does not support but the
-	 * interface is provided by the base btusb driver. So, check both.
-	 */
-	if (hdev->dump.supported && hdev->dump.enabled)
-		return hdev->dump.enabled(hdev);
-
-	return false;
+	return hdev->dump.supported;
 }
 
 int hci_devcd_init(struct hci_dev *hdev, u32 dump_size)

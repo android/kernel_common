@@ -8,7 +8,6 @@
 
 #define DEVCOREDUMP_TIMEOUT	msecs_to_jiffies(10000)	/* 10 sec */
 
-typedef bool (*coredump_enabled_t)(struct hci_dev *hdev);
 typedef void (*coredump_t)(struct hci_dev *hdev);
 typedef void (*dmp_hdr_t)(struct hci_dev *hdev, struct sk_buff *skb);
 typedef void (*notify_change_t)(struct hci_dev *hdev, int state);
@@ -27,8 +26,6 @@ typedef void (*notify_change_t)(struct hci_dev *hdev, int state);
  * @dump_q: Dump queue for state machine to process
  * @dump_rx: Devcoredump state machine work
  * @dump_timeout: Devcoredump timeout work
- *
- * @enabled: Checks if the devcoredump is enabled for the device
  *
  * @coredump: Called from the driver's .coredump() function.
  * @dmp_hdr: Create a dump header to identify controller/fw/driver info
@@ -55,8 +52,6 @@ struct hci_devcoredump {
 	struct sk_buff_head	dump_q;
 	struct work_struct	dump_rx;
 	struct delayed_work	dump_timeout;
-
-	coredump_enabled_t	enabled;
 
 	coredump_t		coredump;
 	dmp_hdr_t		dmp_hdr;
