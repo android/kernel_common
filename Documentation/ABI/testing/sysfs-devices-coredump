@@ -8,17 +8,3 @@ Description:
 		file will trigger the .coredump() callback.
 
 		Available when CONFIG_DEV_COREDUMP is enabled.
-
-What:		/sys/devices/.../coredump_disabled
-Date:		July 2022
-Contact:	Manish Mandlik <mmandlik@google.com>
-Description:
-		The /sys/devices/.../coredump_disabled attribute can be used by
-		drivers to selectively enable/disable devcoredump functionality
-		for a device. The userspace can write 0/1 to it to control
-		enabling/disabling of devcoredump for that particular device.
-		This attribute is present only when the device is bound to a
-		driver which implements the .coredump() callback. The attribute
-		is readable and writeable.
-
-		Available when CONFIG_DEV_COREDUMP is enabled.
