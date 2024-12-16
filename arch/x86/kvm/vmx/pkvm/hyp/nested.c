@@ -1399,9 +1399,16 @@ int nested_vmexit(struct kvm_vcpu *vcpu, bool *skip_instruction)
 
 void nested_flush_shadow_ept(struct kvm_vcpu *vcpu)
 {
-	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
-	struct shadow_vcpu_state *cur_shadow_vcpu = hvcpu->current_shadow_vcpu;
+	struct shadow_vcpu_state *cur_shadow_vcpu;
+	int cpu = READ_ONCE(vcpu->cpu);
+	struct pkvm_host_vcpu *hvcpu;
 
+	/* Each possible CPU has a host_vcpu */
+	if ((unsigned int)cpu >= nr_cpu_ids || !cpu_possible(cpu))
+		return;
+
+	hvcpu = to_pkvm_hvcpu(per_cpu(host_vcpu, cpu));
+	cur_shadow_vcpu = hvcpu->current_shadow_vcpu;
 	/*
 	 * If the shadow vcpu is released from this CPU, no need to
 	 * worry about its TLB as it is already flushed during release.
