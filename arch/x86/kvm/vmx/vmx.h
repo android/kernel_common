@@ -724,9 +724,20 @@ static inline bool intel_pmu_lbr_is_enabled(struct kvm_vcpu *vcpu)
 	return !!vcpu_to_lbr_records(vcpu)->nr;
 }
 
+#ifdef __PKVM_HYP__ /* FIXME: Doesn't support PMU for pkvm hypervisor */
+static inline void intel_pmu_cross_mapped_check(struct kvm_pmu *pmu) {}
+static inline int intel_pmu_create_guest_lbr_event(struct kvm_vcpu *vcpu) { return -EINVAL; }
+static inline void vmx_passthrough_lbr_msrs(struct kvm_vcpu *vcpu) {}
+static inline struct perf_guest_switch_msr *vmx_perf_guest_get_msrs(int *nr, void *data)
+{
+	return NULL;
+}
+#else
 void intel_pmu_cross_mapped_check(struct kvm_pmu *pmu);
 int intel_pmu_create_guest_lbr_event(struct kvm_vcpu *vcpu);
 void vmx_passthrough_lbr_msrs(struct kvm_vcpu *vcpu);
+struct perf_guest_switch_msr *vmx_perf_guest_get_msrs(int *nr, void *data);
+#endif
 
 static __always_inline unsigned long vmx_get_exit_qual(struct kvm_vcpu *vcpu)
 {

@@ -725,6 +725,11 @@ void intel_pmu_cross_mapped_check(struct kvm_pmu *pmu)
 	}
 }
 
+struct perf_guest_switch_msr *vmx_perf_guest_get_msrs(int *nr, void *data)
+{
+	return perf_guest_get_msrs(nr, data);
+}
+
 struct kvm_pmu_ops intel_pmu_ops __initdata = {
 	.rdpmc_ecx_to_pmc = intel_rdpmc_ecx_to_pmc,
 	.msr_idx_to_pmc = intel_msr_idx_to_pmc,

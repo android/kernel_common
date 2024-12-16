@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <x86.h>
 #include <asm/fpu/xcr.h>
+#include <cpuid.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -102,6 +103,58 @@ noinstr void kvm_spurious_fault(void)
 #endif
 }
 EXPORT_SYMBOL_GPL(kvm_spurious_fault);
+
+void kvm_load_guest_xsave_state(struct kvm_vcpu *vcpu)
+{
+#ifndef __PKVM_HYP__
+	if (vcpu->arch.guest_state_protected)
+		return;
+#endif
+
+	if (kvm_is_cr4_bit_set(vcpu, X86_CR4_OSXSAVE)) {
+
+		if (vcpu->arch.xcr0 != kvm_host.xcr0)
+			xsetbv(XCR_XFEATURE_ENABLED_MASK, vcpu->arch.xcr0);
+
+		if (guest_can_use(vcpu, X86_FEATURE_XSAVES) &&
+		    vcpu->arch.ia32_xss != kvm_host.xss)
+			wrmsrl(MSR_IA32_XSS, vcpu->arch.ia32_xss);
+	}
+
+	if (cpu_feature_enabled(X86_FEATURE_PKU) &&
+	    vcpu->arch.pkru != vcpu->arch.host_pkru &&
+	    ((vcpu->arch.xcr0 & XFEATURE_MASK_PKRU) ||
+	     kvm_is_cr4_bit_set(vcpu, X86_CR4_PKE)))
+		write_pkru(vcpu->arch.pkru);
+}
+EXPORT_SYMBOL_GPL(kvm_load_guest_xsave_state);
+
+void kvm_load_host_xsave_state(struct kvm_vcpu *vcpu)
+{
+#ifndef __PKVM_HYP__
+	if (vcpu->arch.guest_state_protected)
+		return;
+#endif
+
+	if (cpu_feature_enabled(X86_FEATURE_PKU) &&
+	    ((vcpu->arch.xcr0 & XFEATURE_MASK_PKRU) ||
+	     kvm_is_cr4_bit_set(vcpu, X86_CR4_PKE))) {
+		vcpu->arch.pkru = rdpkru();
+		if (vcpu->arch.pkru != vcpu->arch.host_pkru)
+			write_pkru(vcpu->arch.host_pkru);
+	}
+
+	if (kvm_is_cr4_bit_set(vcpu, X86_CR4_OSXSAVE)) {
+
+		if (vcpu->arch.xcr0 != kvm_host.xcr0)
+			xsetbv(XCR_XFEATURE_ENABLED_MASK, kvm_host.xcr0);
+
+		if (guest_can_use(vcpu, X86_FEATURE_XSAVES) &&
+		    vcpu->arch.ia32_xss != kvm_host.xss)
+			wrmsrl(MSR_IA32_XSS, kvm_host.xss);
+	}
+}
+EXPORT_SYMBOL_GPL(kvm_load_host_xsave_state);
 
 void kvm_enable_efer_bits(u64 mask)
 {

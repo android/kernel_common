@@ -310,6 +310,12 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 
 	this_cpu_write(host_vcpu, vcpu);
 
+	if (cpu_feature_enabled(X86_FEATURE_MSR_SPEC_CTRL))
+		this_cpu_write(x86_spec_ctrl_current,
+			       __rdmsr(MSR_IA32_SPEC_CTRL));
+	else
+		this_cpu_write(x86_spec_ctrl_current, 0);
+
 	if (pkvm_init) {
 		/* Switch to pkvm mmu in root mode in case some setup may need this */
 		native_write_cr3(pkvm_hyp->mmu->root_pa);
