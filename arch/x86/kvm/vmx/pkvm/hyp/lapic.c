@@ -199,16 +199,24 @@ int pkvm_x2apic_msr_write(struct kvm_vcpu *vcpu, u32 msr, u64 val)
 	return 0;
 }
 
-void pkvm_lapic_send_init(struct pkvm_pcpu *dst_pcpu)
+void pkvm_lapic_send_init(int cpu)
 {
 	u32 icrlow = APIC_INT_ASSERT | APIC_DM_INIT;
-	int cpu_id = smp_processor_id();
-	struct pkvm_pcpu *pcpu = pkvm_hyp->pcpus[cpu_id];
-	struct pkvm_lapic *dst_lapic = dst_pcpu->lapic;
+	struct pkvm_pcpu *pcpu, *dst_pcpu;
+	int me = raw_smp_processor_id();
+	struct pkvm_lapic *dst_lapic;
 
-	/* Not to send INIT to self */
-	if (pcpu == dst_pcpu)
+	/*
+	 * Each possible CPU has a pkvm_lapic struct, so check cpu number
+	 * against the possible CPU mask, to make sure only sending the INIT to
+	 * the valid CPU excluding self.
+	 */
+	if (unlikely(cpu == me || (unsigned int)cpu >= nr_cpu_ids || !cpu_possible(cpu)))
 		return;
+
+	pcpu = pkvm_hyp->pcpus[me];
+	dst_pcpu = pkvm_hyp->pcpus[cpu];
+	dst_lapic = dst_pcpu->lapic;
 	/*
 	 * If the lapic is not setup yet, which is during the finalizing
 	 * phase, cannot send INIT. Also not necessary to use INIT for tlb

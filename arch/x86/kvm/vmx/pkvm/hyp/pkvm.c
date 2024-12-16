@@ -175,13 +175,14 @@ void put_shadow_vcpu(struct shadow_vcpu_state *shadow_vcpu)
 
 void pkvm_kick_vcpu(struct kvm_vcpu *vcpu)
 {
-	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
-	struct pkvm_pcpu *pcpu = hvcpu->pcpu;
-
 	if (kvm_vcpu_exiting_guest_mode(vcpu) != IN_GUEST_MODE)
 		return;
 
-	pkvm_lapic_send_init(pcpu);
+	/*
+	 * Vcpu might be already put at this moment thus eventually no init will
+	 * be send. But it should be fine as vcpu already exited guest mode.
+	 */
+	pkvm_lapic_send_init(READ_ONCE(vcpu->cpu));
 }
 
 int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid)
