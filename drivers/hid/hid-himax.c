@@ -2166,7 +2166,7 @@ static int himax_mcu_tp_info_check(struct himax_ts_data *ts)
 }
 
 /**
- * himax_mcu_resned_cmd_func() - Resend command collection
+ * himax_mcu_resend_cmd_func() - Resend command collection
  * @ts: Himax touch screen data
  *
  * This function is used to collect commands that need to be resent to TPIC after
