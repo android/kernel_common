@@ -39,7 +39,13 @@ static __always_inline void native_irq_disable(void)
 
 static __always_inline void native_irq_enable(void)
 {
+	/*
+	 * The pkvm hypervisor runs in the irq disabled environment. Ignore the
+	 * sti instruction to avoid enabling the irq for the pkvm hypervisor.
+	 */
+#ifndef __PKVM_HYP__
 	asm volatile("sti": : :"memory");
+#endif
 }
 
 static __always_inline void native_safe_halt(void)
