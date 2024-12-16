@@ -1495,6 +1495,18 @@ static int handle_triple_fault(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+#ifdef __PKVM_HYP__
+static int handle_init(struct kvm_vcpu *vcpu)
+{
+	/*
+	 * INIT vmexit reason is unsupported by host KVM and
+	 * it is reused by pkvm to kick vcpu out of non-root.
+	 * When this vmexit reason happens, no need back to host.
+	 */
+	return 1;
+}
+#endif
+
 static int handle_io(struct kvm_vcpu *vcpu)
 {
 	/* TODO */
@@ -1785,6 +1797,9 @@ static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[EXIT_REASON_EXCEPTION_NMI]           = handle_exception_nmi,
 	[EXIT_REASON_EXTERNAL_INTERRUPT]      = handle_external_interrupt,
 	[EXIT_REASON_TRIPLE_FAULT]            = handle_triple_fault,
+#ifdef __PKVM_HYP__
+	[EXIT_REASON_INIT_SIGNAL]	      = handle_init,
+#endif
 	[EXIT_REASON_NMI_WINDOW]	      = handle_nmi_window,
 	[EXIT_REASON_IO_INSTRUCTION]          = handle_io,
 	[EXIT_REASON_CR_ACCESS]               = handle_cr,
