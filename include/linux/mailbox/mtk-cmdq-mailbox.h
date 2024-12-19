@@ -79,5 +79,7 @@ struct cmdq_pkt {
 };
 
 u8 cmdq_get_shift_pa(struct mbox_chan *chan);
+dma_addr_t cmdq_get_offset_pa(struct mbox_chan *chan);
+bool cmdq_addr_need_offset(struct mbox_chan *chan, dma_addr_t addr);
 
 #endif /* __MTK_CMDQ_MAILBOX_H__ */
