@@ -340,6 +340,15 @@ static int emulate_host_mmio(struct kvm_vcpu *vcpu, struct pkvm_mmio_req *req)
 	if (!handler)
 		return -EINVAL;
 
+	if (req->address + req->size - 1 > handler->end) {
+		/*
+		 *  Access exceeds the area covered by handler.
+		 *  Emulation is not complete
+		 */
+		pkvm_err ("%s: access address=%lx size=%x across region boundary\n",
+			       __func__, req->address, req->size);
+		req->size = handler->end + 1 - req->address;
+	}
 	if (req->direction == PKVM_IO_READ && handler->read)
 		ret = handler->read(vcpu, req);
 	else if (req->direction == PKVM_IO_WRITE && handler->write)
@@ -348,28 +357,21 @@ static int emulate_host_mmio(struct kvm_vcpu *vcpu, struct pkvm_mmio_req *req)
 	return ret;
 }
 
-static int handle_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
+/* return true if it is emulated. */
+bool try_emul_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
 {
 	struct pkvm_mmio_req req;
 
 	if (mmio_instruction_decode(vcpu, gpa, &req)) {
-		pkvm_dbg("pkvm: MMIO instruction decode failed\n");
-		return -EINVAL;
+		pkvm_err("pkvm: MMIO instruction decode failed\n");
+		return true;
 	}
 
 	pkvm_dbg("pkvm: host %s MMIO gpa 0x%lx width %d value 0x%lx\n", req.direction ?
 		"write" : "read", req.address, req.size, *req.value);
 
-	return emulate_host_mmio(vcpu, &req);
-}
-
-/* return true if it is emulated. */
-bool try_emul_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
-{
-	if (mmio_check_overlap(&host_mmio_emul_table, gpa, gpa)) {
-		if (handle_host_mmio(vcpu, gpa)) {
-			pkvm_err("%s: emulate MMIO failed for memory address 0x%lx\n", __func__, gpa);
-		}
+	if (mmio_check_overlap(&host_mmio_emul_table, gpa, gpa + req.size - 1)) {
+		emulate_host_mmio(vcpu, &req);
 		return true;
 	}
 
