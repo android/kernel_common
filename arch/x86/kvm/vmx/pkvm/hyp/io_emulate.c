@@ -360,15 +360,15 @@ static int handle_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
 	return emulate_host_mmio(vcpu, &req);
 }
 
-int try_emul_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
+/* return true if it is emulated. */
+bool try_emul_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
 {
-	if (emul_mmio_lookup(&host_mmio_emul_table, gpa, gpa) == NULL)
-		return -EINVAL;
-
-	if (handle_host_mmio(vcpu, gpa)) {
-		pkvm_err("%s: emulate MMIO failed for memory address 0x%lx\n", __func__, gpa);
-		return -EIO;
+	if (emul_mmio_lookup(&host_mmio_emul_table, gpa, gpa)) {
+		if (handle_host_mmio(vcpu, gpa)) {
+			pkvm_err("%s: emulate MMIO failed for memory address 0x%lx\n", __func__, gpa);
+		}
+		return true;
 	}
 
-	return 0;
+	return false;
 }

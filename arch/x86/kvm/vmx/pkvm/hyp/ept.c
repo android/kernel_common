@@ -369,9 +369,8 @@ int handle_host_ept_violation(struct kvm_vcpu *vcpu, bool *skip_instruction)
 		return -EPERM;
 	}
 
-	ret = try_emul_host_mmio(vcpu, gpa);
-	if (ret != -EINVAL) {
-		return ret;
+	if (try_emul_host_mmio(vcpu, gpa)) {
+		return 0;
 	}
 
 	pkvm_spin_lock(&_host_ept_lock);
