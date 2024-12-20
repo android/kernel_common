@@ -156,7 +156,11 @@ struct pkvm_mmio_handler default_mmio_handler = {
 	.write = pkvm_mmio_default_write
 };
 
-static struct pkvm_mmio_handler *emul_mmio_lookup(struct pkvm_mmio_emul_table *table,
+/*
+ * Check to see if the area [start, end] overlaps with an existing
+ * handler, including being fully contained.
+ */
+static bool mmio_check_overlap(struct pkvm_mmio_emul_table *table,
 	unsigned long start, unsigned long end)
 {
 	struct pkvm_mmio_handler *handler;
@@ -165,10 +169,10 @@ static struct pkvm_mmio_handler *emul_mmio_lookup(struct pkvm_mmio_emul_table *t
 	for_each_set_bit(index, table->bitmap, PKVM_MAX_MMIO_EMUL_NUM) {
 		handler = &table->table[index];
 		if (start <= handler->end && handler->start <= end)
-			return handler;
+			return true;
 	}
 
-	return NULL;
+	return false;
 }
 
 /*
@@ -187,8 +191,10 @@ int register_host_mmio_handler(unsigned long start, unsigned long end,
 
 	table = &host_mmio_emul_table;
 
-	if (emul_mmio_lookup(table, start, end))
+	if (mmio_check_overlap(table, start, end)) {
+		pr_err("%s: MMIO region overlaps [%lx, %lx]\n", __func__, start, end);
 		return -EINVAL;
+	}
 
 	index = find_first_zero_bit(table->bitmap, PKVM_MAX_MMIO_EMUL_NUM);
 	if (index >= PKVM_MAX_MMIO_EMUL_NUM)
@@ -302,26 +308,23 @@ static int mmio_instruction_decode(struct kvm_vcpu *vcpu, unsigned long gpa,
 static struct pkvm_mmio_handler *get_mmio_handler(struct pkvm_mmio_emul_table *table,
 	struct pkvm_mmio_req *req)
 {
-	struct pkvm_mmio_handler *handler;
+	struct pkvm_mmio_handler *handler, *tmp;
 	unsigned long start, end;
+	unsigned long index;
 
 	start = req->address;
 	end = req->address + req->size - 1;
+	/* default handler for case which overlaps with one handler. */
+	handler = &default_mmio_handler;
 
-	handler = emul_mmio_lookup(table, start, end);
-
-	/*
-	 * If handler is NULL, this is an access that does not touch the emulated
-	 * MMIO range. Return the default handler.
-	 */
-	if (!handler)
-		return &default_mmio_handler;
-
-	/* Do not allow the access to cross the boundary. */
-	if ((start < handler->start && end >= handler->start) ||
-		(start <= handler->end && end > handler->end))
-		return NULL;
-
+	for_each_set_bit(index, table->bitmap, PKVM_MAX_MMIO_EMUL_NUM) {
+		tmp = &table->table[index];
+		if (start >= tmp->start && end <= tmp->end) {
+			/* [start, end] is fully contained by the tmp handler */
+			handler = tmp;
+			break;
+		}
+	}
 	return handler;
 }
 
@@ -363,7 +366,7 @@ static int handle_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
 /* return true if it is emulated. */
 bool try_emul_host_mmio(struct kvm_vcpu *vcpu, unsigned long gpa)
 {
-	if (emul_mmio_lookup(&host_mmio_emul_table, gpa, gpa)) {
+	if (mmio_check_overlap(&host_mmio_emul_table, gpa, gpa)) {
 		if (handle_host_mmio(vcpu, gpa)) {
 			pkvm_err("%s: emulate MMIO failed for memory address 0x%lx\n", __func__, gpa);
 		}
