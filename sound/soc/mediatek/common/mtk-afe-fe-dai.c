@@ -18,7 +18,7 @@
 
 #define AFE_BASE_END_OFFSET 8
 
-static int mtk_regmap_update_bits(struct regmap *map, int reg,
+int mtk_regmap_update_bits(struct regmap *map, int reg,
 			   unsigned int mask,
 			   unsigned int val, int shift)
 {
@@ -26,13 +26,16 @@ static int mtk_regmap_update_bits(struct regmap *map, int reg,
 		return 0;
 	return regmap_update_bits(map, reg, mask << shift, val << shift);
 }
+EXPORT_SYMBOL(mtk_regmap_update_bits);
 
-static int mtk_regmap_write(struct regmap *map, int reg, unsigned int val)
+int mtk_regmap_write(struct regmap *map, int reg, unsigned int val)
+
 {
 	if (reg < 0)
 		return 0;
 	return regmap_write(map, reg, val);
 }
+EXPORT_SYMBOL(mtk_regmap_write);
 
 int mtk_afe_fe_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai)
@@ -132,12 +135,13 @@ int mtk_afe_fe_hw_params(struct snd_pcm_substream *substream,
 	if (afe->request_dram_resource)
 		afe->request_dram_resource(afe->dev);
 
-	dev_dbg(afe->dev, "%s(), %s, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %p, dma_bytes 0x%zx\n",
-		__func__, memif->data->name,
-		channels, rate, format,
-		&substream->runtime->dma_addr,
-		substream->runtime->dma_area,
-		substream->runtime->dma_bytes);
+	dev_dbg(afe->dev,
+		"%s(), %s, ch %d, rate %d, fmt %d, dma_addr %pad, dma_area %px, dma_bytes 0x%zx\n",
+		 __func__, memif->data->name,
+		 channels, rate, format,
+		 &substream->runtime->dma_addr,
+		 substream->runtime->dma_area,
+		 substream->runtime->dma_bytes);
 
 	memset_io((void __force __iomem *)substream->runtime->dma_area, 0,
 		  substream->runtime->dma_bytes);
@@ -379,6 +383,7 @@ int mtk_memif_set_enable(struct mtk_base_afe *afe, int id)
 			 __func__, id);
 		return 0;
 	}
+	dev_dbg(afe->dev, "%s(), id %d\n", __func__, id);
 	return mtk_regmap_update_bits(afe->regmap, memif->data->enable_reg,
 				      1, 1, memif->data->enable_shift);
 }
@@ -459,8 +464,12 @@ int mtk_memif_set_channel(struct mtk_base_afe *afe,
 	struct mtk_base_afe_memif *memif = &afe->memif[id];
 	unsigned int mono;
 
-	if (memif->data->mono_shift < 0)
-		return 0;
+	dev_info(afe->dev, "%s(), id: %d, channel: %d\n", __func__, id, channel);
+	mono = memif->data->mono_invert ^ (channel == 1);
+
+	if (memif->data->mono_shift > 0)
+		mtk_regmap_update_bits(afe->regmap, memif->data->mono_reg,
+				       0x1, mono, memif->data->mono_shift);
 
 	if (memif->data->quad_ch_mask) {
 		unsigned int quad_ch = (channel == 4) ? 1 : 0;
@@ -470,11 +479,6 @@ int mtk_memif_set_channel(struct mtk_base_afe *afe,
 				       quad_ch, memif->data->quad_ch_shift);
 	}
 
-	if (memif->data->mono_invert)
-		mono = (channel == 1) ? 0 : 1;
-	else
-		mono = (channel == 1) ? 1 : 0;
-
 	/* for specific configuration of memif mono mode */
 	if (memif->data->int_odd_flag_reg)
 		mtk_regmap_update_bits(afe->regmap,
@@ -482,8 +486,14 @@ int mtk_memif_set_channel(struct mtk_base_afe *afe,
 				       1, mono,
 				       memif->data->int_odd_flag_shift);
 
-	return mtk_regmap_update_bits(afe->regmap, memif->data->mono_reg,
-				      1, mono, memif->data->mono_shift);
+	if (memif->data->ch_num_maskbit) {
+		dev_info(afe->dev, "%s(), set ch num id: %d, channel: %d\n", __func__, id, channel);
+		mtk_regmap_update_bits(afe->regmap, memif->data->ch_num_reg,
+				       memif->data->ch_num_maskbit,
+				       channel, memif->data->ch_num_shift);
+	}
+
+	return 0;
 }
 EXPORT_SYMBOL_GPL(mtk_memif_set_channel);
 
