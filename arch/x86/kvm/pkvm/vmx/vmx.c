@@ -352,6 +352,11 @@ static inline bool cpu_has_broken_vmx_preemption_timer(void)
 	return false;
 }
 
+static inline bool cpu_need_virtualize_apic_accesses(struct kvm_vcpu *vcpu)
+{
+	return flexpriority_enabled && lapic_in_kernel(vcpu);
+}
+
 static int vmx_get_passthrough_msr_slot(u32 msr)
 {
 	int i;
@@ -704,6 +709,59 @@ static void add_atomic_switch_msr(struct vcpu_vmx *vmx, unsigned msr,
 	}
 	m->host.val[j].index = msr;
 	m->host.val[j].value = host_val;
+}
+
+static bool update_transition_efer(struct vcpu_vmx *vmx)
+{
+	u64 guest_efer = vmx->vcpu.arch.efer;
+	u64 ignore_bits = 0;
+	int i;
+
+	/* Shadow paging assumes NX to be available.  */
+	if (!enable_ept)
+		guest_efer |= EFER_NX;
+
+	/*
+	 * LMA and LME handled by hardware; SCE meaningless outside long mode.
+	 */
+	ignore_bits |= EFER_SCE;
+#ifdef CONFIG_X86_64
+	ignore_bits |= EFER_LMA | EFER_LME;
+	/* SCE is meaningful only in long mode on Intel */
+	if (guest_efer & EFER_LMA)
+		ignore_bits &= ~(u64)EFER_SCE;
+#endif
+
+	/*
+	 * On EPT, we can't emulate NX, so we must switch EFER atomically.
+	 * On CPUs that support "load IA32_EFER", always switch EFER
+	 * atomically, since it's faster than switching it manually.
+	 */
+	if (cpu_has_load_ia32_efer() ||
+	    (enable_ept && ((vmx->vcpu.arch.efer ^ kvm_host.efer) & EFER_NX))) {
+		if (!(guest_efer & EFER_LMA))
+			guest_efer &= ~EFER_LME;
+		if (guest_efer != kvm_host.efer)
+			add_atomic_switch_msr(vmx, MSR_EFER,
+					      guest_efer, kvm_host.efer, false);
+		else
+			clear_atomic_switch_msr(vmx, MSR_EFER);
+		return false;
+	}
+
+	i = kvm_find_user_return_msr(MSR_EFER);
+	if (i < 0)
+		return false;
+
+	clear_atomic_switch_msr(vmx, MSR_EFER);
+
+	guest_efer &= ~ignore_bits;
+	guest_efer |= kvm_host.efer & ignore_bits;
+
+	vmx->guest_uret_msrs[i].data = guest_efer;
+	vmx->guest_uret_msrs[i].mask = ~ignore_bits;
+
+	return true;
 }
 
 static inline void pt_load_msr(struct pt_ctx *ctx, u32 addr_range)
@@ -1257,6 +1315,61 @@ int vmx_skip_emulated_instruction(struct kvm_vcpu *vcpu)
 {
 	vmx_update_emulated_instruction(vcpu);
 	return skip_emulated_instruction(vcpu);
+}
+
+static void vmx_setup_uret_msr(struct vcpu_vmx *vmx, unsigned int msr,
+			       bool load_into_hardware)
+{
+	struct vmx_uret_msr *uret_msr;
+
+	uret_msr = vmx_find_uret_msr(vmx, msr);
+	if (!uret_msr)
+		return;
+
+	uret_msr->load_into_hardware = load_into_hardware;
+}
+
+/*
+ * Configuring user return MSRs to automatically save, load, and restore MSRs
+ * that need to be shoved into hardware when running the guest.  Note, omitting
+ * an MSR here does _NOT_ mean it's not emulated, only that it will not be
+ * loaded into hardware when running the guest.
+ */
+static void vmx_setup_uret_msrs(struct vcpu_vmx *vmx)
+{
+#ifdef CONFIG_X86_64
+	bool load_syscall_msrs;
+
+	/*
+	 * The SYSCALL MSRs are only needed on long mode guests, and only
+	 * when EFER.SCE is set.
+	 */
+	load_syscall_msrs = is_long_mode(&vmx->vcpu) &&
+			    (vmx->vcpu.arch.efer & EFER_SCE);
+
+	vmx_setup_uret_msr(vmx, MSR_STAR, load_syscall_msrs);
+	vmx_setup_uret_msr(vmx, MSR_LSTAR, load_syscall_msrs);
+	vmx_setup_uret_msr(vmx, MSR_SYSCALL_MASK, load_syscall_msrs);
+#endif
+	vmx_setup_uret_msr(vmx, MSR_EFER, update_transition_efer(vmx));
+
+	vmx_setup_uret_msr(vmx, MSR_TSC_AUX,
+			   guest_cpuid_has(&vmx->vcpu, X86_FEATURE_RDTSCP) ||
+			   guest_cpuid_has(&vmx->vcpu, X86_FEATURE_RDPID));
+
+	/*
+	 * hle=0, rtm=0, tsx_ctrl=1 can be found with some combinations of new
+	 * kernel and old userspace.  If those guests run on a tsx=off host, do
+	 * allow guests to use TSX_CTRL, but don't change the value in hardware
+	 * so that TSX remains always disabled.
+	 */
+	vmx_setup_uret_msr(vmx, MSR_IA32_TSX_CTRL, boot_cpu_has(X86_FEATURE_RTM));
+
+	/*
+	 * The set of MSRs to load may have changed, reload MSRs before the
+	 * next VM-Enter.
+	 */
+	vmx->guest_uret_msrs_loaded = false;
 }
 
 /*
@@ -2504,6 +2617,206 @@ void vmx_disable_intercept_for_msr(struct kvm_vcpu *vcpu, u32 msr, int type)
 
 	if (type & MSR_TYPE_W)
 		vmx_clear_msr_bitmap_write(msr_bitmap, msr);
+}
+
+void vmx_enable_intercept_for_msr(struct kvm_vcpu *vcpu, u32 msr, int type)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	unsigned long *msr_bitmap = vmx->vmcs01.msr_bitmap;
+	int idx;
+
+	if (!cpu_has_vmx_msr_bitmap())
+		return;
+
+	vmx_msr_bitmap_l01_changed(vmx);
+
+	/*
+	 * Mark the desired intercept state in shadow bitmap, this is needed
+	 * for resync when the MSR filter changes.
+	 */
+	idx = vmx_get_passthrough_msr_slot(msr);
+	if (idx >= 0) {
+		if (type & MSR_TYPE_R)
+			set_bit(idx, vmx->shadow_msr_intercept.read);
+		if (type & MSR_TYPE_W)
+			set_bit(idx, vmx->shadow_msr_intercept.write);
+	}
+
+	if (type & MSR_TYPE_R)
+		vmx_set_msr_bitmap_read(msr_bitmap, msr);
+
+	if (type & MSR_TYPE_W)
+		vmx_set_msr_bitmap_write(msr_bitmap, msr);
+}
+
+void set_cr4_guest_host_mask(struct vcpu_vmx *vmx)
+{
+	struct kvm_vcpu *vcpu = &vmx->vcpu;
+
+	vcpu->arch.cr4_guest_owned_bits = KVM_POSSIBLE_CR4_GUEST_BITS &
+					  ~vcpu->arch.cr4_guest_rsvd_bits;
+	if (!enable_ept) {
+		vcpu->arch.cr4_guest_owned_bits &= ~X86_CR4_TLBFLUSH_BITS;
+		vcpu->arch.cr4_guest_owned_bits &= ~X86_CR4_PDPTR_BITS;
+	}
+	if (is_guest_mode(&vmx->vcpu))
+		vcpu->arch.cr4_guest_owned_bits &=
+			~get_vmcs12(vcpu)->cr4_guest_host_mask;
+	vmcs_writel(CR4_GUEST_HOST_MASK, ~vcpu->arch.cr4_guest_owned_bits);
+}
+
+/*
+ * Adjust a single secondary execution control bit to intercept/allow an
+ * instruction in the guest.  This is usually done based on whether or not a
+ * feature has been exposed to the guest in order to correctly emulate faults.
+ */
+static inline void
+vmx_adjust_secondary_exec_control(struct vcpu_vmx *vmx, u32 *exec_control,
+				  u32 control, bool enabled, bool exiting)
+{
+	/*
+	 * If the control is for an opt-in feature, clear the control if the
+	 * feature is not exposed to the guest, i.e. not enabled.  If the
+	 * control is opt-out, i.e. an exiting control, clear the control if
+	 * the feature _is_ exposed to the guest, i.e. exiting/interception is
+	 * disabled for the associated instruction.  Note, the caller is
+	 * responsible presetting exec_control to set all supported bits.
+	 */
+	if (enabled == exiting)
+		*exec_control &= ~control;
+
+	/*
+	 * Update the nested MSR settings so that a nested VMM can/can't set
+	 * controls for features that are/aren't exposed to the guest.
+	 */
+	if (nested) {
+		/*
+		 * All features that can be added or removed to VMX MSRs must
+		 * be supported in the first place for nested virtualization.
+		 */
+		if (WARN_ON_ONCE(!(vmcs_config.nested.secondary_ctls_high & control)))
+			enabled = false;
+
+		if (enabled)
+			vmx->nested.msrs.secondary_ctls_high |= control;
+		else
+			vmx->nested.msrs.secondary_ctls_high &= ~control;
+	}
+}
+
+/*
+ * Wrapper macro for the common case of adjusting a secondary execution control
+ * based on a single guest CPUID bit, with a dedicated feature bit.  This also
+ * verifies that the control is actually supported by KVM and hardware.
+ */
+#define vmx_adjust_sec_exec_control(vmx, exec_control, name, feat_name, ctrl_name, exiting)	\
+({												\
+	struct kvm_vcpu *__vcpu = &(vmx)->vcpu;							\
+	bool __enabled;										\
+												\
+	if (cpu_has_vmx_##name()) {								\
+		if (kvm_is_governed_feature(X86_FEATURE_##feat_name))				\
+			__enabled = guest_can_use(__vcpu, X86_FEATURE_##feat_name);		\
+		else										\
+			__enabled = guest_cpuid_has(__vcpu, X86_FEATURE_##feat_name);		\
+		vmx_adjust_secondary_exec_control(vmx, exec_control, SECONDARY_EXEC_##ctrl_name,\
+						  __enabled, exiting);				\
+	}											\
+})
+
+/* More macro magic for ENABLE_/opt-in versus _EXITING/opt-out controls. */
+#define vmx_adjust_sec_exec_feature(vmx, exec_control, lname, uname) \
+	vmx_adjust_sec_exec_control(vmx, exec_control, lname, uname, ENABLE_##uname, false)
+
+#define vmx_adjust_sec_exec_exiting(vmx, exec_control, lname, uname) \
+	vmx_adjust_sec_exec_control(vmx, exec_control, lname, uname, uname##_EXITING, true)
+
+static u32 vmx_secondary_exec_control(struct vcpu_vmx *vmx)
+{
+	struct kvm_vcpu *vcpu = &vmx->vcpu;
+
+	u32 exec_control = vmcs_config.cpu_based_2nd_exec_ctrl;
+
+	if (vmx_pt_mode_is_system())
+		exec_control &= ~(SECONDARY_EXEC_PT_USE_GPA | SECONDARY_EXEC_PT_CONCEAL_VMX);
+	if (!cpu_need_virtualize_apic_accesses(vcpu))
+		exec_control &= ~SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES;
+	if (vmx->vpid == 0)
+		exec_control &= ~SECONDARY_EXEC_ENABLE_VPID;
+	if (!enable_ept) {
+		exec_control &= ~SECONDARY_EXEC_ENABLE_EPT;
+		exec_control &= ~SECONDARY_EXEC_EPT_VIOLATION_VE;
+		enable_unrestricted_guest = 0;
+	}
+	if (!enable_unrestricted_guest)
+		exec_control &= ~SECONDARY_EXEC_UNRESTRICTED_GUEST;
+	if (kvm_pause_in_guest(vmx->vcpu.kvm))
+		exec_control &= ~SECONDARY_EXEC_PAUSE_LOOP_EXITING;
+	if (!kvm_vcpu_apicv_active(vcpu))
+		exec_control &= ~(SECONDARY_EXEC_APIC_REGISTER_VIRT |
+				  SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY);
+	exec_control &= ~SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE;
+
+	/*
+	 * KVM doesn't support VMFUNC for L1, but the control is set in KVM's
+	 * base configuration as KVM emulates VMFUNC[EPTP_SWITCHING] for L2.
+	 */
+	exec_control &= ~SECONDARY_EXEC_ENABLE_VMFUNC;
+
+	/* SECONDARY_EXEC_DESC is enabled/disabled on writes to CR4.UMIP,
+	 * in vmx_set_cr4.  */
+	exec_control &= ~SECONDARY_EXEC_DESC;
+
+	/* SECONDARY_EXEC_SHADOW_VMCS is enabled when L1 executes VMPTRLD
+	   (handle_vmptrld).
+	   We can NOT enable shadow_vmcs here because we don't have yet
+	   a current VMCS12
+	*/
+	exec_control &= ~SECONDARY_EXEC_SHADOW_VMCS;
+
+	/*
+	 * PML is enabled/disabled when dirty logging of memsmlots changes, but
+	 * it needs to be set here when dirty logging is already active, e.g.
+	 * if this vCPU was created after dirty logging was enabled.
+	 */
+	if (!enable_pml || !atomic_read(&vcpu->kvm->nr_memslots_dirty_logging))
+		exec_control &= ~SECONDARY_EXEC_ENABLE_PML;
+
+	vmx_adjust_sec_exec_feature(vmx, &exec_control, xsaves, XSAVES);
+
+	/*
+	 * RDPID is also gated by ENABLE_RDTSCP, turn on the control if either
+	 * feature is exposed to the guest.  This creates a virtualization hole
+	 * if both are supported in hardware but only one is exposed to the
+	 * guest, but letting the guest execute RDTSCP or RDPID when either one
+	 * is advertised is preferable to emulating the advertised instruction
+	 * in KVM on #UD, and obviously better than incorrectly injecting #UD.
+	 */
+	if (cpu_has_vmx_rdtscp()) {
+		bool rdpid_or_rdtscp_enabled =
+			guest_cpuid_has(vcpu, X86_FEATURE_RDTSCP) ||
+			guest_cpuid_has(vcpu, X86_FEATURE_RDPID);
+
+		vmx_adjust_secondary_exec_control(vmx, &exec_control,
+						  SECONDARY_EXEC_ENABLE_RDTSCP,
+						  rdpid_or_rdtscp_enabled, false);
+	}
+
+	vmx_adjust_sec_exec_feature(vmx, &exec_control, invpcid, INVPCID);
+
+	vmx_adjust_sec_exec_exiting(vmx, &exec_control, rdrand, RDRAND);
+	vmx_adjust_sec_exec_exiting(vmx, &exec_control, rdseed, RDSEED);
+
+	vmx_adjust_sec_exec_control(vmx, &exec_control, waitpkg, WAITPKG,
+				    ENABLE_USR_WAIT_PAUSE, false);
+
+	if (!vcpu->kvm->arch.bus_lock_detection_enabled)
+		exec_control &= ~SECONDARY_EXEC_BUS_LOCK_DETECTION;
+
+	if (!kvm_notify_vmexit_enabled(vcpu->kvm))
+		exec_control &= ~SECONDARY_EXEC_NOTIFY_VM_EXITING;
+
+	return exec_control;
 }
 
 bool __vmx_interrupt_blocked(struct kvm_vcpu *vcpu)
@@ -4118,6 +4431,219 @@ int vmx_vm_init(struct kvm *kvm)
 #endif
 }
 
+static void vmcs_set_secondary_exec_control(struct vcpu_vmx *vmx, u32 new_ctl)
+{
+	/*
+	 * These bits in the secondary execution controls field
+	 * are dynamic, the others are mostly based on the hypervisor
+	 * architecture and the guest's CPUID.  Do not touch the
+	 * dynamic bits.
+	 */
+	u32 mask =
+		SECONDARY_EXEC_SHADOW_VMCS |
+		SECONDARY_EXEC_VIRTUALIZE_X2APIC_MODE |
+		SECONDARY_EXEC_VIRTUALIZE_APIC_ACCESSES |
+		SECONDARY_EXEC_DESC;
+
+	u32 cur_ctl = secondary_exec_controls_get(vmx);
+
+	secondary_exec_controls_set(vmx, (new_ctl & ~mask) | (cur_ctl & mask));
+}
+
+/*
+ * Generate MSR_IA32_VMX_CR{0,4}_FIXED1 according to CPUID. Only set bits
+ * (indicating "allowed-1") if they are supported in the guest's CPUID.
+ */
+static void nested_vmx_cr_fixed1_bits_update(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct kvm_cpuid_entry2 *entry;
+
+	vmx->nested.msrs.cr0_fixed1 = 0xffffffff;
+	vmx->nested.msrs.cr4_fixed1 = X86_CR4_PCE;
+
+#define cr4_fixed1_update(_cr4_mask, _reg, _cpuid_mask) do {		\
+	if (entry && (entry->_reg & (_cpuid_mask)))			\
+		vmx->nested.msrs.cr4_fixed1 |= (_cr4_mask);	\
+} while (0)
+
+	entry = kvm_find_cpuid_entry(vcpu, 0x1);
+	cr4_fixed1_update(X86_CR4_VME,        edx, feature_bit(VME));
+	cr4_fixed1_update(X86_CR4_PVI,        edx, feature_bit(VME));
+	cr4_fixed1_update(X86_CR4_TSD,        edx, feature_bit(TSC));
+	cr4_fixed1_update(X86_CR4_DE,         edx, feature_bit(DE));
+	cr4_fixed1_update(X86_CR4_PSE,        edx, feature_bit(PSE));
+	cr4_fixed1_update(X86_CR4_PAE,        edx, feature_bit(PAE));
+	cr4_fixed1_update(X86_CR4_MCE,        edx, feature_bit(MCE));
+	cr4_fixed1_update(X86_CR4_PGE,        edx, feature_bit(PGE));
+	cr4_fixed1_update(X86_CR4_OSFXSR,     edx, feature_bit(FXSR));
+	cr4_fixed1_update(X86_CR4_OSXMMEXCPT, edx, feature_bit(XMM));
+	cr4_fixed1_update(X86_CR4_VMXE,       ecx, feature_bit(VMX));
+	cr4_fixed1_update(X86_CR4_SMXE,       ecx, feature_bit(SMX));
+	cr4_fixed1_update(X86_CR4_PCIDE,      ecx, feature_bit(PCID));
+	cr4_fixed1_update(X86_CR4_OSXSAVE,    ecx, feature_bit(XSAVE));
+
+	entry = kvm_find_cpuid_entry_index(vcpu, 0x7, 0);
+	cr4_fixed1_update(X86_CR4_FSGSBASE,   ebx, feature_bit(FSGSBASE));
+	cr4_fixed1_update(X86_CR4_SMEP,       ebx, feature_bit(SMEP));
+	cr4_fixed1_update(X86_CR4_SMAP,       ebx, feature_bit(SMAP));
+	cr4_fixed1_update(X86_CR4_PKE,        ecx, feature_bit(PKU));
+	cr4_fixed1_update(X86_CR4_UMIP,       ecx, feature_bit(UMIP));
+	cr4_fixed1_update(X86_CR4_LA57,       ecx, feature_bit(LA57));
+
+	entry = kvm_find_cpuid_entry_index(vcpu, 0x7, 1);
+	cr4_fixed1_update(X86_CR4_LAM_SUP,    eax, feature_bit(LAM));
+
+#undef cr4_fixed1_update
+}
+
+static void update_intel_pt_cfg(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct kvm_cpuid_entry2 *best = NULL;
+	int i;
+
+	for (i = 0; i < PT_CPUID_LEAVES; i++) {
+		best = kvm_find_cpuid_entry_index(vcpu, 0x14, i);
+		if (!best)
+			return;
+		vmx->pt_desc.caps[CPUID_EAX + i*PT_CPUID_REGS_NUM] = best->eax;
+		vmx->pt_desc.caps[CPUID_EBX + i*PT_CPUID_REGS_NUM] = best->ebx;
+		vmx->pt_desc.caps[CPUID_ECX + i*PT_CPUID_REGS_NUM] = best->ecx;
+		vmx->pt_desc.caps[CPUID_EDX + i*PT_CPUID_REGS_NUM] = best->edx;
+	}
+
+	/* Get the number of configurable Address Ranges for filtering */
+	vmx->pt_desc.num_address_ranges = intel_pt_validate_cap(vmx->pt_desc.caps,
+						PT_CAP_num_address_ranges);
+
+	/* Initialize and clear the no dependency bits */
+	vmx->pt_desc.ctl_bitmask = ~(RTIT_CTL_TRACEEN | RTIT_CTL_OS |
+			RTIT_CTL_USR | RTIT_CTL_TSC_EN | RTIT_CTL_DISRETC |
+			RTIT_CTL_BRANCH_EN);
+
+	/*
+	 * If CPUID.(EAX=14H,ECX=0):EBX[0]=1 CR3Filter can be set otherwise
+	 * will inject an #GP
+	 */
+	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_cr3_filtering))
+		vmx->pt_desc.ctl_bitmask &= ~RTIT_CTL_CR3EN;
+
+	/*
+	 * If CPUID.(EAX=14H,ECX=0):EBX[1]=1 CYCEn, CycThresh and
+	 * PSBFreq can be set
+	 */
+	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_psb_cyc))
+		vmx->pt_desc.ctl_bitmask &= ~(RTIT_CTL_CYCLEACC |
+				RTIT_CTL_CYC_THRESH | RTIT_CTL_PSB_FREQ);
+
+	/*
+	 * If CPUID.(EAX=14H,ECX=0):EBX[3]=1 MTCEn and MTCFreq can be set
+	 */
+	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_mtc))
+		vmx->pt_desc.ctl_bitmask &= ~(RTIT_CTL_MTC_EN |
+					      RTIT_CTL_MTC_RANGE);
+
+	/* If CPUID.(EAX=14H,ECX=0):EBX[4]=1 FUPonPTW and PTWEn can be set */
+	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_ptwrite))
+		vmx->pt_desc.ctl_bitmask &= ~(RTIT_CTL_FUP_ON_PTW |
+							RTIT_CTL_PTW_EN);
+
+	/* If CPUID.(EAX=14H,ECX=0):EBX[5]=1 PwrEvEn can be set */
+	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_power_event_trace))
+		vmx->pt_desc.ctl_bitmask &= ~RTIT_CTL_PWR_EVT_EN;
+
+	/* If CPUID.(EAX=14H,ECX=0):ECX[0]=1 ToPA can be set */
+	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_topa_output))
+		vmx->pt_desc.ctl_bitmask &= ~RTIT_CTL_TOPA;
+
+	/* If CPUID.(EAX=14H,ECX=0):ECX[3]=1 FabricEn can be set */
+	if (intel_pt_validate_cap(vmx->pt_desc.caps, PT_CAP_output_subsys))
+		vmx->pt_desc.ctl_bitmask &= ~RTIT_CTL_FABRIC_EN;
+
+	/* unmask address range configure area */
+	for (i = 0; i < vmx->pt_desc.num_address_ranges; i++)
+		vmx->pt_desc.ctl_bitmask &= ~(0xfULL << (32 + i * 4));
+}
+
+void vmx_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	/*
+	 * XSAVES is effectively enabled if and only if XSAVE is also exposed
+	 * to the guest.  XSAVES depends on CR4.OSXSAVE, and CR4.OSXSAVE can be
+	 * set if and only if XSAVE is supported.
+	 */
+	if (boot_cpu_has(X86_FEATURE_XSAVE) &&
+	    guest_cpuid_has(vcpu, X86_FEATURE_XSAVE))
+		kvm_governed_feature_check_and_set(vcpu, X86_FEATURE_XSAVES);
+
+	kvm_governed_feature_check_and_set(vcpu, X86_FEATURE_VMX);
+	kvm_governed_feature_check_and_set(vcpu, X86_FEATURE_LAM);
+
+	vmx_setup_uret_msrs(vmx);
+
+	if (cpu_has_secondary_exec_ctrls())
+		vmcs_set_secondary_exec_control(vmx,
+						vmx_secondary_exec_control(vmx));
+
+	if (guest_can_use(vcpu, X86_FEATURE_VMX))
+		vmx->msr_ia32_feature_control_valid_bits |=
+			FEAT_CTL_VMX_ENABLED_INSIDE_SMX |
+			FEAT_CTL_VMX_ENABLED_OUTSIDE_SMX;
+	else
+		vmx->msr_ia32_feature_control_valid_bits &=
+			~(FEAT_CTL_VMX_ENABLED_INSIDE_SMX |
+			  FEAT_CTL_VMX_ENABLED_OUTSIDE_SMX);
+
+	if (guest_can_use(vcpu, X86_FEATURE_VMX))
+		nested_vmx_cr_fixed1_bits_update(vcpu);
+
+	if (boot_cpu_has(X86_FEATURE_INTEL_PT) &&
+			guest_cpuid_has(vcpu, X86_FEATURE_INTEL_PT))
+		update_intel_pt_cfg(vcpu);
+
+	if (boot_cpu_has(X86_FEATURE_RTM)) {
+		struct vmx_uret_msr *msr;
+		msr = vmx_find_uret_msr(vmx, MSR_IA32_TSX_CTRL);
+		if (msr) {
+			bool enabled = guest_cpuid_has(vcpu, X86_FEATURE_RTM);
+			vmx_set_guest_uret_msr(vmx, msr, enabled ? 0 : TSX_CTRL_RTM_DISABLE);
+		}
+	}
+
+	if (kvm_cpu_cap_has(X86_FEATURE_XFD))
+		vmx_set_intercept_for_msr(vcpu, MSR_IA32_XFD_ERR, MSR_TYPE_R,
+					  !guest_cpuid_has(vcpu, X86_FEATURE_XFD));
+
+	if (boot_cpu_has(X86_FEATURE_IBPB))
+		vmx_set_intercept_for_msr(vcpu, MSR_IA32_PRED_CMD, MSR_TYPE_W,
+					  !guest_has_pred_cmd_msr(vcpu));
+
+	if (boot_cpu_has(X86_FEATURE_FLUSH_L1D))
+		vmx_set_intercept_for_msr(vcpu, MSR_IA32_FLUSH_CMD, MSR_TYPE_W,
+					  !guest_cpuid_has(vcpu, X86_FEATURE_FLUSH_L1D));
+
+	set_cr4_guest_host_mask(vmx);
+
+	vmx_write_encls_bitmap(vcpu, NULL);
+	if (guest_cpuid_has(vcpu, X86_FEATURE_SGX))
+		vmx->msr_ia32_feature_control_valid_bits |= FEAT_CTL_SGX_ENABLED;
+	else
+		vmx->msr_ia32_feature_control_valid_bits &= ~FEAT_CTL_SGX_ENABLED;
+
+	if (guest_cpuid_has(vcpu, X86_FEATURE_SGX_LC))
+		vmx->msr_ia32_feature_control_valid_bits |=
+			FEAT_CTL_SGX_LC_ENABLED;
+	else
+		vmx->msr_ia32_feature_control_valid_bits &=
+			~FEAT_CTL_SGX_LC_ENABLED;
+
+	/* Refresh #PF interception to account for MAXPHYADDR changes. */
+	vmx_update_exception_bitmap(vcpu);
+}
+
 static __init u64 vmx_get_perf_capabilities(void)
 {
 #ifdef __PKVM_HYP__
@@ -4660,6 +5186,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
 
 	.complete_emulated_msr = kvm_complete_insn_gp,
+
+	.vcpu_after_set_cpuid = vmx_vcpu_after_set_cpuid,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {
