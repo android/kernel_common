@@ -3,6 +3,7 @@
 #include <asm/debugreg.h>
 #include <asm/fpu/xcr.h>
 #include <cpuid.h>
+#include <linux/user-return-notifier.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -45,9 +46,23 @@ module_param(enable_pmu, bool, 0444);
  */
 #define KVM_MAX_NR_USER_RETURN_MSRS 16
 
+struct kvm_user_return_msrs {
+	struct user_return_notifier urn;
+	bool registered;
+	struct kvm_user_return_msr_values {
+		u64 host;
+		u64 curr;
+	} values[KVM_MAX_NR_USER_RETURN_MSRS];
+};
+
 u32 __read_mostly kvm_nr_uret_msrs;
 EXPORT_SYMBOL_GPL(kvm_nr_uret_msrs);
 static u32 __read_mostly kvm_uret_msrs_list[KVM_MAX_NR_USER_RETURN_MSRS];
+#ifdef __PKVM_HYP__
+static DEFINE_PER_CPU(struct kvm_user_return_msrs, user_return_msrs);
+#else
+static struct kvm_user_return_msrs __percpu *user_return_msrs;
+#endif
 
 #define KVM_SUPPORTED_XCR0     (XFEATURE_MASK_FP | XFEATURE_MASK_SSE \
 				| XFEATURE_MASK_YMM | XFEATURE_MASK_BNDREGS \
@@ -98,6 +113,24 @@ int kvm_find_user_return_msr(u32 msr)
 	return -1;
 }
 EXPORT_SYMBOL_GPL(kvm_find_user_return_msr);
+
+static void kvm_user_return_msr_cpu_online(void)
+{
+#ifdef __PKVM_HYP__
+	struct kvm_user_return_msrs *msrs = this_cpu_ptr(&user_return_msrs);
+#else
+	unsigned int cpu = smp_processor_id();
+	struct kvm_user_return_msrs *msrs = per_cpu_ptr(user_return_msrs, cpu);
+#endif
+	u64 value;
+	int i;
+
+	for (i = 0; i < kvm_nr_uret_msrs; ++i) {
+		rdmsrl_safe(kvm_uret_msrs_list[i], &value);
+		msrs->values[i].host = value;
+		msrs->values[i].curr = value;
+	}
+}
 
 noinstr void kvm_spurious_fault(void)
 {
@@ -651,6 +684,8 @@ fail_mmu_destroy:
 int kvm_arch_enable_virtualization_cpu(void)
 {
 #ifdef __PKVM_HYP__
+	kvm_user_return_msr_cpu_online();
+
 	return kvm_x86_call(enable_virtualization_cpu)();
 #else
 	struct kvm *kvm;
