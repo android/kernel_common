@@ -3584,6 +3584,15 @@ static void rtw89_pci_l1ss_cfg(struct rtw89_dev *rtwdev)
 		rtw89_pci_l1ss_set(rtwdev, true);
 }
 
+static void rtw89_pci_cpl_timeout_cfg(struct rtw89_dev *rtwdev)
+{
+	struct rtw89_pci *rtwpci = (struct rtw89_pci *)rtwdev->priv;
+	struct pci_dev *pdev = rtwpci->pdev;
+
+	pcie_capability_set_word(pdev, PCI_EXP_DEVCTL2,
+				 PCI_EXP_DEVCTL2_COMP_TMOUT_DIS);
+}
+
 static int rtw89_pci_poll_io_idle(struct rtw89_dev *rtwdev)
 {
 	int ret = 0;
@@ -3765,6 +3774,7 @@ static void rtw89_pci_l2_hci_ldo(struct rtw89_dev *rtwdev)
 void rtw89_pci_basic_cfg(struct rtw89_dev *rtwdev, bool resume)
 {
 	rtw89_pci_filter_out(rtwdev);
+	rtw89_pci_cpl_timeout_cfg(rtwdev);
 	rtw89_pci_link_cfg(rtwdev);
 	rtw89_pci_l1ss_cfg(rtwdev);
 }
