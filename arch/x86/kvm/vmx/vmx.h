@@ -827,7 +827,6 @@ int __init vmx_pkvm_init(void);
 void vmx_prepare_switch_to_host(struct vcpu_vmx *vmx);
 
 extern bool __read_mostly enable_vnmi;
-extern bool __read_mostly enable_preemption_timer;
 DECLARE_STATIC_KEY_FALSE(vmx_l1d_should_flush);
 noinstr void vmx_l1d_flush(struct kvm_vcpu *vcpu);
 void vmx_complete_interrupts(struct vcpu_vmx *vmx);

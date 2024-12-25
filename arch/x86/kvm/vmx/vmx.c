@@ -143,7 +143,7 @@ module_param(dump_invalid_vmcs, bool, 0644);
 
 /* Guest_tsc -> host_tsc conversion requires 64-bit division.  */
 static int __read_mostly cpu_preemption_timer_multi;
-bool __read_mostly enable_preemption_timer = 1;
+static bool __read_mostly enable_preemption_timer = 1;
 #ifdef CONFIG_X86_64
 module_param_named(preemption_timer, enable_preemption_timer, bool, S_IRUGO);
 #endif

@@ -343,9 +343,6 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 
 	trace_kvm_entry(vcpu, force_immediate_exit);
 
-	if (!enable_preemption_timer && force_immediate_exit)
-		smp_send_reschedule(vcpu->cpu);
-
 	kvm_wait_lapic_expire(vcpu);
 
 	guest_state_enter_irqoff();

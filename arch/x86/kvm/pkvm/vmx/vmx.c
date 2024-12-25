@@ -66,7 +66,7 @@ module_param(error_on_inconsistent_vmcs_config, bool, 0444);
 
 /* Guest_tsc -> host_tsc conversion requires 64-bit division.  */
 static int __read_mostly cpu_preemption_timer_multi;
-bool __read_mostly enable_preemption_timer = 1;
+static bool __read_mostly enable_preemption_timer = 1;
 #ifdef CONFIG_X86_64
 module_param_named(preemption_timer, enable_preemption_timer, bool, S_IRUGO);
 #endif
@@ -2032,6 +2032,41 @@ static int handle_pml_full(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+static fastpath_t handle_fastpath_preemption_timer(struct kvm_vcpu *vcpu,
+						   bool force_immediate_exit)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	/*
+	 * In the *extremely* unlikely scenario that this is a spurious VM-Exit
+	 * due to the timer expiring while it was "soft" disabled, just eat the
+	 * exit and re-enter the guest.
+	 */
+	if (unlikely(vmx->loaded_vmcs->hv_timer_soft_disabled))
+		return EXIT_FASTPATH_REENTER_GUEST;
+
+	/*
+	 * If the timer expired because KVM used it to force an immediate exit,
+	 * then mission accomplished.
+	 */
+	if (force_immediate_exit)
+		return EXIT_FASTPATH_EXIT_HANDLED;
+
+#ifdef __PKVM_HYP__
+	return EXIT_FASTPATH_NONE;
+#else
+	/*
+	 * If L2 is active, go down the slow path as emulating the guest timer
+	 * expiration likely requires synthesizing a nested VM-Exit.
+	 */
+	if (is_guest_mode(vcpu))
+		return EXIT_FASTPATH_NONE;
+
+	kvm_lapic_expired_hv_timer(vcpu);
+	return EXIT_FASTPATH_REENTER_GUEST;
+#endif
+}
+
 static int handle_preemption_timer(struct kvm_vcpu *vcpu)
 {
 	/* TODO */
@@ -2765,11 +2800,11 @@ fastpath_t vmx_exit_handlers_fastpath(struct kvm_vcpu *vcpu,
 #ifndef __PKVM_HYP__/* TODO: Add fastpath handling for the pkvm hypervisor */
 	case EXIT_REASON_MSR_WRITE:
 		return handle_fastpath_set_msr_irqoff(vcpu);
-	case EXIT_REASON_PREEMPTION_TIMER:
-		return handle_fastpath_preemption_timer(vcpu, force_immediate_exit);
 	case EXIT_REASON_HLT:
 		return handle_fastpath_hlt(vcpu);
 #endif
+	case EXIT_REASON_PREEMPTION_TIMER:
+		return handle_fastpath_preemption_timer(vcpu, force_immediate_exit);
 	default:
 		return EXIT_FASTPATH_NONE;
 	}
@@ -3591,8 +3626,16 @@ __init int vmx_hardware_setup(void)
 	}
 
 	if (!enable_preemption_timer) {
+#ifdef __PKVM_HYP__
+		/*
+		 * The pkvm hypervisor requires to use the preemption timer
+		 * to handle the force_immediate_exit for the vcpu run
+		 */
+		return -EINVAL;
+#else
 		vt_x86_ops.set_hv_timer = NULL;
 		vt_x86_ops.cancel_hv_timer = NULL;
+#endif
 	}
 
 	kvm_caps.supported_mce_cap |= MCG_LMCE_P;
