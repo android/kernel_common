@@ -115,6 +115,7 @@ static void set_encoder_for_connector(struct intel_connector *connector,
 
 static void reset_encoder_connector_state(struct intel_encoder *encoder)
 {
+	struct intel_display *display = to_intel_display(encoder);
 	struct drm_i915_private *i915 = to_i915(encoder->base.dev);
 	struct intel_pmdemand_state *pmdemand_state =
 		to_intel_pmdemand_state(i915->display.pmdemand.obj.state);
@@ -127,7 +128,7 @@ static void reset_encoder_connector_state(struct intel_encoder *encoder)
 			continue;
 
 		/* Clear the corresponding bit in pmdemand active phys mask */
-		intel_pmdemand_update_phys_mask(i915, encoder,
+		intel_pmdemand_update_phys_mask(display, encoder,
 						pmdemand_state, false);
 
 		set_encoder_for_connector(connector, NULL);
@@ -151,6 +152,7 @@ static void reset_crtc_encoder_state(struct intel_crtc *crtc)
 
 static void intel_crtc_disable_noatomic_complete(struct intel_crtc *crtc)
 {
+	struct intel_display *display = to_intel_display(crtc);
 	struct drm_i915_private *i915 = to_i915(crtc->base.dev);
 	struct intel_bw_state *bw_state =
 		to_intel_bw_state(i915->display.bw.obj.state);
@@ -184,7 +186,7 @@ static void intel_crtc_disable_noatomic_complete(struct intel_crtc *crtc)
 	bw_state->data_rate[pipe] = 0;
 	bw_state->num_active_planes[pipe] = 0;
 
-	intel_pmdemand_update_port_clock(i915, pmdemand_state, pipe, 0);
+	intel_pmdemand_update_port_clock(display, pmdemand_state, pipe, 0);
 }
 
 /*
@@ -581,6 +583,7 @@ static bool has_bogus_dpll_config(const struct intel_crtc_state *crtc_state)
 
 static void intel_sanitize_encoder(struct intel_encoder *encoder)
 {
+	struct intel_display *display = to_intel_display(encoder);
 	struct drm_i915_private *i915 = to_i915(encoder->base.dev);
 	struct intel_connector *connector;
 	struct intel_crtc *crtc = to_intel_crtc(encoder->base.crtc);
@@ -612,7 +615,7 @@ static void intel_sanitize_encoder(struct intel_encoder *encoder)
 			    encoder->base.name);
 
 		/* Clear the corresponding bit in pmdemand active phys mask */
-		intel_pmdemand_update_phys_mask(i915, encoder,
+		intel_pmdemand_update_phys_mask(display, encoder,
 						pmdemand_state, false);
 
 		/*
@@ -769,11 +772,11 @@ static void intel_modeset_readout_hw_state(struct drm_i915_private *i915)
 				}
 			}
 
-			intel_pmdemand_update_phys_mask(i915, encoder,
+			intel_pmdemand_update_phys_mask(display, encoder,
 							pmdemand_state,
 							true);
 		} else {
-			intel_pmdemand_update_phys_mask(i915, encoder,
+			intel_pmdemand_update_phys_mask(display, encoder,
 							pmdemand_state,
 							false);
 
@@ -898,13 +901,13 @@ static void intel_modeset_readout_hw_state(struct drm_i915_private *i915)
 		cdclk_state->min_voltage_level[crtc->pipe] =
 			crtc_state->min_voltage_level;
 
-		intel_pmdemand_update_port_clock(i915, pmdemand_state, pipe,
+		intel_pmdemand_update_port_clock(display, pmdemand_state, pipe,
 						 crtc_state->port_clock);
 
 		intel_bw_crtc_update(bw_state, crtc_state);
 	}
 
-	intel_pmdemand_init_pmdemand_params(i915, pmdemand_state);
+	intel_pmdemand_init_pmdemand_params(display, pmdemand_state);
 }
 
 static void
