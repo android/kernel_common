@@ -44,6 +44,34 @@ static bool is_output_disabled(int p_id, const struct img_compparam *param, u32 
 	return (count < num) ? (dis_output || dis_tile) : true;
 }
 
+static enum mdp_pipe_id __get_pipe(const struct mdp_dev *mdp_dev,
+				   enum mtk_mdp_comp_id id)
+{
+	enum mdp_pipe_id pipe_id;
+
+	switch (id) {
+	case MDP_COMP_RDMA0:
+		pipe_id = MDP_PIPE_RDMA0;
+		break;
+	case MDP_COMP_ISP_IMGI:
+		pipe_id = MDP_PIPE_IMGI;
+		break;
+	case MDP_COMP_WPEI:
+		pipe_id = MDP_PIPE_WPEI;
+		break;
+	case MDP_COMP_WPEI2:
+		pipe_id = MDP_PIPE_WPEI2;
+		break;
+	default:
+		/* Avoid exceptions when operating MUTEX */
+		pipe_id = MDP_PIPE_RDMA0;
+		dev_err(&mdp_dev->pdev->dev, "Unknown pipeline id %d", id);
+		break;
+	}
+
+	return pipe_id;
+}
+
 static int mdp_path_subfrm_require(const struct mdp_path *path,
 				   struct mdp_cmdq_cmd *cmd,
 				   s32 *mutex_id, u32 count)
@@ -340,18 +368,24 @@ static void mdp_auto_release_work(struct work_struct *work)
 {
 	struct mdp_cmdq_cmd *cmd;
 	struct mdp_dev *mdp;
+	enum mdp_pipe_id pipe_id;
 	int id;
 
 	cmd = container_of(work, struct mdp_cmdq_cmd, auto_release_work);
 	mdp = cmd->mdp;
 
-	id = mdp->mdp_data->pipe_info[MDP_PIPE_RDMA0].mutex_id;
+	pipe_id = __get_pipe(mdp, cmd->comps[0].public_id);
+	id = mdp->mdp_data->pipe_info[pipe_id].mutex_id;
 	mtk_mutex_unprepare(mdp->mdp_mutex[id]);
 	mdp_comp_clocks_off(&mdp->pdev->dev, cmd->comps,
 			    cmd->num_comps);
+	if (CFG_CHECK(MT8183, mdp->mdp_data->mdp_plat_id))
+		mutex_unlock(&mdp->m2m_lock);
 
-	atomic_dec(&mdp->job_count);
-	wake_up(&mdp->callback_wq);
+	if (cmd->mdp_ctx) {
+		atomic_dec(&mdp->job_count);
+		wake_up(&mdp->callback_wq);
+	}
 
 	mdp_cmdq_pkt_destroy(&cmd->pkt);
 	kfree(cmd->comps);
@@ -366,6 +400,7 @@ static void mdp_handle_cmdq_callback(struct mbox_client *cl, void *mssg)
 	struct cmdq_cb_data *data;
 	struct mdp_dev *mdp;
 	struct device *dev;
+	enum mdp_pipe_id pipe_id;
 	int id;
 
 	if (!mssg) {
@@ -392,10 +427,13 @@ static void mdp_handle_cmdq_callback(struct mbox_client *cl, void *mssg)
 	INIT_WORK(&cmd->auto_release_work, mdp_auto_release_work);
 	if (!queue_work(mdp->clock_wq, &cmd->auto_release_work)) {
 		dev_err(dev, "%s:queue_work fail!\n", __func__);
-		id = mdp->mdp_data->pipe_info[MDP_PIPE_RDMA0].mutex_id;
+		pipe_id = __get_pipe(mdp, cmd->comps[0].public_id);
+		id = mdp->mdp_data->pipe_info[pipe_id].mutex_id;
 		mtk_mutex_unprepare(mdp->mdp_mutex[id]);
 		mdp_comp_clocks_off(&mdp->pdev->dev, cmd->comps,
 				    cmd->num_comps);
+		if (CFG_CHECK(MT8183, mdp->mdp_data->mdp_plat_id))
+			mutex_unlock(&mdp->m2m_lock);
 
 		atomic_dec(&mdp->job_count);
 		wake_up(&mdp->callback_wq);
@@ -414,14 +452,17 @@ int mdp_cmdq_send(struct mdp_dev *mdp, struct mdp_cmdq_param *param)
 	struct mdp_cmdq_cmd *cmd = NULL;
 	struct mdp_comp *comps = NULL;
 	struct device *dev = &mdp->pdev->dev;
+	enum mdp_pipe_id pipe_id = MDP_PIPE_RDMA0;
 	const int p_id = mdp->mdp_data->mdp_plat_id;
 	int i, ret;
 	u32 num_comp = 0;
 
-	atomic_inc(&mdp->job_count);
-	if (atomic_read(&mdp->suspended)) {
-		atomic_dec(&mdp->job_count);
-		return -ECANCELED;
+	if (param->mdp_ctx) {
+		atomic_inc(&mdp->job_count);
+		if (atomic_read(&mdp->suspended)) {
+			atomic_dec(&mdp->job_count);
+			return -ECANCELED;
+		}
 	}
 
 	cmd = kzalloc(sizeof(*cmd), GFP_KERNEL);
@@ -452,13 +493,6 @@ int mdp_cmdq_send(struct mdp_dev *mdp, struct mdp_cmdq_param *param)
 		goto err_free_comps;
 	}
 
-	i = mdp->mdp_data->pipe_info[MDP_PIPE_RDMA0].mutex_id;
-	ret = mtk_mutex_prepare(mdp->mdp_mutex[i]);
-	if (ret) {
-		dev_err(dev, "Fail to enable mutex clk\n");
-		goto err_free_path;
-	}
-
 	path->mdp_dev = mdp;
 	path->config = param->config;
 	path->param = param->param;
@@ -475,6 +509,14 @@ int mdp_cmdq_send(struct mdp_dev *mdp, struct mdp_cmdq_param *param)
 	ret = mdp_path_ctx_init(mdp, path);
 	if (ret) {
 		dev_err(dev, "mdp_path_ctx_init error\n");
+		goto err_free_path;
+	}
+
+	pipe_id = __get_pipe(mdp, path->comps[0].comp->public_id);
+	i = mdp->mdp_data->pipe_info[pipe_id].mutex_id;
+	ret = mtk_mutex_prepare(mdp->mdp_mutex[i]);
+	if (ret) {
+		dev_err(dev, "Fail to enable mutex clk\n");
 		goto err_free_path;
 	}
 
@@ -497,6 +539,8 @@ int mdp_cmdq_send(struct mdp_dev *mdp, struct mdp_cmdq_param *param)
 	cmd->num_comps = num_comp;
 	cmd->mdp_ctx = param->mdp_ctx;
 
+	if (CFG_CHECK(MT8183, p_id))
+		mutex_lock(&mdp->m2m_lock);
 	ret = mdp_comp_clocks_on(&mdp->pdev->dev, cmd->comps, cmd->num_comps);
 	if (ret)
 		goto err_free_path;
@@ -518,7 +562,9 @@ err_clock_off:
 	mdp_comp_clocks_off(&mdp->pdev->dev, cmd->comps,
 			    cmd->num_comps);
 err_free_path:
-	i = mdp->mdp_data->pipe_info[MDP_PIPE_RDMA0].mutex_id;
+	if (CFG_CHECK(MT8183, p_id))
+		mutex_unlock(&mdp->m2m_lock);
+	i = mdp->mdp_data->pipe_info[pipe_id].mutex_id;
 	mtk_mutex_unprepare(mdp->mdp_mutex[i]);
 	kfree(path);
 err_free_comps:
@@ -528,7 +574,8 @@ err_destroy_pkt:
 err_free_cmd:
 	kfree(cmd);
 err_cancel_job:
-	atomic_dec(&mdp->job_count);
+	if (param->mdp_ctx)
+		atomic_dec(&mdp->job_count);
 
 	return ret;
 }

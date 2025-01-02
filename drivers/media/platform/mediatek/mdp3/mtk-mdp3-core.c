@@ -21,6 +21,9 @@ static const struct of_device_id mdp_of_ids[] = {
 	{ .compatible = "mediatek,mt8183-mdp3-rdma",
 	  .data = &mt8183_mdp_driver_data,
 	},
+	{ .compatible = "mediatek,mt8183-mdp3-wdma",
+	  .data = &mt8183_mdp_driver_data,
+	},
 	{},
 };
 MODULE_DEVICE_TABLE(of, mdp_of_ids);
@@ -87,6 +90,7 @@ int mdp_vpu_get_locked(struct mdp_dev *mdp)
 {
 	int ret = 0;
 
+	mutex_lock(&mdp->vpu_lock);
 	if (mdp->vpu_count++ == 0) {
 		ret = rproc_boot(mdp->rproc_handle);
 		if (ret) {
@@ -107,12 +111,14 @@ int mdp_vpu_get_locked(struct mdp_dev *mdp)
 			goto err_init_vpu;
 		}
 	}
+	mutex_unlock(&mdp->vpu_lock);
 	return 0;
 
 err_init_vpu:
 	mdp_vpu_unregister(mdp);
 err_reg_vpu:
 err_load_vpu:
+	mutex_unlock(&mdp->vpu_lock);
 	mdp->vpu_count--;
 	return ret;
 }
@@ -153,6 +159,7 @@ static int mdp_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mdp_dev *mdp;
 	struct platform_device *mm_pdev;
+	struct resource *res;
 	int ret, i, mutex_id;
 
 	mdp = kzalloc(sizeof(*mdp), GFP_KERNEL);
@@ -163,6 +170,12 @@ static int mdp_probe(struct platform_device *pdev)
 
 	mdp->pdev = pdev;
 	mdp->mdp_data = of_device_get_match_data(&pdev->dev);
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (res->start != mdp->mdp_data->mdp_con_res) {
+		platform_set_drvdata(pdev, mdp);
+		goto success_return;
+	}
 
 	mm_pdev = __get_pdev_by_id(pdev, MDP_INFRA_MMSYS);
 	if (!mm_pdev) {
@@ -246,6 +259,7 @@ static int mdp_probe(struct platform_device *pdev)
 		goto err_unregister_device;
 	}
 
+success_return:
 	dev_dbg(dev, "mdp-%d registered successfully\n", pdev->id);
 	return 0;
 
