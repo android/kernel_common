@@ -301,9 +301,13 @@ static int mtk_apu_prepare(struct rproc *rproc)
 	if (ret)
 		return ret;
 
-	ret = mtk_apu_timesync_init(apu);
+	ret = mtk_apu_hw_logger_ipi_init(apu->hw_logger_data, apu);
 	if (ret)
 		goto remove_mtk_apu_ipi;
+
+	ret = mtk_apu_timesync_init(apu);
+	if (ret)
+		goto remove_apu_hw_logger_ipi;
 
 	ret = mtk_apu_exception_init(apu->pdev, apu);
 	if (ret)
@@ -322,6 +326,9 @@ remove_mtk_apu_exception:
 
 remove_mtk_apu_timesync:
 	mtk_apu_timesync_remove(apu);
+
+remove_apu_hw_logger_ipi:
+	mtk_apu_hw_logger_ipi_remove(apu);
 
 remove_mtk_apu_ipi:
 	mtk_apu_ipi_remove(apu);
@@ -519,6 +526,12 @@ static struct platform_driver mtk_apu_driver = {
 int mtk_apu_rproc_init(void)
 {
 	int ret;
+
+	ret = mtk_apu_hw_logger_init();
+	if (ret) {
+		pr_err("failed to init hw logger\n");
+		return ret;
+	}
 
 	ret = platform_driver_register(&mtk_apu_driver);
 	if (ret)
