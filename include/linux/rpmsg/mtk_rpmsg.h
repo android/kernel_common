@@ -12,6 +12,7 @@
 #include <linux/soc/mediatek/mtk-mbox.h>
 
 typedef void (*ipi_handler_t)(void *data, unsigned int len, void *priv);
+typedef int (*ipi_top_handler_t)(void *data, unsigned int len, void *priv);
 
 /*
  * struct mtk_rpmsg_info - IPI functions tied to the rpmsg device.

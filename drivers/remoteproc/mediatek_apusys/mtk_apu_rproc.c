@@ -297,9 +297,13 @@ static int mtk_apu_prepare(struct rproc *rproc)
 	if (ret)
 		return ret;
 
+	ret = mtk_apu_ipi_init(apu->pdev, apu);
+	if (ret)
+		return ret;
+
 	ret = mtk_apu_exception_init(apu->pdev, apu);
 	if (ret)
-		goto remove_apu_hw_logger_ipi;
+		goto remove_mtk_apu_ipi;
 
 	if (hw_ops->init) {
 		ret = hw_ops->init(apu);
@@ -312,8 +316,8 @@ static int mtk_apu_prepare(struct rproc *rproc)
 remove_mtk_apu_exception:
 	mtk_apu_exception_exit(apu->pdev, apu);
 
-remove_apu_hw_logger_ipi:
-	mtk_apu_hw_logger_ipi_remove(apu);
+remove_mtk_apu_ipi:
+	mtk_apu_ipi_remove(apu);
 
 	return ret;
 }
@@ -324,6 +328,7 @@ static int mtk_apu_unprepare(struct rproc *rproc)
 
 	mtk_apu_exception_exit(apu->pdev, apu);
 	mtk_apu_hw_logger_ipi_remove(apu);
+	mtk_apu_ipi_remove(apu);
 
 	return 0;
 }

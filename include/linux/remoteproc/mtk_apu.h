@@ -177,10 +177,21 @@ struct mtk_apu {
 	struct platform_device *power_pdev;
 
 	bool is_under_lp_scp_recovery_flow;
+
+	unsigned int tx_serial_no;
+	unsigned int rx_serial_no;
+	unsigned int temp_buf[MTK_APU_SHARE_BUFFER_SIZE / 4];
+	int current_ipi_handler_id;
 };
 
 int mtk_apu_config_setup(struct mtk_apu *apu);
 void mtk_apu_config_remove(struct mtk_apu *apu);
+int mtk_apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu);
+void mtk_apu_ipi_remove(struct mtk_apu *apu);
+int mtk_apu_ipi_register(struct mtk_apu *apu, u32 id, ipi_top_handler_t top_handler,
+			 ipi_handler_t handler, void *priv);
+void mtk_apu_ipi_unregister(struct mtk_apu *apu, u32 id);
+int mtk_apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len, u32 wait_ms);
 int mtk_apu_mem_init(struct mtk_apu *apu);
 
 int mtk_apu_load(struct rproc *rproc, const struct firmware *fw);
