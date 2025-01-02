@@ -422,6 +422,40 @@ static void mtk_apu_ipi_tx_done(struct mbox_client *cl, void *msg, int ret)
 		dev_dbg(apu->dev, "tx completed. sent:0x%p, ret:%d\n", msg, ret);
 }
 
+void mtk_apu_ipi_config_remove(struct mtk_apu *apu)
+{
+	dma_free_coherent(apu->dev, MTK_APU_SHARE_BUF_SIZE, apu->recv_buf, apu->recv_buf_da);
+}
+
+int mtk_apu_ipi_config_init(struct mtk_apu *apu)
+{
+	struct device *dev = apu->dev;
+	struct mtk_apu_ipi_config *ipi_config;
+	void *ipi_buf = NULL;
+	dma_addr_t ipi_buf_da = 0;
+
+	ipi_config = get_mtk_apu_config_user_ptr(apu->conf_buf, eAPU_IPI_CONFIG);
+
+	/* initialize shared buffer */
+	ipi_buf = dma_alloc_coherent(dev, MTK_APU_SHARE_BUF_SIZE, &ipi_buf_da, GFP_KERNEL);
+	if (!ipi_buf || !ipi_buf_da) {
+		dev_err(dev, "failed to allocate ipi share memory\n");
+		return -ENOMEM;
+	}
+
+	dev_dbg(dev, "%s: ipi_buf=%p, ipi_buf_da=%pad\n", __func__, ipi_buf, &ipi_buf_da);
+
+	apu->recv_buf = ipi_buf;
+	apu->recv_buf_da = ipi_buf_da;
+	apu->send_buf = ipi_buf + sizeof(struct mtk_share_obj);
+	apu->send_buf_da = ipi_buf_da + sizeof(struct mtk_share_obj);
+
+	ipi_config->in_buf_da = apu->send_buf_da;
+	ipi_config->out_buf_da = apu->recv_buf_da;
+
+	return 0;
+}
+
 int mtk_apu_ipi_init(struct platform_device *pdev, struct mtk_apu *apu)
 {
 	struct device *dev = apu->dev;

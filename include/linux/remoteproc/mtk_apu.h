@@ -192,6 +192,8 @@ int mtk_apu_ipi_register(struct mtk_apu *apu, u32 id, ipi_top_handler_t top_hand
 			 ipi_handler_t handler, void *priv);
 void mtk_apu_ipi_unregister(struct mtk_apu *apu, u32 id);
 int mtk_apu_ipi_send(struct mtk_apu *apu, u32 id, void *data, u32 len, u32 wait_ms);
+int mtk_apu_timesync_init(struct mtk_apu *apu);
+void mtk_apu_timesync_remove(struct mtk_apu *apu);
 int mtk_apu_mem_init(struct mtk_apu *apu);
 
 int mtk_apu_load(struct rproc *rproc, const struct firmware *fw);
