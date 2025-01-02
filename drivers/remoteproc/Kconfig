@@ -54,6 +54,19 @@ config INGENIC_VPU_RPROC
 	  This can be either built-in or a loadable module.
 	  If unsure say N.
 
+config MTK_APU_RPROC
+	tristate "MediaTek APU remoteproc support"
+	depends on ARCH_MEDIATEK || COMPILE_TEST
+	depends on ARM || ARM64
+	select MAILBOX
+	select MTK_APU_MBOX
+	select MTK_APUSYS_SUPPORT
+	help
+	  Say y here to support MediaTek AI Processing Unit Subsystem
+	  via the remote processor framework.
+
+	  It's safe to say N here.
+
 config MTK_SCP
 	tristate "Mediatek SCP support"
 	depends on ARCH_MEDIATEK || COMPILE_TEST
