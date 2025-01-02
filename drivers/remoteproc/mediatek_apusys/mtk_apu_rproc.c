@@ -331,6 +331,7 @@ static int mtk_apu_unprepare(struct rproc *rproc)
 static const struct rproc_ops mtk_apu_ops = {
 	.start		= mtk_apu_start,
 	.stop		= mtk_apu_stop,
+	.load		= mtk_apu_load,
 	.prepare	= mtk_apu_prepare,
 	.unprepare	= mtk_apu_unprepare,
 	.da_to_va	= mtk_apu_da_to_va,

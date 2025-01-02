@@ -183,4 +183,6 @@ int mtk_apu_config_setup(struct mtk_apu *apu);
 void mtk_apu_config_remove(struct mtk_apu *apu);
 int mtk_apu_mem_init(struct mtk_apu *apu);
 
+int mtk_apu_load(struct rproc *rproc, const struct firmware *fw);
+
 #endif /* MTK_APU_H */
