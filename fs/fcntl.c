@@ -12,7 +12,6 @@
 #include <linux/fs.h>
 #include <linux/filelock.h>
 #include <linux/file.h>
-#include <linux/fdtable.h>
 #include <linux/capability.h>
 #include <linux/dnotify.h>
 #include <linux/slab.h>
@@ -396,6 +395,9 @@ static long fcntl_set_rw_hint(struct file *file, unsigned int cmd,
 static long f_dupfd_query(int fd, struct file *filp)
 {
 	CLASS(fd_raw, f)(fd);
+
+	if (fd_empty(f))
+		return -EBADF;
 
 	/*
 	 * We can do the 'fdput()' immediately, as the only thing that
