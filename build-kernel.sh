@@ -17,16 +17,16 @@ BUILD_FAMILY_NAME=$(basename $ANDROID_PRODUCT_OUT)
 
 OUTPUT=$ANDROID_BUILD_TOP/device/google/desktop/${BUILD_FAMILY_NAME}-kernels/6.6
 
-# TODO: b/379702641 - Once we are firmly building brya kernels via Kleaf,
-# upgrade this warning to a harder stop requiring user confirmation.
+# Prevent devs from accidentally using this legacy build script for devices
+# that should use Kleaf-based kernels.
 if [ $BUILD_FAMILY_NAME = "brya" ]; then
-  echo "WARNING: Brya devices are migrating to Kleaf-based kernel prebuilts."
-  echo "This script is still OK to use for now, but be warned that this script"
-  echo "will soon be deprecated for Brya."
-  echo "Instructions for building via Kleaf will be available at that time."
-
-  # Update brya path to include legacy_kernel suffix.
-  OUTPUT=$OUTPUT/legacy_kernel
+  echo -e "\n**********************************************************************"
+  echo "ATTENTION: Brya devices migrated to Kleaf-based kernel prebuilts."
+  echo "Building Brya kernels with the legacy system is deprecated."
+  echo "Follow go/desktop-gki 'GKI Instructions' section instead."
+  echo -e "**********************************************************************\n"
+  echo "Exiting build..."
+  exit 1
 fi
 
 # Determine the host architecture, and which default prebuilt tag we need.
