@@ -734,7 +734,6 @@ SYSCALL_DEFINE3(inotify_add_watch, int, fd, const char __user *, pathname,
 	struct path path;
 	struct path alteredpath;
 	struct path *canonical_path = &path;
-	struct fd f;
 	int ret;
 	unsigned flags = 0;
 
@@ -754,21 +753,17 @@ SYSCALL_DEFINE3(inotify_add_watch, int, fd, const char __user *, pathname,
 	if (unlikely(!(mask & ALL_INOTIFY_BITS)))
 		return -EINVAL;
 
-	f = fdget(fd);
-	if (unlikely(!fd_file(f)))
+	CLASS(fd, f)(fd);
+	if (fd_empty(f))
 		return -EBADF;
 
 	/* IN_MASK_ADD and IN_MASK_CREATE don't make sense together */
-	if (unlikely((mask & IN_MASK_ADD) && (mask & IN_MASK_CREATE))) {
-		ret = -EINVAL;
-		goto fput_and_out;
-	}
+	if (unlikely((mask & IN_MASK_ADD) && (mask & IN_MASK_CREATE)))
+		return -EINVAL;
 
 	/* verify that this is indeed an inotify instance */
-	if (unlikely(fd_file(f)->f_op != &inotify_fops)) {
-		ret = -EINVAL;
-		goto fput_and_out;
-	}
+	if (unlikely(fd_file(f)->f_op != &inotify_fops))
+		return -EINVAL;
 
 	if (!(mask & IN_DONT_FOLLOW))
 		flags |= LOOKUP_FOLLOW;
@@ -778,7 +773,7 @@ SYSCALL_DEFINE3(inotify_add_watch, int, fd, const char __user *, pathname,
 	ret = inotify_find_inode(pathname, &path, flags,
 			(mask & IN_ALL_EVENTS));
 	if (ret)
-		goto fput_and_out;
+		return ret;
 
 	/* support stacked filesystems */
 	if (path.dentry && path.dentry->d_op) {
@@ -803,8 +798,6 @@ SYSCALL_DEFINE3(inotify_add_watch, int, fd, const char __user *, pathname,
 	ret = inotify_update_watch(group, inode, mask);
 path_put_and_out:
 	path_put(canonical_path);
-fput_and_out:
-	fdput(f);
 	return ret;
 }
 
@@ -812,33 +805,26 @@ SYSCALL_DEFINE2(inotify_rm_watch, int, fd, __s32, wd)
 {
 	struct fsnotify_group *group;
 	struct inotify_inode_mark *i_mark;
-	struct fd f;
-	int ret = -EINVAL;
+	CLASS(fd, f)(fd);
 
-	f = fdget(fd);
-	if (unlikely(!fd_file(f)))
+	if (fd_empty(f))
 		return -EBADF;
 
 	/* verify that this is indeed an inotify instance */
 	if (unlikely(fd_file(f)->f_op != &inotify_fops))
-		goto out;
+		return -EINVAL;
 
 	group = fd_file(f)->private_data;
 
 	i_mark = inotify_idr_find(group, wd);
 	if (unlikely(!i_mark))
-		goto out;
-
-	ret = 0;
+		return -EINVAL;
 
 	fsnotify_destroy_mark(&i_mark->fsn_mark, group);
 
 	/* match ref taken by inotify_idr_find */
 	fsnotify_put_mark(&i_mark->fsn_mark);
-
-out:
-	fdput(f);
-	return ret;
+	return 0;
 }
 
 /*
