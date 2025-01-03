@@ -15,6 +15,7 @@
  */
 #define CONSTANT_IOMMU_ID 42
 
+#ifndef MODULE
 static bool enabled;
 
 static int __init early_enabled_cfg(char *arg)
@@ -28,6 +29,10 @@ static int __init early_enabled_cfg(char *arg)
 }
 
 early_param("kvm-arm.unsafe_iommu", early_enabled_cfg);
+#else
+/* If the module is not builtin and loaded then enable the stub by default */
+static bool enabled = true;
+#endif
 
 static int init_driver(void)
 {
