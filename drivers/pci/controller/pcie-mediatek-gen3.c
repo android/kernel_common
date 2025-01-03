@@ -1325,6 +1325,19 @@ static int mtk_pcie_suspend_noirq(struct device *dev)
 	int err;
 	u32 val;
 
+	/*
+	 * If the target system sleep state is suspend-to-idle, the bridge is supposed to stay in
+	 * D0, and the framework will not help to restore its configuration space, so keep it's
+	 * power and clocks during suspend.
+	 *
+	 * It's recommended to enable L1ss support, so the link can be changed to L1.2 state during
+	 * suspend.
+	 */
+	if (pm_suspend_default_s2idle()) {
+		dev_info(dev, "System enter s2idle state, keep PCIe power and clocks\n");
+		return 0;
+	}
+
 	/* Trigger link to L2 state */
 	err = mtk_pcie_turn_off_link(pcie);
 	if (err) {
@@ -1349,6 +1362,11 @@ static int mtk_pcie_resume_noirq(struct device *dev)
 {
 	struct mtk_gen3_pcie *pcie = dev_get_drvdata(dev);
 	int err;
+
+	if (pm_suspend_default_s2idle()) {
+		dev_info(dev, "System enter s2idle state, no need to reinitialization\n");
+		return 0;
+	}
 
 	err = pcie->soc->power_up(pcie);
 	if (err)
