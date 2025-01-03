@@ -83,6 +83,9 @@
 #define PCIE_MSI_SET_ENABLE_REG		0x190
 #define PCIE_MSI_SET_ENABLE		GENMASK(PCIE_MSI_SET_NUM - 1, 0)
 
+#define PCIE_LOW_POWER_CTRL_REG		0x194
+#define PCIE_FORCE_DIS_L0S		BIT(8)
+
 #define PCIE_PIPE4_PIE8_REG		0x338
 #define PCIE_K_FINETUNE_MAX		GENMASK(5, 0)
 #define PCIE_K_FINETUNE_ERR		GENMASK(7, 6)
@@ -440,6 +443,14 @@ static int mtk_pcie_startup_port(struct mtk_gen3_pcie *pcie)
 	val = readl_relaxed(pcie->base + PCIE_INT_ENABLE_REG);
 	val &= ~PCIE_INTX_ENABLE;
 	writel_relaxed(val, pcie->base + PCIE_INT_ENABLE_REG);
+
+	/*
+	 * Disable L0s support because it does not significantly save power
+	 * but impacts performance.
+	 */
+	val = readl_relaxed(pcie->base + PCIE_LOW_POWER_CTRL_REG);
+	val |= PCIE_FORCE_DIS_L0S;
+	writel_relaxed(val, pcie->base + PCIE_LOW_POWER_CTRL_REG);
 
 	/* Disable DVFSRC voltage request */
 	val = readl_relaxed(pcie->base + PCIE_MISC_CTRL_REG);
