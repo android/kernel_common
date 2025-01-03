@@ -1266,8 +1266,6 @@ struct intel_crtc_state {
 
 	bool double_wide;
 
-	int pbn;
-
 	struct intel_crtc_scaler_state scaler_state;
 
 	/* w/a for waiting 2 vblanks during crtc enable */
