@@ -1538,6 +1538,7 @@ ddk_headers(
     name = "all_headers_allowlist_aarch64",
     hdrs = [
         "drivers/thermal/thermal_core.h",
+        "drivers/thermal/thermal_debugfs.h",
         "drivers/thermal/thermal_netlink.h",
         "sound/usb/card.h",
         "sound/usb/usbaudio.h",
