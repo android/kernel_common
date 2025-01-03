@@ -315,7 +315,6 @@ static void __add_uid_io_stats(struct uid_entry *uid_entry,
 	io_slot->write_bytes += compute_write_bytes(ioac);
 	io_slot->rchar += ioac->rchar;
 	io_slot->wchar += ioac->wchar;
-	io_slot->fsync += ioac->syscfs;
 }
 
 static void add_uid_io_stats(struct uid_entry *uid_entry,
@@ -352,7 +351,6 @@ static void update_io_stats_uid(struct uid_entry *uid_entry)
 				io.write_bytes += compute_write_bytes(&t->ioac);
 				io.rchar += t->ioac.rchar;
 				io.wchar += t->ioac.wchar;
-				io.fsync += t->ioac.syscfs;
 			}
 		}
 	}
