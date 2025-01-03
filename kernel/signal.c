@@ -432,7 +432,8 @@ __sigqueue_alloc(int sig, struct task_struct *t, gfp_t gfp_flags,
 	 */
 	rcu_read_lock();
 	ucounts = task_ucounts(t);
-	sigpending = inc_rlimit_get_ucounts(ucounts, UCOUNT_RLIMIT_SIGPENDING);
+	sigpending = inc_rlimit_get_ucounts(ucounts, UCOUNT_RLIMIT_SIGPENDING,
+					    override_rlimit);
 	rcu_read_unlock();
 	if (!sigpending)
 		return NULL;
@@ -1204,6 +1205,7 @@ out_set:
 	complete_signal(sig, t, type);
 ret:
 	trace_signal_generate(sig, info, t, type != PIDTYPE_PID, result);
+	trace_android_vh_send_signal_locked(result, ret, sig, t, type, info);
 	return ret;
 }
 
@@ -1323,6 +1325,7 @@ int do_send_sig_info(int sig, struct kernel_siginfo *info, struct task_struct *p
 
 	return ret;
 }
+EXPORT_SYMBOL_GPL(do_send_sig_info);
 
 enum sig_handler {
 	HANDLER_CURRENT, /* If reachable use the current handler */

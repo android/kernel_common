@@ -292,6 +292,12 @@
     },
     {
       "name": "binderLibTest"
+    },
+    {
+      "name": "CtsLibcoreTestCases"
+    },
+    {
+      "name": "CtsUsbTests"
     }
   ]
 }

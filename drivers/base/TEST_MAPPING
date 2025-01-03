@@ -316,6 +316,12 @@
     },
     {
       "name": "CtsBionicTestCases"
+    },
+    {
+      "name": "CtsLibcoreTestCases"
+    },
+    {
+      "name": "CtsUsbTests"
     }
   ]
 }

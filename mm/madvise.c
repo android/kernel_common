@@ -45,6 +45,7 @@
 struct madvise_walk_private {
 	struct mmu_gather *tlb;
 	bool pageout;
+	void *private;
 };
 
 /*
@@ -456,7 +457,7 @@ static int madvise_cold_or_pageout_pte_range(pmd_t *pmd,
 huge_unlock:
 		spin_unlock(ptl);
 		if (pageout)
-			reclaim_pages(&folio_list, true);
+			__reclaim_pages(&folio_list, true, private->private);
 		return 0;
 	}
 
@@ -597,7 +598,7 @@ restart:
 		pte_unmap_unlock(start_pte, ptl);
 	}
 	if (pageout)
-		reclaim_pages(&folio_list, true);
+		__reclaim_pages(&folio_list, true, private->private);
 	cond_resched();
 
 	return 0;
@@ -655,10 +656,17 @@ static int madvise_pageout_page_range(struct mmu_gather *tlb,
 		.tlb = tlb,
 	};
 	int ret;
+	LIST_HEAD(folio_list);
+
+	trace_android_rvh_madvise_pageout_begin(&walk_private.private);
 
 	tlb_start_vma(tlb, vma);
 	ret = walk_page_range(vma->vm_mm, addr, end, &cold_walk_ops, &walk_private);
 	tlb_end_vma(tlb, vma);
+
+	trace_android_rvh_madvise_pageout_end(walk_private.private, &folio_list);
+	if (!list_empty(&folio_list))
+		reclaim_pages(&folio_list, true);
 
 	return ret;
 }

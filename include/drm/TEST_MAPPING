@@ -307,6 +307,12 @@
     },
     {
       "name": "VtsHalBluetoothAudioTargetTest"
+    },
+    {
+      "name": "CtsLibcoreTestCases"
+    },
+    {
+      "name": "CtsUsbTests"
     }
   ]
 }

@@ -43,6 +43,8 @@
 #undef CREATE_TRACE_POINTS
 #include <trace/hooks/ufshcd.h>
 
+EXPORT_TRACEPOINT_SYMBOL_GPL(ufshcd_command);
+
 #define UFSHCD_ENABLE_INTRS	(UTP_TRANSFER_REQ_COMPL |\
 				 UTP_TASK_REQ_COMPL |\
 				 UFSHCD_ERROR_MASK)
@@ -2744,6 +2746,9 @@ static int ufshcd_compose_devman_upiu(struct ufs_hba *hba,
 	else
 		ret = -EINVAL;
 
+	if (!ret && hba->android_quirks & UFSHCD_ANDROID_QUIRK_SET_IID_TO_ONE)
+		lrbp->ucd_req_ptr->header.iid = 1;
+
 	return ret;
 }
 
@@ -2768,6 +2773,8 @@ static int ufshcd_comp_scsi_upiu(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 	if (likely(lrbp->cmd)) {
 		ufshcd_prepare_req_desc_hdr(lrbp, &upiu_flags, lrbp->cmd->sc_data_direction, 0);
 		ufshcd_prepare_utp_scsi_cmd_upiu(lrbp, upiu_flags);
+		if (hba->android_quirks & UFSHCD_ANDROID_QUIRK_SET_IID_TO_ONE)
+			lrbp->ucd_req_ptr->header.iid = 1;
 	} else {
 		ret = -EINVAL;
 	}

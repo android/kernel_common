@@ -65,6 +65,12 @@
 
 #include "swap.h"
 
+void _trace_android_rvh_mapping_shrinkable(bool *shrinkable)
+{
+	trace_android_rvh_mapping_shrinkable(shrinkable);
+}
+EXPORT_SYMBOL_GPL(_trace_android_rvh_mapping_shrinkable);
+
 /*
  * Shared mappings implemented 30.11.1994. It's not fully working yet,
  * though.
@@ -1924,6 +1930,8 @@ repeat:
 	folio = filemap_get_entry(mapping, index);
 	if (xa_is_value(folio))
 		folio = NULL;
+	trace_android_vh_filemap_get_folio(mapping, index, fgp_flags,
+					gfp, folio);
 	if (!folio)
 		goto no_page;
 
@@ -1984,8 +1992,6 @@ no_page:
 			gfp_t alloc_gfp = gfp;
 
 			err = -ENOMEM;
-			if (order == 1)
-				order = 0;
 			if (order > 0)
 				alloc_gfp |= __GFP_NORETRY | __GFP_NOWARN;
 			folio = filemap_alloc_folio(alloc_gfp, order);
@@ -2690,7 +2696,7 @@ ssize_t filemap_read(struct kiocb *iocb, struct iov_iter *iter,
 	if (unlikely(!iov_iter_count(iter)))
 		return 0;
 
-	iov_iter_truncate(iter, inode->i_sb->s_maxbytes);
+	iov_iter_truncate(iter, inode->i_sb->s_maxbytes - iocb->ki_pos);
 	folio_batch_init(&fbatch);
 	trace_android_vh_filemap_read(filp, iocb->ki_pos, iov_iter_count(iter));
 
