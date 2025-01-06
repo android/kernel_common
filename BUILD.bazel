@@ -1663,6 +1663,7 @@ ddk_headers(
     # from. In other words, these are the `-I` option to the C compiler.
     # Unsafe include directories are appended to ccflags-y.
     includes = [
+        ".",
         "drivers/devfreq",
         "drivers/pinctrl",
         "drivers/ufs/host",
