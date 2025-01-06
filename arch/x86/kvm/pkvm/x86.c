@@ -247,6 +247,27 @@ noinstr void kvm_spurious_fault(void)
 }
 EXPORT_SYMBOL_GPL(kvm_spurious_fault);
 
+#define EXCPT_BENIGN		0
+#define EXCPT_CONTRIBUTORY	1
+#define EXCPT_PF		2
+
+static int exception_class(int vector)
+{
+	switch (vector) {
+	case PF_VECTOR:
+		return EXCPT_PF;
+	case DE_VECTOR:
+	case TS_VECTOR:
+	case NP_VECTOR:
+	case SS_VECTOR:
+	case GP_VECTOR:
+		return EXCPT_CONTRIBUTORY;
+	default:
+		break;
+	}
+	return EXCPT_BENIGN;
+}
+
 #define EXCPT_FAULT		0
 #define EXCPT_TRAP		1
 #define EXCPT_ABORT		2
@@ -331,11 +352,104 @@ void kvm_deliver_exception_payload(struct kvm_vcpu *vcpu,
 }
 EXPORT_SYMBOL_GPL(kvm_deliver_exception_payload);
 
+static void kvm_queue_exception_vmexit(struct kvm_vcpu *vcpu, unsigned int vector,
+				       bool has_error_code, u32 error_code,
+				       bool has_payload, unsigned long payload)
+{
+	struct kvm_queued_exception *ex = &vcpu->arch.exception_vmexit;
+
+	ex->vector = vector;
+	ex->injected = false;
+	ex->pending = true;
+	ex->has_error_code = has_error_code;
+	ex->error_code = error_code;
+	ex->has_payload = has_payload;
+	ex->payload = payload;
+}
+
 static void kvm_multiple_exception(struct kvm_vcpu *vcpu,
 		unsigned nr, bool has_error, u32 error_code,
 		bool has_payload, unsigned long payload, bool reinject)
 {
-	/* TODO */
+	u32 prev_nr;
+	int class1, class2;
+
+	kvm_make_request(KVM_REQ_EVENT, vcpu);
+
+	/*
+	 * If the exception is destined for L2 and isn't being reinjected,
+	 * morph it to a VM-Exit if L1 wants to intercept the exception.  A
+	 * previously injected exception is not checked because it was checked
+	 * when it was original queued, and re-checking is incorrect if _L1_
+	 * injected the exception, in which case it's exempt from interception.
+	 */
+	if (!reinject && is_guest_mode(vcpu) &&
+	    kvm_x86_ops.nested_ops->is_exception_vmexit(vcpu, nr, error_code)) {
+		kvm_queue_exception_vmexit(vcpu, nr, has_error, error_code,
+					   has_payload, payload);
+		return;
+	}
+
+	if (!vcpu->arch.exception.pending && !vcpu->arch.exception.injected) {
+	queue:
+		if (reinject) {
+			/*
+			 * On VM-Entry, an exception can be pending if and only
+			 * if event injection was blocked by nested_run_pending.
+			 * In that case, however, vcpu_enter_guest() requests an
+			 * immediate exit, and the guest shouldn't proceed far
+			 * enough to need reinjection.
+			 */
+			WARN_ON_ONCE(kvm_is_exception_pending(vcpu));
+			vcpu->arch.exception.injected = true;
+			if (WARN_ON_ONCE(has_payload)) {
+				/*
+				 * A reinjected event has already
+				 * delivered its payload.
+				 */
+				has_payload = false;
+				payload = 0;
+			}
+		} else {
+			vcpu->arch.exception.pending = true;
+			vcpu->arch.exception.injected = false;
+		}
+		vcpu->arch.exception.has_error_code = has_error;
+		vcpu->arch.exception.vector = nr;
+		vcpu->arch.exception.error_code = error_code;
+		vcpu->arch.exception.has_payload = has_payload;
+		vcpu->arch.exception.payload = payload;
+		if (!is_guest_mode(vcpu))
+			kvm_deliver_exception_payload(vcpu,
+						      &vcpu->arch.exception);
+		return;
+	}
+
+	/* to check exception */
+	prev_nr = vcpu->arch.exception.vector;
+	if (prev_nr == DF_VECTOR) {
+		/* triple fault -> shutdown */
+		kvm_make_request(KVM_REQ_TRIPLE_FAULT, vcpu);
+		return;
+	}
+	class1 = exception_class(prev_nr);
+	class2 = exception_class(nr);
+	if ((class1 == EXCPT_CONTRIBUTORY && class2 == EXCPT_CONTRIBUTORY) ||
+	    (class1 == EXCPT_PF && class2 != EXCPT_BENIGN)) {
+		/*
+		 * Synthesize #DF.  Clear the previously injected or pending
+		 * exception so as not to incorrectly trigger shutdown.
+		 */
+		vcpu->arch.exception.injected = false;
+		vcpu->arch.exception.pending = false;
+
+		kvm_queue_exception_e(vcpu, DF_VECTOR, 0);
+	} else {
+		/* replace previous exception with a new one in a hope
+		   that instruction re-execution will regenerate lost
+		   exception */
+		goto queue;
+	}
 }
 
 int kvm_complete_insn_gp(struct kvm_vcpu *vcpu, int err)
