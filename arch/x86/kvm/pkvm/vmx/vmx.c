@@ -43,6 +43,9 @@ module_param_named(unrestricted_guest,
 bool __read_mostly enable_ept_ad_bits = 1;
 module_param_named(eptad, enable_ept_ad_bits, bool, 0444);
 
+static bool __read_mostly emulate_invalid_guest_state = true;
+module_param(emulate_invalid_guest_state, bool, 0444);
+
 bool __read_mostly enable_ipiv = true;
 module_param(enable_ipiv, bool, 0444);
 
@@ -470,6 +473,33 @@ static bool vmx_segment_cache_test_set(struct vcpu_vmx *vmx, unsigned seg,
 	ret = vmx->segment_cache.bitmask & mask;
 	vmx->segment_cache.bitmask |= mask;
 	return ret;
+}
+
+static u16 vmx_read_guest_seg_selector(struct vcpu_vmx *vmx, unsigned seg)
+{
+	u16 *p = &vmx->segment_cache.seg[seg].selector;
+
+	if (!vmx_segment_cache_test_set(vmx, seg, SEG_FIELD_SEL))
+		*p = vmcs_read16(kvm_vmx_segment_fields[seg].selector);
+	return *p;
+}
+
+static ulong vmx_read_guest_seg_base(struct vcpu_vmx *vmx, unsigned seg)
+{
+	ulong *p = &vmx->segment_cache.seg[seg].base;
+
+	if (!vmx_segment_cache_test_set(vmx, seg, SEG_FIELD_BASE))
+		*p = vmcs_readl(kvm_vmx_segment_fields[seg].base);
+	return *p;
+}
+
+static u32 vmx_read_guest_seg_limit(struct vcpu_vmx *vmx, unsigned seg)
+{
+	u32 *p = &vmx->segment_cache.seg[seg].limit;
+
+	if (!vmx_segment_cache_test_set(vmx, seg, SEG_FIELD_LIMIT))
+		*p = vmcs_read32(kvm_vmx_segment_fields[seg].limit);
+	return *p;
 }
 
 static u32 vmx_read_guest_seg_ar(struct vcpu_vmx *vmx, unsigned seg)
@@ -1178,6 +1208,11 @@ void vmx_vcpu_put(struct kvm_vcpu *vcpu)
 #endif
 }
 
+bool vmx_emulation_required(struct kvm_vcpu *vcpu)
+{
+	return emulate_invalid_guest_state && !vmx_guest_state_valid(vcpu);
+}
+
 unsigned long vmx_get_rflags(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -1194,6 +1229,35 @@ unsigned long vmx_get_rflags(struct kvm_vcpu *vcpu)
 		vmx->rflags = rflags;
 	}
 	return vmx->rflags;
+}
+
+void vmx_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	unsigned long old_rflags;
+
+	/*
+	 * Unlike CR0 and CR4, RFLAGS handling requires checking if the vCPU
+	 * is an unrestricted guest in order to mark L2 as needing emulation
+	 * if L1 runs L2 as a restricted guest.
+	 */
+	if (is_unrestricted_guest(vcpu)) {
+		kvm_register_mark_available(vcpu, VCPU_EXREG_RFLAGS);
+		vmx->rflags = rflags;
+		vmcs_writel(GUEST_RFLAGS, rflags);
+		return;
+	}
+
+	old_rflags = vmx_get_rflags(vcpu);
+	vmx->rflags = rflags;
+	if (vmx->rmode.vm86_active) {
+		vmx->rmode.save_rflags = rflags;
+		rflags |= X86_EFLAGS_IOPL | X86_EFLAGS_VM;
+	}
+	vmcs_writel(GUEST_RFLAGS, rflags);
+
+	if ((old_rflags ^ vmx->rflags) & X86_EFLAGS_VM)
+		vmx->emulation_required = vmx_emulation_required(vcpu);
 }
 
 void vmx_set_interrupt_shadow(struct kvm_vcpu *vcpu, int mask)
@@ -2570,6 +2634,42 @@ u64 construct_eptp(struct kvm_vcpu *vcpu, hpa_t root_hpa, int root_level)
 	return eptp;
 }
 
+void vmx_get_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	u32 ar;
+
+	if (vmx->rmode.vm86_active && seg != VCPU_SREG_LDTR) {
+		*var = vmx->rmode.segs[seg];
+		if (seg == VCPU_SREG_TR
+		    || var->selector == vmx_read_guest_seg_selector(vmx, seg))
+			return;
+		var->base = vmx_read_guest_seg_base(vmx, seg);
+		var->selector = vmx_read_guest_seg_selector(vmx, seg);
+		return;
+	}
+	var->base = vmx_read_guest_seg_base(vmx, seg);
+	var->limit = vmx_read_guest_seg_limit(vmx, seg);
+	var->selector = vmx_read_guest_seg_selector(vmx, seg);
+	ar = vmx_read_guest_seg_ar(vmx, seg);
+	var->unusable = (ar >> 16) & 1;
+	var->type = ar & 15;
+	var->s = (ar >> 4) & 1;
+	var->dpl = (ar >> 5) & 3;
+	/*
+	 * Some userspaces do not preserve unusable property. Since usable
+	 * segment has to be present according to VMX spec we can use present
+	 * property to amend userspace bug by making unusable segment always
+	 * nonpresent. vmx_segment_access_rights() already marks nonpresent
+	 * segment as unusable.
+	 */
+	var->present = !var->unusable;
+	var->avl = (ar >> 12) & 1;
+	var->l = (ar >> 13) & 1;
+	var->db = (ar >> 14) & 1;
+	var->g = (ar >> 15) & 1;
+}
+
 int vmx_get_cpl(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -2580,6 +2680,216 @@ int vmx_get_cpl(struct kvm_vcpu *vcpu)
 		int ar = vmx_read_guest_seg_ar(vmx, VCPU_SREG_SS);
 		return VMX_AR_DPL(ar);
 	}
+}
+
+static u32 vmx_segment_access_rights(struct kvm_segment *var)
+{
+	u32 ar;
+
+	ar = var->type & 15;
+	ar |= (var->s & 1) << 4;
+	ar |= (var->dpl & 3) << 5;
+	ar |= (var->present & 1) << 7;
+	ar |= (var->avl & 1) << 12;
+	ar |= (var->l & 1) << 13;
+	ar |= (var->db & 1) << 14;
+	ar |= (var->g & 1) << 15;
+	ar |= (var->unusable || !var->present) << 16;
+
+	return ar;
+}
+
+static bool rmode_segment_valid(struct kvm_vcpu *vcpu, int seg)
+{
+	struct kvm_segment var;
+	u32 ar;
+
+	vmx_get_segment(vcpu, &var, seg);
+	var.dpl = 0x3;
+	if (seg == VCPU_SREG_CS)
+		var.type = 0x3;
+	ar = vmx_segment_access_rights(&var);
+
+	if (var.base != (var.selector << 4))
+		return false;
+	if (var.limit != 0xffff)
+		return false;
+	if (ar != 0xf3)
+		return false;
+
+	return true;
+}
+
+static bool code_segment_valid(struct kvm_vcpu *vcpu)
+{
+	struct kvm_segment cs;
+	unsigned int cs_rpl;
+
+	vmx_get_segment(vcpu, &cs, VCPU_SREG_CS);
+	cs_rpl = cs.selector & SEGMENT_RPL_MASK;
+
+	if (cs.unusable)
+		return false;
+	if (~cs.type & (VMX_AR_TYPE_CODE_MASK|VMX_AR_TYPE_ACCESSES_MASK))
+		return false;
+	if (!cs.s)
+		return false;
+	if (cs.type & VMX_AR_TYPE_WRITEABLE_MASK) {
+		if (cs.dpl > cs_rpl)
+			return false;
+	} else {
+		if (cs.dpl != cs_rpl)
+			return false;
+	}
+	if (!cs.present)
+		return false;
+
+	/* TODO: Add Reserved field check, this'll require a new member in the kvm_segment_field structure */
+	return true;
+}
+
+static bool stack_segment_valid(struct kvm_vcpu *vcpu)
+{
+	struct kvm_segment ss;
+	unsigned int ss_rpl;
+
+	vmx_get_segment(vcpu, &ss, VCPU_SREG_SS);
+	ss_rpl = ss.selector & SEGMENT_RPL_MASK;
+
+	if (ss.unusable)
+		return true;
+	if (ss.type != 3 && ss.type != 7)
+		return false;
+	if (!ss.s)
+		return false;
+	if (ss.dpl != ss_rpl) /* DPL != RPL */
+		return false;
+	if (!ss.present)
+		return false;
+
+	return true;
+}
+
+static bool data_segment_valid(struct kvm_vcpu *vcpu, int seg)
+{
+	struct kvm_segment var;
+	unsigned int rpl;
+
+	vmx_get_segment(vcpu, &var, seg);
+	rpl = var.selector & SEGMENT_RPL_MASK;
+
+	if (var.unusable)
+		return true;
+	if (!var.s)
+		return false;
+	if (!var.present)
+		return false;
+	if (~var.type & (VMX_AR_TYPE_CODE_MASK|VMX_AR_TYPE_WRITEABLE_MASK)) {
+		if (var.dpl < rpl) /* DPL < RPL */
+			return false;
+	}
+
+	/* TODO: Add other members to kvm_segment_field to allow checking for other access
+	 * rights flags
+	 */
+	return true;
+}
+
+static bool tr_valid(struct kvm_vcpu *vcpu)
+{
+	struct kvm_segment tr;
+
+	vmx_get_segment(vcpu, &tr, VCPU_SREG_TR);
+
+	if (tr.unusable)
+		return false;
+	if (tr.selector & SEGMENT_TI_MASK)	/* TI = 1 */
+		return false;
+	if (tr.type != 3 && tr.type != 11) /* TODO: Check if guest is in IA32e mode */
+		return false;
+	if (!tr.present)
+		return false;
+
+	return true;
+}
+
+static bool ldtr_valid(struct kvm_vcpu *vcpu)
+{
+	struct kvm_segment ldtr;
+
+	vmx_get_segment(vcpu, &ldtr, VCPU_SREG_LDTR);
+
+	if (ldtr.unusable)
+		return true;
+	if (ldtr.selector & SEGMENT_TI_MASK)	/* TI = 1 */
+		return false;
+	if (ldtr.type != 2)
+		return false;
+	if (!ldtr.present)
+		return false;
+
+	return true;
+}
+
+static bool cs_ss_rpl_check(struct kvm_vcpu *vcpu)
+{
+	struct kvm_segment cs, ss;
+
+	vmx_get_segment(vcpu, &cs, VCPU_SREG_CS);
+	vmx_get_segment(vcpu, &ss, VCPU_SREG_SS);
+
+	return ((cs.selector & SEGMENT_RPL_MASK) ==
+		 (ss.selector & SEGMENT_RPL_MASK));
+}
+
+/*
+ * Check if guest state is valid. Returns true if valid, false if
+ * not.
+ * We assume that registers are always usable
+ */
+bool __vmx_guest_state_valid(struct kvm_vcpu *vcpu)
+{
+	/* real mode guest state checks */
+	if (!is_protmode(vcpu) || (vmx_get_rflags(vcpu) & X86_EFLAGS_VM)) {
+		if (!rmode_segment_valid(vcpu, VCPU_SREG_CS))
+			return false;
+		if (!rmode_segment_valid(vcpu, VCPU_SREG_SS))
+			return false;
+		if (!rmode_segment_valid(vcpu, VCPU_SREG_DS))
+			return false;
+		if (!rmode_segment_valid(vcpu, VCPU_SREG_ES))
+			return false;
+		if (!rmode_segment_valid(vcpu, VCPU_SREG_FS))
+			return false;
+		if (!rmode_segment_valid(vcpu, VCPU_SREG_GS))
+			return false;
+	} else {
+	/* protected mode guest state checks */
+		if (!cs_ss_rpl_check(vcpu))
+			return false;
+		if (!code_segment_valid(vcpu))
+			return false;
+		if (!stack_segment_valid(vcpu))
+			return false;
+		if (!data_segment_valid(vcpu, VCPU_SREG_DS))
+			return false;
+		if (!data_segment_valid(vcpu, VCPU_SREG_ES))
+			return false;
+		if (!data_segment_valid(vcpu, VCPU_SREG_FS))
+			return false;
+		if (!data_segment_valid(vcpu, VCPU_SREG_GS))
+			return false;
+		if (!tr_valid(vcpu))
+			return false;
+		if (!ldtr_valid(vcpu))
+			return false;
+	}
+	/* TODO:
+	 * - Add checks on RIP
+	 * - Add checks on RFLAGS
+	 */
+
+	return true;
 }
 
 int allocate_vpid(void)
@@ -5373,6 +5683,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.set_msr = vmx_set_msr,
 	.cache_reg = vmx_cache_reg,
 	.get_rflags = vmx_get_rflags,
+	.set_rflags = vmx_set_rflags,
 
 	.flush_tlb_all = vmx_flush_tlb_all,
 	.flush_tlb_current = vmx_flush_tlb_current,
