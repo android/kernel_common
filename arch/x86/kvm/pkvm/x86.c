@@ -775,14 +775,6 @@ int kvm_emulate_rdmsr(struct kvm_vcpu *vcpu)
 		 */
 		if (r != 1)
 			return 0;
-		/*
-		 * FIXME: For the case r == 1, it means rdmsr emulation is
-		 * failed and needs to inject #GP to the guest VM, which
-		 * currently is not supported by the pkvm hypervisor. Switch to
-		 * the host VMM to handle this. Once the #GP injection is
-		 * supported, this should be handled in the pkvm hypervisor.
-		 */
-		return 0;
 #else
 		/* MSR read failed? See if we should ask user space */
 		if (kvm_msr_user_space(vcpu, ecx, KVM_EXIT_X86_RDMSR, 0,
@@ -815,14 +807,6 @@ int kvm_emulate_wrmsr(struct kvm_vcpu *vcpu)
 		 */
 		if (r != 1)
 			return 0;
-		/*
-		 * FIXME: For the case r == 1, it means wrmsr emulation is
-		 * failed and needs to inject #GP to the guest VM, which
-		 * currently is not supported by the pkvm hypervisor. Switch to
-		 * the host VMM to handle this. Once the #GP injection is
-		 * supported, this should be handled in the pkvm hypervisor.
-		 */
-		return 0;
 #else
 		/* MSR write failed? See if we should ask user space */
 		if (kvm_msr_user_space(vcpu, ecx, KVM_EXIT_X86_WRMSR, data,
