@@ -1317,6 +1317,19 @@ int vmx_skip_emulated_instruction(struct kvm_vcpu *vcpu)
 	return skip_emulated_instruction(vcpu);
 }
 
+static void vmx_clear_hlt(struct kvm_vcpu *vcpu)
+{
+	/*
+	 * Ensure that we clear the HLT state in the VMCS.  We don't need to
+	 * explicitly skip the instruction because if the HLT state is set,
+	 * then the instruction is already executing and RIP has already been
+	 * advanced.
+	 */
+	if (kvm_hlt_in_guest(vcpu->kvm) &&
+			vmcs_read32(GUEST_ACTIVITY_STATE) == GUEST_ACTIVITY_HLT)
+		vmcs_write32(GUEST_ACTIVITY_STATE, GUEST_ACTIVITY_ACTIVE);
+}
+
 static void vmx_setup_uret_msr(struct vcpu_vmx *vmx, unsigned int msr,
 			       bool load_into_hardware)
 {
@@ -2819,6 +2832,47 @@ static u32 vmx_secondary_exec_control(struct vcpu_vmx *vmx)
 	return exec_control;
 }
 
+void vmx_enable_irq_window(struct kvm_vcpu *vcpu)
+{
+	exec_controls_setbit(to_vmx(vcpu), CPU_BASED_INTR_WINDOW_EXITING);
+}
+
+void vmx_inject_irq(struct kvm_vcpu *vcpu, bool reinjected)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	uint32_t intr;
+	int irq = vcpu->arch.interrupt.nr;
+
+	trace_kvm_inj_virq(irq, vcpu->arch.interrupt.soft, reinjected);
+
+	++vcpu->stat.irq_injections;
+	if (vmx->rmode.vm86_active) {
+#ifdef __PKVM_HYP__
+		/*
+		 * FIXME: The pkvm hypervisor doesn't support injecting
+		 * interrupt to the real mode guest.
+		 */
+		WARN_ONCE(1, "pkvm doesn't support injecting irq to the real mode guest\n");
+#else
+		int inc_eip = 0;
+		if (vcpu->arch.interrupt.soft)
+			inc_eip = vcpu->arch.event_exit_inst_len;
+		kvm_inject_realmode_interrupt(vcpu, irq, inc_eip);
+#endif
+		return;
+	}
+	intr = irq | INTR_INFO_VALID_MASK;
+	if (vcpu->arch.interrupt.soft) {
+		intr |= INTR_TYPE_SOFT_INTR;
+		vmcs_write32(VM_ENTRY_INSTRUCTION_LEN,
+			     vmx->vcpu.arch.event_exit_inst_len);
+	} else
+		intr |= INTR_TYPE_EXT_INTR;
+	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, intr);
+
+	vmx_clear_hlt(vcpu);
+}
+
 bool __vmx_interrupt_blocked(struct kvm_vcpu *vcpu)
 {
 	return !(vmx_get_rflags(vcpu) & X86_EFLAGS_IF) ||
@@ -2832,6 +2886,21 @@ bool vmx_interrupt_blocked(struct kvm_vcpu *vcpu)
 		return false;
 
 	return __vmx_interrupt_blocked(vcpu);
+}
+
+int vmx_interrupt_allowed(struct kvm_vcpu *vcpu, bool for_injection)
+{
+	if (to_vmx(vcpu)->nested.nested_run_pending)
+		return -EBUSY;
+
+	/*
+	 * An IRQ must not be injected into L2 if it's supposed to VM-Exit,
+	 * e.g. if the IRQ arrived asynchronously after checking nested events.
+	 */
+	if (for_injection && is_guest_mode(vcpu) && nested_exit_on_intr(vcpu))
+		return -EBUSY;
+
+	return !vmx_interrupt_blocked(vcpu);
 }
 
 static int handle_machine_check(struct kvm_vcpu *vcpu)
@@ -5184,6 +5253,9 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.vcpu_run = vmx_vcpu_run,
 	.handle_exit = vmx_handle_exit,
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
+	.inject_irq = vmx_inject_irq,
+	.interrupt_allowed = vmx_interrupt_allowed,
+	.enable_irq_window = vmx_enable_irq_window,
 
 	.complete_emulated_msr = kvm_complete_insn_gp,
 
