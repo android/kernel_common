@@ -78,6 +78,11 @@ DECLARE_HOOK(android_vh_kmalloc_large_alloced,
 DECLARE_RESTRICTED_HOOK(android_rvh_ctl_dirty_rate,
 	TP_PROTO(struct inode *inode),
 	TP_ARGS(inode), 1);
+
+DECLARE_HOOK(android_vh_alloc_pages_entry,
+	TP_PROTO(gfp_t *gfp, unsigned int order, int preferred_nid,
+		nodemask_t *nodemask),
+	TP_ARGS(gfp, order, preferred_nid, nodemask));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
