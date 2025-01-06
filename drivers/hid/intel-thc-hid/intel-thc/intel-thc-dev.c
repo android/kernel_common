@@ -222,7 +222,7 @@ struct thc_device *thc_dev_init(struct device *device, void __iomem *mem_addr)
 
 	return thc_dev;
 }
-EXPORT_SYMBOL_NS_GPL(thc_dev_init, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_dev_init, INTEL_THC);
 
 static int prepare_pio(const struct thc_device *dev, const u8 pio_op,
 		       const u32 address, const u32 size)
@@ -360,7 +360,7 @@ end:
 	mutex_unlock(&dev->thc_bus_lock);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_tic_pio_read, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_tic_pio_read, INTEL_THC);
 
 /**
  * thc_tic_pio_write - Write data to touch device by PIO
@@ -406,7 +406,7 @@ end:
 	mutex_unlock(&dev->thc_bus_lock);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_tic_pio_write, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_tic_pio_write, INTEL_THC);
 
 /**
  * thc_tic_pio_write_and_read - Write data followed by read data by PIO
@@ -463,7 +463,7 @@ end:
 	mutex_unlock(&dev->thc_bus_lock);
 	return ret;
 }
-EXPORT_SYMBOL_NS_GPL(thc_tic_pio_write_and_read, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_tic_pio_write_and_read, INTEL_THC);
 
 /**
  * thc_interrupt_config - Configure THC interrupts
@@ -597,7 +597,7 @@ void thc_interrupt_config(struct thc_device *dev)
 				  mask, mbits);
 	}
 }
-EXPORT_SYMBOL_NS_GPL(thc_interrupt_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_interrupt_config, INTEL_THC);
 
 /**
  * thc_int_trigger_type_select - Select THC interrupt trigger type
@@ -611,7 +611,7 @@ void thc_int_trigger_type_select(struct thc_device *dev, bool edge_trigger)
 			  THC_M_PRT_TSEQ_CNTRL_1_INT_EDG_DET_EN,
 			  edge_trigger ? THC_M_PRT_TSEQ_CNTRL_1_INT_EDG_DET_EN : 0);
 }
-EXPORT_SYMBOL_NS_GPL(thc_int_trigger_type_select, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_int_trigger_type_select, INTEL_THC);
 
 /**
  * thc_interrupt_enable - Enable or disable THC interrupt
@@ -625,7 +625,7 @@ void thc_interrupt_enable(struct thc_device *dev, bool int_enable)
 			  THC_M_PRT_INT_EN_GBL_INT_EN,
 			  int_enable ? THC_M_PRT_INT_EN_GBL_INT_EN : 0);
 }
-EXPORT_SYMBOL_NS_GPL(thc_interrupt_enable, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_interrupt_enable, INTEL_THC);
 
 /**
  * thc_interrupt_quiesce - Quiesce or unquiesce external touch device interrupt
@@ -674,7 +674,7 @@ int thc_interrupt_quiesce(const struct thc_device *dev, bool int_quiesce)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_interrupt_quiesce, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_interrupt_quiesce, INTEL_THC);
 
 /**
  * thc_set_pio_interrupt_support - Determine PIO interrupt is supported or not
@@ -686,7 +686,7 @@ void thc_set_pio_interrupt_support(struct thc_device *dev, bool supported)
 {
 	dev->pio_int_supported = supported;
 }
-EXPORT_SYMBOL_NS_GPL(thc_set_pio_interrupt_support, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_set_pio_interrupt_support, INTEL_THC);
 
 /**
  * thc_ltr_config - Configure THC Latency Tolerance Reporting(LTR) settings
@@ -754,7 +754,7 @@ void thc_ltr_config(struct thc_device *dev, u32 active_ltr_us, u32 lp_ltr_us)
 
 	regmap_write(dev->thc_regmap, THC_M_CMN_LTR_CTRL_OFFSET, tmp);
 }
-EXPORT_SYMBOL_NS_GPL(thc_ltr_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_ltr_config, INTEL_THC);
 
 /**
  * thc_change_ltr_mode - Change THC LTR mode
@@ -779,7 +779,7 @@ void thc_change_ltr_mode(struct thc_device *dev, u32 ltr_mode)
 			  THC_M_CMN_LTR_CTRL_LP_LTR_EN,
 			  THC_M_CMN_LTR_CTRL_LP_LTR_EN);
 }
-EXPORT_SYMBOL_NS_GPL(thc_change_ltr_mode, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_change_ltr_mode, INTEL_THC);
 
 /**
  * thc_ltr_unconfig - Unconfigure THC Latency Tolerance Reporting(LTR) settings
@@ -800,7 +800,7 @@ void thc_ltr_unconfig(struct thc_device *dev)
 
 	regmap_write(dev->thc_regmap, THC_M_CMN_LTR_CTRL_OFFSET, ltr_ctrl);
 }
-EXPORT_SYMBOL_NS_GPL(thc_ltr_unconfig, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_ltr_unconfig, INTEL_THC);
 
 /**
  * thc_int_cause_read - Read interrupt cause register value
@@ -818,7 +818,7 @@ u32 thc_int_cause_read(struct thc_device *dev)
 
 	return int_cause;
 }
-EXPORT_SYMBOL_NS_GPL(thc_int_cause_read, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_int_cause_read, INTEL_THC);
 
 static void thc_print_txn_error_cause(const struct thc_device *dev)
 {
@@ -1059,7 +1059,7 @@ int thc_interrupt_handler(struct thc_device *dev)
 
 	return interrupt_type;
 }
-EXPORT_SYMBOL_NS_GPL(thc_interrupt_handler, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_interrupt_handler, INTEL_THC);
 
 /**
  * thc_port_select - Set THC port type
@@ -1107,7 +1107,7 @@ int thc_port_select(struct thc_device *dev, enum thc_port_type port_type)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_port_select, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_port_select, INTEL_THC);
 
 #define THC_SPI_FREQUENCY_7M	7812500
 #define THC_SPI_FREQUENCY_15M	15625000
@@ -1212,7 +1212,7 @@ int thc_spi_read_config(struct thc_device *dev, u32 spi_freq_val,
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_spi_read_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_spi_read_config, INTEL_THC);
 
 /**
  * thc_spi_write_config - Configure SPI bus write attributes
@@ -1266,7 +1266,7 @@ int thc_spi_write_config(struct thc_device *dev, u32 spi_freq_val,
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_spi_write_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_spi_write_config, INTEL_THC);
 
 /**
  * thc_spi_input_output_address_config - Configure SPI input and output addresses
@@ -1288,7 +1288,288 @@ void thc_spi_input_output_address_config(struct thc_device *dev, u32 input_hdr_a
 	regmap_write(dev->thc_regmap,
 		     THC_M_PRT_WR_BULK_ADDR_OFFSET, output_addr);
 }
-EXPORT_SYMBOL_NS_GPL(thc_spi_input_output_address_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_spi_input_output_address_config, INTEL_THC);
+
+static int thc_i2c_subip_pio_read(struct thc_device *dev, const u32 address,
+				  u32 *size, u32 *buffer)
+{
+	int ret;
+
+	if (!size || *size == 0 || !buffer) {
+		dev_err(dev->dev, "Invalid input parameters, size %p, buffer %p\n",
+			size, buffer);
+		return -EINVAL;
+	}
+
+	if (mutex_lock_interruptible(&dev->thc_bus_lock))
+		return -EINTR;
+
+	ret = prepare_pio(dev, THC_PIO_OP_I2C_SUBSYSTEM_READ, address, *size);
+	if (ret < 0)
+		goto end;
+
+	pio_start(dev, 0, NULL);
+
+	ret = pio_wait(dev);
+	if (ret < 0)
+		goto end;
+
+	ret = pio_complete(dev, buffer, size);
+	if (ret < 0)
+		goto end;
+
+end:
+	mutex_unlock(&dev->thc_bus_lock);
+
+	if (ret)
+		dev_err_once(dev->dev, "Read THC I2C SubIP register failed %d, offset %u\n",
+			     ret, address);
+
+	return ret;
+}
+
+static int thc_i2c_subip_pio_write(struct thc_device *dev, const u32 address,
+				   const u32 size, const u32 *buffer)
+{
+	int ret;
+
+	if (size == 0 || !buffer) {
+		dev_err(dev->dev, "Invalid input parameters, size %u, buffer %p\n",
+			size, buffer);
+		return -EINVAL;
+	}
+
+	if (mutex_lock_interruptible(&dev->thc_bus_lock))
+		return -EINTR;
+
+	ret = prepare_pio(dev, THC_PIO_OP_I2C_SUBSYSTEM_WRITE, address, size);
+	if (ret < 0)
+		goto end;
+
+	pio_start(dev, size, buffer);
+
+	ret = pio_wait(dev);
+	if (ret < 0)
+		goto end;
+
+	ret = pio_complete(dev, NULL, NULL);
+	if (ret < 0)
+		goto end;
+
+end:
+	mutex_unlock(&dev->thc_bus_lock);
+
+	if (ret)
+		dev_err_once(dev->dev, "Write THC I2C SubIP register failed %d, offset %u\n",
+			     ret, address);
+
+	return ret;
+}
+
+#define I2C_SUBIP_CON_DEFAULT		0x663
+#define I2C_SUBIP_INT_MASK_DEFAULT	0x7FFF
+#define I2C_SUBIP_RX_TL_DEFAULT		62
+#define I2C_SUBIP_TX_TL_DEFAULT		0
+#define I2C_SUBIP_DMA_TDLR_DEFAULT	7
+#define I2C_SUBIP_DMA_RDLR_DEFAULT	7
+
+static int thc_i2c_subip_set_speed(struct thc_device *dev, const u32 speed,
+				   const u32 hcnt, const u32 lcnt)
+{
+	u32 hcnt_offset, lcnt_offset;
+	u32 val;
+	int ret;
+
+	switch (speed) {
+	case THC_I2C_STANDARD:
+		hcnt_offset = THC_I2C_IC_SS_SCL_HCNT_OFFSET;
+		lcnt_offset = THC_I2C_IC_SS_SCL_LCNT_OFFSET;
+		break;
+
+	case THC_I2C_FAST_AND_PLUS:
+		hcnt_offset = THC_I2C_IC_FS_SCL_HCNT_OFFSET;
+		lcnt_offset = THC_I2C_IC_FS_SCL_LCNT_OFFSET;
+		break;
+
+	case THC_I2C_HIGH_SPEED:
+		hcnt_offset = THC_I2C_IC_HS_SCL_HCNT_OFFSET;
+		lcnt_offset = THC_I2C_IC_HS_SCL_LCNT_OFFSET;
+		break;
+
+	default:
+		dev_err_once(dev->dev, "Unsupported i2c speed %d\n", speed);
+		ret = -EINVAL;
+		return ret;
+	}
+
+	ret = thc_i2c_subip_pio_write(dev, hcnt_offset, sizeof(u32), &hcnt);
+	if (ret < 0)
+		return ret;
+
+	ret = thc_i2c_subip_pio_write(dev, lcnt_offset, sizeof(u32), &lcnt);
+	if (ret < 0)
+		return ret;
+
+	val = I2C_SUBIP_CON_DEFAULT & ~THC_I2C_IC_CON_SPEED;
+	val |= FIELD_PREP(THC_I2C_IC_CON_SPEED, speed);
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_CON_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static u32 i2c_subip_regs[] = {
+	THC_I2C_IC_CON_OFFSET,
+	THC_I2C_IC_TAR_OFFSET,
+	THC_I2C_IC_INTR_MASK_OFFSET,
+	THC_I2C_IC_RX_TL_OFFSET,
+	THC_I2C_IC_TX_TL_OFFSET,
+	THC_I2C_IC_DMA_CR_OFFSET,
+	THC_I2C_IC_DMA_TDLR_OFFSET,
+	THC_I2C_IC_DMA_RDLR_OFFSET,
+	THC_I2C_IC_SS_SCL_HCNT_OFFSET,
+	THC_I2C_IC_SS_SCL_LCNT_OFFSET,
+	THC_I2C_IC_FS_SCL_HCNT_OFFSET,
+	THC_I2C_IC_FS_SCL_LCNT_OFFSET,
+	THC_I2C_IC_HS_SCL_HCNT_OFFSET,
+	THC_I2C_IC_HS_SCL_LCNT_OFFSET,
+	THC_I2C_IC_ENABLE_OFFSET,
+};
+
+/**
+ * thc_i2c_subip_init - Initialize and configure THC I2C subsystem
+ *
+ * @dev: The pointer of THC private device context
+ * @target_address: Slave address of touch device (TIC)
+ * @speed: I2C bus frequency speed mode
+ * @hcnt: I2C clock SCL high count
+ * @lcnt: I2C clock SCL low count
+ *
+ * Return: 0 on success, other error codes on failed.
+ */
+int thc_i2c_subip_init(struct thc_device *dev, const u32 target_address,
+		       const u32 speed, const u32 hcnt, const u32 lcnt)
+{
+	u32 read_size = sizeof(u32);
+	u32 val;
+	int ret;
+
+	ret = thc_i2c_subip_pio_read(dev, THC_I2C_IC_ENABLE_OFFSET, &read_size, &val);
+	if (ret < 0)
+		return ret;
+
+	val &= ~THC_I2C_IC_ENABLE_ENABLE;
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_ENABLE_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	ret = thc_i2c_subip_pio_read(dev, THC_I2C_IC_TAR_OFFSET, &read_size, &val);
+	if (ret < 0)
+		return ret;
+
+	val &= ~THC_I2C_IC_TAR_IC_TAR;
+	val |= FIELD_PREP(THC_I2C_IC_TAR_IC_TAR, target_address);
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_TAR_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	ret = thc_i2c_subip_set_speed(dev, speed, hcnt, lcnt);
+	if (ret < 0)
+		return ret;
+
+	val = I2C_SUBIP_INT_MASK_DEFAULT;
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_INTR_MASK_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	val = I2C_SUBIP_RX_TL_DEFAULT;
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_RX_TL_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	val = I2C_SUBIP_TX_TL_DEFAULT;
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_TX_TL_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	val = THC_I2C_IC_DMA_CR_RDMAE | THC_I2C_IC_DMA_CR_TDMAE;
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_DMA_CR_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	val = I2C_SUBIP_DMA_TDLR_DEFAULT;
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_DMA_TDLR_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	val = I2C_SUBIP_DMA_RDLR_DEFAULT;
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_DMA_RDLR_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	ret = thc_i2c_subip_pio_read(dev, THC_I2C_IC_ENABLE_OFFSET, &read_size, &val);
+	if (ret < 0)
+		return ret;
+
+	val |= THC_I2C_IC_ENABLE_ENABLE;
+	ret = thc_i2c_subip_pio_write(dev, THC_I2C_IC_ENABLE_OFFSET, sizeof(u32), &val);
+	if (ret < 0)
+		return ret;
+
+	dev->i2c_subip_regs = devm_kzalloc(dev->dev, sizeof(i2c_subip_regs), GFP_KERNEL);
+	if (!dev->i2c_subip_regs)
+		return PTR_ERR(dev->i2c_subip_regs);
+
+	return 0;
+}
+EXPORT_SYMBOL_NS_GPL(thc_i2c_subip_init, INTEL_THC);
+
+/**
+ * thc_i2c_subip_regs_save - Save THC I2C sub-subsystem register values to THC device context
+ *
+ * @dev: The pointer of THC private device context
+ *
+ * Return: 0 on success, other error codes on failed.
+ */
+int thc_i2c_subip_regs_save(struct thc_device *dev)
+{
+	int ret;
+	u32 read_size = sizeof(u32);
+
+	for (int i = 0; i < ARRAY_SIZE(i2c_subip_regs); i++) {
+		ret = thc_i2c_subip_pio_read(dev, i2c_subip_regs[i],
+					     &read_size, (u32 *)&dev->i2c_subip_regs + i);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_NS_GPL(thc_i2c_subip_regs_save, INTEL_THC);
+
+/**
+ * thc_i2c_subip_regs_restore - Restore THC I2C subsystem registers from THC device context
+ *
+ * @dev: The pointer of THC private device context
+ *
+ * Return: 0 on success, other error codes on failed.
+ */
+int thc_i2c_subip_regs_restore(struct thc_device *dev)
+{
+	int ret;
+	u32 write_size = sizeof(u32);
+
+	for (int i = 0; i < ARRAY_SIZE(i2c_subip_regs); i++) {
+		ret = thc_i2c_subip_pio_write(dev, i2c_subip_regs[i],
+					      write_size, (u32 *)&dev->i2c_subip_regs + i);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_NS_GPL(thc_i2c_subip_regs_restore, INTEL_THC);
 
 MODULE_AUTHOR("Xinpeng Sun <xinpeng.sun@intel.com>");
 MODULE_AUTHOR("Even Xu <even.xu@intel.com>");
