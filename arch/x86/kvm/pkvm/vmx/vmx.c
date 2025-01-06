@@ -1330,6 +1330,59 @@ static void vmx_clear_hlt(struct kvm_vcpu *vcpu)
 		vmcs_write32(GUEST_ACTIVITY_STATE, GUEST_ACTIVITY_ACTIVE);
 }
 
+void vmx_inject_exception(struct kvm_vcpu *vcpu)
+{
+	struct kvm_queued_exception *ex = &vcpu->arch.exception;
+	u32 intr_info = ex->vector | INTR_INFO_VALID_MASK;
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	kvm_deliver_exception_payload(vcpu, ex);
+
+	if (ex->has_error_code) {
+		/*
+		 * Despite the error code being architecturally defined as 32
+		 * bits, and the VMCS field being 32 bits, Intel CPUs and thus
+		 * VMX don't actually supporting setting bits 31:16.  Hardware
+		 * will (should) never provide a bogus error code, but AMD CPUs
+		 * do generate error codes with bits 31:16 set, and so KVM's
+		 * ABI lets userspace shove in arbitrary 32-bit values.  Drop
+		 * the upper bits to avoid VM-Fail, losing information that
+		 * doesn't really exist is preferable to killing the VM.
+		 */
+		vmcs_write32(VM_ENTRY_EXCEPTION_ERROR_CODE, (u16)ex->error_code);
+		intr_info |= INTR_INFO_DELIVER_CODE_MASK;
+	}
+
+	if (vmx->rmode.vm86_active) {
+#ifdef __PKVM_HYP__
+		/*
+		 * FIXME: The pkvm hypervisor doesn't support injecting
+		 * exception to the real mode guest.
+		 */
+		WARN_ONCE(1, "pkvm doesn't support injecting exception to the real mode guest\n");
+#else
+		int inc_eip = 0;
+		if (kvm_exception_is_soft(ex->vector))
+			inc_eip = vcpu->arch.event_exit_inst_len;
+		kvm_inject_realmode_interrupt(vcpu, ex->vector, inc_eip);
+#endif
+		return;
+	}
+
+	WARN_ON_ONCE(vmx->emulation_required);
+
+	if (kvm_exception_is_soft(ex->vector)) {
+		vmcs_write32(VM_ENTRY_INSTRUCTION_LEN,
+			     vmx->vcpu.arch.event_exit_inst_len);
+		intr_info |= INTR_TYPE_SOFT_EXCEPTION;
+	} else
+		intr_info |= INTR_TYPE_HARD_EXCEPTION;
+
+	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, intr_info);
+
+	vmx_clear_hlt(vcpu);
+}
+
 static void vmx_setup_uret_msr(struct vcpu_vmx *vmx, unsigned int msr,
 			       bool load_into_hardware)
 {
@@ -5330,6 +5383,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
 	.inject_irq = vmx_inject_irq,
 	.inject_nmi = vmx_inject_nmi,
+	.inject_exception = vmx_inject_exception,
 	.interrupt_allowed = vmx_interrupt_allowed,
 	.nmi_allowed = vmx_nmi_allowed,
 	.enable_nmi_window = vmx_enable_nmi_window,

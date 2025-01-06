@@ -5,6 +5,7 @@
 #include <cpuid.h>
 #include <linux/user-return-notifier.h>
 #include <trace.h>
+#include <uapi/asm/debugreg.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -242,6 +243,58 @@ noinstr void kvm_spurious_fault(void)
 #endif
 }
 EXPORT_SYMBOL_GPL(kvm_spurious_fault);
+
+void kvm_deliver_exception_payload(struct kvm_vcpu *vcpu,
+				   struct kvm_queued_exception *ex)
+{
+	if (!ex->has_payload)
+		return;
+
+	switch (ex->vector) {
+	case DB_VECTOR:
+		/*
+		 * "Certain debug exceptions may clear bit 0-3.  The
+		 * remaining contents of the DR6 register are never
+		 * cleared by the processor".
+		 */
+		vcpu->arch.dr6 &= ~DR_TRAP_BITS;
+		/*
+		 * In order to reflect the #DB exception payload in guest
+		 * dr6, three components need to be considered: active low
+		 * bit, FIXED_1 bits and active high bits (e.g. DR6_BD,
+		 * DR6_BS and DR6_BT)
+		 * DR6_ACTIVE_LOW contains the FIXED_1 and active low bits.
+		 * In the target guest dr6:
+		 * FIXED_1 bits should always be set.
+		 * Active low bits should be cleared if 1-setting in payload.
+		 * Active high bits should be set if 1-setting in payload.
+		 *
+		 * Note, the payload is compatible with the pending debug
+		 * exceptions/exit qualification under VMX, that active_low bits
+		 * are active high in payload.
+		 * So they need to be flipped for DR6.
+		 */
+		vcpu->arch.dr6 |= DR6_ACTIVE_LOW;
+		vcpu->arch.dr6 |= ex->payload;
+		vcpu->arch.dr6 ^= ex->payload & DR6_ACTIVE_LOW;
+
+		/*
+		 * The #DB payload is defined as compatible with the 'pending
+		 * debug exceptions' field under VMX, not DR6. While bit 12 is
+		 * defined in the 'pending debug exceptions' field (enabled
+		 * breakpoint), it is reserved and must be zero in DR6.
+		 */
+		vcpu->arch.dr6 &= ~BIT(12);
+		break;
+	case PF_VECTOR:
+		vcpu->arch.cr2 = ex->payload;
+		break;
+	}
+
+	ex->has_payload = false;
+	ex->payload = 0;
+}
+EXPORT_SYMBOL_GPL(kvm_deliver_exception_payload);
 
 static void kvm_multiple_exception(struct kvm_vcpu *vcpu,
 		unsigned nr, bool has_error, u32 error_code,
