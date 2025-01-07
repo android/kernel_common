@@ -1537,9 +1537,11 @@ ddk_headers(
 ddk_headers(
     name = "all_headers_allowlist_aarch64",
     hdrs = [
+        "drivers/extcon/extcon.h",
         "drivers/thermal/thermal_core.h",
         "drivers/thermal/thermal_debugfs.h",
         "drivers/thermal/thermal_netlink.h",
+        "drivers/usb/dwc3/core.h",
         "sound/usb/card.h",
         "sound/usb/usbaudio.h",
         ":all_headers_allowlist_aarch64_globs",
@@ -1552,7 +1554,9 @@ ddk_headers(
     linux_includes = [
         "arch/arm64/include",
         "arch/arm64/include/uapi",
+        "drivers/extcon",
         "drivers/thermal",
+        "drivers/usb",
         "sound/usb",
         "include",
         "include/uapi",
