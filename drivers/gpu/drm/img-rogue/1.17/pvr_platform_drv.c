@@ -291,6 +291,24 @@ static struct platform_driver pvr_platform_driver = {
 static int __init pvr_init(void)
 {
 	int err;
+	struct device_node *np;
+
+	/*
+	 * CHROMIUM:
+	 *
+	 * This driver seems to do a bunch of stuff before it even detects
+	 * if hardware is available. That's bad. In general drivers are
+	 * supposed to be registering themselves and then actually doing
+	 * something when they see the relevant hardware show up.
+	 *
+	 * Since this driver is downstream and doing an intrusive refactor
+	 * would be disruptive, we'll just apply a large band-aid and early-
+	 * return if we don't find the needed dt-compatible.
+	 */
+	np = of_find_compatible_node(NULL, NULL, SYS_RGX_OF_COMPATIBLE);
+	if (!np)
+		return -ENODEV;
+	of_node_put(np);
 
 	DRM_DEBUG_DRIVER("\n");
 
