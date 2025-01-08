@@ -158,6 +158,7 @@ struct bdi_writeback {
 		struct rcu_head rcu;
 	};
 #endif
+	ANDROID_OEM_DATA_ARRAY(1, 2);
 };
 
 struct backing_dev_info {
