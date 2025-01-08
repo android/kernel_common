@@ -181,6 +181,30 @@ write_file(
     visibility = ["//visibility:private"],
 )
 
+_KUNIT_COMMON_GUIDE = [
+    "Modules for KUnit testing on Android devices only:",
+    "(KUnit: Linux Kernel Unit Testing https://www.kernel.org/doc/html/latest/dev-tools/kunit/)",
+    "(https://android.googlesource.com/kernel/common/+/refs/heads/android-mainline/tools/testing/kunit/android/README)",
+]
+
+write_file(
+    name = "generate_gki_module_info_arm64",
+    out = "gki_module_info_arm64.txt",
+    content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("arm64") + [
+        "",  # keep new line at the end
+    ],
+    visibility = ["//visibility:private"],
+)
+
+write_file(
+    name = "generate_gki_module_info_x86_64",
+    out = "gki_module_info_x86_64.txt",
+    content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("x86_64") + [
+        "",  # keep new line at the end
+    ],
+    visibility = ["//visibility:private"],
+)
+
 common_kernel(
     name = "kernel_aarch64",
     outs = DEFAULT_GKI_OUTS,
