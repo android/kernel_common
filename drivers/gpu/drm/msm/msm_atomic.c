@@ -142,6 +142,7 @@ static bool can_do_async(struct drm_atomic_state *state,
 	struct drm_connector_state *connector_state;
 	struct drm_connector *connector;
 	struct drm_crtc_state *crtc_state;
+	struct drm_plane_state *plane_state;
 	struct drm_crtc *crtc;
 	int i, num_crtcs = 0;
 
@@ -160,6 +161,18 @@ static bool can_do_async(struct drm_atomic_state *state,
 		if (++num_crtcs > 1)
 			return false;
 		*async_crtc = crtc;
+	}
+
+	/*
+	 * Force a blocking commit if the cursor is being disabled. This is to
+	 * ensure that the registers are cleared and hardware doesn't try to
+	 * fetch from a stale address.
+	 */
+	if (*async_crtc) {
+		plane_state = drm_atomic_get_new_plane_state(state,
+							     (*async_crtc)->cursor);
+		if (plane_state && !plane_state->fb)
+			return false;
 	}
 
 	return true;
