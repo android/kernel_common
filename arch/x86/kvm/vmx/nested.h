@@ -26,6 +26,7 @@ static inline __init int nested_vmx_hardware_setup(int (*exit_handlers[])(struct
 	return 0;
 }
 static inline void nested_vmx_free_vcpu(struct kvm_vcpu *vcpu) {}
+static inline void nested_vmx_set_vmcs_shadowing_bitmap(void) {}
 static inline bool nested_vmx_reflect_vmexit(struct kvm_vcpu *vcpu) { return false; }
 static inline void nested_vmx_vmexit(struct kvm_vcpu *vcpu, u32 vm_exit_reason,
 				     u32 exit_intr_info, unsigned long exit_qualification) {}
