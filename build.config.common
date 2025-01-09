@@ -1,5 +1,3 @@
 . ${ROOT_DIR}/${KERNEL_DIR}/build.config.constants
 
-BRANCH=android-mainline
-
 KCFLAGS="${KCFLAGS} -D__ANDROID_COMMON_KERNEL__"
