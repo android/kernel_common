@@ -14,13 +14,6 @@ include/
 arch/$SRCARCH/include/
 "
 
-if ! command -v cpio >/dev/null; then
-	echo >&2 "***"
-	echo >&2 "*** 'cpio' could not be found."
-	echo >&2 "***"
-	exit 1
-fi
-
 # Support incremental builds by skipping archive generation
 # if timestamps of files being archived are not changed.
 
@@ -73,15 +66,13 @@ if [ "$building_out_of_srctree" ]; then
 		cd $srctree
 		for f in $dir_list
 			do find "$f" -name "*.h";
-		done | cpio --quiet -L -pd "${tmpdir}"
+		done | tar -c --dereference -f - -T - | tar -xf - -C "${tmpdir}"
 	)
 fi
 
-# The second CPIO can complain if files already exist which can happen with out
-# of tree builds having stale headers in srctree. Just silence CPIO for now.
 for f in $dir_list;
 	do find "$f" -name "*.h";
-done | cpio --quiet -L -pdu "${tmpdir}" >/dev/null 2>&1
+done | tar -c --dereference -f - -T - | tar -xf - -C "${tmpdir}"
 
 # Remove comments except SDPX lines
 # Use a temporary file to store directory contents to prevent find/xargs from
