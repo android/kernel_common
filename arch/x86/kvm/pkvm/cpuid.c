@@ -242,8 +242,17 @@ void kvm_update_pv_runtime(struct kvm_vcpu *vcpu)
 	 * save the feature bitmap to avoid cpuid lookup for every PV
 	 * operation
 	 */
-	if (best)
+	if (best) {
+#ifdef __PKVM_HYP__
+		/*
+		 * FIXME: Disable all PV features in the pkvm hypervisor to
+		 * simplify the emulation. Can PV features be enabled for npVM?
+		 * Can some of the PV features be enabled for pVM?
+		 */
+		best->eax = 0;
+#endif
 		vcpu->arch.pv_cpuid.features = best->eax;
+	}
 }
 
 /*
