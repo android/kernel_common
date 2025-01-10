@@ -88,6 +88,19 @@ struct mtk_mmsys_routes {
 	u32 val;
 };
 
+struct mtk_mmsys_async_info {
+	u32 comp_id;
+	u32 index;
+	u32 offset;
+	u32 mask;
+};
+
+struct mtk_mmsys_default {
+	u32 offset;
+	u32 val;
+	u32 mask;
+};
+
 /**
  * struct mtk_mmsys_driver_data - Settings of the mmsys
  * @clk_driver: Clock driver name that the mmsys is using
@@ -126,6 +139,11 @@ struct mtk_mmsys_driver_data {
 	const bool is_vppsys;
 	const u8 vsync_len;
 	const unsigned int *mdp_isp_ctrl[ISP_CTRL_MAX];
+	const struct mtk_mmsys_async_info *async_info;
+	const unsigned int num_async_info;
+	const struct mtk_mmsys_default *def_config;
+	const unsigned int num_def_config;
+	const unsigned int num_top_clk;
 };
 
 /*
