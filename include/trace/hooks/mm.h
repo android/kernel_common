@@ -35,6 +35,10 @@ DECLARE_HOOK(android_vh_mem_cgroup_alloc,
 DECLARE_HOOK(android_vh_mem_cgroup_free,
 	TP_PROTO(struct mem_cgroup *memcg),
 	TP_ARGS(memcg));
+DECLARE_HOOK(android_vh_io_statistics,
+	TP_PROTO(struct address_space *mapping, unsigned int index,
+		unsigned int nr_page, bool read, bool direct),
+	TP_ARGS(mapping, index, nr_page, read, direct));
 
 struct cma;
 DECLARE_HOOK(android_vh_cma_alloc_bypass,

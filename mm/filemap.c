@@ -55,6 +55,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/filemap.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/mm.h>
+
 /*
  * FIXME: remove all knowledge of the buffer layer from the core VM
  */
@@ -4084,6 +4087,7 @@ retry:
 			if (unlikely(status < 0))
 				break;
 		}
+		trace_android_vh_io_statistics(mapping, folio->index, 1, false, false);
 		cond_resched();
 
 		if (unlikely(status == 0)) {
