@@ -1395,11 +1395,10 @@ static int __guest_get_completer_addr(u64 *completer_addr, phys_addr_t phys,
 	return 0;
 }
 
-static int __guest_request_page_transition(u64 *completer_addr,
-					   const struct pkvm_mem_transition *tx,
+static int __guest_request_page_transition(u64 ipa, u64 *__phys, u64 nr_pages,
+					   struct pkvm_hyp_vcpu *vcpu,
 					   enum pkvm_page_state desired)
 {
-	struct pkvm_hyp_vcpu *vcpu = tx->initiator.guest.hyp_vcpu;
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
 	enum pkvm_page_state state;
 	phys_addr_t phys;
@@ -1407,14 +1406,14 @@ static int __guest_request_page_transition(u64 *completer_addr,
 	s8 level;
 	int ret;
 
-	if (tx->nr_pages != 1)
+	if (nr_pages != 1)
 		return -E2BIG;
 
-	ret = kvm_pgtable_get_leaf(&vm->pgt, tx->initiator.addr, &pte, &level);
+	ret = kvm_pgtable_get_leaf(&vm->pgt, ipa, &pte, &level);
 	if (ret)
 		return ret;
 
-	state = guest_get_page_state(pte, tx->initiator.addr);
+	state = guest_get_page_state(pte, ipa);
 	if (state == PKVM_NOPAGE)
 		return -EFAULT;
 
@@ -1433,22 +1432,30 @@ static int __guest_request_page_transition(u64 *completer_addr,
 	phys = kvm_pte_to_phys(pte);
 	if (!addr_is_allowed_memory(phys))
 		return -EINVAL;
+	*__phys = phys;
 
-	return __guest_get_completer_addr(completer_addr, phys, tx);
+	return 0;
 }
 
 static int guest_request_share(u64 *completer_addr,
 			       const struct pkvm_mem_transition *tx)
 {
-	return __guest_request_page_transition(completer_addr, tx,
-					       PKVM_PAGE_OWNED);
+	u64 phys;
+	int ret = __guest_request_page_transition(tx->initiator.addr, &phys, tx->nr_pages,
+						  tx->initiator.guest.hyp_vcpu, PKVM_PAGE_OWNED);
+
+	return ret ?: __guest_get_completer_addr(completer_addr, phys, tx);
 }
 
 static int guest_request_unshare(u64 *completer_addr,
 				 const struct pkvm_mem_transition *tx)
 {
-	return __guest_request_page_transition(completer_addr, tx,
-					       PKVM_PAGE_SHARED_OWNED);
+	u64 phys;
+	int ret = __guest_request_page_transition(tx->initiator.addr, &phys, tx->nr_pages,
+						  tx->initiator.guest.hyp_vcpu,
+						  PKVM_PAGE_SHARED_OWNED);
+
+	return ret ?: __guest_get_completer_addr(completer_addr, phys, tx);
 }
 
 static int __guest_initiate_page_transition(u64 *completer_addr,
