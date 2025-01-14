@@ -1018,6 +1018,17 @@ struct armv8pmu_probe_info {
 	bool present;
 };
 
+int armv8pmu_max_events;
+
+static int __init
+armv8pmu_max_events_setup(char *str)
+{
+	get_option(&str, &armv8pmu_max_events);
+	return 1;
+}
+
+__setup("armv8pmu_max_events=", armv8pmu_max_events_setup);
+
 static void __armv8pmu_probe_pmu(void *info)
 {
 	struct armv8pmu_probe_info *probe = info;
@@ -1039,6 +1050,10 @@ static void __armv8pmu_probe_pmu(void *info)
 	/* Read the nb of CNTx counters supported from PMNC */
 	cpu_pmu->num_events = (armv8pmu_pmcr_read() >> ARMV8_PMU_PMCR_N_SHIFT)
 		& ARMV8_PMU_PMCR_N_MASK;
+
+	if (armv8pmu_max_events)
+		cpu_pmu->num_events = min(cpu_pmu->num_events,
+		    armv8pmu_max_events);
 
 	/* Add the CPU cycles counter */
 	cpu_pmu->num_events += 1;
