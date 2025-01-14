@@ -148,6 +148,8 @@ struct xe_pxp {
 		struct {
 			/** @multi_session.sessions.owner: client owning this session */
 			struct drm_file *owner;
+			/** @multi_session.sessions.tag: pxp tag for the session */
+			u32 tag;
 			/** @multi_session.sessions.instance: reservation instance */
 			u8 instance;
 		} sessions[INTEL_PXP_MAX_HWDRM_SESSIONS];

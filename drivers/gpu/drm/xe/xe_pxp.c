@@ -212,6 +212,7 @@ static void mark_termination_in_progress(struct xe_pxp *pxp)
 
 	reinit_completion(&pxp->termination);
 	pxp->status = XE_PXP_TERMINATION_IN_PROGRESS;
+	xe_pxp_multi_session_set_arb_session_tag(pxp, false);
 }
 
 static void pxp_terminate(struct xe_pxp *pxp)
@@ -669,6 +670,7 @@ wait_for_idle:
 	/* If everything went ok, update the status and add the queue to the list */
 	if (!ret) {
 		pxp->status = XE_PXP_ACTIVE;
+		xe_pxp_multi_session_set_arb_session_tag(pxp, true);
 		if (q)
 			__exec_queue_add(pxp, q);
 	} else {
@@ -925,6 +927,7 @@ wait_for_activation:
 	 * the error. Worse case we fail again and go in error state again.
 	 */
 	pxp->status = XE_PXP_SUSPENDED;
+	xe_pxp_multi_session_set_arb_session_tag(pxp, false);
 
 	mutex_unlock(&pxp->mutex);
 

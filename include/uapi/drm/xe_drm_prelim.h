@@ -104,6 +104,25 @@ struct drm_xe_prelim_pxp_session_op {
 } __attribute__((packed));
 
 /*
+ * struct drm_xe_pxp_query_tag - Params to query the PXP tag of specified
+ * session id and whether the session is alive from PXP state machine.
+ */
+struct drm_xe_prelim_pxp_query_tag {
+	/**
+	 * @pxp_tag: as input, this variable must be set to either the pxp_tag
+	 * returned by the session reservation or to the session id. The value
+	 * will be overwritten with the current tag of matching session.
+	 */
+	__u32 pxp_tag;
+
+	/**
+	 * @session_is_alive: Returns whether the session is alive in HW, based
+	 * on the value in the KCR_SIP register.
+	 */
+	__u32 session_is_alive;
+} __attribute__((packed));
+
+/*
  * drm_xe_prelim_pxp_ops
  *
  * PXP is an Xe componment, that helps user space to establish the hardware
@@ -122,6 +141,7 @@ struct drm_xe_prelim_pxp_ops {
 	__u32 action;
 #define DRM_XE_PRELIM_PXP_ACTION_HOST_SESSION_HANDLE_REQ 0
 #define DRM_XE_PRELIM_PXP_ACTION_SESSION_OP 1
+#define DRM_XE_PRELIM_PXP_ACTION_QUERY_PXP_TAG 2
 
 	/** @status: returned outcome of the operation */
 	__u32 status;
@@ -139,6 +159,8 @@ struct drm_xe_prelim_pxp_ops {
 		struct drm_xe_prelim_pxp_query_host_session_handle query_handle;
 		/** @session_op: parameters for the SESSION_OP action */
 		struct drm_xe_prelim_pxp_session_op session_op;
+		/** @query_tag: parameters for the QUERY_PXP_TAG action */
+		struct drm_xe_prelim_pxp_query_tag query_tag;
 	};
 } __attribute__((packed));
 

@@ -11,11 +11,14 @@
 #include "abi/gsc_command_header_abi.h"
 #include "xe_assert.h"
 #include "xe_device.h"
+#include "xe_force_wake.h"
 #include "xe_macros.h"
+#include "xe_mmio.h"
 #include "xe_pm.h"
 #include "xe_pxp.h"
 #include "xe_pxp_submit.h"
 #include "xe_pxp_types.h"
+#include "regs/xe_pxp_regs.h"
 
 /**
  * struct xe_pxp_client
@@ -182,6 +185,17 @@ static u32 pxp_tag_fill(struct xe_pxp *pxp, int idx, int mode)
 	return __pxp_tag(pxp, idx, mode, instance);
 }
 
+void xe_pxp_multi_session_set_arb_session_tag(struct xe_pxp *pxp, bool active)
+{
+	u32 tag = 0;
+
+	if (active)
+		tag = __pxp_tag(pxp, DRM_XE_PXP_HWDRM_DEFAULT_SESSION,
+				DRM_XE_PRELIM_PXP_MODE_HM, (u8)pxp->key_instance);
+
+	pxp->multi_session.sessions[DRM_XE_PXP_HWDRM_DEFAULT_SESSION].tag = tag;
+}
+
 static int pxp_reserve_session(struct xe_pxp *pxp, struct xe_pxp_client *client,
 			       u32 type, u32 mode, u32 *pxp_tag)
 {
@@ -215,7 +229,8 @@ static int pxp_reserve_session(struct xe_pxp *pxp, struct xe_pxp_client *client,
 
 	set_bit(idx, pxp->multi_session.reserved_sessions);
 	pxp->multi_session.sessions[idx].owner = client->drmfile;
-	*pxp_tag = pxp_tag_fill(pxp, idx, mode);
+	pxp->multi_session.sessions[idx].tag = pxp_tag_fill(pxp, idx, mode);
+	*pxp_tag = pxp->multi_session.sessions[idx].tag;
 
 	return ret;
 }
@@ -278,6 +293,40 @@ static int pxp_session_op(struct xe_pxp *pxp,
 	return ret;
 }
 
+static bool pxp_session_is_in_play(struct xe_pxp *pxp, u32 id)
+{
+	unsigned int fw_ref;
+	bool in_play;
+
+	fw_ref = xe_force_wake_get(gt_to_fw(pxp->gt), XE_FW_GT);
+	XE_WARN_ON(!xe_force_wake_ref_has_domain(fw_ref, XE_FW_GT));
+
+	in_play = xe_mmio_read32(&pxp->gt->mmio, KCR_SIP) & BIT(id);
+
+	xe_force_wake_put(gt_to_fw(pxp->gt), fw_ref);
+
+	return in_play;
+}
+
+static int pxp_query_tag(struct xe_pxp *pxp, struct drm_xe_prelim_pxp_query_tag *query_tag)
+{
+	int session_id = 0;
+
+	session_id = query_tag->pxp_tag & DRM_XE_PRELIM_PXP_TAG_SESSION_ID_MASK;
+	if (session_id >= INTEL_PXP_MAX_HWDRM_SESSIONS)
+		return -EINVAL;
+
+	if (!test_bit(session_id, pxp->multi_session.reserved_sessions)) {
+		query_tag->pxp_tag = 0;
+		query_tag->session_is_alive = 0;
+	} else {
+		query_tag->pxp_tag = pxp->multi_session.sessions[session_id].tag;
+		query_tag->session_is_alive = pxp_session_is_in_play(pxp, session_id);
+	}
+
+	return 0;
+}
+
 static void
 pxp_query_host_session_handle(struct drm_xe_prelim_pxp_query_host_session_handle *query_handle,
 			      struct xe_pxp_client *client)
@@ -288,6 +337,11 @@ pxp_query_host_session_handle(struct drm_xe_prelim_pxp_query_host_session_handle
 static bool pxp_op_needs_rpm(u32 op)
 {
 	return op != DRM_XE_PRELIM_PXP_ACTION_HOST_SESSION_HANDLE_REQ;
+}
+
+static bool pxp_op_needs_resources(u32 op)
+{
+	return op != DRM_XE_PRELIM_PXP_ACTION_QUERY_PXP_TAG;
 }
 
 static bool pxp_op_needs_arb(u32 op)
@@ -310,7 +364,7 @@ int xe_pxp_ops_ioctl(struct drm_device *dev, void *data, struct drm_file *drmfil
 	if (XE_IOCTL_DBG(xe, pxp_ops->extensions))
 		return -EINVAL;
 
-	if (XE_IOCTL_DBG(xe, action > DRM_XE_PRELIM_PXP_ACTION_SESSION_OP))
+	if (XE_IOCTL_DBG(xe, action > DRM_XE_PRELIM_PXP_ACTION_QUERY_PXP_TAG))
 		return -EINVAL;
 
 	if (pxp_op_needs_rpm(action) && !xe_pm_runtime_get_if_in_use(xe)) {
@@ -340,10 +394,12 @@ pxp_start:
 		goto pxp_start;
 	}
 
-	client = xe_pxp_alloc_client_resources(pxp, drmfile);
-	if (IS_ERR(client)) {
-		ret = PTR_ERR(client);
-		goto out_unlock;
+	if (pxp_op_needs_resources(action)) {
+		client = xe_pxp_alloc_client_resources(pxp, drmfile);
+		if (IS_ERR(client)) {
+			ret = PTR_ERR(client);
+			goto out_unlock;
+		}
 	}
 
 	switch (pxp_ops->action) {
@@ -352,6 +408,9 @@ pxp_start:
 		break;
 	case DRM_XE_PRELIM_PXP_ACTION_SESSION_OP:
 		ret = pxp_session_op(pxp, &pxp_ops->session_op, client);
+		break;
+	case DRM_XE_PRELIM_PXP_ACTION_QUERY_PXP_TAG:
+		ret = pxp_query_tag(pxp, &pxp_ops->query_tag);
 		break;
 	default:
 		ret = -EINVAL;
@@ -379,6 +438,7 @@ void xe_pxp_multi_session_init(struct xe_pxp *pxp)
 
 	/* The default session is perma-reserved by the kernel */
 	set_bit(DRM_XE_PXP_HWDRM_DEFAULT_SESSION, pxp->multi_session.reserved_sessions);
+	xe_pxp_multi_session_set_arb_session_tag(pxp, false);
 }
 
 void xe_pxp_invalidate_sessions(struct xe_pxp *pxp, u32 mask)
