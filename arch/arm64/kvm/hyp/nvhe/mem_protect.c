@@ -1058,6 +1058,7 @@ struct guest_request_walker_data {
 	kvm_pte_t		pte_start;
 	u64			size;
 	enum pkvm_page_state	desired_state;
+	enum pkvm_page_state	desired_mask;
 	int			max_ptes;
 };
 
@@ -1065,6 +1066,7 @@ struct guest_request_walker_data {
 {							\
 	.size		= 0,				\
 	.desired_state	= __state,			\
+	.desired_mask	= ~0,				\
 	/*						\
 	 * Arbitrary limit of walked PTEs to restrict	\
 	 * the time spent at EL2			\
@@ -1082,7 +1084,7 @@ static int guest_request_walker(const struct kvm_pgtable_visit_ctx *ctx,
 	u32 level = ctx->level;
 
 	state = guest_get_page_state(pte, 0);
-	if (data->desired_state != state)
+	if (data->desired_state != (state & data->desired_mask))
 		return (state & PKVM_NOPAGE) ? -EFAULT : -EPERM;
 
 	data->max_ptes--;
@@ -1899,64 +1901,47 @@ static bool __check_ioguard_page(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa)
 		pte == KVM_INVALID_PTE_MMIO_NOTE);
 }
 
-int __pkvm_install_ioguard_page(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa)
+int __pkvm_install_ioguard_page(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa,
+				u64 nr_pages, u64 *nr_guarded)
 {
+	struct guest_request_walker_data data = GUEST_WALKER_DATA_INIT(PKVM_NOPAGE);
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(hyp_vcpu);
-	kvm_pte_t pte;
-	s8 level;
+	struct kvm_pgtable_walker walker = {
+		.cb     = guest_request_walker,
+		.flags  = KVM_PGTABLE_WALK_LEAF,
+		.arg    = (void *)&data,
+	};
 	int ret;
 
 	if (!test_bit(KVM_ARCH_FLAG_MMIO_GUARD, &vm->kvm.arch.flags))
 		return -EINVAL;
 
-	if (ipa & ~PAGE_MASK)
+	if (!PAGE_ALIGNED(ipa))
 		return -EINVAL;
 
 	guest_lock_component(vm);
 
-	ret = kvm_pgtable_get_leaf(&vm->pgt, ipa, &pte, &level);
-	if (ret)
+	/* Check we either have NOMAP or NOMAP|MMIO in this range */
+	data.desired_mask = ~PKVM_MMIO;
+
+	ret = kvm_pgtable_walk(&vm->pgt, ipa, nr_pages << PAGE_SHIFT, &walker);
+	/* Walker reached data.max_ptes */
+	if (ret == -E2BIG)
+		ret = 0;
+	else if (ret)
 		goto unlock;
 
-	if (pte && BIT(ARM64_HW_PGTABLE_LEVEL_SHIFT(level)) == PAGE_SIZE) {
-		/*
-		 * Already flagged as MMIO, let's accept it, and fail
-		 * otherwise
-		 */
-		if (pte != KVM_INVALID_PTE_MMIO_NOTE)
-			ret = -EBUSY;
-
-		goto unlock;
-	}
-
-	ret = kvm_pgtable_stage2_annotate(&vm->pgt, ipa, PAGE_SIZE,
+	/*
+	 * Intersection between the requested region and what has been verified
+	 */
+	*nr_guarded = nr_pages = min_t(u64, data.size >> PAGE_SHIFT, nr_pages);
+	ret = kvm_pgtable_stage2_annotate(&vm->pgt, ipa, nr_pages << PAGE_SHIFT,
 					  &hyp_vcpu->vcpu.arch.stage2_mc,
 					  KVM_INVALID_PTE_MMIO_NOTE);
 
 unlock:
 	guest_unlock_component(vm);
 	return ret;
-}
-
-int __pkvm_remove_ioguard_page(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa)
-{
-	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(hyp_vcpu);
-
-	if (!test_bit(KVM_ARCH_FLAG_MMIO_GUARD, &vm->kvm.arch.flags))
-		return -EINVAL;
-
-	/*
-	 * Before 6.12 guests, unmap HVCs could be issued. However this operation
-	 * is not necessary:
-	 *   - ioguard is only there to let the hypervisor know where are the
-	 *   MMIO regions.
-	 *   - MMIO_GUARD_MAP will not fail on multiple calls for the same
-	 *   region.
-	 *
-	 * Keep the HVCs for compatibility reason, but do not do anything.
-	 */
-
-	return 0;
 }
 
 bool __pkvm_check_ioguard_page(struct pkvm_hyp_vcpu *hyp_vcpu)
