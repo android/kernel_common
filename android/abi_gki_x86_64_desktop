@@ -3061,12 +3061,17 @@
   tty_termios_hw_change
   tty_unregister_ldisc
   tty_unthrottle
+  typec_altmode2port
   typec_altmode_attention
+  typec_altmode_get_partner
+  typec_altmode_set_ops
+  typec_altmode_update_active
   typec_altmode_vdm
   typec_find_orientation
   typec_find_port_data_role
   typec_find_port_power_role
   typec_find_power_role
+  typec_get_negotiated_svdm_version
   typec_match_altmode
   typec_mux_get_drvdata
   typec_mux_put
@@ -3077,6 +3082,7 @@
   typec_partner_set_identity
   typec_partner_set_num_altmodes
   typec_partner_set_pd_revision
+  typec_partner_set_svdm_version
   typec_partner_set_usb_power_delivery
   typec_partner_usb_power_delivery_register
   typec_plug_register_altmode
