@@ -1850,7 +1850,7 @@ static void add_versions(struct buffer *b, struct module *mod)
 			      s->name, mod->name);
 			break;
 		}
-		buf_printf(b, "\t{ %#8x, \"%s\" },\n",
+		buf_printf(b, "\t{ 0x%08x, \"%s\" },\n",
 			   s->crc, s->name);
 	}
 
