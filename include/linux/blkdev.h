@@ -26,6 +26,7 @@
 #include <linux/xarray.h>
 #include <linux/file.h>
 #include <linux/lockdep.h>
+#include <linux/android_vendor.h>
 
 struct module;
 struct request_queue;
@@ -593,6 +594,7 @@ struct request_queue {
 	struct mutex		debugfs_mutex;
 
 	bool			mq_sysfs_init_done;
+	ANDROID_OEM_DATA(1);
 };
 
 /* Keep blk_queue_flag_name[] in sync with the definitions below */
