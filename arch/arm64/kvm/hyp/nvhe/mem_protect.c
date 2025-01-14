@@ -1945,13 +1945,17 @@ int __pkvm_remove_ioguard_page(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa)
 	if (!test_bit(KVM_ARCH_FLAG_MMIO_GUARD, &vm->kvm.arch.flags))
 		return -EINVAL;
 
-	guest_lock_component(vm);
+	/*
+	 * Before 6.12 guests, unmap HVCs could be issued. However this operation
+	 * is not necessary:
+	 *   - ioguard is only there to let the hypervisor know where are the
+	 *   MMIO regions.
+	 *   - MMIO_GUARD_MAP will not fail on multiple calls for the same
+	 *   region.
+	 *
+	 * Keep the HVCs for compatibility reason, but do not do anything.
+	 */
 
-	if (__check_ioguard_page(hyp_vcpu, ipa))
-		WARN_ON(kvm_pgtable_stage2_unmap(&vm->pgt,
-				ALIGN_DOWN(ipa, PAGE_SIZE), PAGE_SIZE));
-
-	guest_unlock_component(vm);
 	return 0;
 }
 
