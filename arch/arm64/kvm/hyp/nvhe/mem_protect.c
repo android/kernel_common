@@ -2125,20 +2125,17 @@ void hyp_unpin_shared_mem(void *from, void *to)
 
 int __pkvm_host_share_ffa(u64 pfn, u64 nr_pages)
 {
+
+	u64 phys = hyp_pfn_to_phys(pfn);
+	u64 size = PAGE_SIZE * nr_pages;
 	int ret;
-	struct pkvm_mem_transition share = {
-		.nr_pages	= nr_pages,
-		.initiator	= {
-			.id	= PKVM_ID_HOST,
-			.addr	= hyp_pfn_to_phys(pfn),
-		},
-		.completer	= {
-			.id	= PKVM_ID_FFA,
-		},
-	};
 
 	host_lock_component();
-	ret = do_share(&share);
+
+	ret = __host_check_page_state_range(phys, size, PKVM_PAGE_OWNED);
+	if (!ret)
+		ret = __host_set_page_state_range(phys, size, PKVM_PAGE_SHARED_OWNED);
+
 	host_unlock_component();
 
 	return ret;
@@ -2146,20 +2143,16 @@ int __pkvm_host_share_ffa(u64 pfn, u64 nr_pages)
 
 int __pkvm_host_unshare_ffa(u64 pfn, u64 nr_pages)
 {
+	u64 phys = hyp_pfn_to_phys(pfn);
+	u64 size = PAGE_SIZE * nr_pages;
 	int ret;
-	struct pkvm_mem_transition share = {
-		.nr_pages	= nr_pages,
-		.initiator	= {
-			.id	= PKVM_ID_HOST,
-			.addr	= hyp_pfn_to_phys(pfn),
-		},
-		.completer	= {
-			.id	= PKVM_ID_FFA,
-		},
-	};
 
 	host_lock_component();
-	ret = do_unshare(&share);
+
+	ret = __host_check_page_state_range(phys, size, PKVM_PAGE_SHARED_OWNED);
+	if (!ret)
+		ret = __host_set_page_state_range(phys, size, PKVM_PAGE_OWNED);
+
 	host_unlock_component();
 
 	return ret;
