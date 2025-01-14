@@ -1222,12 +1222,13 @@ unlock:
 	return ret;
 }
 
-int __pkvm_guest_share_host(struct pkvm_hyp_vcpu *vcpu, u64 ipa)
+int __pkvm_guest_share_host(struct pkvm_hyp_vcpu *vcpu, u64 ipa, u64 nr_pages,
+			    u64 *nr_shared)
 {
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
-	u64 phys, nr_pages = 1;
 	kvm_pte_t pte;
 	size_t size;
+	u64 phys;
 	int ret;
 
 	host_lock_component();
@@ -1246,6 +1247,7 @@ int __pkvm_guest_share_host(struct pkvm_hyp_vcpu *vcpu, u64 ipa)
 	WARN_ON(__guest_initiate_page_transition(ipa, pte, nr_pages, vcpu, PKVM_PAGE_SHARED_OWNED));
 	WARN_ON(__host_set_page_state_range(phys, size, PKVM_PAGE_SHARED_BORROWED));
 	psci_mem_protect_dec(nr_pages);
+	*nr_shared = nr_pages;
 
 unlock:
 	guest_unlock_component(vm);
@@ -1254,12 +1256,13 @@ unlock:
 	return ret;
 }
 
-int __pkvm_guest_unshare_host(struct pkvm_hyp_vcpu *vcpu, u64 ipa)
+int __pkvm_guest_unshare_host(struct pkvm_hyp_vcpu *vcpu, u64 ipa, u64 nr_pages,
+			      u64 *nr_unshared)
 {
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
-	u64 phys, nr_pages = 1;
 	kvm_pte_t pte;
 	size_t size;
+	u64 phys;
 	int ret;
 
 	host_lock_component();
@@ -1278,6 +1281,7 @@ int __pkvm_guest_unshare_host(struct pkvm_hyp_vcpu *vcpu, u64 ipa)
 	WARN_ON(__guest_initiate_page_transition(ipa, pte, nr_pages, vcpu, PKVM_PAGE_OWNED));
 	psci_mem_protect_inc(nr_pages);
 	WARN_ON(host_stage2_set_owner_locked(phys, size, PKVM_ID_GUEST));
+	*nr_unshared = nr_pages;
 
 unlock:
 	guest_unlock_component(vm);
