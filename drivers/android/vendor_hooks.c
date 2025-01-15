@@ -56,6 +56,7 @@
 #include <trace/hooks/regmap.h>
 #include <trace/hooks/softlockup.h>
 #include <trace/hooks/power.h>
+#include <trace/hooks/dmabuf.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -210,6 +211,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_try_to_freeze_todo);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_try_to_freeze_todo_unfrozen);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_die_kernel_fault);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_do_sp_pc_abort);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_dma_buf_stats_teardown);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dpm_wait_start);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dpm_wait_finish);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sync_irq_wait_start);
