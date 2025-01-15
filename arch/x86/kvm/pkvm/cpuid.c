@@ -390,6 +390,10 @@ static void kvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 	kvm_hv_set_cpuid(vcpu, kvm_cpuid_has_hyperv(vcpu->arch.cpuid_entries,
 						    vcpu->arch.cpuid_nent));
 
+#ifdef __PKVM_HYP__
+	/* Disable the VMX as no nested support in the pkvm hypervisor */
+	guest_cpuid_clear(vcpu, X86_FEATURE_VMX);
+#endif
 	/* Invoke the vendor callback only after the above state is updated. */
 	kvm_x86_call(vcpu_after_set_cpuid)(vcpu);
 
