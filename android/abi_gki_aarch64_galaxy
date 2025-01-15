@@ -2604,6 +2604,7 @@
   usb_disabled
   usb_driver_claim_interface
   usb_driver_release_interface
+  usb_driver_set_configuration
   usb_enable_autosuspend
   usb_enable_intel_xhci_ports
   usb_ep_alloc_request
