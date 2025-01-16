@@ -496,12 +496,26 @@ static void pkvm_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int
 	put_this_pv_param(pkvm_var);
 }
 
+static bool pkvm_is_valid_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
+{
+	return true;
+}
+
 static void pkvm_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
 {
 	if (!vcpu->arch.guest_state_protected)
 		kvm_call_pkvm(set_cr0, vcpu, cr0);
 
 	vcpu->arch.cr0 = cr0;
+}
+
+static bool pkvm_is_valid_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
+{
+	/* No VMX emulation in the pkvm hypervisor */
+	if (cr4 & X86_CR4_VMXE)
+		return false;
+
+	return true;
 }
 
 static void pkvm_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
@@ -738,9 +752,9 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_segment = pkvm_set_segment,
 	.get_cpl = vmx_get_cpl,
 	.get_cs_db_l_bits = vmx_get_cs_db_l_bits,
-	.is_valid_cr0 = vmx_is_valid_cr0,
+	.is_valid_cr0 = pkvm_is_valid_cr0,
 	.set_cr0 = pkvm_set_cr0,
-	.is_valid_cr4 = vmx_is_valid_cr4,
+	.is_valid_cr4 = pkvm_is_valid_cr4,
 	.set_cr4 = pkvm_set_cr4,
 	.set_efer = vmx_set_efer,
 	.get_idt = vmx_get_idt,
