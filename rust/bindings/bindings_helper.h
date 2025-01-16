@@ -18,6 +18,7 @@
 #include <linux/fs.h>
 #include <linux/jiffies.h>
 #include <linux/mdio.h>
+#include <linux/miscdevice.h>
 #include <linux/phy.h>
 #include <linux/pid_namespace.h>
 #include <linux/poll.h>
