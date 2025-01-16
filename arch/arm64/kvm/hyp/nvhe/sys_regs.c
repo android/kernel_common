@@ -302,9 +302,10 @@ static u64 read_id_reg(const struct kvm_vcpu *vcpu,
 	struct kvm *kvm = vcpu->kvm;
 	u32 reg = reg_to_encoding(r);
 
-	BUG_ON(!test_bit(KVM_ARCH_FLAG_ID_REGS_INITIALIZED, &kvm->arch.flags));
+	if (WARN_ON_ONCE(!test_bit(KVM_ARCH_FLAG_ID_REGS_INITIALIZED, &kvm->arch.flags)))
+		return 0;
 
-	if (reg >= sys_reg(3, 0, 0, 4, 0) && reg <= sys_reg(3, 0, 0, 7, 7))
+	if (reg >= sys_reg(3, 0, 0, 1, 0) && reg <= sys_reg(3, 0, 0, 7, 7))
 		return kvm->arch.id_regs[IDREG_IDX(reg)];
 
 	return 0;
@@ -618,36 +619,22 @@ static const struct sys_reg_desc_reset pvm_sys_reg_reset_vals[] = {
  */
 void kvm_init_pvm_id_regs(struct kvm_vcpu *vcpu)
 {
-	/* List of feature registers to reset for protected VMs. */
-	const u32 pvm_feat_id_regs[] = {
-		SYS_ID_AA64PFR0_EL1,
-		SYS_ID_AA64PFR1_EL1,
-		SYS_ID_AA64ISAR0_EL1,
-		SYS_ID_AA64ISAR1_EL1,
-		SYS_ID_AA64ISAR2_EL1,
-		SYS_ID_AA64ZFR0_EL1,
-		SYS_ID_AA64MMFR0_EL1,
-		SYS_ID_AA64MMFR1_EL1,
-		SYS_ID_AA64MMFR2_EL1,
-		SYS_ID_AA64MMFR4_EL1,
-		SYS_ID_AA64DFR0_EL1,
-	};
 	struct kvm *kvm = vcpu->kvm;
-	int i;
+	struct kvm_arch *ka = &kvm->arch;
+	u32 r;
 
 	if (test_bit(KVM_ARCH_FLAG_ID_REGS_INITIALIZED, &kvm->arch.flags))
 		return;
 
-	for (i = 0; i < ARRAY_SIZE(pvm_feat_id_regs); i++) {
-		struct kvm_arch *ka = &kvm->arch;
-		u32 reg = pvm_feat_id_regs[i];
-
-		ka->id_regs[IDREG_IDX(reg)] = pvm_calc_id_reg(vcpu, reg);
-	}
+	/*
+	 * Initialize only AArch64 id registers since AArch32 isn't supported
+	 * for protected VMs.
+	 */
+	for (r = sys_reg(3, 0, 0, 1, 0); r <= sys_reg(3, 0, 0, 7, 7); r += sys_reg(0, 0, 0, 0, 1))
+		ka->id_regs[IDREG_IDX(r)] = pvm_calc_id_reg(vcpu, r);
 
 	set_bit(KVM_ARCH_FLAG_ID_REGS_INITIALIZED, &kvm->arch.flags);
 }
-
 
 /*
  * Sets system registers to reset value

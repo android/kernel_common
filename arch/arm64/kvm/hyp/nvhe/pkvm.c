@@ -560,13 +560,13 @@ static void init_pkvm_hyp_vm(struct kvm *host_kvm, struct pkvm_hyp_vm *hyp_vm,
 	hyp_vm->kvm.created_vcpus = nr_vcpus;
 	hyp_vm->kvm.arch.mmu.vtcr = host_mmu.arch.mmu.vtcr;
 	hyp_vm->kvm.arch.pkvm.enabled = READ_ONCE(host_kvm->arch.pkvm.enabled);
+	hyp_vm->kvm.arch.flags = 0;
 
 	if (hyp_vm->kvm.arch.pkvm.enabled)
 		pvmfw_load_addr = READ_ONCE(host_kvm->arch.pkvm.pvmfw_load_addr);
 	hyp_vm->kvm.arch.pkvm.pvmfw_load_addr = pvmfw_load_addr;
 
 	hyp_vm->kvm.arch.mmu.last_vcpu_ran = (int __percpu *)last_ran;
-	hyp_vm->kvm.arch.flags = 0;
 	memset(last_ran, -1, pkvm_get_last_ran_size());
 	pkvm_init_features_from_host(hyp_vm, host_kvm);
 	hyp_spin_lock_init(&hyp_vm->vcpus_lock);
@@ -656,8 +656,10 @@ static int init_pkvm_hyp_vcpu(struct pkvm_hyp_vcpu *hyp_vcpu,
 	hyp_vcpu->vcpu.arch.debug_ptr = &host_vcpu->arch.vcpu_debug_state;
 	hyp_vcpu->vcpu.arch.hyp_reqs->type = KVM_HYP_LAST_REQ;
 
-	kvm_init_pvm_id_regs(&hyp_vcpu->vcpu);
-	kvm_reset_pvm_sys_regs(&hyp_vcpu->vcpu);
+	if (pkvm_hyp_vcpu_is_protected(hyp_vcpu)) {
+		kvm_init_pvm_id_regs(&hyp_vcpu->vcpu);
+		kvm_reset_pvm_sys_regs(&hyp_vcpu->vcpu);
+	}
 
 	ret = pkvm_vcpu_init_traps(hyp_vcpu);
 	if (ret)
