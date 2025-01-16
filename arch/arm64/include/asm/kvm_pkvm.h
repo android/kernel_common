@@ -26,6 +26,32 @@ void pkvm_destroy_hyp_vm(struct kvm *kvm);
 bool pkvm_is_hyp_created(struct kvm *kvm);
 void pkvm_host_reclaim_page(struct kvm *host_kvm, phys_addr_t ipa);
 
+/*
+ * This functions as an allow-list of protected VM capabilities.
+ * Features not explicitly allowed by this function are denied.
+ */
+static inline bool kvm_pvm_ext_allowed(long ext)
+{
+	switch (ext) {
+	case KVM_CAP_IRQCHIP:
+	case KVM_CAP_ARM_PSCI:
+	case KVM_CAP_ARM_PSCI_0_2:
+	case KVM_CAP_NR_VCPUS:
+	case KVM_CAP_MAX_VCPUS:
+	case KVM_CAP_MAX_VCPU_ID:
+	case KVM_CAP_MSI_DEVID:
+	case KVM_CAP_ARM_VM_IPA_SIZE:
+	case KVM_CAP_ARM_PMU_V3:
+	case KVM_CAP_ARM_SVE:
+	case KVM_CAP_ARM_PTRAUTH_ADDRESS:
+	case KVM_CAP_ARM_PTRAUTH_GENERIC:
+	case KVM_CAP_ARM_PROTECTED_VM:
+		return true;
+	default:
+		return false;
+	}
+}
+
 /* All HAFGRTR_EL2 bits are AMU */
 #define HAFGRTR_AMU	__HAFGRTR_EL2_MASK
 
