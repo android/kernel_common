@@ -656,6 +656,7 @@ out:
 	VM_WARN_ON_ONCE(is_zero_pfn(pfn));
 	return pfn_to_page(pfn);
 }
+EXPORT_SYMBOL_GPL(vm_normal_page);
 
 struct folio *vm_normal_folio(struct vm_area_struct *vma, unsigned long addr,
 			    pte_t pte)
