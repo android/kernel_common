@@ -47,6 +47,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/vmalloc.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/mm.h>
+
 #include "internal.h"
 #include "pgalloc-track.h"
 
@@ -3342,8 +3345,13 @@ void vfree_atomic(const void *addr)
  */
 void vfree(const void *addr)
 {
+	bool bypass = false;
 	struct vm_struct *vm;
 	int i;
+
+	trace_android_rvh_vfree_bypass(addr, &bypass);
+	if (bypass)
+		return;
 
 	if (unlikely(in_interrupt())) {
 		vfree_atomic(addr);
@@ -3909,6 +3917,12 @@ fail:
 void *__vmalloc_node_noprof(unsigned long size, unsigned long align,
 			    gfp_t gfp_mask, int node, const void *caller)
 {
+	void *addr = NULL;
+
+	trace_android_rvh_vmalloc_node_bypass(size, gfp_mask, &addr);
+	if (addr)
+		return addr;
+
 	return __vmalloc_node_range_noprof(size, align, VMALLOC_START, VMALLOC_END,
 				gfp_mask, PAGE_KERNEL, 0, node, caller);
 }
