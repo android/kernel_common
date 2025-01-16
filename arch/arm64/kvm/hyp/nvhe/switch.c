@@ -110,39 +110,34 @@ static void __deactivate_pvm_traps_hfgxtr(struct kvm_vcpu *vcpu)
 
 static void __activate_cptr_traps(struct kvm_vcpu *vcpu)
 {
-	u64 val = kvm_get_reset_cptr_el2(vcpu);
+	u64 val = CPTR_EL2_TAM;	/* Same bit irrespective of E2H */
 
-	val |= CPTR_EL2_TAM;	/* Same bit irrespective of E2H */
-	val |= has_hvhe() ? CPACR_EL1_TTA : CPTR_EL2_TTA;
-	if (cpus_have_final_cap(ARM64_SME)) {
-		if (has_hvhe())
-			val &= ~CPACR_ELx_SMEN;
-		else
-			val |= CPTR_EL2_TSM;
-	}
+	if (has_hvhe()) {
+		val |= CPACR_ELx_TTA;
 
-	if (!guest_owns_fp_regs()) {
-		if (has_hvhe())
-			val &= ~(CPACR_ELx_FPEN | CPACR_ELx_ZEN);
-		else
-			val |= CPTR_EL2_TFP | CPTR_EL2_TZ;
-
-		__activate_traps_fpsimd32(vcpu);
-	}
-
-	if (vcpu_is_protected(vcpu)) {
-		struct kvm *kvm = vcpu->kvm;
-
-		if (!kvm_has_feat(kvm, ID_AA64PFR0_EL1, AMU, IMP))
-			val |= CPTR_EL2_TAM;
-
-		if (!vcpu_has_sve(vcpu)) {
-			if (has_hvhe())
-				val &= ~CPACR_ELx_ZEN;
-			else
-				val |= CPTR_EL2_TZ;
+		if (guest_owns_fp_regs()) {
+			val |= CPACR_ELx_FPEN;
+			if (vcpu_has_sve(vcpu))
+				val |= CPACR_ELx_ZEN;
 		}
+	} else {
+		val |= CPTR_EL2_TTA | CPTR_NVHE_EL2_RES1;
+
+		/*
+		 * Always trap SME since it's not supported in KVM.
+		 * TSM is RES1 if SME isn't implemented.
+		 */
+		val |= CPTR_EL2_TSM;
+
+		if (!vcpu_has_sve(vcpu) || !guest_owns_fp_regs())
+			val |= CPTR_EL2_TZ;
+
+		if (!guest_owns_fp_regs())
+			val |= CPTR_EL2_TFP;
 	}
+
+	if (!guest_owns_fp_regs())
+		__activate_traps_fpsimd32(vcpu);
 
 	kvm_write_cptr_el2(val);
 }
