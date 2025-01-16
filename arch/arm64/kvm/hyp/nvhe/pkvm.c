@@ -90,36 +90,35 @@ static void pkvm_vcpu_reset_hcrx(struct pkvm_hyp_vcpu *hyp_vcpu)
 static void pvm_init_traps_hcr(struct kvm_vcpu *vcpu)
 {
 	struct kvm *kvm = vcpu->kvm;
-	u64 hcr_clear = 0;
-	u64 hcr_set = 0;
+	u64 val = vcpu->arch.hcr_el2;
 
-	hcr_set |= HCR_RW;
+	/* No support for AArch32. */
+	val |= HCR_RW;
 
 	/*
 	 * Always trap:
 	 * - Feature id registers: to control features exposed to guests
 	 * - Implementation-defined features
 	 */
-	hcr_set |= HCR_TACR | HCR_TIDCP | HCR_TID3 | HCR_TID1;
+	val |= HCR_TACR | HCR_TIDCP | HCR_TID3 | HCR_TID1;
 
 	if (!kvm_has_feat(kvm, ID_AA64PFR0_EL1, RAS, IMP)) {
-		hcr_set |= HCR_TERR | HCR_TEA;
-		hcr_clear |= HCR_FIEN;
+		val |= HCR_TERR | HCR_TEA;
+		val &= ~(HCR_FIEN);
 	}
 
 	if (!kvm_has_feat(kvm, ID_AA64PFR0_EL1, AMU, IMP))
-		hcr_clear |= HCR_AMVOFFEN;
+		val &= ~(HCR_AMVOFFEN);
 
 	if (!kvm_has_feat(kvm, ID_AA64PFR1_EL1, MTE, IMP)) {
-		hcr_set |= HCR_TID5;
-		hcr_clear |= HCR_DCT | HCR_ATA;
+		val |= HCR_TID5;
+		val &= ~(HCR_DCT | HCR_ATA);
 	}
 
 	if (!kvm_has_feat(kvm, ID_AA64MMFR1_EL1, LO, IMP))
-		hcr_set |= HCR_TLOR;
+		val |= HCR_TLOR;
 
-	vcpu->arch.hcr_el2 |= hcr_set;
-	vcpu->arch.hcr_el2 &= ~hcr_clear;
+	vcpu->arch.hcr_el2 = val;
 }
 
 static void pvm_init_traps_hcrx(struct kvm_vcpu *vcpu)
@@ -145,38 +144,35 @@ static void pvm_init_traps_hcrx(struct kvm_vcpu *vcpu)
 static void pvm_init_traps_mdcr(struct kvm_vcpu *vcpu)
 {
 	struct kvm *kvm = vcpu->kvm;
-	u64 mdcr_clear = 0;
-	u64 mdcr_set = 0;
+	u64 val = vcpu->arch.mdcr_el2;
 
 	if (!kvm_has_feat(kvm, ID_AA64DFR0_EL1, PMUVer, IMP)) {
-		mdcr_set |= MDCR_EL2_TPM | MDCR_EL2_TPMCR;
-		mdcr_clear |= MDCR_EL2_HPME | MDCR_EL2_MTPME |
-			      MDCR_EL2_HPMN_MASK;
+		val |= MDCR_EL2_TPM | MDCR_EL2_TPMCR;
+		val &= ~(MDCR_EL2_HPME | MDCR_EL2_MTPME | MDCR_EL2_HPMN_MASK);
 	}
 
 	if (!kvm_has_feat(kvm, ID_AA64DFR0_EL1, DebugVer, IMP))
-		mdcr_set |= MDCR_EL2_TDRA | MDCR_EL2_TDA;
+		val |= MDCR_EL2_TDRA | MDCR_EL2_TDA;
 
 	if (!kvm_has_feat(kvm, ID_AA64DFR0_EL1, DoubleLock, IMP))
-		mdcr_set |= MDCR_EL2_TDOSA;
+		val |= MDCR_EL2_TDOSA;
 
 	if (!kvm_has_feat(kvm, ID_AA64DFR0_EL1, PMSVer, IMP)) {
-		mdcr_set |= MDCR_EL2_TPMS;
-		mdcr_clear |= MDCR_EL2_E2PB_MASK << MDCR_EL2_E2PB_SHIFT;
+		val |= MDCR_EL2_TPMS;
+		val &= ~(MDCR_EL2_E2PB_MASK << MDCR_EL2_E2PB_SHIFT);
 	}
 
 	if (!kvm_has_feat(kvm, ID_AA64DFR0_EL1, TraceFilt, IMP))
-		mdcr_set |= MDCR_EL2_TTRF;
+		val |= MDCR_EL2_TTRF;
 
 	if (!kvm_has_feat(kvm, ID_AA64DFR0_EL1, ExtTrcBuff, IMP))
-		mdcr_clear |= MDCR_EL2_E2TB_MASK << MDCR_EL2_E2TB_SHIFT;
+		val |= MDCR_EL2_E2TB_MASK << MDCR_EL2_E2TB_SHIFT;
 
 	/* Trap Debug Communications Channel registers */
 	if (!kvm_has_feat(kvm, ID_AA64MMFR0_EL1, FGT, IMP))
-		mdcr_set |= MDCR_EL2_TDCC;
+		val |= MDCR_EL2_TDCC;
 
-	vcpu->arch.mdcr_el2 |= mdcr_set;
-	vcpu->arch.mdcr_el2 &= ~mdcr_clear;
+	vcpu->arch.mdcr_el2 = val;
 }
 
 /*
