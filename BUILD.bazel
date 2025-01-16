@@ -189,7 +189,7 @@ _KUNIT_COMMON_GUIDE = [
 
 write_file(
     name = "generate_gki_module_info_arm64",
-    out = "gki_module_info_arm64.txt",
+    out = "generate_gki_module_info_arm64/README",
     content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("arm64") + [
         "",  # keep new line at the end
     ],
@@ -198,7 +198,7 @@ write_file(
 
 write_file(
     name = "generate_gki_module_info_x86_64",
-    out = "gki_module_info_x86_64.txt",
+    out = "generate_gki_module_info_x86_64/README",
     content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("x86_64") + [
         "",  # keep new line at the end
     ],
@@ -223,6 +223,7 @@ common_kernel(
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 
     # Symbol lists and module lists
@@ -257,6 +258,7 @@ common_kernel(
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     page_size = "16k",
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 )
 
@@ -286,6 +288,7 @@ common_kernel(
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 )
 
@@ -329,6 +332,7 @@ common_kernel(
     make_goals = _GKI_X86_64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("x86_64") + get_kunit_modules_list("x86_64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_x86_64"],
     visibility = ["//visibility:public"],
 )
 
