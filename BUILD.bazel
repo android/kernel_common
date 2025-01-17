@@ -12,7 +12,7 @@ load(
     "common_kernel",
     "define_prebuilts",
 )
-load("//build/kernel/kleaf:constants.bzl", "DEFAULT_GKI_OUTS", "X86_64_OUTS")
+load("//build/kernel/kleaf:constants.bzl", "COMMON_KCFLAGS", "DEFAULT_GKI_OUTS", "X86_64_OUTS")
 load("//build/kernel/kleaf:fail.bzl", "fail_rule")
 load(
     "//build/kernel/kleaf:kernel.bzl",
@@ -167,20 +167,6 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-# Temp target to fork form build.config.gki.aarch64 which may potentially be
-# used elsewhere.
-# TODO(b/236012223): Delete this once we have build-config-less builds for GKI.
-write_file(
-    name = "build.config.gki.aarch64_generated",
-    out = "build.config.gki.aarch64.generated",
-    content = [
-        ". ${ROOT_DIR}/${KERNEL_DIR}/build.config.common",
-        ". ${ROOT_DIR}/${KERNEL_DIR}/build.config.aarch64",
-        "",  # keep new line at the end
-    ],
-    visibility = ["//visibility:private"],
-)
-
 _KUNIT_COMMON_GUIDE = [
     "Modules for KUnit testing on Android devices only:",
     "(KUnit: Linux Kernel Unit Testing https://www.kernel.org/doc/html/latest/dev-tools/kunit/)",
@@ -209,7 +195,6 @@ common_kernel(
     name = "kernel_aarch64",
     outs = DEFAULT_GKI_OUTS,
     arch = "arm64",
-    build_config = ":build.config.gki.aarch64_generated",
     build_gki_artifacts = True,
     ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
     ddk_module_headers = [":all_headers_aarch64"],
@@ -220,6 +205,7 @@ common_kernel(
     ],
     gki_boot_img_sizes = _GKI_AARCH64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
+    kcflags = COMMON_KCFLAGS,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
@@ -243,7 +229,6 @@ common_kernel(
     name = "kernel_aarch64_16k",
     outs = DEFAULT_GKI_OUTS,
     arch = "arm64",
-    build_config = ":build.config.gki.aarch64_generated",
     build_gki_artifacts = True,
     ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
     ddk_module_headers = [":all_headers_aarch64"],
@@ -254,6 +239,7 @@ common_kernel(
     ],
     gki_boot_img_sizes = _GKI_AARCH64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
+    kcflags = COMMON_KCFLAGS,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
@@ -275,7 +261,6 @@ common_kernel(
     name = "kernel_aarch64_interceptor",
     outs = DEFAULT_GKI_OUTS,
     arch = "arm64",
-    build_config = ":build.config.gki.aarch64_generated",
     ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
     ddk_module_headers = [":all_headers_aarch64"],
     defconfig = "arch/arm64/configs/gki_defconfig",
@@ -285,25 +270,12 @@ common_kernel(
         ":tests_zip_arm64",
     ],
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
+    kcflags = COMMON_KCFLAGS,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
-)
-
-# Temp target to fork form build.config.gki.x86_64 which may potentially be
-# used elsewhere.
-# TODO(b/236012223): Delete this once we have build-config-less builds for GKI.
-write_file(
-    name = "build.config.gki.x86_64_generated",
-    out = "build.config.gki.x86_64.generated",
-    content = [
-        ". ${ROOT_DIR}/${KERNEL_DIR}/build.config.common",
-        ". ${ROOT_DIR}/${KERNEL_DIR}/build.config.x86_64",
-        "",  # keep new line at the end
-    ],
-    visibility = ["//visibility:private"],
 )
 
 fail_rule(
@@ -319,7 +291,6 @@ common_kernel(
     name = "kernel_x86_64",
     outs = X86_64_OUTS,
     arch = "x86_64",
-    build_config = "build.config.gki.x86_64_generated",
     build_gki_artifacts = True,
     ddk_module_headers = [":all_headers_x86_64"],
     defconfig = "arch/x86/configs/gki_defconfig",
@@ -329,6 +300,7 @@ common_kernel(
     ],
     gki_boot_img_sizes = _GKI_X86_64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_x86_64",
+    kcflags = COMMON_KCFLAGS,
     make_goals = _GKI_X86_64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("x86_64") + get_kunit_modules_list("x86_64"),
