@@ -181,6 +181,30 @@ write_file(
     visibility = ["//visibility:private"],
 )
 
+_KUNIT_COMMON_GUIDE = [
+    "Modules for KUnit testing on Android devices only:",
+    "(KUnit: Linux Kernel Unit Testing https://www.kernel.org/doc/html/latest/dev-tools/kunit/)",
+    "(https://android.googlesource.com/kernel/common/+/refs/heads/android-mainline/tools/testing/kunit/android/README)",
+]
+
+write_file(
+    name = "generate_gki_module_info_arm64",
+    out = "generate_gki_module_info_arm64/README",
+    content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("arm64") + [
+        "",  # keep new line at the end
+    ],
+    visibility = ["//visibility:private"],
+)
+
+write_file(
+    name = "generate_gki_module_info_x86_64",
+    out = "generate_gki_module_info_x86_64/README",
+    content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("x86_64") + [
+        "",  # keep new line at the end
+    ],
+    visibility = ["//visibility:private"],
+)
+
 common_kernel(
     name = "kernel_aarch64",
     outs = DEFAULT_GKI_OUTS,
@@ -199,6 +223,7 @@ common_kernel(
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 
     # Symbol lists and module lists
@@ -233,6 +258,7 @@ common_kernel(
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     page_size = "16k",
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 )
 
@@ -262,6 +288,7 @@ common_kernel(
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 )
 
@@ -305,6 +332,7 @@ common_kernel(
     make_goals = _GKI_X86_64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("x86_64") + get_kunit_modules_list("x86_64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_x86_64"],
     visibility = ["//visibility:public"],
 )
 
@@ -1621,7 +1649,9 @@ ddk_headers(
     # The list of include directories where source files can #include headers
     # from. In other words, these are the `-I` option to the C compiler.
     # Unsafe include directories are appended to ccflags-y.
-    includes = [],
+    includes = [
+        ".",
+    ],
     visibility = ["//visibility:private"],
 )
 
