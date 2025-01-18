@@ -6866,9 +6866,12 @@ static int balance_pgdat(pg_data_t *pgdat, int order, int highest_zoneidx)
 		.order = order,
 		.may_unmap = 1,
 	};
+	bool bypass = false;
 
 	set_task_reclaim_state(current, &sc.reclaim_state);
-	psi_memstall_enter(&pflags);
+	trace_android_vh_async_psi_bypass(&bypass);
+	if (!bypass)
+		psi_memstall_enter(&pflags);
 	__fs_reclaim_acquire(_THIS_IP_);
 
 	count_vm_event(PAGEOUTRUN);
@@ -7060,7 +7063,8 @@ out:
 
 	snapshot_refaults(NULL, pgdat);
 	__fs_reclaim_release(_THIS_IP_);
-	psi_memstall_leave(&pflags);
+	if (!bypass)
+		psi_memstall_leave(&pflags);
 	set_task_reclaim_state(current, NULL);
 
 	/*

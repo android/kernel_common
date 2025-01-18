@@ -65,6 +65,8 @@ static inline bool is_via_compact_memory(int order) { return false; }
 #include <trace/events/compaction.h>
 #undef CREATE_TRACE_POINTS
 
+#include <trace/hooks/vmscan.h>
+
 #define block_start_pfn(pfn, order)	round_down(pfn, 1UL << (order))
 #define block_end_pfn(pfn, order)	ALIGN((pfn) + 1, 1UL << (order))
 
@@ -3164,6 +3166,7 @@ static int kcompactd(void *p)
 	struct task_struct *tsk = current;
 	long default_timeout = msecs_to_jiffies(HPAGE_FRAG_CHECK_INTERVAL_MSEC);
 	long timeout = default_timeout;
+	bool bypass = false;
 
 	const struct cpumask *cpumask = cpumask_of_node(pgdat->node_id);
 
@@ -3189,9 +3192,12 @@ static int kcompactd(void *p)
 			kcompactd_work_requested(pgdat), timeout) &&
 			!pgdat->proactive_compact_trigger) {
 
-			psi_memstall_enter(&pflags);
+			trace_android_vh_async_psi_bypass(&bypass);
+			if (!bypass)
+				psi_memstall_enter(&pflags);
 			kcompactd_do_work(pgdat);
-			psi_memstall_leave(&pflags);
+			if (!bypass)
+				psi_memstall_leave(&pflags);
 			/*
 			 * Reset the timeout value. The defer timeout from
 			 * proactive compaction is lost here but that is fine
