@@ -44,25 +44,6 @@ static const struct snd_pcm_hardware mt8196_afe_hardware = {
 	.fifo_size = 0,
 };
 
-#define USECS_TO_CYCLES(time_usecs)			\
-	xloops_to_cycles((time_usecs) * 0x10C7UL)
-
-static inline unsigned long xloops_to_cycles(unsigned long xloops)
-{
-	return (xloops * loops_per_jiffy * HZ) >> 32;
-}
-
-void mt8196_aud_delay(unsigned long usecs)
-{
-	unsigned long cycles = 0;
-	cycles_t start = get_cycles();
-
-	cycles = USECS_TO_CYCLES(usecs);
-
-	while ((get_cycles() - start) < cycles)
-		cpu_relax();
-}
-
 static int mt8196_fe_startup(struct snd_pcm_substream *substream,
 			     struct snd_soc_dai *dai)
 {
@@ -169,7 +150,7 @@ int mt8196_fe_trigger(struct snd_pcm_substream *substream, int cmd,
 		 */
 		if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 			if ((runtime->period_size * 1000) / rate <= 10)
-				mt8196_aud_delay(300);
+				udelay(300);
 		}
 
 		/* set irq counter */
