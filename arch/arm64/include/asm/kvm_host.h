@@ -1671,7 +1671,8 @@ struct kvm_iommu_driver {
 
 struct kvm_iommu_ops;
 int kvm_iommu_register_driver(struct kvm_iommu_driver *kern_ops);
-int kvm_iommu_init_hyp(struct kvm_iommu_ops *hyp_ops);
+int kvm_iommu_init_hyp(struct kvm_iommu_ops *hyp_ops,
+		       struct kvm_hyp_memcache *atomic_mc);
 int kvm_iommu_init_driver(void);
 void kvm_iommu_remove_driver(void);
 

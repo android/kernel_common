@@ -1689,8 +1689,11 @@ static void handle___pkvm_host_hvc_pd(struct kvm_cpu_context *host_ctxt)
 static void handle___pkvm_iommu_init(struct kvm_cpu_context *host_ctxt)
 {
 	DECLARE_REG(struct kvm_iommu_ops *, ops, host_ctxt, 1);
+	DECLARE_REG(unsigned long, mc_head, host_ctxt, 2);
+	DECLARE_REG(unsigned long, nr_pages, host_ctxt, 3);
+	struct kvm_hyp_memcache mc = {.head = mc_head, .nr_pages = nr_pages};
 
-	cpu_reg(host_ctxt, 1) = kvm_iommu_init(ops);
+	cpu_reg(host_ctxt, 1) = kvm_iommu_init(ops, &mc);
 }
 
 typedef void (*hcall_t)(struct kvm_cpu_context *);

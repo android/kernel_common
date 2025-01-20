@@ -8,6 +8,7 @@
 #include <asm/kvm_mmu.h>
 
 #include <linux/arm-smccc.h>
+#include <linux/moduleparam.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
@@ -61,6 +62,12 @@ static size_t				kvm_arm_smmu_cur;
 static size_t				kvm_arm_smmu_count;
 static struct hyp_arm_smmu_v3_device	*kvm_arm_smmu_array;
 static DEFINE_IDA(kvm_arm_smmu_domain_ida);
+/*
+ * Pre allocated pages that can be used from the EL2 part of the driver from atomic
+ * context, ideally used for page table pages for identity domains.
+ */
+static int atomic_pages;
+module_param(atomic_pages, int, 0);
 
 static int kvm_arm_smmu_topup_memcache(struct arm_smccc_res *res, gfp_t gfp)
 {
@@ -936,6 +943,45 @@ static int smmu_put_device(struct device *dev, void *data)
 	return 0;
 }
 
+static int smmu_alloc_atomic_mc(struct kvm_hyp_memcache *atomic_mc)
+{
+	int ret;
+#ifndef MODULE
+	u64 i;
+	phys_addr_t start, end;
+
+	/*
+	 * Allocate pages to cover mapping with PAGE_SIZE for all memory
+	 * Then allocate extra for 1GB of MMIO.
+	 * Add 10 extra pages as we map the rest with first level blocks
+	 * for PAGE_SIZE = 4KB, that should cover 5TB of address space.
+	 */
+	for_each_mem_range(i, &start, &end) {
+		atomic_pages += __hyp_pgtable_max_pages((end - start) >> PAGE_SHIFT);
+	}
+
+	atomic_pages += __hyp_pgtable_max_pages(SZ_1G >> PAGE_SHIFT) + 10;
+#endif
+
+	/* Module didn't set that parameter. */
+	if (!atomic_pages)
+		return 0;
+
+	/* For PGD*/
+	ret = topup_hyp_memcache(atomic_mc, 1, 3);
+	if (ret)
+		return ret;
+	ret = topup_hyp_memcache(atomic_mc, atomic_pages, 0);
+	if (ret)
+		return ret;
+	pr_info("smmuv3: Allocated %d MiB for atomic usage\n",
+		(atomic_pages << PAGE_SHIFT) / SZ_1M);
+	/* Topup hyp alloc so IOMMU driver can allocate domains. */
+	__pkvm_topup_hyp_alloc(1);
+
+	return ret;
+}
+
 /*
  * Drop the PM references of the SMMU taken at probe
  * after it's guaranteed the hypervisor as initialized the SMMUs.
@@ -953,6 +999,7 @@ static int kvm_arm_smmu_v3_post_init(void)
 static int kvm_arm_smmu_v3_init_drv(void)
 {
 	int ret;
+	struct kvm_hyp_memcache atomic_mc;
 
 	/*
 	 * Check whether any device owned by the host is behind an SMMU.
@@ -988,7 +1035,11 @@ static int kvm_arm_smmu_v3_init_drv(void)
 	kvm_hyp_arm_smmu_v3_smmus = kvm_arm_smmu_array;
 	kvm_hyp_arm_smmu_v3_count = kvm_arm_smmu_count;
 
-	ret = kvm_iommu_init_hyp(ksym_ref_addr_nvhe(smmu_ops));
+	ret = smmu_alloc_atomic_mc(&atomic_mc);
+	if (ret)
+		goto err_free;
+
+	ret = kvm_iommu_init_hyp(ksym_ref_addr_nvhe(smmu_ops), &atomic_mc);
 	if (ret)
 		return ret;
 	return kvm_arm_smmu_v3_post_init();

@@ -23,6 +23,7 @@ void **kvm_hyp_iommu_domains;
  * Common pool that can be used by IOMMU driver to allocate pages.
  */
 static struct hyp_pool iommu_host_pool;
+static struct hyp_pool iommu_atomic_pool;
 
 DECLARE_PER_CPU(struct kvm_hyp_req, host_hyp_reqs);
 
@@ -165,7 +166,22 @@ static void domain_put(struct kvm_hyp_iommu_domain *domain)
 	BUG_ON(!atomic_dec_return_release(&domain->refs));
 }
 
-int kvm_iommu_init(struct kvm_iommu_ops *ops)
+static int kvm_iommu_init_atomic_pool(struct kvm_hyp_memcache *atomic_mc)
+{
+	int ret;
+
+	/* atomic_mc is optional. */
+	if (!atomic_mc->head)
+		return 0;
+	ret = hyp_pool_init_empty(&iommu_atomic_pool, 1024 /* order = 10*/);
+	if (ret)
+		return ret;
+
+	return refill_hyp_pool(&iommu_atomic_pool, atomic_mc);
+}
+
+int kvm_iommu_init(struct kvm_iommu_ops *ops,
+		   struct kvm_hyp_memcache *atomic_mc)
 {
 	int ret;
 	u64 domain_root_pfn = __hyp_pa(kvm_hyp_iommu_domains) >> PAGE_SHIFT;
@@ -186,6 +202,10 @@ int kvm_iommu_init(struct kvm_iommu_ops *ops)
 		return ret;
 
 	kvm_iommu_ops = ops;
+
+	ret = kvm_iommu_init_atomic_pool(atomic_mc);
+	if (ret)
+		return ret;
 
 	ret = ops->init();
 	if (ret)

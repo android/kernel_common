@@ -62,8 +62,8 @@ struct kvm_iommu_ops {
 	int (*resume)(struct kvm_hyp_iommu *iommu);
 };
 
-int kvm_iommu_init(struct kvm_iommu_ops *ops);
-
+int kvm_iommu_init(struct kvm_iommu_ops *ops,
+		   struct kvm_hyp_memcache *atomic_mc);
 int kvm_iommu_init_device(struct kvm_hyp_iommu *iommu);
 
 void kvm_iommu_iotlb_gather_add_page(struct kvm_hyp_iommu_domain *domain,

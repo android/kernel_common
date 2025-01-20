@@ -27,12 +27,14 @@ int kvm_iommu_register_driver(struct kvm_iommu_driver *kern_ops)
 }
 EXPORT_SYMBOL(kvm_iommu_register_driver);
 
-int kvm_iommu_init_hyp(struct kvm_iommu_ops *hyp_ops)
+int kvm_iommu_init_hyp(struct kvm_iommu_ops *hyp_ops,
+		       struct kvm_hyp_memcache *atomic_mc)
 {
 	if (!hyp_ops)
 		return -EINVAL;
 
-	return kvm_call_hyp_nvhe(__pkvm_iommu_init, hyp_ops);
+	return kvm_call_hyp_nvhe(__pkvm_iommu_init, hyp_ops,
+				 atomic_mc->head, atomic_mc->nr_pages);
 }
 EXPORT_SYMBOL(kvm_iommu_init_hyp);
 
