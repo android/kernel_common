@@ -419,26 +419,29 @@ static int iommu_power_on(struct kvm_power_domain *pd)
 {
 	struct kvm_hyp_iommu *iommu = container_of(pd, struct kvm_hyp_iommu,
 						   power_domain);
+	int ret;
 
-	/*
-	 * We currently assume that the device retains its architectural state
-	 * across power off, hence no save/restore.
-	 */
 	kvm_iommu_lock(iommu);
-	iommu->power_is_off = false;
+	ret = kvm_iommu_ops->resume ? kvm_iommu_ops->resume(iommu) : 0;
+	if (!ret)
+		iommu->power_is_off = false;
 	kvm_iommu_unlock(iommu);
-	return 0;
+	return ret;
 }
 
 static int iommu_power_off(struct kvm_power_domain *pd)
 {
 	struct kvm_hyp_iommu *iommu = container_of(pd, struct kvm_hyp_iommu,
 						   power_domain);
+	int ret;
 
 	kvm_iommu_lock(iommu);
 	iommu->power_is_off = true;
+	ret = kvm_iommu_ops->suspend ? kvm_iommu_ops->suspend(iommu) : 0;
+	if (!ret)
+		iommu->power_is_off = true;
 	kvm_iommu_unlock(iommu);
-	return 0;
+	return ret;
 }
 
 static const struct kvm_power_domain_ops iommu_power_ops = {
