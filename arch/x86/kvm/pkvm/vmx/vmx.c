@@ -7203,6 +7203,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.get_segment_base = vmx_get_segment_base,
 	.get_segment = vmx_get_segment,
 	.set_segment = vmx_set_segment,
+	.get_cpl = vmx_get_cpl,
 	.set_cr0 = vmx_set_cr0,
 #ifdef __PKVM_HYP__
 	.post_set_cr3 = vmx_post_set_cr3,
