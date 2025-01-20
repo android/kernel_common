@@ -2017,3 +2017,124 @@ int host_stage2_get_leaf(phys_addr_t phys, kvm_pte_t *ptep, s8 *level)
 
 	return ret;
 }
+
+u64 __pkvm_ptdump_get_config(pkvm_handle_t handle, enum pkvm_ptdump_ops op)
+{
+	struct pkvm_hyp_vm *vm;
+	u64 ret = 0;
+
+	vm = get_pkvm_hyp_vm(handle);
+	if (!vm)
+		return -EINVAL;
+
+	if (op == PKVM_PTDUMP_GET_LEVEL)
+		ret = vm->pgt.start_level;
+	else
+		ret = vm->pgt.ia_bits;
+
+	put_pkvm_hyp_vm(vm);
+	return ret;
+}
+
+static int pkvm_ptdump_walker(const struct kvm_pgtable_visit_ctx *ctx,
+			      enum kvm_pgtable_walk_flags visit)
+{
+	struct pkvm_ptdump_log_hdr **log_hdr = ctx->arg;
+	ssize_t avail_space = PAGE_SIZE - (*log_hdr)->w_index - sizeof(struct pkvm_ptdump_log_hdr);
+	struct pkvm_ptdump_log *log;
+
+	if (avail_space < sizeof(struct pkvm_ptdump_log)) {
+		if ((*log_hdr)->pfn_next == INVALID_PTDUMP_PFN)
+			return -ENOMEM;
+
+		*log_hdr = hyp_phys_to_virt(hyp_pfn_to_phys((*log_hdr)->pfn_next));
+		WARN_ON((*log_hdr)->w_index);
+	}
+
+	log = (struct pkvm_ptdump_log *)((void *)*log_hdr + (*log_hdr)->w_index +
+					 sizeof(struct pkvm_ptdump_log_hdr));
+	log->pfn = ctx->addr >> PAGE_SHIFT;
+	log->valid = ctx->old & PTE_VALID;
+	log->r = FIELD_GET(KVM_PTE_LEAF_ATTR_LO_S2_S2AP_R, ctx->old);
+	log->w = FIELD_GET(KVM_PTE_LEAF_ATTR_LO_S2_S2AP_W, ctx->old);
+	log->xn = FIELD_GET(KVM_PTE_LEAF_ATTR_HI_S2_XN, ctx->old);
+	log->table = FIELD_GET(KVM_PTE_TYPE, ctx->old);
+	log->level = ctx->level;
+	log->page_state = FIELD_GET(PKVM_PAGE_STATE_PROT_MASK, ctx->old);
+
+	(*log_hdr)->w_index += sizeof(struct pkvm_ptdump_log);
+	return 0;
+}
+
+static void pkvm_ptdump_teardown_log(struct pkvm_ptdump_log_hdr *log_hva,
+				     struct pkvm_ptdump_log_hdr *cur)
+{
+	struct pkvm_ptdump_log_hdr *tmp, *log = (void *)kern_hyp_va(log_hva);
+	bool next_log_invalid = false;
+
+	while (log != cur && !next_log_invalid) {
+		next_log_invalid = log->pfn_next == INVALID_PTDUMP_PFN;
+		tmp = hyp_phys_to_virt(hyp_pfn_to_phys(log->pfn_next));
+		WARN_ON(__pkvm_hyp_donate_host(hyp_virt_to_pfn(log), 1));
+		log = tmp;
+	}
+}
+
+static int pkvm_ptdump_setup_log(struct pkvm_ptdump_log_hdr *log_hva)
+{
+	int ret;
+	struct pkvm_ptdump_log_hdr *log = (void *)kern_hyp_va(log_hva);
+
+	if (!PAGE_ALIGNED(log))
+		return -EINVAL;
+
+	for (;;) {
+		ret = __pkvm_host_donate_hyp(hyp_virt_to_pfn(log), 1);
+		if (ret) {
+			pkvm_ptdump_teardown_log(log_hva, log);
+			return ret;
+		}
+
+		log->w_index = 0;
+		if (log->pfn_next == INVALID_PTDUMP_PFN)
+			break;
+
+		log = hyp_phys_to_virt(hyp_pfn_to_phys(log->pfn_next));
+	}
+
+	return 0;
+}
+
+u64 __pkvm_ptdump_walk_range(pkvm_handle_t handle, struct pkvm_ptdump_log_hdr *log)
+{
+	struct pkvm_hyp_vm *vm;
+	struct kvm_pgtable *pgt;
+	int ret;
+	struct pkvm_ptdump_log_hdr *log_hyp = kern_hyp_va(log);
+	struct kvm_pgtable_walker walker = {
+		.cb     = pkvm_ptdump_walker,
+		.flags  = KVM_PGTABLE_WALK_LEAF,
+		.arg    = &log_hyp,
+	};
+
+	vm = get_pkvm_hyp_vm(handle);
+	if (!vm)
+		return -EINVAL;
+
+	ret = pkvm_ptdump_setup_log(log);
+	if (ret) {
+		put_pkvm_hyp_vm(vm);
+		return ret;
+	}
+
+	pgt = &vm->pgt;
+	guest_lock_component(vm);
+
+	ret = kvm_pgtable_walk(pgt, 0, BIT(pgt->ia_bits), &walker);
+
+	guest_unlock_component(vm);
+
+	pkvm_ptdump_teardown_log(log, NULL);
+	put_pkvm_hyp_vm(vm);
+	return ret;
+}
