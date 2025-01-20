@@ -9,6 +9,10 @@
 
 #include <nvhe/alloc_mgt.h>
 
+/* alloc/free from atomic pool. */
+void *kvm_iommu_donate_pages_atomic(u8 order);
+void kvm_iommu_reclaim_pages_atomic(void *p, u8 order);
+
 /* Hypercall handlers */
 int kvm_iommu_alloc_domain(pkvm_handle_t domain_id, int type);
 int kvm_iommu_free_domain(pkvm_handle_t domain_id);

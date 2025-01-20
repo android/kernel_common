@@ -72,13 +72,13 @@ struct hyp_mgt_allocator_ops kvm_iommu_allocator_ops = {
 	.reclaimable = kvm_iommu_reclaimable,
 };
 
-void *kvm_iommu_donate_pages(u8 order, int flags)
+static void *__kvm_iommu_donate_pages(struct hyp_pool *pool, u8 order, int flags)
 {
 	void *p;
 	struct kvm_hyp_req *req = this_cpu_ptr(&host_hyp_reqs);
 	int ret;
 
-	p = hyp_alloc_pages(&iommu_host_pool, order);
+	p = hyp_alloc_pages(pool, order);
 	if (p) {
 		/*
 		 * If page request is non-cacheable remap it as such
@@ -88,7 +88,7 @@ void *kvm_iommu_donate_pages(u8 order, int flags)
 		if (flags & IOMMU_PAGE_NOCACHE) {
 			ret = pkvm_remap_range(p, 1 << order, true);
 			if (ret) {
-				hyp_put_page(&iommu_host_pool, p);
+				hyp_put_page(pool, p);
 				return NULL;
 			}
 		}
@@ -102,7 +102,7 @@ void *kvm_iommu_donate_pages(u8 order, int flags)
 	return NULL;
 }
 
-void kvm_iommu_reclaim_pages(void *p, u8 order)
+static void __kvm_iommu_reclaim_pages(struct hyp_pool *pool, void *p, u8 order)
 {
 	/*
 	 * Remap all pages to cacheable, as we don't know, may be use a flag
@@ -110,7 +110,27 @@ void kvm_iommu_reclaim_pages(void *p, u8 order)
 	 * as the allocation on free?
 	 */
 	pkvm_remap_range(p, 1 << order, false);
-	hyp_put_page(&iommu_host_pool, p);
+	hyp_put_page(pool, p);
+}
+
+void *kvm_iommu_donate_pages(u8 order, int flags)
+{
+	return __kvm_iommu_donate_pages(&iommu_host_pool, order, flags);
+}
+
+void kvm_iommu_reclaim_pages(void *p, u8 order)
+{
+	__kvm_iommu_reclaim_pages(&iommu_host_pool, p, order);
+}
+
+void *kvm_iommu_donate_pages_atomic(u8 order)
+{
+	return __kvm_iommu_donate_pages(&iommu_atomic_pool, order, 0);
+}
+
+void kvm_iommu_reclaim_pages_atomic(void *p, u8 order)
+{
+	__kvm_iommu_reclaim_pages(&iommu_atomic_pool, p, order);
 }
 
 static struct kvm_hyp_iommu_domain *

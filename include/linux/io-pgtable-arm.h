@@ -14,6 +14,8 @@ struct arm_lpae_io_pgtable {
 	int			bits_per_level;
 
 	void			*pgd;
+
+	bool			idmapped; /* Used by hypervisor */
 };
 
 struct io_pgtable_walk_data {

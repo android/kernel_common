@@ -163,6 +163,8 @@ enum pkvm_psci_notification {
  * @__list_add_valid_or_report: Needed if the code uses linked lists.
  * @__list_del_entry_valid_or_report:
 				Needed if the code uses linked lists.
+ * @iommu_donate_pages_atomic:	Allocate memory from IOMMU identity pool.
+ * @iommu_reclaim_pages_atomic:	Reclaim memory from iommu_donate_pages_atomic()
  */
 struct pkvm_module_ops {
 	int (*create_private_mapping)(phys_addr_t phys, size_t size,
@@ -227,6 +229,8 @@ struct pkvm_module_ops {
 	typeof(__list_del_entry_valid_or_report) *list_del_entry_valid_or_report;
 #endif
 	int (*iommu_snapshot_host_stage2)(struct kvm_hyp_iommu_domain *domain);
+	void * (*iommu_donate_pages_atomic)(u8 order);
+	void (*iommu_reclaim_pages_atomic)(void *p, u8 order);
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);

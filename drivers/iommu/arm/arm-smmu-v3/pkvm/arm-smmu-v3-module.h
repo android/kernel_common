@@ -41,6 +41,8 @@ extern const struct pkvm_module_ops		*mod_ops;
 #define kvm_iommu_iotlb_gather_add_page(x, y, z, w) \
 						CALL_FROM_OPS(iommu_iotlb_gather_add_page, x, y, z, w)
 #define __pkvm_host_unuse_dma(x, y)		CALL_FROM_OPS(pkvm_host_unuse_dma, x, y)
+#define kvm_iommu_donate_pages_atomic(x)	CALL_FROM_OPS(iommu_donate_pages_atomic, x)
+#define kvm_iommu_reclaim_pages_atomic(x, y)	CALL_FROM_OPS(iommu_reclaim_pages_atomic, x, y)
 #endif
 
 #endif /* __ARM_SMMU_V3_MODULE__ */
