@@ -182,7 +182,7 @@ struct pkvm_module_ops {
 	void (*update_hcr_el2)(unsigned long set_mask, unsigned long clear_mask);
 	void (*update_hfgwtr_el2)(unsigned long set_mask, unsigned long clear_mask);
 	int (*register_host_perm_fault_handler)(int (*cb)(struct user_pt_regs *regs, u64 esr, u64 addr));
-	int (*host_stage2_mod_prot)(u64 pfn, enum kvm_pgtable_prot prot, u64 nr_pages);
+	int (*host_stage2_mod_prot)(u64 pfn, enum kvm_pgtable_prot prot, u64 nr_pages, bool update_iommu);
 	int (*host_stage2_get_leaf)(phys_addr_t phys, kvm_pte_t *ptep, s8 *level);
 	int (*host_stage2_enable_lazy_pte)(u64 addr, u64 nr_pages);
 	int (*host_stage2_disable_lazy_pte)(u64 addr, u64 nr_pages);
