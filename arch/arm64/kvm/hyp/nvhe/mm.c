@@ -583,7 +583,7 @@ int pkvm_remap_range(void *va, int nr_pages, bool nc)
 {
 	size_t size = nr_pages << PAGE_SHIFT;
 	phys_addr_t phys = hyp_virt_to_phys(va);
-	enum kvm_pgtable_prot prot = PKVM_HOST_MEM_PROT;
+	enum kvm_pgtable_prot prot = PAGE_HYP;
 	int ret;
 
 	if (nc)
