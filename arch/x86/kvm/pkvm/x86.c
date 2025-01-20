@@ -463,11 +463,24 @@ static void kvm_multiple_exception(struct kvm_vcpu *vcpu,
 	}
 }
 
+void kvm_queue_exception(struct kvm_vcpu *vcpu, unsigned nr)
+{
+	kvm_multiple_exception(vcpu, nr, false, 0, false, 0, false);
+}
+EXPORT_SYMBOL_GPL(kvm_queue_exception);
+
 void kvm_requeue_exception(struct kvm_vcpu *vcpu, unsigned nr)
 {
 	kvm_multiple_exception(vcpu, nr, false, 0, false, 0, true);
 }
 EXPORT_SYMBOL_GPL(kvm_requeue_exception);
+
+void kvm_queue_exception_p(struct kvm_vcpu *vcpu, unsigned nr,
+			   unsigned long payload)
+{
+	kvm_multiple_exception(vcpu, nr, false, 0, true, payload, false);
+}
+EXPORT_SYMBOL_GPL(kvm_queue_exception_p);
 
 int kvm_complete_insn_gp(struct kvm_vcpu *vcpu, int err)
 {
@@ -503,6 +516,16 @@ bool kvm_require_cpl(struct kvm_vcpu *vcpu, int required_cpl)
 	kvm_queue_exception_e(vcpu, GP_VECTOR, 0);
 	return false;
 }
+
+bool kvm_require_dr(struct kvm_vcpu *vcpu, int dr)
+{
+	if ((dr != 4 && dr != 5) || !kvm_is_cr4_bit_set(vcpu, X86_CR4_DE))
+		return true;
+
+	kvm_queue_exception(vcpu, UD_VECTOR);
+	return false;
+}
+EXPORT_SYMBOL_GPL(kvm_require_dr);
 
 void kvm_load_guest_xsave_state(struct kvm_vcpu *vcpu)
 {
@@ -638,6 +661,64 @@ void kvm_update_dr7(struct kvm_vcpu *vcpu)
 		vcpu->arch.switch_db_regs |= KVM_DEBUGREG_BP_ENABLED;
 }
 EXPORT_SYMBOL_GPL(kvm_update_dr7);
+
+static u64 kvm_dr6_fixed(struct kvm_vcpu *vcpu)
+{
+	u64 fixed = DR6_FIXED_1;
+
+	if (!guest_cpuid_has(vcpu, X86_FEATURE_RTM))
+		fixed |= DR6_RTM;
+
+	if (!guest_cpuid_has(vcpu, X86_FEATURE_BUS_LOCK_DETECT))
+		fixed |= DR6_BUS_LOCK;
+	return fixed;
+}
+
+int kvm_set_dr(struct kvm_vcpu *vcpu, int dr, unsigned long val)
+{
+	size_t size = ARRAY_SIZE(vcpu->arch.db);
+
+	switch (dr) {
+	case 0 ... 3:
+		vcpu->arch.db[array_index_nospec(dr, size)] = val;
+		if (!(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP))
+			vcpu->arch.eff_db[dr] = val;
+		break;
+	case 4:
+	case 6:
+		if (!kvm_dr6_valid(val))
+			return 1; /* #GP */
+		vcpu->arch.dr6 = (val & DR6_VOLATILE) | kvm_dr6_fixed(vcpu);
+		break;
+	case 5:
+	default: /* 7 */
+		if (!kvm_dr7_valid(val))
+			return 1; /* #GP */
+		vcpu->arch.dr7 = (val & DR7_VOLATILE) | DR7_FIXED_1;
+		kvm_update_dr7(vcpu);
+		break;
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_set_dr);
+
+unsigned long kvm_get_dr(struct kvm_vcpu *vcpu, int dr)
+{
+	size_t size = ARRAY_SIZE(vcpu->arch.db);
+
+	switch (dr) {
+	case 0 ... 3:
+		return vcpu->arch.db[array_index_nospec(dr, size)];
+	case 4:
+	case 6:
+		return vcpu->arch.dr6;
+	case 5:
+	default: /* 7 */
+		return vcpu->arch.dr7;
+	}
+}
+EXPORT_SYMBOL_GPL(kvm_get_dr);
 
 int kvm_emulate_rdpmc(struct kvm_vcpu *vcpu)
 {
