@@ -2,6 +2,7 @@
 #ifndef __IO_PGTABLE_H
 #define __IO_PGTABLE_H
 
+#include <linux/android_kabi.h>
 #include <linux/bitops.h>
 #include <linux/iommu.h>
 
@@ -237,6 +238,10 @@ struct io_pgtable_ops {
 				    unsigned long iova, size_t size,
 				    unsigned long flags,
 				    struct iommu_dirty_bitmap *dirty);
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /**
