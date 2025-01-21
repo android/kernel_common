@@ -2608,6 +2608,37 @@ size_t iommu_unmap_fast(struct iommu_domain *domain,
 }
 EXPORT_SYMBOL_GPL(iommu_unmap_fast);
 
+static int __iommu_add_sg(struct iommu_map_cookie_sg *cookie_sg,
+			  unsigned long iova, phys_addr_t paddr, size_t size)
+{
+	struct iommu_domain *domain = cookie_sg->domain;
+	const struct iommu_domain_ops *ops = domain->ops;
+	unsigned int min_pagesz;
+	size_t pgsize, count;
+
+	if (unlikely(!(domain->type & __IOMMU_DOMAIN_PAGING)))
+		return -EINVAL;
+
+	if (WARN_ON(domain->pgsize_bitmap == 0UL))
+		return -ENODEV;
+
+	/* find out the minimum page size supported */
+	min_pagesz = 1 << __ffs(domain->pgsize_bitmap);
+
+	/*
+	 * both the virtual address and the physical one, as well as
+	 * the size of the mapping, must be aligned (at least) to the
+	 * size of the smallest page supported by the hardware
+	 */
+	if (!IS_ALIGNED(iova | paddr | size, min_pagesz)) {
+		pr_err("unaligned: iova 0x%lx pa %pa size 0x%zx min_pagesz 0x%x\n",
+		       iova, &paddr, size, min_pagesz);
+		return -EINVAL;
+	}
+	pgsize = iommu_pgsize(domain, iova, paddr, size, &count);
+	return ops->add_deferred_map_sg(cookie_sg, paddr, pgsize, count);
+}
+
 ssize_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		     struct scatterlist *sg, unsigned int nents, int prot,
 		     gfp_t gfp)
@@ -2617,6 +2648,9 @@ ssize_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	phys_addr_t start;
 	unsigned int i = 0;
 	int ret;
+	bool deferred_sg = ops->alloc_cookie_sg && ops->add_deferred_map_sg &&
+			   ops->consume_deferred_map_sg;
+	struct iommu_map_cookie_sg *cookie_sg;
 
 	might_sleep_if(gfpflags_allow_blocking(gfp));
 
@@ -2625,12 +2659,24 @@ ssize_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 				__GFP_HIGHMEM)))
 		return -EINVAL;
 
+	if (deferred_sg) {
+		cookie_sg = ops->alloc_cookie_sg(iova, prot, nents, gfp);
+		if (!cookie_sg) {
+			pr_err("iommu: failed alloc cookie\n");
+			return -ENOMEM;
+		}
+		cookie_sg->domain = domain;
+	}
+
 	while (i <= nents) {
 		phys_addr_t s_phys = sg_phys(sg);
 
 		if (len && s_phys != start + len) {
-			ret = __iommu_map(domain, iova + mapped, start,
-					len, prot, gfp);
+			if (deferred_sg)
+				ret = __iommu_add_sg(cookie_sg, iova + mapped, start, len);
+			else
+				ret = __iommu_map(domain, iova + mapped, start,
+						  len, prot, gfp);
 
 			if (ret)
 				goto out_err;
@@ -2652,6 +2698,17 @@ ssize_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 next:
 		if (++i < nents)
 			sg = sg_next(sg);
+	}
+
+	if (deferred_sg) {
+		size_t consumed;
+
+		consumed = ops->consume_deferred_map_sg(cookie_sg);
+		if (consumed != mapped) {
+			mapped = consumed;
+			ret = EINVAL;
+			goto out_err;
+		}
 	}
 
 	if (ops->iotlb_sync_map) {
