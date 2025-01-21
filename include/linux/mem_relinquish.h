@@ -11,10 +11,12 @@ struct page;
 
 #ifdef CONFIG_MEMORY_RELINQUISH
 
+bool page_relinquish_disallowed(void);
 void page_relinquish(struct page *page);
 
 #else	/* !CONFIG_MEMORY_RELINQUISH */
 
+static inline bool page_relinquish_disallowed(void) { return false; }
 static inline void page_relinquish(struct page *page) { }
 
 #endif	/* CONFIG_MEMORY_RELINQUISH */

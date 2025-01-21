@@ -114,6 +114,12 @@ static int mmio_guard_ioremap_hook(phys_addr_t phys, size_t size,
 
 static bool mem_relinquish_available;
 
+bool page_relinquish_disallowed(void)
+{
+	return mem_relinquish_available && (pkvm_granule > PAGE_SIZE);
+}
+EXPORT_SYMBOL_GPL(page_relinquish_disallowed);
+
 void page_relinquish(struct page *page)
 {
 	phys_addr_t phys, end;
