@@ -34,6 +34,7 @@ struct kvm_arm_smmu_master {
 	struct device			*dev;
 	struct xarray			domains;
 	u32				ssid_bits;
+	bool				idmapped; /* Stage-2 is transparently identity mapped*/
 };
 
 struct kvm_arm_smmu_domain {
@@ -145,6 +146,7 @@ static struct iommu_device *kvm_arm_smmu_probe_device(struct device *dev)
 	device_property_read_u32(dev, "pasid-num-bits", &master->ssid_bits);
 	master->ssid_bits = min(smmu->ssid_bits, master->ssid_bits);
 	xa_init(&master->domains);
+	master->idmapped = device_property_read_bool(dev, "iommu-idmapped");
 	dev_iommu_priv_set(dev, master);
 	if (!device_link_add(dev, smmu->dev,
 			     DL_FLAG_PM_RUNTIME |
@@ -164,10 +166,10 @@ static struct iommu_domain *kvm_arm_smmu_domain_alloc(unsigned type)
 	 * We don't support
 	 * - IOMMU_DOMAIN_DMA_FQ because lazy unmap would clash with memory
 	 *   donation to guests.
-	 * - IOMMU_DOMAIN_IDENTITY: Requires a stage-2 only transparent domain.
 	 */
 	if (type != IOMMU_DOMAIN_DMA &&
-	    type != IOMMU_DOMAIN_UNMANAGED)
+	    type != IOMMU_DOMAIN_UNMANAGED &&
+	    type != IOMMU_DOMAIN_IDENTITY)
 		return ERR_PTR(-EOPNOTSUPP);
 
 	kvm_smmu_domain = kzalloc(sizeof(*kvm_smmu_domain), GFP_KERNEL);
@@ -194,6 +196,18 @@ static int kvm_arm_smmu_domain_finalize(struct kvm_arm_smmu_domain *kvm_smmu_dom
 
 	if (kvm_smmu_domain->smmu)
 		return 0;
+
+	kvm_smmu_domain->smmu = smmu;
+
+	if (kvm_smmu_domain->domain.type == IOMMU_DOMAIN_IDENTITY) {
+		kvm_smmu_domain->id = KVM_IOMMU_DOMAIN_IDMAP_ID;
+		/*
+		 * Identity domains doesn't use the DMA API, so no need to
+		 * set the  domain aperture.
+		 */
+		return 0;
+	}
+
 	/* Default to stage-1. */
 	if (smmu->features & ARM_SMMU_FEAT_TRANS_S1) {
 		ias = (smmu->features & ARM_SMMU_FEAT_VAX) ? 52 : 48;
@@ -250,7 +264,6 @@ static int kvm_arm_smmu_domain_finalize(struct kvm_arm_smmu_domain *kvm_smmu_dom
 		return ret;
 	}
 
-	kvm_smmu_domain->smmu = smmu;
 	return 0;
 }
 
@@ -260,7 +273,7 @@ static void kvm_arm_smmu_domain_free(struct iommu_domain *domain)
 	struct kvm_arm_smmu_domain *kvm_smmu_domain = to_kvm_smmu_domain(domain);
 	struct arm_smmu_device *smmu = kvm_smmu_domain->smmu;
 
-	if (smmu) {
+	if (smmu && (kvm_smmu_domain->domain.type != IOMMU_DOMAIN_IDENTITY)) {
 		ret = kvm_call_hyp_nvhe(__pkvm_host_iommu_free_domain, kvm_smmu_domain->id);
 		ida_free(&kvm_arm_smmu_domain_ida, kvm_smmu_domain->id);
 	}
@@ -381,6 +394,15 @@ static int kvm_arm_smmu_attach_dev(struct iommu_domain *domain,
 	return kvm_arm_smmu_set_dev_pasid(domain, dev, 0);
 }
 
+static int kvm_arm_smmu_def_domain_type(struct device *dev)
+{
+	struct kvm_arm_smmu_master *master = dev_iommu_priv_get(dev);
+
+	if (master->idmapped && atomic_pages)
+		return IOMMU_DOMAIN_IDENTITY;
+	return 0;
+}
+
 static bool kvm_arm_smmu_capable(struct device *dev, enum iommu_cap cap)
 {
 	struct kvm_arm_smmu_master *master = dev_iommu_priv_get(dev);
@@ -474,6 +496,7 @@ static struct iommu_ops kvm_arm_smmu_ops = {
 	.pgsize_bitmap		= -1UL,
 	.remove_dev_pasid	= kvm_arm_smmu_remove_dev_pasid,
 	.owner			= THIS_MODULE,
+	.def_domain_type	= kvm_arm_smmu_def_domain_type,
 	.default_domain_ops = &(const struct iommu_domain_ops) {
 		.attach_dev	= kvm_arm_smmu_attach_dev,
 		.free		= kvm_arm_smmu_domain_free,
@@ -1042,6 +1065,15 @@ static int kvm_arm_smmu_v3_init_drv(void)
 	ret = kvm_iommu_init_hyp(ksym_ref_addr_nvhe(smmu_ops), &atomic_mc);
 	if (ret)
 		return ret;
+
+	/* Preemptively allocate the identity domain. */
+	if (atomic_pages) {
+		ret = kvm_call_hyp_nvhe_mc(__pkvm_host_iommu_alloc_domain,
+					   KVM_IOMMU_DOMAIN_IDMAP_ID,
+					   KVM_IOMMU_DOMAIN_IDMAP_TYPE);
+		if (ret)
+			return ret;
+	}
 	return kvm_arm_smmu_v3_post_init();
 
 err_free:
