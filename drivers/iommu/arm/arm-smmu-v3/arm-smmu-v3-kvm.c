@@ -556,6 +556,11 @@ static irqreturn_t kvm_arm_smmu_evt_handler(int irq, void *dev)
 				      DEFAULT_RATELIMIT_BURST);
 	u64 evt[EVTQ_ENT_DWORDS];
 
+	if (pm_runtime_get_if_active(smmu->dev) == 0) {
+		dev_err(smmu->dev, "Unable to handle event interrupt because device not runtime active\n");
+		return IRQ_NONE;
+	}
+
 	do {
 		while (!queue_remove_raw(q, evt)) {
 			u8 id = FIELD_GET(EVTQ_0_ID, evt[0]);
@@ -581,6 +586,7 @@ static irqreturn_t kvm_arm_smmu_evt_handler(int irq, void *dev)
 
 	/* Sync our overflow flag, as we believe we're up to speed */
 	queue_sync_cons_ovf(q);
+	pm_runtime_put(smmu->dev);
 	return IRQ_HANDLED;
 }
 
@@ -589,12 +595,19 @@ static irqreturn_t kvm_arm_smmu_gerror_handler(int irq, void *dev)
 	u32 gerror, gerrorn, active;
 	struct arm_smmu_device *smmu = dev;
 
+	if (pm_runtime_get_if_active(smmu->dev) == 0) {
+		dev_err(smmu->dev, "Unable to handle global error interrupt because device not runtime active\n");
+		return IRQ_NONE;
+	}
+
 	gerror = readl_relaxed(smmu->base + ARM_SMMU_GERROR);
 	gerrorn = readl_relaxed(smmu->base + ARM_SMMU_GERRORN);
 
 	active = gerror ^ gerrorn;
-	if (!(active & GERROR_ERR_MASK))
+	if (!(active & GERROR_ERR_MASK)) {
+		pm_runtime_put(smmu->dev);
 		return IRQ_NONE; /* No errors pending */
+	}
 
 	dev_warn(smmu->dev,
 		 "unexpected global error reported (0x%08x), this could be serious\n",
@@ -628,7 +641,7 @@ static irqreturn_t kvm_arm_smmu_gerror_handler(int irq, void *dev)
 	}
 
 	writel(gerror, smmu->base + ARM_SMMU_GERRORN);
-
+	pm_runtime_put(smmu->dev);
 	return IRQ_HANDLED;
 }
 
