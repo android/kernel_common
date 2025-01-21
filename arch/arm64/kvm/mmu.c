@@ -1654,18 +1654,12 @@ static int pkvm_relax_perms(struct kvm *kvm, u64 pfn, u64 gfn,
 	struct kvm_pinned_page *ppage;
 	int ret;
 
+	WARN_ON(kvm_vm_is_protected(kvm));
 
 	ppage = find_ppage(kvm, gfn << PAGE_SHIFT);
-
-	/*
-	 * In the rare case that we raced with an MMU notifier, the page might
-	 * already be gone by now, so let's just try again.
-	 */
-	if (!ppage)
-		return kvm->arch.pkvm.enabled ? -EAGAIN : -EFAULT;
-
-	if (page_to_pfn(ppage->page) != pfn)
-		return -EFAULT;
+	/* Try again if we raced with an MMU notifier. */
+	if (!ppage || page_to_pfn(ppage->page) != pfn)
+		return -EAGAIN;
 
 	if (!folio_test_swapbacked(page_folio(ppage->page)))
 		return -EIO;
