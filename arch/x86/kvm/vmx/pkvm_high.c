@@ -496,6 +496,22 @@ static void pkvm_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int
 	put_this_pv_param(pkvm_var);
 }
 
+static void pkvm_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
+{
+	if (!vcpu->arch.guest_state_protected)
+		kvm_call_pkvm(set_cr0, vcpu, cr0);
+
+	vcpu->arch.cr0 = cr0;
+}
+
+static void pkvm_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
+{
+	if (!vcpu->arch.guest_state_protected)
+		kvm_call_pkvm(set_cr4, vcpu, cr4);
+
+	vcpu->arch.cr4 = cr4;
+}
+
 void vmx_do_nmi_irqoff(void);
 
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
@@ -723,9 +739,9 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.get_cpl = vmx_get_cpl,
 	.get_cs_db_l_bits = vmx_get_cs_db_l_bits,
 	.is_valid_cr0 = vmx_is_valid_cr0,
-	.set_cr0 = vmx_set_cr0,
+	.set_cr0 = pkvm_set_cr0,
 	.is_valid_cr4 = vmx_is_valid_cr4,
-	.set_cr4 = vmx_set_cr4,
+	.set_cr4 = pkvm_set_cr4,
 	.set_efer = vmx_set_efer,
 	.get_idt = vmx_get_idt,
 	.set_idt = vmx_set_idt,

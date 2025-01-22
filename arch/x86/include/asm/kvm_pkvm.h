@@ -269,6 +269,8 @@ enum pkvm_fn {
 	__pkvm__get_segment_base,
 	__pkvm__get_segment,
 	__pkvm__set_segment,
+	__pkvm__set_cr0,
+	__pkvm__set_cr4,
 };
 
 union pkvm_pv_param {
