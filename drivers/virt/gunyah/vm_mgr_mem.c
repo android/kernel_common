@@ -193,7 +193,6 @@ int gunyah_vm_provide_folio(struct gunyah_vm *ghvm, struct folio *folio,
 		goto memextent_reclaim;
 	}
 
-	folio_get(folio);
 	return 0;
 memextent_reclaim:
 	gunyah_error = gunyah_hypercall_memextent_donate(
