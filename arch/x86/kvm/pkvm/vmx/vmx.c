@@ -4949,8 +4949,8 @@ static int handle_preemption_timer(struct kvm_vcpu *vcpu)
 
 static int handle_vmx_instruction(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	kvm_queue_exception(vcpu, UD_VECTOR);
+	return 1;
 }
 
 static int handle_encls(struct kvm_vcpu *vcpu)
