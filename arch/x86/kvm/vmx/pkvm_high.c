@@ -624,6 +624,17 @@ static void pkvm_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
 	vcpu->arch.cr4 = cr4;
 }
 
+static int pkvm_set_efer(struct kvm_vcpu *vcpu, u64 efer)
+{
+	int ret = -EINVAL;
+
+	if (!vcpu->arch.guest_state_protected)
+		ret = kvm_call_pkvm(set_efer, vcpu, efer);
+
+	vcpu->arch.efer = efer;
+	return ret;
+}
+
 void vmx_do_nmi_irqoff(void);
 
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
@@ -854,7 +865,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_cr0 = pkvm_set_cr0,
 	.is_valid_cr4 = pkvm_is_valid_cr4,
 	.set_cr4 = pkvm_set_cr4,
-	.set_efer = vmx_set_efer,
+	.set_efer = pkvm_set_efer,
 	.get_idt = vmx_get_idt,
 	.set_idt = vmx_set_idt,
 	.get_gdt = vmx_get_gdt,

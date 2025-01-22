@@ -273,6 +273,7 @@ enum pkvm_fn {
 	__pkvm__set_cr4,
 	__pkvm__set_msr,
 	__pkvm__get_msr,
+	__pkvm__set_efer,
 };
 
 union pkvm_pv_param {

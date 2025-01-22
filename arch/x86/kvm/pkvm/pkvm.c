@@ -621,6 +621,14 @@ static int pkvm_get_msr(struct pkvm_vcpu *pkvm_vcpu, struct msr_data *msr)
 	return kvm_x86_call(get_msr)(to_kvm_vcpu(pkvm_vcpu), msr);
 }
 
+static int pkvm_set_efer(struct pkvm_vcpu *pkvm_vcpu, u64 efer)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return -EINVAL;
+
+	return kvm_x86_call(set_efer)(to_kvm_vcpu(pkvm_vcpu), efer);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -668,6 +676,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__get_msr:
 		ret = pkvm_get_msr(pkvm_vcpu, (struct msr_data *)kern_pkvm_va((void *)p2));
+		break;
+	case __pkvm__set_efer:
+		ret = pkvm_set_efer(pkvm_vcpu, (u64)p2);
 		break;
 	default:
 		ret = -EINVAL;
