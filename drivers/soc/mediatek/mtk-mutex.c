@@ -26,7 +26,6 @@
 #define DISP_REG_MUTEX_MOD(mutex_mod_reg, n)	(mutex_mod_reg + 0x20 * (n))
 #define DISP_REG_MUTEX_MOD1(mutex_mod_reg, n)	((mutex_mod_reg) + 0x20 * (n) + 0x4)
 #define DISP_REG_MUTEX_SOF(mutex_sof_reg, n)	(mutex_sof_reg + 0x20 * (n))
-#define DISP_REG_MUTEX_MOD2(n)			(0x34 + 0x20 * (n))
 
 #define INT_MUTEX				BIT(1)
 
@@ -131,7 +130,7 @@
 #define MT8188_MUTEX_MOD_DISP_VPP_MERGE		20
 #define MT8188_MUTEX_MOD_DISP_DP_INTF0		21
 #define MT8188_MUTEX_MOD_DISP_POSTMASK0		24
-#define MT8188_MUTEX_MOD2_DISP_PWM0		33
+#define MT8188_MUTEX_MOD1_DISP_PWM0		(32 + 1)
 
 #define MT8188_MUTEX_MOD_DISP1_MDP_RDMA0	0
 #define MT8188_MUTEX_MOD_DISP1_MDP_RDMA1	1
@@ -265,8 +264,8 @@
 #define MT2712_MUTEX_MOD_DISP_PWM0		23
 #define MT2712_MUTEX_MOD_DISP_PWM1		24
 #define MT2712_MUTEX_MOD_DISP_OD0		25
-#define MT2712_MUTEX_MOD2_DISP_AAL1		33
-#define MT2712_MUTEX_MOD2_DISP_OD1		34
+#define MT2712_MUTEX_MOD1_DISP_AAL1		(32 + 1)
+#define MT2712_MUTEX_MOD1_DISP_OD1		(32 + 2)
 
 #define MT2701_MUTEX_MOD_DISP_OVL		3
 #define MT2701_MUTEX_MOD_DISP_WDMA		6
@@ -356,11 +355,11 @@ static const unsigned int mt2701_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 
 static const unsigned int mt2712_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 	[DDP_COMPONENT_AAL0] = MT2712_MUTEX_MOD_DISP_AAL0,
-	[DDP_COMPONENT_AAL1] = MT2712_MUTEX_MOD2_DISP_AAL1,
+	[DDP_COMPONENT_AAL1] = MT2712_MUTEX_MOD1_DISP_AAL1,
 	[DDP_COMPONENT_COLOR0] = MT2712_MUTEX_MOD_DISP_COLOR0,
 	[DDP_COMPONENT_COLOR1] = MT2712_MUTEX_MOD_DISP_COLOR1,
 	[DDP_COMPONENT_OD0] = MT2712_MUTEX_MOD_DISP_OD0,
-	[DDP_COMPONENT_OD1] = MT2712_MUTEX_MOD2_DISP_OD1,
+	[DDP_COMPONENT_OD1] = MT2712_MUTEX_MOD1_DISP_OD1,
 	[DDP_COMPONENT_OVL0] = MT2712_MUTEX_MOD_DISP_OVL0,
 	[DDP_COMPONENT_OVL1] = MT2712_MUTEX_MOD_DISP_OVL1,
 	[DDP_COMPONENT_PWM0] = MT2712_MUTEX_MOD_DISP_PWM0,
@@ -469,7 +468,7 @@ static const unsigned int mt8188_mutex_mod[DDP_COMPONENT_ID_MAX] = {
 	[DDP_COMPONENT_MERGE0] = MT8188_MUTEX_MOD_DISP_VPP_MERGE,
 	[DDP_COMPONENT_DSC0] = MT8188_MUTEX_MOD_DISP_DSC_WRAP0_CORE0,
 	[DDP_COMPONENT_DSI0] = MT8188_MUTEX_MOD_DISP_DSI0,
-	[DDP_COMPONENT_PWM0] = MT8188_MUTEX_MOD2_DISP_PWM0,
+	[DDP_COMPONENT_PWM0] = MT8188_MUTEX_MOD1_DISP_PWM0,
 	[DDP_COMPONENT_DP_INTF0] = MT8188_MUTEX_MOD_DISP_DP_INTF0,
 	[DDP_COMPONENT_DP_INTF1] = MT8188_MUTEX_MOD_DISP1_DP_INTF1,
 	[DDP_COMPONENT_ETHDR_MIXER] = MT8188_MUTEX_MOD_DISP1_DISP_MIXER,
@@ -850,7 +849,8 @@ void mtk_mutex_add_comp(struct mtk_mutex *mutex,
 			reg |= 1 << mtx->data->mutex_mod[id];
 			writel_relaxed(reg, mtx->regs + offset);
 		} else {
-			offset = DISP_REG_MUTEX_MOD2(mutex->id);
+			offset = DISP_REG_MUTEX_MOD1(mtx->data->mutex_mod_reg,
+						     mutex->id);
 			reg = readl_relaxed(mtx->regs + offset);
 			reg |= 1 << (mtx->data->mutex_mod[id] - 32);
 			writel_relaxed(reg, mtx->regs + offset);
@@ -896,7 +896,8 @@ void mtk_mutex_remove_comp(struct mtk_mutex *mutex,
 			reg &= ~(1 << mtx->data->mutex_mod[id]);
 			writel_relaxed(reg, mtx->regs + offset);
 		} else {
-			offset = DISP_REG_MUTEX_MOD2(mutex->id);
+			offset = DISP_REG_MUTEX_MOD1(mtx->data->mutex_mod_reg,
+						     mutex->id);
 			reg = readl_relaxed(mtx->regs + offset);
 			reg &= ~(1 << (mtx->data->mutex_mod[id] - 32));
 			writel_relaxed(reg, mtx->regs + offset);
