@@ -4570,8 +4570,19 @@ static int handle_interrupt_window(struct kvm_vcpu *vcpu)
 
 static int handle_invlpg(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+#ifdef __PKVM_HYP__
+	/*
+	 * The pkvm hypervisor requires ept thus CPU_BASED_INVLPG_EXITING is not
+	 * set, so should not cause INVLPG vmexit.
+	 */
+	KVM_BUG(1, vcpu->kvm, "pkvm: unexpected invlpg vmexit");
+	return -EIO;
+#else
+	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+
+	kvm_mmu_invlpg(vcpu, exit_qualification);
+	return kvm_skip_emulated_instruction(vcpu);
+#endif
 }
 
 #ifdef __PKVM_HYP__
@@ -4875,8 +4886,42 @@ static int handle_monitor_trap(struct kvm_vcpu *vcpu)
 
 static int handle_invpcid(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+#ifdef __PKVM_HYP__
+	/*
+	 * The pkvm hypervisor requires ept thus CPU_BASED_INVLPG_EXITING is not
+	 * set, so should not cause INVPCID vmexit.
+	 */
+	KVM_BUG(1, vcpu->kvm, "pkvm: unexpected invpcid vmexit");
+	return -EIO;
+#else
+	u32 vmx_instruction_info;
+	unsigned long type;
+	gva_t gva;
+	struct {
+		u64 pcid;
+		u64 gla;
+	} operand;
+	int gpr_index;
+
+	if (!guest_cpuid_has(vcpu, X86_FEATURE_INVPCID)) {
+		kvm_queue_exception(vcpu, UD_VECTOR);
+		return 1;
+	}
+
+	vmx_instruction_info = vmcs_read32(VMX_INSTRUCTION_INFO);
+	gpr_index = vmx_get_instr_info_reg2(vmx_instruction_info);
+	type = kvm_register_read(vcpu, gpr_index);
+
+	/* According to the Intel instruction reference, the memory operand
+	 * is read even if it isn't needed (e.g., for type==all)
+	 */
+	if (get_vmx_mem_address(vcpu, vmx_get_exit_qual(vcpu),
+				vmx_instruction_info, false,
+				sizeof(operand), &gva))
+		return 1;
+
+	return kvm_handle_invpcid(vcpu, type, gva);
+#endif
 }
 
 #ifndef __PKVM_HYP__
