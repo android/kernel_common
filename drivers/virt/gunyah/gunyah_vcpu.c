@@ -228,6 +228,27 @@ out:
 	return ret;
 }
 
+/*
+ * We must have interrupts enabled when making the hypercall to switch to
+ * guest vcpu, else guest vcpu runs until end of hypervisor scheduling time
+ * slice and also increases interrupt latency. Native vtime accounting
+ * requires that interrupts are disabled, so we can't do accounting.
+ */
+#if IS_ENABLED(CONFIG_TICK_CPU_ACCOUNTING)
+static inline void gh_guest_accounting_enter(void)
+{
+	vtime_account_guest_enter();
+}
+
+static inline void gh_guest_accounting_exit(void)
+{
+	vtime_account_guest_exit();
+}
+#else /* !CONFIG_TICK_CPU_ACCOUNTING */
+static inline void gh_guest_accounting_enter(void) { }
+static inline void gh_guest_accounting_exit(void) { }
+#endif /* CONFIG_TICK_CPU_ACCOUNTING */
+
 /**
  * gunyah_vcpu_run() - Request Gunyah to begin scheduling this vCPU.
  * @vcpu: The client descriptor that was obtained via gunyah_vcpu_alloc()
@@ -287,8 +308,10 @@ static int gunyah_vcpu_run(struct gunyah_vcpu *vcpu)
 			goto out;
 		}
 
+		gh_guest_accounting_enter();
 		gunyah_error = gunyah_hypercall_vcpu_run(
 			vcpu->rsc->capid, resume_data, &vcpu_run_resp);
+		gh_guest_accounting_exit();
 		if (gunyah_error == GUNYAH_ERROR_OK) {
 			memset(resume_data, 0, sizeof(resume_data));
 			switch (vcpu_run_resp.state) {
