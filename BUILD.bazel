@@ -1302,7 +1302,6 @@ kernel_build(
     # Otherwise, Bazel thinks that there are no output files, and skip building.
     outs = [".config"],
     arch = "arm64",
-    build_config = "build.config.common",
     defconfig = "//build/kernel/kleaf:allmodconfig",
     make_goals = [
         "Image",
@@ -1321,7 +1320,6 @@ kernel_build(
     # Otherwise, Bazel thinks that there are no output files, and skip building.
     outs = [".config"],
     arch = "x86_64",
-    build_config = "build.config.common",
     defconfig = "//build/kernel/kleaf:allmodconfig",
     make_goals = [
         "bzImage",
@@ -1341,7 +1339,6 @@ kernel_build(
     # Otherwise, Bazel thinks that there are no output files, and skip building.
     outs = [".config"],
     arch = "arm",
-    build_config = "build.config.common",
     defconfig = "//build/kernel/kleaf:allmodconfig",
     make_goals = [
         "zImage",
