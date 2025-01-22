@@ -15,6 +15,16 @@ DECLARE_HOOK(android_vh_ptype_head,
 	TP_ARGS(pt, vendor_pt));
 
 struct sock;
+struct sockaddr_in6;
+DECLARE_HOOK(android_vh_tcp_v4_connect,
+	TP_PROTO(struct sock *sk, struct sockaddr *uaddr), TP_ARGS(sk, uaddr));
+DECLARE_HOOK(android_vh_tcp_v6_connect,
+	TP_PROTO(struct sock *sk, struct sockaddr *uaddr), TP_ARGS(sk, uaddr));
+DECLARE_HOOK(android_vh_udp_v4_connect,
+	TP_PROTO(struct sock *sk, __be32 daddr, __be16 dport, uint16_t family),
+	TP_ARGS(sk, daddr, dport, family));
+DECLARE_HOOK(android_vh_udp_v6_connect,
+	TP_PROTO(struct sock *sk, struct sockaddr_in6 *sin6), TP_ARGS(sk, sin6));
 DECLARE_HOOK(android_vh_tcp_write_timeout_estab_retrans,
 	TP_PROTO(struct sock *sk), TP_ARGS(sk));
 DECLARE_HOOK(android_vh_tcp_connect,

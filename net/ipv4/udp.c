@@ -1135,6 +1135,8 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 		connected = 1;
 	}
 
+	trace_android_vh_udp_v4_connect(sk, daddr, dport, AF_INET);
+
 	ipcm_init_sk(&ipc, inet);
 	ipc.gso_size = READ_ONCE(up->gso_size);
 

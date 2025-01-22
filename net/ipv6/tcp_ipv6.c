@@ -69,6 +69,7 @@
 #include <linux/scatterlist.h>
 
 #include <trace/events/tcp.h>
+#include <trace/hooks/net.h>
 
 static void tcp_v6_send_reset(const struct sock *sk, struct sk_buff *skb,
 			      enum sk_rst_reason reason);
@@ -255,6 +256,8 @@ static int tcp_v6_connect(struct sock *sk, struct sockaddr *uaddr,
 
 		return err;
 	}
+
+	trace_android_vh_tcp_v6_connect(sk, uaddr);
 
 	if (!ipv6_addr_any(&sk->sk_v6_rcv_saddr))
 		saddr = &sk->sk_v6_rcv_saddr;

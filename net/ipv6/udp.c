@@ -1472,6 +1472,8 @@ do_udp_sendmsg:
 		connected = true;
 	}
 
+	trace_android_vh_udp_v6_connect(sk, sin6);
+
 	if (!fl6->flowi6_oif)
 		fl6->flowi6_oif = READ_ONCE(sk->sk_bound_dev_if);
 
