@@ -722,8 +722,23 @@ EXPORT_SYMBOL_GPL(kvm_get_dr);
 
 int kvm_emulate_rdpmc(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+#ifdef __PKVM_HYP__
+	/* FIXME: Doesn't support PMU emulation in the pkvm hypervisor */
+	kvm_inject_gp(vcpu, 0);
+	return 1;
+#else
+	u32 ecx = kvm_rcx_read(vcpu);
+	u64 data;
+
+	if (kvm_pmu_rdpmc(vcpu, ecx, &data)) {
+		kvm_inject_gp(vcpu, 0);
+		return 1;
+	}
+
+	kvm_rax_write(vcpu, (u32)data);
+	kvm_rdx_write(vcpu, data >> 32);
+	return kvm_skip_emulated_instruction(vcpu);
+#endif
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_rdpmc);
 
