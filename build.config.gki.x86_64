@@ -3,6 +3,8 @@
 # TODO(b/236012223): Deprecate and remove this file once build-config-less
 #   builds are fully supported.
 
+echo 'WARNING: Do not source build.config.gki.x86_64. See warnings below for details.' >&2
+
 . ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
 . ${ROOT_DIR}/${KERNEL_DIR}/build.config.x86_64
 . ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki
