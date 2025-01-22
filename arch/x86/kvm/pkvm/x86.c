@@ -1022,17 +1022,25 @@ int kvm_handle_invalid_op(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(kvm_handle_invalid_op);
 
+static int kvm_emulate_monitor_mwait(struct kvm_vcpu *vcpu, const char *insn)
+{
+	if (!kvm_check_has_quirk(vcpu->kvm, KVM_X86_QUIRK_MWAIT_NEVER_UD_FAULTS) &&
+	    !guest_cpuid_has(vcpu, X86_FEATURE_MWAIT))
+		return kvm_handle_invalid_op(vcpu);
+
+	pr_warn_once("%s instruction emulated as NOP!\n", insn);
+	return kvm_emulate_as_nop(vcpu);
+}
+
 int kvm_emulate_mwait(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	return kvm_emulate_monitor_mwait(vcpu, "MWAIT");
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_mwait);
 
 int kvm_emulate_monitor(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	return kvm_emulate_monitor_mwait(vcpu, "MONITOR");
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_monitor);
 
