@@ -80,6 +80,9 @@ DECLARE_HOOK(android_vh_calc_alloc_flags,
 		bool *bypass),
 	TP_ARGS(gfp_mask, alloc_flags, bypass));
 
+DECLARE_HOOK(android_vh_should_fault_around,
+	TP_PROTO(struct vm_fault *vmf, bool *should_around),
+	TP_ARGS(vmf, should_around));
 DECLARE_HOOK(android_vh_slab_folio_alloced,
 	TP_PROTO(unsigned int order, gfp_t flags),
 	TP_ARGS(order, flags));
