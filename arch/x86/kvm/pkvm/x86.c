@@ -1017,8 +1017,8 @@ EXPORT_SYMBOL_GPL(kvm_emulate_invd);
 
 int kvm_handle_invalid_op(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	kvm_queue_exception(vcpu, UD_VECTOR);
+	return 1;
 }
 EXPORT_SYMBOL_GPL(kvm_handle_invalid_op);
 
