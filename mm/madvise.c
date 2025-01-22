@@ -31,6 +31,7 @@
 #include <linux/swapops.h>
 #include <linux/shmem_fs.h>
 #include <linux/mmu_notifier.h>
+#include <trace/hooks/mm.h>
 
 #include <asm/tlb.h>
 
@@ -1527,8 +1528,12 @@ SYSCALL_DEFINE5(process_madvise, int, pidfd, const struct iovec __user *, vec,
 	}
 
 	total_len = iov_iter_count(&iter);
+	trace_android_vh_process_madvise_begin(task, behavior);
 
 	while (iov_iter_count(&iter)) {
+		trace_android_vh_process_madvise_iter(task, behavior, &ret);
+		if (ret < 0)
+			break;
 		ret = do_madvise(mm, (unsigned long)iter_iov_addr(&iter),
 					iter_iov_len(&iter), behavior);
 		if (ret < 0)
