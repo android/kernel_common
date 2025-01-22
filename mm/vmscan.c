@@ -4763,16 +4763,19 @@ static bool should_abort_scan(struct lruvec *lruvec, struct scan_control *sc)
 {
 	int i;
 	enum zone_watermarks mark;
+	bool bypass = false;
 
+	trace_android_vh_mglru_should_abort_scan(sc->nr_reclaimed,
+		sc->nr_to_reclaim, sc->order, &bypass);
 	/* don't abort memcg reclaim to ensure fairness */
-	if (!root_reclaim(sc))
+	if (!root_reclaim(sc) && !bypass)
 		return false;
 
 	if (sc->nr_reclaimed >= max(sc->nr_to_reclaim, compact_gap(sc->order)))
 		return true;
 
 	/* check the order to exclude compaction-induced reclaim */
-	if (!current_is_kswapd() || sc->order)
+	if ((!current_is_kswapd() || sc->order) && !bypass)
 		return false;
 
 	mark = sysctl_numa_balancing_mode & NUMA_BALANCING_MEMORY_TIERING ?
