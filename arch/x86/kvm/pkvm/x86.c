@@ -988,10 +988,15 @@ int kvm_emulate_wrmsr(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_wrmsr);
 
+int kvm_emulate_as_nop(struct kvm_vcpu *vcpu)
+{
+	return kvm_skip_emulated_instruction(vcpu);
+}
+
 int kvm_emulate_invd(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	/* Treat an INVD instruction as a NOP and just skip it. */
+	return kvm_emulate_as_nop(vcpu);
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_invd);
 
