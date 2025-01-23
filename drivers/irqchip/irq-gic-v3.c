@@ -963,7 +963,7 @@ static void __exception_irq_entry gic_handle_irq(struct pt_regs *regs)
 		__gic_handle_irq_from_irqson(regs);
 }
 
-void __init gic_v3_dist_init(void)
+void gic_v3_dist_init(void)
 {
 	unsigned int i;
 	u64 affinity;
