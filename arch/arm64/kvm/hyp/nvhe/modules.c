@@ -128,6 +128,64 @@ static int __hyp_smp_processor_id(void)
 	return hyp_smp_processor_id();
 }
 
+#define MAX_MOD_HANDLERS 16
+
+enum mod_handler_type {
+	HOST_FAULT_HANDLER = 0,
+	NUM_MOD_HANDLER_TYPES,
+};
+
+static void *mod_handlers[NUM_MOD_HANDLER_TYPES][MAX_MOD_HANDLERS];
+
+static int mod_handler_register(enum mod_handler_type type, void *handler)
+{
+	int i;
+
+	for (i = 0; i < MAX_MOD_HANDLERS; i++) {
+		if (!cmpxchg64_release(&mod_handlers[type][i], handler, NULL))
+			return 0;
+	}
+
+	return -EBUSY;
+}
+
+static void *__get_mod_handler(enum mod_handler_type type, int i)
+{
+	if (WARN_ON(type >= NUM_MOD_HANDLER_TYPES))
+		return NULL;
+
+	if (i >= MAX_MOD_HANDLERS)
+		return NULL;
+
+	i = array_index_nospec(i, MAX_MOD_HANDLERS);
+
+	return smp_load_acquire(&mod_handlers[type][i]);
+}
+
+#define for_each_mod_handler(type, handler, i)					\
+	for ((i) = 0, handler = (typeof(handler))__get_mod_handler(type, 0);	\
+	     handler;								\
+	     handler = (typeof(handler))__get_mod_handler(type, ++(i)))
+
+static int
+__register_host_perm_fault_handler(int (*cb)(struct user_pt_regs *regs, u64 esr, u64 addr))
+{
+	return mod_handler_register(HOST_FAULT_HANDLER, cb);
+}
+
+bool module_handle_host_perm_fault(struct user_pt_regs *regs, u64 esr, u64 addr)
+{
+	int (*cb)(struct user_pt_regs *regs, u64 esr, u64 addr);
+	int i;
+
+	for_each_mod_handler(HOST_FAULT_HANDLER, cb, i) {
+		if (!cb(regs, esr, addr))
+			return true;
+	}
+
+	return false;
+}
+
 const struct pkvm_module_ops module_ops = {
 	.create_private_mapping = __pkvm_create_private_mapping,
 	.alloc_module_va = __pkvm_alloc_module_va,
@@ -143,7 +201,7 @@ const struct pkvm_module_ops module_ops = {
 	.flush_dcache_to_poc = __kvm_flush_dcache_to_poc,
 	.update_hcr_el2 = __update_hcr_el2,
 	.update_hfgwtr_el2 = __update_hfgwtr_el2,
-	.register_host_perm_fault_handler = hyp_register_host_perm_fault_handler,
+	.register_host_perm_fault_handler = __register_host_perm_fault_handler,
 	.host_stage2_mod_prot = module_change_host_page_prot,
 	.host_stage2_get_leaf = host_stage2_get_leaf,
 	.host_stage2_enable_lazy_pte = host_stage2_enable_lazy_pte,
