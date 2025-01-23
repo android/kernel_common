@@ -284,6 +284,7 @@
 #include <net/hotdata.h>
 #include <trace/events/tcp.h>
 #include <net/rps.h>
+#include <trace/hooks/net.h>
 
 #include "../core/devmem.h"
 
@@ -2868,6 +2869,8 @@ EXPORT_SYMBOL(tcp_recvmsg);
 void tcp_set_state(struct sock *sk, int state)
 {
 	int oldstate = sk->sk_state;
+
+	trace_android_vh_tcp_state_change(sk, TCP_STATE_CHANGE_REASON_NORMAL, state);
 
 	/* We defined a new enum for TCP states that are exported in BPF
 	 * so as not force the internal TCP states to be frozen. The

@@ -8,6 +8,16 @@
 #define _TRACE_HOOK_NET_VH_H
 #include <trace/hooks/vendor_hooks.h>
 
+#ifndef TCP_STATE_CHANGE_REASON_H
+#define TCP_STATE_CHANGE_REASON_H
+enum tcp_state_change_reason {
+	TCP_STATE_CHANGE_REASON_NORMAL,
+	TCP_STATE_CHANGE_REASON_SYN_RST,
+	TCP_STATE_CHANGE_REASON_SYN_TIMEOUT,
+	TCP_STATE_CHANGE_REASON_RETRANSMIT
+};
+#endif
+
 struct packet_type;
 struct list_head;
 DECLARE_HOOK(android_vh_ptype_head,
@@ -46,6 +56,17 @@ DECLARE_HOOK(android_vh_udp_unicast_rcv_skb,
 DECLARE_HOOK(android_vh_udp6_unicast_rcv_skb,
 	TP_PROTO(struct sk_buff *skb, struct sock *sk),
 	TP_ARGS(skb, sk));
+DECLARE_HOOK(android_vh_tcp_sock_error,
+	TP_PROTO(struct sock *sk), TP_ARGS(sk));
+DECLARE_HOOK(android_vh_tcp_fastsyn,
+	TP_PROTO(struct sock *sk), TP_ARGS(sk));
+DECLARE_HOOK(android_vh_tcp_select_window,
+	TP_PROTO(struct sock *sk, uint32_t *win), TP_ARGS(sk, win));
+DECLARE_HOOK(android_vh_tcp_state_change,
+	TP_PROTO(struct sock *sk, enum tcp_state_change_reason reason, int state),
+	TP_ARGS(sk, reason, state));
+DECLARE_HOOK(android_vh_tcp_update_rtt,
+	TP_PROTO(struct sock *sk, long rtt), TP_ARGS(sk, rtt));
 DECLARE_HOOK(android_vh_sk_alloc,
 	TP_PROTO(struct sock *sk), TP_ARGS(sk));
 DECLARE_HOOK(android_vh_sk_free,
