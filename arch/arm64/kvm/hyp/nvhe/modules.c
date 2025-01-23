@@ -132,6 +132,7 @@ static int __hyp_smp_processor_id(void)
 
 enum mod_handler_type {
 	HOST_FAULT_HANDLER = 0,
+	HOST_SMC_HANDLER,
 	NUM_MOD_HANDLER_TYPES,
 };
 
@@ -173,6 +174,11 @@ __register_host_perm_fault_handler(int (*cb)(struct user_pt_regs *regs, u64 esr,
 	return mod_handler_register(HOST_FAULT_HANDLER, cb);
 }
 
+static int __register_host_smc_handler(bool (*cb)(struct user_pt_regs *))
+{
+	return mod_handler_register(HOST_SMC_HANDLER, cb);
+}
+
 bool module_handle_host_perm_fault(struct user_pt_regs *regs, u64 esr, u64 addr)
 {
 	int (*cb)(struct user_pt_regs *regs, u64 esr, u64 addr);
@@ -180,6 +186,19 @@ bool module_handle_host_perm_fault(struct user_pt_regs *regs, u64 esr, u64 addr)
 
 	for_each_mod_handler(HOST_FAULT_HANDLER, cb, i) {
 		if (!cb(regs, esr, addr))
+			return true;
+	}
+
+	return false;
+}
+
+bool module_handle_host_smc(struct user_pt_regs *regs)
+{
+	bool (*cb)(struct user_pt_regs *regs);
+	int i;
+
+	for_each_mod_handler(HOST_SMC_HANDLER, cb, i) {
+		if (cb(regs))
 			return true;
 	}
 
@@ -206,7 +225,7 @@ const struct pkvm_module_ops module_ops = {
 	.host_stage2_get_leaf = host_stage2_get_leaf,
 	.host_stage2_enable_lazy_pte = host_stage2_enable_lazy_pte,
 	.host_stage2_disable_lazy_pte = host_stage2_disable_lazy_pte,
-	.register_host_smc_handler = __pkvm_register_host_smc_handler,
+	.register_host_smc_handler = __register_host_smc_handler,
 	.register_default_trap_handler = __pkvm_register_default_trap_handler,
 	.register_illegal_abt_notifier = __pkvm_register_illegal_abt_notifier,
 	.register_psci_notifier = __pkvm_register_psci_notifier,

@@ -63,20 +63,9 @@ static inline void hyp_reqs_smccc_encode(unsigned long ret, struct kvm_cpu_conte
 
 void __kvm_hyp_host_forward_smc(struct kvm_cpu_context *host_ctxt);
 
-static bool (*default_host_smc_handler)(struct user_pt_regs *regs);
 static bool (*default_trap_handler)(struct user_pt_regs *regs);
 static bool (*unmask_serror)(void);
 static void (*mask_serror)(void);
-
-int __pkvm_register_host_smc_handler(bool (*cb)(struct user_pt_regs *))
-{
-	/*
-	 * Paired with smp_load_acquire(&default_host_smc_handler) in
-	 * handle_host_smc(). Ensure memory stores happening during a pKVM module
-	 * init are observed before executing the callback.
-	 */
-	return cmpxchg_release(&default_host_smc_handler, NULL, cb) ? -EBUSY : 0;
-}
 
 int __pkvm_register_default_trap_handler(bool (*cb)(struct user_pt_regs *))
 {
@@ -1856,8 +1845,8 @@ static void handle_host_smc(struct kvm_cpu_context *host_ctxt)
 		handled = kvm_host_ffa_handler(host_ctxt, func_id);
 	if (!handled)
 		handled = kvm_host_scmi_handler(host_ctxt);
-	if (!handled && smp_load_acquire(&default_host_smc_handler))
-		handled = default_host_smc_handler(&host_ctxt->regs);
+	if (!handled)
+		handled = module_handle_host_smc(&host_ctxt->regs);
 	if (!handled) {
 		__hyp_exit();
 		__kvm_hyp_host_forward_smc(host_ctxt);

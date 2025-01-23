@@ -93,8 +93,11 @@ enum pkvm_psci_notification {
  * @host_stage2_get_leaf:	Query the host's stage2 page-table entry for
  *				the page @phys.
  * @register_host_smc_handler:	@cb is called whenever the host issues an SMC
- *				pKVM couldn't handle. If @cb returns false, the
- *				SMC will be forwarded to EL3.
+ *				pKVM couldn't handle.
+ *				Up-to 16 handlers can be registered. The handler
+ *				order depends on the registration order. If no
+ *				handler return True, the SMC is forwarded to
+ *				EL3.
  * @register_default_trap_handler:
  *				@cb is called whenever EL2 traps EL1 and pKVM
  *				has not handled it. If @cb returns false, the
