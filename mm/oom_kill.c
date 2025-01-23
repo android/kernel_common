@@ -917,6 +917,21 @@ static bool task_will_free_mem(struct task_struct *task)
 	return ret;
 }
 
+/* Adds a killed process to the reaper. @p->mm has to be non NULL. */
+void add_to_oom_reaper(struct task_struct *p)
+{
+	p = find_lock_task_mm(p);
+	if (!p)
+		return;
+
+	if (task_will_free_mem(p)) {
+		if (!cmpxchg(&p->signal->oom_mm, NULL, p->mm))
+			mmgrab(p->signal->oom_mm);
+		queue_oom_reaper(p);
+	}
+	task_unlock(p);
+}
+
 static void __oom_kill_process(struct task_struct *victim, const char *message)
 {
 	struct task_struct *p;
