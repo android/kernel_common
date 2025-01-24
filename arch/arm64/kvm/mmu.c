@@ -1748,6 +1748,7 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 	ppage->page = page;
 	ppage->ipa = fault_ipa;
 	ppage->order = 0;
+	ppage->pins = 1 << ppage->order;
 	ppage->dirty = kvm->arch.pkvm.enabled;
 	WARN_ON(insert_ppage(kvm, ppage));
 	write_unlock(&kvm->mmu_lock);

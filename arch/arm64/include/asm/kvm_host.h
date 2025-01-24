@@ -276,6 +276,7 @@ struct kvm_pinned_page {
 	u64			__subtree_last;
 	bool			dirty;
 	u8			order;
+	u16			pins;
 };
 
 struct kvm_pinned_page
