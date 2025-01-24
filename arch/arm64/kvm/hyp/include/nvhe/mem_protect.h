@@ -52,7 +52,9 @@ int __pkvm_host_share_guest(struct pkvm_hyp_vcpu *vcpu, u64 pfn, u64 gfn,
 int __pkvm_host_unshare_guest(struct pkvm_hyp_vm *vm, u64 gfn, u8 order);
 int __pkvm_host_donate_guest(struct pkvm_hyp_vcpu *vcpu, u64 pfn, u64 gfn,
 			     u64 nr_pages);
-int __pkvm_host_relax_guest_perms(u64 gfn, enum kvm_pgtable_prot prot, struct pkvm_hyp_vcpu *vcpu);
+int __pkvm_host_relax_guest_perms(u64 gfn, u8 order, enum kvm_pgtable_prot prot,
+				  struct pkvm_hyp_vcpu *vcpu);
+int __pkvm_host_dirty_log_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu);
 int __pkvm_host_wrprotect_guest(u64 gfn, u8 order, struct pkvm_hyp_vm *hyp_vm);
 int __pkvm_guest_share_host(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa,
 			    u64 nr_pages, u64 *nr_shared);

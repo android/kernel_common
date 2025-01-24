@@ -1668,15 +1668,23 @@ static int insert_ppage(struct kvm *kvm, struct kvm_pinned_page *ppage)
 	return 0;
 }
 
-static int pkvm_relax_perms(struct kvm *kvm, u64 pfn, u64 gfn,
-			    enum kvm_pgtable_prot prot)
+static int __pkvm_relax_perms_call(u64 pfn, u64 gfn, u8 order, void *args)
+{
+	enum kvm_pgtable_prot prot = (enum kvm_pgtable_prot)args;
+
+	return kvm_call_hyp_nvhe(__pkvm_host_relax_guest_perms, gfn, order, prot);
+}
+
+static int pkvm_relax_perms(struct kvm_vcpu *vcpu, u64 pfn, u64 gfn, u8 order,
+			    enum kvm_pgtable_prot prot, bool logging_active)
 {
 	struct kvm_pinned_page *ppage;
-	int ret;
+	struct kvm *kvm = vcpu->kvm;
 
 	WARN_ON(kvm_vm_is_protected(kvm));
 
 	ppage = find_ppage(kvm, gfn << PAGE_SHIFT);
+	pfn = ALIGN_DOWN(pfn, 1 << order);
 	/* Try again if we raced with an MMU notifier. */
 	if (!ppage || page_to_pfn(ppage->page) != pfn)
 		return -EAGAIN;
@@ -1684,13 +1692,25 @@ static int pkvm_relax_perms(struct kvm *kvm, u64 pfn, u64 gfn,
 	if (!folio_test_swapbacked(page_folio(ppage->page)))
 		return -EIO;
 
-	ret = kvm_call_hyp_nvhe(__pkvm_host_relax_guest_perms, gfn, prot);
-	if (ret)
-		return ret;
-
 	ppage->dirty |= !!(prot & KVM_PGTABLE_PROT_W);
 
-	return 0;
+	if (logging_active) {
+		struct kvm_hyp_memcache *hyp_memcache = &vcpu->arch.stage2_mc;
+		int ret = topup_hyp_memcache(hyp_memcache,
+					     kvm_mmu_cache_min_pages(&kvm->arch.mmu), 0);
+
+		if (ret)
+			return ret;
+
+		ret = kvm_call_hyp_nvhe(__pkvm_host_dirty_log_guest, gfn);
+		if (ret)
+			return ret;
+
+		return 0;
+	}
+
+	return pkvm_call_hyp_nvhe_ppage(ppage, __pkvm_relax_perms_call,
+					(void *)prot, false);
 }
 
 static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
@@ -2102,6 +2122,16 @@ static int user_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 		prot |= KVM_PGTABLE_PROT_X;
 	}
 
+	if (is_protected_kvm_enabled()) {
+		if (WARN_ON(!fault_is_perm))
+			ret = -EINVAL;
+		else
+			ret = pkvm_relax_perms(vcpu, pfn, gfn,
+					       get_order(fault_granule), prot,
+					       logging_active);
+		goto out_unlock;
+	}
+
 	/*
 	 * Under the premise of getting a FSC_PERM fault, we just need to relax
 	 * permissions only if vma_pagesize equals fault_granule. Otherwise,
@@ -2112,12 +2142,8 @@ static int user_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa,
 		 * Drop the SW bits in favour of those stored in the
 		 * PTE, which will be preserved.
 		 */
-		if (!is_protected_kvm_enabled()) {
-			prot &= ~KVM_NV_GUEST_MAP_SZ;
-			ret = kvm_pgtable_stage2_relax_perms(pgt, fault_ipa, prot, flags);
-		} else {
-			ret = pkvm_relax_perms(kvm, pfn, gfn, prot);
-		}
+		prot &= ~KVM_NV_GUEST_MAP_SZ;
+		ret = kvm_pgtable_stage2_relax_perms(pgt, fault_ipa, prot, flags);
 	} else {
 		ret = kvm_pgtable_stage2_map(pgt, fault_ipa, vma_pagesize,
 					     __pfn_to_phys(pfn), prot,

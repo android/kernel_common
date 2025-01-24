@@ -1813,7 +1813,8 @@ unlock:
 	return ret;
 }
 
-int __pkvm_host_relax_guest_perms(u64 gfn, enum kvm_pgtable_prot prot, struct pkvm_hyp_vcpu *vcpu)
+int __pkvm_host_relax_guest_perms(u64 gfn, u8 order, enum kvm_pgtable_prot prot,
+				  struct pkvm_hyp_vcpu *vcpu)
 {
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
 	u64 ipa = hyp_pfn_to_phys(gfn);
@@ -1826,7 +1827,7 @@ int __pkvm_host_relax_guest_perms(u64 gfn, enum kvm_pgtable_prot prot, struct pk
 	host_lock_component();
 	guest_lock_component(vm);
 
-	ret = __check_host_unshare_guest(vm, &phys, ipa, 0);
+	ret = __check_host_unshare_guest(vm, &phys, ipa, order);
 	if (ret)
 		goto unlock;
 
@@ -1857,6 +1858,32 @@ unlock:
 	host_unlock_component();
 
 	return ret;
+}
+
+int __pkvm_host_dirty_log_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu)
+{
+	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
+	u64 ipa = hyp_pfn_to_phys(gfn);
+	u64 phys;
+	int ret;
+
+	host_lock_component();
+	guest_lock_component(vm);
+
+	ret = __check_host_unshare_guest(vm, &phys, ipa, 0);
+	if (ret)
+		goto unlock;
+
+	ret = kvm_pgtable_stage2_map(&vm->pgt, ipa, PAGE_SIZE,
+				     phys, KVM_PGTABLE_PROT_RWX,
+				     &vcpu->vcpu.arch.stage2_mc,
+				     0);
+unlock:
+	guest_unlock_component(vm);
+	host_unlock_component();
+
+	return ret;
+
 }
 
 int __pkvm_host_donate_guest(struct pkvm_hyp_vcpu *vcpu, u64 pfn, u64 gfn,
