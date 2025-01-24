@@ -402,6 +402,7 @@ struct queue_limits {
 	unsigned int		dma_pad_mask;
 
 	struct blk_integrity	integrity;
+	bool			sub_page_limits;
 };
 
 typedef int (*report_zones_cb)(struct blk_zone *zone, unsigned int idx,

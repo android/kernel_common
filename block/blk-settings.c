@@ -19,6 +19,12 @@
 #include "blk-rq-qos.h"
 #include "blk-wbt.h"
 
+
+/* Protects blk_nr_sub_page_limit_queues and blk_sub_page_limits changes. */
+static DEFINE_MUTEX(blk_sub_page_limit_lock);
+static uint32_t blk_nr_sub_page_limit_queues;
+DEFINE_STATIC_KEY_FALSE(blk_sub_page_limits);
+
 void blk_queue_rq_timeout(struct request_queue *q, unsigned int timeout)
 {
 	q->rq_timeout = timeout;
@@ -219,6 +225,50 @@ unsupported:
 	lim->atomic_write_unit_max = 0;
 }
 
+/**
+ * blk_enable_sub_page_limits - enable support for limits below the page size
+ * @lim: request queue limits for which to enable support of these features.
+ *
+ * Enable support for max_segment_size values smaller than PAGE_SIZE and for
+ * max_hw_sectors values below PAGE_SIZE >> SECTOR_SHIFT. Support for these
+ * features is not enabled all the time because of the runtime overhead of these
+ * features.
+ */
+static void blk_enable_sub_page_limits(struct queue_limits *lim)
+{
+	if (lim->sub_page_limits)
+		return;
+
+	lim->sub_page_limits = true;
+
+	mutex_lock(&blk_sub_page_limit_lock);
+	if (++blk_nr_sub_page_limit_queues == 1)
+		static_branch_enable(&blk_sub_page_limits);
+	mutex_unlock(&blk_sub_page_limit_lock);
+}
+
+/**
+ * blk_disable_sub_page_limits - disable support for limits below the page size
+ * @lim: request queue limits for which to enable support of these features.
+ *
+ * max_segment_size values smaller than PAGE_SIZE and for max_hw_sectors values
+ * below PAGE_SIZE >> SECTOR_SHIFT. Support for these features is not enabled
+ * all the time because of the runtime overhead of these features.
+ */
+void blk_disable_sub_page_limits(struct queue_limits *lim)
+{
+	if (!lim->sub_page_limits)
+		return;
+
+	lim->sub_page_limits = false;
+
+	mutex_lock(&blk_sub_page_limit_lock);
+	WARN_ON_ONCE(blk_nr_sub_page_limit_queues <= 0);
+	if (--blk_nr_sub_page_limit_queues == 0)
+		static_branch_disable(&blk_sub_page_limits);
+	mutex_unlock(&blk_sub_page_limit_lock);
+}
+
 /*
  * Check that the limits in lim are valid, initialize defaults for unset
  * values, and cap values based on others where needed.
@@ -262,13 +312,13 @@ static int blk_validate_limits(struct queue_limits *lim)
 	 * value.
 	 *
 	 * The block layer relies on the fact that every driver can
-	 * handle at lest a page worth of data per I/O, and needs the value
-	 * aligned to the logical block size.
+	 * handle at least a logical_block_size worth of data per I/O,
+	 * and needs the value aligned to the logical block size.
 	 */
 	if (!lim->max_hw_sectors)
 		lim->max_hw_sectors = BLK_SAFE_MAX_SECTORS;
-	if (WARN_ON_ONCE(lim->max_hw_sectors < PAGE_SECTORS))
-		return -EINVAL;
+	if (lim->max_hw_sectors < PAGE_SECTORS)
+		blk_enable_sub_page_limits(lim);
 	logical_block_sectors = lim->logical_block_size >> SECTOR_SHIFT;
 	if (WARN_ON_ONCE(logical_block_sectors > lim->max_hw_sectors))
 		return -EINVAL;
@@ -343,7 +393,9 @@ static int blk_validate_limits(struct queue_limits *lim)
 		 */
 		if (!lim->max_segment_size)
 			lim->max_segment_size = BLK_MAX_SEGMENT_SIZE;
-		if (WARN_ON_ONCE(lim->max_segment_size < PAGE_SIZE))
+		if (lim->max_segment_size < PAGE_SIZE)
+			blk_enable_sub_page_limits(lim);
+		if (WARN_ON_ONCE(lim->max_segment_size < SECTOR_SIZE))
 			return -EINVAL;
 	}
 
@@ -387,6 +439,8 @@ int blk_set_default_limits(struct queue_limits *lim)
 	 * initialization to the max value here.
 	 */
 	lim->max_user_discard_sectors = UINT_MAX;
+	/* Set sub_page_limits to false and let validate set it if required */
+	lim->sub_page_limits = false;
 	return blk_validate_limits(lim);
 }
 

@@ -17,6 +17,7 @@ struct elevator_type;
 #define BLK_MAX_TIMEOUT		(5 * HZ)
 
 extern struct dentry *blk_debugfs_root;
+DECLARE_STATIC_KEY_FALSE(blk_sub_page_limits);
 
 struct blk_flush_queue {
 	spinlock_t		mq_flush_lock;
@@ -44,6 +45,12 @@ int __bio_queue_enter(struct request_queue *q, struct bio *bio);
 void submit_bio_noacct_nocheck(struct bio *bio);
 void bio_await_chain(struct bio *bio);
 
+static inline bool blk_queue_sub_page_limits(const struct queue_limits *lim)
+{
+	return static_branch_unlikely(&blk_sub_page_limits) &&
+		lim->sub_page_limits;
+}
+void blk_disable_sub_page_limits(struct queue_limits *q);
 static inline bool blk_try_enter_queue(struct request_queue *q, bool pm)
 {
 	rcu_read_lock();
