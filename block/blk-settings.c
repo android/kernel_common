@@ -225,6 +225,14 @@ unsupported:
 	lim->atomic_write_unit_max = 0;
 }
 
+/* For debugfs. */
+int blk_sub_page_limit_queues_get(void *data, u64 *val)
+{
+	*val = READ_ONCE(blk_nr_sub_page_limit_queues);
+
+	return 0;
+}
+
 /**
  * blk_enable_sub_page_limits - enable support for limits below the page size
  * @lim: request queue limits for which to enable support of these features.

@@ -44,12 +44,12 @@ bool __blk_freeze_queue_start(struct request_queue *q,
 int __bio_queue_enter(struct request_queue *q, struct bio *bio);
 void submit_bio_noacct_nocheck(struct bio *bio);
 void bio_await_chain(struct bio *bio);
-
 static inline bool blk_queue_sub_page_limits(const struct queue_limits *lim)
 {
 	return static_branch_unlikely(&blk_sub_page_limits) &&
 		lim->sub_page_limits;
 }
+int blk_sub_page_limit_queues_get(void *data, u64 *val);
 void blk_disable_sub_page_limits(struct queue_limits *q);
 static inline bool blk_try_enter_queue(struct request_queue *q, bool pm)
 {
