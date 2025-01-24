@@ -337,7 +337,7 @@ void put_pkvm_hyp_vm(struct pkvm_hyp_vm *hyp_vm)
 	hyp_refcount_dec(hyp_vm->refcount);
 }
 
-int __pkvm_reclaim_dying_guest_page(pkvm_handle_t handle, u64 pfn, u64 gfn)
+int __pkvm_reclaim_dying_guest_page(pkvm_handle_t handle, u64 pfn, u64 gfn, u8 order)
 {
 	struct pkvm_hyp_vm *hyp_vm;
 	int ret = -EINVAL;
@@ -347,7 +347,7 @@ int __pkvm_reclaim_dying_guest_page(pkvm_handle_t handle, u64 pfn, u64 gfn)
 	if (!hyp_vm || !hyp_vm->is_dying)
 		goto unlock;
 
-	ret = __pkvm_host_reclaim_page(hyp_vm, pfn, gfn << PAGE_SHIFT);
+	ret = __pkvm_host_reclaim_page(hyp_vm, pfn, gfn << PAGE_SHIFT, order);
 	if (ret)
 		goto unlock;
 
