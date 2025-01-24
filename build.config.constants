@@ -1,4 +1,4 @@
-BRANCH=android-mainline-rust
+BRANCH=android-mainline
 CLANG_VERSION=r536225
 RUSTC_VERSION=1.82.0
 AARCH64_NDK_TRIPLE=aarch64-linux-android31
