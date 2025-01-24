@@ -53,6 +53,9 @@
 #define  SCSI_INLINE_SG_CNT  2
 #endif
 
+EXPORT_TRACEPOINT_SYMBOL_GPL(scsi_dispatch_cmd_start);
+EXPORT_TRACEPOINT_SYMBOL_GPL(scsi_dispatch_cmd_done);
+
 static struct kmem_cache *scsi_sense_cache;
 static DEFINE_MUTEX(scsi_sense_cache_mutex);
 

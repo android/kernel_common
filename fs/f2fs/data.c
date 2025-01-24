@@ -30,6 +30,9 @@
 
 #define NUM_PREALLOC_POST_READ_CTXS	128
 
+EXPORT_TRACEPOINT_SYMBOL_GPL(f2fs_write_begin);
+EXPORT_TRACEPOINT_SYMBOL_GPL(f2fs_submit_page_write);
+
 static struct kmem_cache *bio_post_read_ctx_cache;
 static struct kmem_cache *bio_entry_slab;
 static mempool_t *bio_post_read_ctx_pool;
