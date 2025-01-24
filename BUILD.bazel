@@ -27,6 +27,7 @@ load(
     "kernel_modules_install",
     "merge_kzip",
     "merged_kernel_uapi_headers",
+    "modinfo_summary_report",
 )
 load(":abi.bzl", "cc_binary_with_abi")
 load(
@@ -1332,6 +1333,15 @@ kernel_build(
     makefile = ":Makefile",
     post_defconfig_fragments = [":gki/x86_64/defconfig/allmodconfig"],
     visibility = ["//visibility:private"],
+)
+
+# tools/bazel build //common:allmodconfig_modinfo_summaries --allow_undeclared_modules
+modinfo_summary_report(
+    name = "allmodconfig_modinfo_summaries",
+    deps = [
+        ":kernel_aarch64_allmodconfig",
+        ":kernel_x86_64_allmodconfig",
+    ],
 )
 
 # tools/bazel build --allow_undeclared_modules //common:kernel_arm_allmodconfig
