@@ -370,17 +370,16 @@ struct bio *bio_split_rw(struct bio *bio, const struct queue_limits *lim,
 struct bio *bio_split_zone_append(struct bio *bio,
 		const struct queue_limits *lim, unsigned *nr_segs);
 
-/*
- * All drivers must accept single-segments bios that are smaller than PAGE_SIZE.
- *
- * This is a quick and dirty check that relies on the fact that bi_io_vec[0] is
- * always valid if a bio has data.  The check might lead to occasional false
- * positives when bios are cloned, but compared to the performance impact of
- * cloned bios themselves the loop below doesn't matter anyway.
- */
 static inline bool bio_may_need_split(struct bio *bio,
 		const struct queue_limits *lim)
 {
+	/*
+	 * Check whether bio splitting should be performed. This check may
+	 * trigger the bio splitting code even if splitting is not necessary.
+	 */
+	if (blk_queue_sub_page_limits(lim) && bio->bi_io_vec &&
+	    bio->bi_io_vec->bv_len > lim->max_segment_size)
+		return true;
 	return lim->chunk_sectors || bio->bi_vcnt != 1 ||
 		bio->bi_io_vec->bv_len + bio->bi_io_vec->bv_offset > PAGE_SIZE;
 }
@@ -406,6 +405,10 @@ static inline struct bio *__bio_split_to_limits(struct bio *bio,
 	case REQ_OP_WRITE:
 		if (bio_may_need_split(bio, lim))
 			return bio_split_rw(bio, lim, nr_segs);
+		else if (bio->bi_vcnt == 1) {
+			*nr_segs = blk_segments(lim, bio->bi_io_vec[0].bv_len);
+			return bio;
+		}
 		*nr_segs = 1;
 		return bio;
 	case REQ_OP_ZONE_APPEND:
