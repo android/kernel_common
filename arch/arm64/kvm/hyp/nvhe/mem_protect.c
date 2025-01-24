@@ -1150,8 +1150,9 @@ static int __guest_request_page_transition(u64 ipa, kvm_pte_t *__pte, u64 *__nr_
 		.flags  = KVM_PGTABLE_WALK_LEAF,
 		.arg    = (void *)&data,
 	};
+	phys_addr_t phys, phys_offset;
+	kvm_pte_t pte;
 	int ret = kvm_pgtable_walk(&vm->pgt, ipa, *__nr_pages * PAGE_SIZE, &walker);
-	phys_addr_t phys;
 
 	/* Walker reached data.max_ptes or a non physically contiguous block */
 	if (ret == -E2BIG)
@@ -1166,12 +1167,36 @@ static int __guest_request_page_transition(u64 ipa, kvm_pte_t *__pte, u64 *__nr_
 	if (!range_is_allowed_memory(phys, phys + data.size))
 		return -EINVAL;
 
-	/* Not aligned with a block mapping */
-	if (data.ipa_start != ipa)
+	if (data.ipa_start > ipa)
 		return -EINVAL;
 
-	*__pte = data.pte_start;
-	*__nr_pages = min_t(u64, data.size >> PAGE_SHIFT, *__nr_pages);
+	/*
+	 * transition not aligned with block memory mapping. They'll be broken
+	 * down and memory donation will be needed.
+	 */
+	phys_offset = ipa - data.ipa_start;
+	if (phys_offset || (*__nr_pages * PAGE_SIZE < data.size)) {
+		struct pkvm_hyp_vcpu *hyp_vcpu = pkvm_get_loaded_hyp_vcpu();
+		int min_pages;
+
+		if (WARN_ON(!hyp_vcpu))
+			return -EINVAL;
+
+		min_pages = kvm_mmu_cache_min_pages(&hyp_vcpu->vcpu.kvm->arch.mmu);
+		if (hyp_vcpu->vcpu.arch.stage2_mc.nr_pages < min_pages)
+			return -ENOMEM;
+	}
+
+	phys = kvm_pte_to_phys(data.pte_start) + phys_offset;
+	pte = data.pte_start & ~kvm_phys_to_pte(KVM_PHYS_INVALID);
+	pte |= kvm_phys_to_pte(phys);
+
+	if (WARN_ON(phys_offset >= data.size))
+		return -EINVAL;
+
+	*__pte = pte;
+	*__nr_pages = min_t(u64, (data.size - phys_offset) >> PAGE_SHIFT,
+			    *__nr_pages);
 
 	return 0;
 }
