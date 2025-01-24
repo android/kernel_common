@@ -122,6 +122,7 @@
 #include <net/rps.h>
 
 #include <trace/events/sock.h>
+#include <trace/hooks/net.h>
 
 /* The inetsw table contains everything that inet_create needs to
  * build a new socket.
@@ -252,7 +253,7 @@ EXPORT_SYMBOL(inet_listen);
 static int inet_create(struct net *net, struct socket *sock, int protocol,
 		       int kern)
 {
-	struct sock *sk;
+	struct sock *sk = NULL;
 	struct inet_protosw *answer;
 	struct inet_sock *inet;
 	struct proto *answer_prot;
@@ -392,6 +393,7 @@ lookup_protocol:
 			goto out_sk_release;
 	}
 out:
+	trace_android_vh_inet_create(sk, err);
 	return err;
 out_rcu_unlock:
 	rcu_read_unlock();
