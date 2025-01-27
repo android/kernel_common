@@ -210,7 +210,6 @@ struct pkvm_module_ops {
 	phys_addr_t (*hyp_pa)(void *x);
 	void* (*hyp_va)(phys_addr_t phys);
 	unsigned long (*kern_hyp_va)(unsigned long x);
-	int (*register_hyp_event_ids)(unsigned long start, unsigned long end);
 	void* (*tracing_reserve_entry)(unsigned long length);
 	void (*tracing_commit_entry)(void);
 	void (*tracing_mod_hyp_printk)(u8 fmt_id, u64 a, u64 b, u64 c, u64 d);

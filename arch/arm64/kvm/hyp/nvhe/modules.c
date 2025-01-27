@@ -244,7 +244,6 @@ const struct pkvm_module_ops module_ops = {
 	.hyp_pa = hyp_virt_to_phys,
 	.hyp_va = hyp_phys_to_virt,
 	.kern_hyp_va = __kern_hyp_va,
-	.register_hyp_event_ids = register_hyp_event_ids,
 	.tracing_reserve_entry = tracing_reserve_entry,
 	.tracing_commit_entry = tracing_commit_entry,
 	.tracing_mod_hyp_printk = tracing_mod_hyp_printk,
@@ -277,6 +276,12 @@ int __pkvm_init_module(void *host_mod)
 {
 	int (*do_module_init)(const struct pkvm_module_ops *ops);
 	struct pkvm_el2_module *mod = kern_hyp_va(host_mod);
+	void *event_ids;
+
+	event_ids = pkvm_module_hyp_va(mod, mod->event_ids.start);
+
+	if (mod->nr_hyp_events)
+		register_hyp_event_ids(event_ids, mod->nr_hyp_events);
 
 	do_module_init = pkvm_module_hyp_va(mod, (void *)mod->init);
 

@@ -72,7 +72,7 @@ static bool try_set_mod_event(unsigned short id, bool enable)
 	return false;
 }
 
-int register_hyp_event_ids(unsigned long start, unsigned long end)
+int register_hyp_event_ids(void *event_ids, size_t nr_events)
 {
 	int mod, ret = -ENOMEM;
 
@@ -80,8 +80,8 @@ int register_hyp_event_ids(unsigned long start, unsigned long end)
 
 	mod = atomic_read(&num_event_id_mod);
 	if (mod < MAX_EVENT_ID_MOD) {
-		event_id_mod[mod].start = (struct hyp_event_id *)start;
-		event_id_mod[mod].end = (struct hyp_event_id *)end;
+		event_id_mod[mod].start = (struct hyp_event_id *)event_ids;
+		event_id_mod[mod].end = (struct hyp_event_id *)event_ids + nr_events;
 		/*
 		 * Order access between num_event_id_mod and event_id_mod.
 		 * Paired with try_set_mod_event()
