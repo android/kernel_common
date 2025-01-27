@@ -3812,6 +3812,14 @@ static void do_activate_task(struct rq *rq, struct task_struct *p, int en_flags)
 	raw_spin_unlock(&p->blocked_lock);
 }
 
+static bool proxy_task_runnable_but_waking(struct task_struct *p)
+{
+	if (!sched_proxy_exec())
+		return false;
+	return (READ_ONCE(p->__state) == TASK_RUNNING &&
+		READ_ONCE(p->blocked_on_state) == BO_WAKING);
+}
+
 #ifdef CONFIG_SMP
 static inline void proxy_set_task_cpu(struct task_struct *p, int cpu)
 {
@@ -4079,6 +4087,11 @@ static inline void do_activate_task(struct rq *rq, struct task_struct *p,
 				    int en_flags)
 {
 	activate_task(rq, p, en_flags);
+}
+
+static bool proxy_task_runnable_but_waking(struct task_struct *p)
+{
+	return false;
 }
 
 static inline void activate_blocked_waiters(struct rq *target_rq,
@@ -4667,8 +4680,7 @@ int try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 			 * continue on to ttwu_runnable check to force
 			 * proxy_needs_return evaluation
 			 */
-			if (!(READ_ONCE(p->__state) == TASK_RUNNING &&
-			      READ_ONCE(p->blocked_on_state) == BO_WAKING))
+			if (!proxy_task_runnable_but_waking(p))
 				break;
 		}
 
