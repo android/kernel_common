@@ -122,15 +122,7 @@ static void __hyp_clock_work(struct work_struct *work)
 					    err / NSEC_PER_USEC);
 	}
 
-	if (delta_boot > U32_MAX) {
-		do_div(delta_boot, NSEC_PER_SEC);
-		rate = delta_cycles;
-	} else {
-		rate = delta_cycles * NSEC_PER_SEC;
-	}
-
-	do_div(rate, delta_boot);
-
+	rate = div64_u64(delta_cycles * NSEC_PER_SEC, delta_boot);
 	clocks_calc_mult_shift(&hyp_clock->mult, &hyp_clock->shift,
 			       rate, NSEC_PER_SEC, CLOCK_MAX_CONVERSION_S);
 
