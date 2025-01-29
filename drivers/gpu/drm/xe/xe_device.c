@@ -48,6 +48,7 @@
 #include "xe_pat.h"
 #include "xe_pcode.h"
 #include "xe_pm.h"
+#include "xe_pxp.h"
 #include "xe_query.h"
 #include "xe_sriov.h"
 #include "xe_tile.h"
@@ -745,6 +746,11 @@ int xe_device_probe(struct xe_device *xe)
 	err = xe_display_init(xe);
 	if (err)
 		goto err_fini_oa;
+
+	/* A PXP init failure is not fatal */
+	err = xe_pxp_init(xe);
+	if (err && err != -EOPNOTSUPP)
+		drm_err(&xe->drm, "PXP initialization failed: %pe\n", ERR_PTR(err));
 
 	err = drm_dev_register(&xe->drm, 0);
 	if (err)
