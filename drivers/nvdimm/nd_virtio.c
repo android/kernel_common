@@ -54,11 +54,6 @@ static int virtio_send_pmem_request(struct nd_region *nd_region,
 		return -EIO;
 	}
 
-	might_sleep();
-	req_data = kmalloc(sizeof(*req_data), GFP_KERNEL);
-	if (!req_data)
-		return -ENOMEM;
-
 	req_data->done = false;
 	init_waitqueue_head(&req_data->host_acked);
 	init_waitqueue_head(&req_data->wq_buf);
