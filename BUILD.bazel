@@ -186,14 +186,14 @@ common_kernel(
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    protected_exports_list = "gki/aarch64/protected_exports",
+    protected_modules_list = ":gki_aarch64_protected_modules",
     visibility = ["//visibility:public"],
 
-    # Symbol lists and module lists
+    # Symbol lists
     # kmi_symbol_list = None,
     # additional_kmi_symbol_lists = [],
     # kmi_symbol_list_strict_mode = False,
-    # protected_exports_list = None,
-    # protected_modules_list = None,
     # trim_nonlisted_kmi = False,
 
     # ABI
