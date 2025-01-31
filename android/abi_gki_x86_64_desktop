@@ -1739,6 +1739,7 @@
   match_token
   match_uint
   __max_dies_per_package
+  __max_logical_packages
   mdiobus_alloc_size
   mdiobus_free
   mdiobus_get_phy
@@ -2205,6 +2206,8 @@
   platform_get_irq_optional
   platform_get_resource
   platform_get_resource_byname
+  platform_thermal_package_notify
+  platform_thermal_package_rate_control
   pm_generic_runtime_resume
   pm_generic_runtime_suspend
   pm_report_hw_sleep_time
@@ -2958,6 +2961,7 @@
   thermal_acpi_critical_trip_temp
   thermal_acpi_hot_trip_temp
   thermal_acpi_passive_trip_temp
+  thermal_clear_package_intr_status
   thermal_cooling_device_register
   thermal_cooling_device_unregister
   thermal_tripless_zone_device_register
@@ -3460,6 +3464,7 @@
   wireless_send_event
   woken_wake_function
   write_cache_pages
+  wrmsr_on_cpu
   wrmsr_safe_on_cpu
   wrmsr_safe_regs_on_cpu
   wwan_create_port
