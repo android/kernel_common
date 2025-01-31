@@ -5273,9 +5273,24 @@ static inline int task_fits_cpu(struct task_struct *p, int cpu)
 	return (util_fits_cpu(util, uclamp_min, uclamp_max, cpu) > 0);
 }
 
-inline void update_misfit_status(struct task_struct *p, struct rq *rq)
+static inline int is_misfit_task(struct task_struct *p, struct rq *rq)
 {
 	int cpu = cpu_of(rq);
+
+	if (!p || p->nr_cpus_allowed == 1)
+		return 0;
+
+	if (arch_scale_cpu_capacity(cpu) == p->max_allowed_capacity)
+		return 0;
+
+	if (task_fits_cpu(p, cpu_of(rq)))
+		return 0;
+
+	return 1;
+}
+
+inline void update_misfit_status(struct task_struct *p, struct rq *rq)
+{
 	bool need_update = true;
 
 	trace_android_rvh_update_misfit_status(p, rq, &need_update);
@@ -5286,10 +5301,7 @@ inline void update_misfit_status(struct task_struct *p, struct rq *rq)
 	 * Affinity allows us to go somewhere higher?  Or are we on biggest
 	 * available CPU already? Or do we fit into this CPU ?
 	 */
-	if (!p || (p->nr_cpus_allowed == 1) ||
-	    (arch_scale_cpu_capacity(cpu) == p->max_allowed_capacity) ||
-	    task_fits_cpu(p, cpu)) {
-
+	if (!is_misfit_task(p, rq)) {
 		rq->misfit_task_load = 0;
 		return;
 	}
@@ -9786,7 +9798,7 @@ static int detach_tasks(struct lb_env *env)
 
 		case migrate_misfit:
 			/* This is not a misfit task */
-			if (task_fits_cpu(p, env->src_cpu))
+			if (!is_misfit_task(p, cpu_rq(env->src_cpu)))
 				goto next;
 
 			env->imbalance = 0;
@@ -10858,7 +10870,7 @@ static inline void update_sg_wakeup_stats(struct sched_domain *sd,
 		/* Check if task fits in the CPU */
 		if (sd->flags & SD_ASYM_CPUCAPACITY &&
 		    sgs->group_misfit_task_load &&
-		    task_fits_cpu(p, i))
+		    !is_misfit_task(p, rq))
 			sgs->group_misfit_task_load = 0;
 
 	}
