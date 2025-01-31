@@ -110,7 +110,26 @@ _X86_GKI_MODULES_LIST = [
 
 _X86_64_GKI_MODULES_LIST = [
     # keep sorted
+    "drivers/acpi/fan.ko",
+    "drivers/powercap/intel_rapl_common.ko",
     "drivers/ptp/ptp_kvm.ko",
+    "drivers/thermal/intel/int340x_thermal/acpi_thermal_rel.ko",
+    "drivers/thermal/intel/int340x_thermal/int3400_thermal.ko",
+    "drivers/thermal/intel/int340x_thermal/int3401_thermal.ko",
+    "drivers/thermal/intel/int340x_thermal/int3402_thermal.ko",
+    "drivers/thermal/intel/int340x_thermal/int3403_thermal.ko",
+    "drivers/thermal/intel/int340x_thermal/int340x_thermal_zone.ko",
+    "drivers/thermal/intel/int340x_thermal/processor_thermal_device.ko",
+    "drivers/thermal/intel/int340x_thermal/processor_thermal_device_pci.ko",
+    "drivers/thermal/intel/int340x_thermal/processor_thermal_device_pci_legacy.ko",
+    "drivers/thermal/intel/int340x_thermal/processor_thermal_mbox.ko",
+    "drivers/thermal/intel/int340x_thermal/processor_thermal_power_floor.ko",
+    "drivers/thermal/intel/int340x_thermal/processor_thermal_rapl.ko",
+    "drivers/thermal/intel/int340x_thermal/processor_thermal_rfim.ko",
+    "drivers/thermal/intel/int340x_thermal/processor_thermal_wt_hint.ko",
+    "drivers/thermal/intel/int340x_thermal/processor_thermal_wt_req.ko",
+    "drivers/thermal/intel/intel_soc_dts_iosf.ko",
+    "drivers/thermal/intel/intel_soc_dts_thermal.ko",
 ]
 
 # buildifier: disable=unnamed-macro
