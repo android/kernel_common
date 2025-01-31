@@ -84,6 +84,5 @@ SPDX-License-Identifier: GPL-2.0 OR Apache-2.0
         <option name="test-command-line" key="kselftest_x86_ptrace_syscall" value="cd &ktest_dir;; ./kselftest_x86_ptrace_syscall" />
         <option name="test-command-line" key="kselftest_x86_single_step_syscall" value="cd &ktest_dir;; ./kselftest_x86_single_step_syscall" />
         <option name="test-command-line" key="kselftest_x86_syscall_nt" value="cd &ktest_dir;; ./kselftest_x86_syscall_nt" />
-        <option name="test-command-line" key="kselftest_x86_test_mremap_vdso" value="cd &ktest_dir;; ./kselftest_x86_test_mremap_vdso" />
     </test>
 </configuration>

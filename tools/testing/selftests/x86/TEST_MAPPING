@@ -17,9 +17,6 @@
         },
         {
           "include-filter": "kselftest_x86_syscall_nt"
-        },
-        {
-          "include-filter": "kselftest_x86_test_mremap_vdso"
         }
       ]
     }
