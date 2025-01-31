@@ -1106,6 +1106,10 @@ struct uclamp_rq {
 DECLARE_STATIC_KEY_FALSE(sched_uclamp_used);
 #endif /* CONFIG_UCLAMP_TASK */
 
+typedef enum misfit_reason {
+	MISFIT_PERF,		/* Requires moving to a more performant CPU */
+} misfit_reason_t;
+
 /*
  * This is the main, per-CPU runqueue data structure.
  *
@@ -1327,6 +1331,10 @@ struct rq {
 #if defined(CONFIG_CFS_BANDWIDTH) && defined(CONFIG_SMP)
 	call_single_data_t	cfsb_csd;
 	struct list_head	cfsb_csd_list;
+#endif
+
+#ifdef CONFIG_SMP
+	misfit_reason_t		misfit_reason;
 #endif
 };
 
