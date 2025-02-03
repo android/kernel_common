@@ -2105,7 +2105,6 @@ static struct rb_page_desc *rb_page_desc(struct trace_page_desc *trace_pdesc,
 					 int cpu)
 {
 	struct rb_page_desc *pdesc;
-	size_t len;
 	int i;
 
 	if (!trace_pdesc)
@@ -2113,15 +2112,6 @@ static struct rb_page_desc *rb_page_desc(struct trace_page_desc *trace_pdesc,
 
 	if (cpu >= trace_pdesc->nr_cpus)
 		return NULL;
-
-	pdesc = __first_rb_page_desc(trace_pdesc);
-	len = struct_size(pdesc, page_va, pdesc->nr_page_va);
-	pdesc += len * cpu;
-
-	if (pdesc->cpu == cpu)
-		return pdesc;
-
-	/* Missing CPUs, need to linear search */
 
 	for_each_rb_page_desc(pdesc, i, trace_pdesc) {
 		if (pdesc->cpu == cpu)
