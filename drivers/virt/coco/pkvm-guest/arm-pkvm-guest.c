@@ -12,6 +12,7 @@
 #include <linux/io.h>
 #include <linux/mem_encrypt.h>
 #include <linux/mem_relinquish.h>
+#include <linux/memblock.h>
 #include <linux/mm.h>
 #include <linux/pgtable.h>
 
@@ -53,9 +54,6 @@ static int __arm_smccc_do_range(u32 func_id, phys_addr_t phys, int numgranules)
 
 /*
  * Apply func_id on the range [phys : phys + numpages * PAGE_SIZE)
- *
- * Use with cautious. Boundaries of the range will be aligned with pkvm_granule.
- * This might lead to overshooting when pkvm_granule > PAGE_SIZE.
  */
 static int arm_smccc_do_range(u32 func_id, phys_addr_t phys, int numpages,
 			      bool func_has_range)
@@ -63,11 +61,13 @@ static int arm_smccc_do_range(u32 func_id, phys_addr_t phys, int numpages,
 	size_t size = numpages * PAGE_SIZE;
 	int numgranules;
 
-	if (!IS_ALIGNED(phys, pkvm_granule))
+	if (!IS_ALIGNED(phys, PAGE_SIZE))
 		return -EINVAL;
 
-	numgranules = DIV_ROUND_UP(size, pkvm_granule);
-	phys = ALIGN_DOWN(phys, pkvm_granule);
+	if (!IS_ALIGNED(phys | size, pkvm_granule))
+		return -EINVAL;
+
+	numgranules = size / pkvm_granule;
 
 	if (func_has_range)
 		return __arm_smccc_do_range(func_id, phys, numgranules);
@@ -77,18 +77,12 @@ static int arm_smccc_do_range(u32 func_id, phys_addr_t phys, int numpages,
 
 static int pkvm_set_memory_encrypted(unsigned long addr, int numpages)
 {
-	if (!IS_ALIGNED(numpages * PAGE_SIZE, pkvm_granule))
-		return -EINVAL;
-
 	return arm_smccc_do_range(ARM_SMCCC_VENDOR_HYP_KVM_MEM_UNSHARE_FUNC_ID,
 				  virt_to_phys((void *)addr), numpages, pkvm_func_range);
 }
 
 static int pkvm_set_memory_decrypted(unsigned long addr, int numpages)
 {
-	if (!IS_ALIGNED(numpages * PAGE_SIZE, pkvm_granule))
-		return -EINVAL;
-
 	return arm_smccc_do_range(ARM_SMCCC_VENDOR_HYP_KVM_MEM_SHARE_FUNC_ID,
 				  virt_to_phys((void *)addr), numpages, pkvm_func_range);
 }
@@ -105,6 +99,7 @@ static int mmio_guard_ioremap_hook(phys_addr_t phys, size_t size,
 	u32 func_id = pkvm_func_range ?
 		ARM_SMCCC_VENDOR_HYP_KVM_MMIO_RGUARD_MAP_FUNC_ID :
 		ARM_SMCCC_VENDOR_HYP_KVM_MMIO_GUARD_MAP_FUNC_ID;
+	phys_addr_t end;
 
 	/*
 	 * We only expect MMIO emulation for regions mapped with device
@@ -113,9 +108,20 @@ static int mmio_guard_ioremap_hook(phys_addr_t phys, size_t size,
 	if (protval != PROT_DEVICE_nGnRE && protval != PROT_DEVICE_nGnRnE)
 		return 0;
 
-	WARN_ON_ONCE(arm_smccc_do_range(func_id, phys, DIV_ROUND_UP(size, PAGE_SIZE),
-					pkvm_func_range));
+	end = ALIGN(phys + size, PAGE_SIZE);
+	phys = ALIGN_DOWN(phys, PAGE_SIZE);
+	size = end - phys;
 
+	/*
+	 * It is fine to overshoot MMIO guard requests. Its sole purpose is to
+	 * indicate the hypervisor where are the MMIO regions and we have
+	 * validated the alignment of the memory regions beforehand.
+	 */
+	end = ALIGN(phys + size, pkvm_granule);
+	phys = ALIGN_DOWN(phys, pkvm_granule);
+
+	WARN_ON_ONCE(arm_smccc_do_range(func_id, phys, (end - phys) >> PAGE_SHIFT,
+					pkvm_func_range));
 	return 0;
 }
 
@@ -153,6 +159,32 @@ EXPORT_SYMBOL_GPL(page_relinquish);
 
 #endif
 
+static bool __dram_is_aligned(size_t pkvm_granule)
+{
+	struct memblock_region *region, *prev = NULL;
+
+	for_each_mem_region(region) {
+		phys_addr_t prev_end;
+
+		if (!prev)
+			goto discontinuous;
+
+		prev_end = prev->base + prev->size;
+		if (prev_end == region->base)
+			goto contiguous;
+
+		if (!IS_ALIGNED(prev_end, pkvm_granule))
+			return false;
+discontinuous:
+		if (!IS_ALIGNED(region->base, pkvm_granule))
+			return false;
+contiguous:
+		prev = region;
+	}
+
+	return IS_ALIGNED(region->base + region->size, pkvm_granule);
+}
+
 void pkvm_init_hyp_services(void)
 {
 	struct arm_smccc_res res;
@@ -172,7 +204,8 @@ void pkvm_init_hyp_services(void)
 	    kvm_arm_hyp_service_available(ARM_SMCCC_KVM_FUNC_MEM_UNSHARE))
 	    arm64_mem_crypt_ops_register(&pkvm_crypt_ops);
 
-	if (kvm_arm_hyp_service_available(ARM_SMCCC_KVM_FUNC_MMIO_GUARD_MAP))
+	if (kvm_arm_hyp_service_available(ARM_SMCCC_KVM_FUNC_MMIO_GUARD_MAP) &&
+	    __dram_is_aligned(pkvm_granule))
 		arm64_ioremap_prot_hook_register(&mmio_guard_ioremap_hook);
 
 #ifdef CONFIG_MEMORY_RELINQUISH
