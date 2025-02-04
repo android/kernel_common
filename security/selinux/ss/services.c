@@ -2137,8 +2137,8 @@ static void security_load_policycaps(struct selinux_policy *policy)
 				i);
 	}
 
-	selinux_state.android_netlink_route = p->android_netlink_route;
-	selinux_state.android_netlink_getneigh = p->android_netlink_getneigh;
+	state->android_netlink_route = p->android_netlink_route;
+	state->android_netlink_getneigh = p->android_netlink_getneigh;
 	selinux_nlmsg_init();
 }
 
