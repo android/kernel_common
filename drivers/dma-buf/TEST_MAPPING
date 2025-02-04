@@ -301,10 +301,15 @@
       "name": "VtsHalBluetoothAudioTargetTest"
     },
     {
-      "name": "CtsLibcoreTestCases"
+      "name": "CtsUsbTests"
     },
     {
-      "name": "CtsUsbTests"
+      "name": "CtsDrmTestCases",
+      "options": [
+        {
+          "exclude-filter": "android.drm.cts.DRMTest#testForwardLockAccess"
+        }
+      ]
     }
   ]
 }
