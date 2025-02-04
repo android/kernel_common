@@ -107,17 +107,18 @@ static unsigned int bio_allowed_max_sectors(const struct queue_limits *lim)
 
 static struct bio *bio_submit_split(struct bio *bio, int split_sectors)
 {
-	if (unlikely(split_sectors < 0)) {
-		bio->bi_status = errno_to_blk_status(split_sectors);
-		bio_endio(bio);
-		return NULL;
-	}
+	if (unlikely(split_sectors < 0))
+		goto error;
 
 	if (split_sectors) {
 		struct bio *split;
 
 		split = bio_split(bio, split_sectors, GFP_NOIO,
 				&bio->bi_bdev->bd_disk->bio_split);
+		if (IS_ERR(split)) {
+			split_sectors = PTR_ERR(split);
+			goto error;
+		}
 		split->bi_opf |= REQ_NOMERGE;
 		blkcg_bio_issue_init(split);
 		bio_chain(split, bio);
@@ -128,6 +129,10 @@ static struct bio *bio_submit_split(struct bio *bio, int split_sectors)
 	}
 
 	return bio;
+error:
+	bio->bi_status = errno_to_blk_status(split_sectors);
+	bio_endio(bio);
+	return NULL;
 }
 
 struct bio *bio_split_discard(struct bio *bio, const struct queue_limits *lim,
@@ -166,17 +171,6 @@ struct bio *bio_split_discard(struct bio *bio, const struct queue_limits *lim,
 	return bio_submit_split(bio, split_sectors);
 }
 
-struct bio *bio_split_write_zeroes(struct bio *bio,
-		const struct queue_limits *lim, unsigned *nsegs)
-{
-	*nsegs = 0;
-	if (!lim->max_write_zeroes_sectors)
-		return bio;
-	if (bio_sectors(bio) <= lim->max_write_zeroes_sectors)
-		return bio;
-	return bio_submit_split(bio, lim->max_write_zeroes_sectors);
-}
-
 static inline unsigned int blk_boundary_sectors(const struct queue_limits *lim,
 						bool is_atomic)
 {
@@ -211,7 +205,9 @@ static inline unsigned get_max_io_size(struct bio *bio,
 	 * We ignore lim->max_sectors for atomic writes because it may less
 	 * than the actual bio size, which we cannot tolerate.
 	 */
-	if (is_atomic)
+	if (bio_op(bio) == REQ_OP_WRITE_ZEROES)
+		max_sectors = lim->max_write_zeroes_sectors;
+	else if (is_atomic)
 		max_sectors = lim->atomic_write_max_sectors;
 	else
 		max_sectors = lim->max_sectors;
@@ -296,6 +292,14 @@ static bool bvec_split_segs(const struct queue_limits *lim,
 	return len > 0 || bv->bv_len > max_len;
 }
 
+static unsigned int bio_split_alignment(struct bio *bio,
+		const struct queue_limits *lim)
+{
+	if (op_is_write(bio_op(bio)) && lim->zone_write_granularity)
+		return lim->zone_write_granularity;
+	return lim->logical_block_size;
+}
+
 /**
  * bio_split_rw_at - check if and where to split a read/write bio
  * @bio:  [in] bio to be split
@@ -358,7 +362,7 @@ split:
 	 * split size so that each bio is properly block size aligned, even if
 	 * we do not use the full hardware limits.
 	 */
-	bytes = ALIGN_DOWN(bytes, lim->logical_block_size);
+	bytes = ALIGN_DOWN(bytes, bio_split_alignment(bio, lim));
 
 	/*
 	 * Bio splitting may cause subtle trouble such as hang when doing sync
@@ -388,14 +392,33 @@ struct bio *bio_split_rw(struct bio *bio, const struct queue_limits *lim,
 struct bio *bio_split_zone_append(struct bio *bio,
 		const struct queue_limits *lim, unsigned *nr_segs)
 {
-	unsigned int max_sectors = queue_limits_max_zone_append_sectors(lim);
 	int split_sectors;
 
 	split_sectors = bio_split_rw_at(bio, lim, nr_segs,
-			max_sectors << SECTOR_SHIFT);
+			lim->max_zone_append_sectors << SECTOR_SHIFT);
 	if (WARN_ON_ONCE(split_sectors > 0))
 		split_sectors = -EINVAL;
 	return bio_submit_split(bio, split_sectors);
+}
+
+struct bio *bio_split_write_zeroes(struct bio *bio,
+		const struct queue_limits *lim, unsigned *nsegs)
+{
+	unsigned int max_sectors = get_max_io_size(bio, lim);
+
+	*nsegs = 0;
+
+	/*
+	 * An unset limit should normally not happen, as bio submission is keyed
+	 * off having a non-zero limit.  But SCSI can clear the limit in the
+	 * I/O completion handler, and we can race and see this.  Splitting to a
+	 * zero limit obviously doesn't make sense, so band-aid it here.
+	 */
+	if (!max_sectors)
+		return bio;
+	if (bio_sectors(bio) <= max_sectors)
+		return bio;
+	return bio_submit_split(bio, max_sectors);
 }
 
 /**
