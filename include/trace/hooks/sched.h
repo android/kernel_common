@@ -219,10 +219,6 @@ DECLARE_RESTRICTED_HOOK(android_rvh_check_preempt_tick,
 			unsigned int granularity),
 	TP_ARGS(p, ideal_runtime, skip_preempt, delta_exec, cfs_rq, curr, granularity), 1);
 
-DECLARE_RESTRICTED_HOOK(android_rvh_check_preempt_wakeup_ignore,
-	TP_PROTO(struct task_struct *p, bool *ignore),
-	TP_ARGS(p, ignore), 1);
-
 DECLARE_RESTRICTED_HOOK(android_rvh_sched_balance_rt,
 	TP_PROTO(struct rq *rq, struct task_struct *p, int *done),
 	TP_ARGS(rq, p, done), 1);

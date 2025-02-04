@@ -8840,9 +8840,6 @@ static void check_preempt_wakeup_fair(struct rq *rq, struct task_struct *p, int 
 
 	if (unlikely(se == pse))
 		return;
-	trace_android_rvh_check_preempt_wakeup_ignore(curr, &ignore);
-	if (ignore)
-		return;
 
 	/*
 	 * This is possible from callers such as attach_tasks(), in which we
