@@ -235,7 +235,6 @@ struct genfs {
 /* The policy database */
 struct policydb {
 	int mls_enabled;
-	int android_netlink_route;
 
 	/* symbol tables */
 	struct symtab symtab[SYM_NUM];
@@ -332,7 +331,6 @@ extern struct role_trans_datum *
 policydb_roletr_search(struct policydb *p, struct role_trans_key *key);
 
 #define POLICYDB_CONFIG_MLS 1
-#define POLICYDB_CONFIG_ANDROID_NETLINK_ROUTE    (1 << 31)
 
 /* the config flags related to unknown classes/perms are bits 2 and 3 */
 #define REJECT_UNKNOWN 0x00000002
