@@ -470,7 +470,6 @@ kernel_build(
         "vmlinux.symvers",
     ],
     arch = "arm64",
-    build_config = "build.config.common",
     defconfig = "arch/arm64/configs/microdroid_defconfig",
     make_goals = [
         "Image",
@@ -505,7 +504,6 @@ kernel_build(
         "vmlinux.symvers",
     ],
     arch = "arm64",
-    build_config = "build.config.common",
     defconfig = "arch/arm64/configs/microdroid_defconfig",
     make_goals = [
         "Image",
@@ -536,7 +534,6 @@ kernel_build(
     srcs = [":kernel_x86_64_sources"],
     outs = X86_64_OUTS,
     arch = "x86_64",
-    build_config = "build.config.common",
     defconfig = "arch/x86/configs/microdroid_defconfig",
     make_goals = [
         "bzImage",
@@ -566,7 +563,6 @@ kernel_build(
         "Image",
     ],
     arch = "arm64",
-    build_config = "build.config.common",
     defconfig = "arch/arm64/configs/crashdump_defconfig",
     make_goals = [
         "Image",
@@ -594,7 +590,6 @@ kernel_build(
     srcs = [":kernel_x86_64_sources"],
     outs = X86_64_OUTS,
     arch = "x86_64",
-    build_config = "build.config.common",
     defconfig = "arch/x86/configs/crashdump_defconfig",
     make_goals = [
         "bzImage",
