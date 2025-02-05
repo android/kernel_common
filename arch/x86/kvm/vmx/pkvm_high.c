@@ -850,6 +850,11 @@ static int pkvm_interrupt_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 	return kvm_call_pkvm(interrupt_allowed, vcpu, for_injection);
 }
 
+static int pkvm_nmi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
+{
+	return kvm_call_pkvm(nmi_allowed, vcpu, for_injection);
+}
+
 static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid_entry2 *e2 = vcpu->arch.cpuid_entries;
@@ -1043,7 +1048,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.inject_exception = vmx_inject_exception,
 	.cancel_injection = vmx_cancel_injection,
 	.interrupt_allowed = pkvm_interrupt_allowed,
-	.nmi_allowed = vmx_nmi_allowed,
+	.nmi_allowed = pkvm_nmi_allowed,
 	.get_nmi_mask = vmx_get_nmi_mask,
 	.set_nmi_mask = vmx_set_nmi_mask,
 	.enable_nmi_window = vmx_enable_nmi_window,
