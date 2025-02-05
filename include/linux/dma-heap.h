@@ -109,4 +109,11 @@ void dma_heap_buffer_free(struct dma_buf *);
 int dma_heap_bufferfd_alloc(struct dma_heap *heap, size_t len,
 			    unsigned int fd_flags,
 			    unsigned int heap_flags);
+
+/**
+ * dma_heap_try_get_pool_size_kb - Returns total dma-heap pool size in kb
+ * if there is no lock contention. The pool size will always be 0 if no heaps
+ * use pools, or do not implement get_pool_size.
+ **/
+long dma_heap_try_get_pool_size_kb(void);
 #endif /* _DMA_HEAPS_H */

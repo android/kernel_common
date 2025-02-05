@@ -393,6 +393,24 @@ static char *dma_heap_devnode(const struct device *dev, umode_t *mode)
 	return kasprintf(GFP_KERNEL, "dma_heap/%s", dev_name(dev));
 }
 
+long dma_heap_try_get_pool_size_kb(void)
+{
+	struct dma_heap *heap;
+	u64 total_pool_size = 0;
+
+	if (!mutex_trylock(&heap_list_lock))
+		return -1;
+
+	list_for_each_entry(heap, &heap_list, list) {
+		if (heap->ops->get_pool_size)
+			total_pool_size += heap->ops->get_pool_size(heap);
+	}
+	mutex_unlock(&heap_list_lock);
+
+	return (long)(total_pool_size / 1024);
+}
+EXPORT_SYMBOL_GPL(dma_heap_try_get_pool_size_kb);
+
 static ssize_t total_pools_kb_show(struct kobject *kobj,
 				   struct kobj_attribute *attr, char *buf)
 {
