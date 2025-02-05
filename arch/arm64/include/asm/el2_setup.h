@@ -225,8 +225,10 @@
 	mrs	x1, id_aa64pfr0_el1
 	ubfx	x0, x1, #ID_AA64PFR0_EL1_MPAM_SHIFT, #4
 	cbz	x0, .Lskip_mpam_\@		// skip if no MPAM
-	msr_s	SYS_MPAM2_EL2, xzr		// use the default partition
+	mov_q	x0, MPAM2_HOST_FLAGS
+	msr_s	SYS_MPAM2_EL2, x0		// use the default partition
 						// and disable lower traps
+						// don't trap access to MPAMSM_EL1
 	mrs_s	x0, SYS_MPAMIDR_EL1
 	tbz	x0, #MPAMIDR_EL1_HAS_HCR_SHIFT, .Lskip_mpam_\@	// skip if no MPAMHCR reg
 	msr_s	SYS_MPAMHCR_EL2, xzr		// clear TRAP_MPAMIDR_EL1 -> EL2

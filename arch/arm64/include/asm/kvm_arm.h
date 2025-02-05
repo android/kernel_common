@@ -147,6 +147,9 @@
 
 #define VTCR_EL2_T0SZ(x)	TCR_T0SZ(x)
 
+/* MPAM2_EL2 for the host to ensure not to trap access to MPAMSM_EL1. */
+#define MPAM2_HOST_FLAGS	MPAM2_EL2_EnMPAMSM
+
 /*
  * We configure the Stage-2 page tables to always restrict the IPA space to be
  * 40 bits wide (T0SZ = 24).  Systems with a PARange smaller than 40 bits are

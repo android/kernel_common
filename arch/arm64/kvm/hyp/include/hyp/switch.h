@@ -227,7 +227,7 @@ static inline void __deactivate_traps_mpam(void)
 	if (!system_supports_mpam())
 		return;
 
-	write_sysreg_s(0, SYS_MPAM2_EL2);
+	write_sysreg_s(MPAM2_HOST_FLAGS, SYS_MPAM2_EL2);
 
 	if (system_supports_mpam_hcr())
 		write_sysreg_s(MPAMHCR_HOST_FLAGS, SYS_MPAMHCR_EL2);
