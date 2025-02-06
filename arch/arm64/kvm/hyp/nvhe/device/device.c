@@ -94,3 +94,37 @@ out_unlock:
 	hyp_spin_unlock(&device_spinlock);
 	return ret;
 }
+
+/*
+ * Reclaim of MMIO can happen in two cases:
+ * - VM is dying, in that case MMIO would be eagerly reclaimed to the host
+ *   from VM teardown context without host intervention.
+ * - The VM was not launched or died before claiming the device, and it's is
+ *   still considered as host device, but the MMIO was already donated to
+ *   the hypervisor preparing for the VM to access it, in that case the host
+ *   will use this function from an HVC to reclaim the MMIO from KVM/VFIO
+ *   file release context or incase of failure at initialization.
+ */
+int pkvm_device_reclaim_mmio(u64 pfn, u64 nr_pages)
+{
+	struct pkvm_device *dev;
+	int ret;
+	size_t size = nr_pages << PAGE_SHIFT;
+	u64 phys = pfn << PAGE_SHIFT;
+
+	dev = pkvm_get_device(phys, size);
+	if (!dev)
+		return -ENODEV;
+
+	hyp_spin_lock(&device_spinlock);
+	if (dev->ctxt) {
+		ret = -EBUSY;
+		goto out_unlock;
+	}
+
+	ret = __pkvm_hyp_donate_host(pfn, nr_pages);
+
+out_unlock:
+	hyp_spin_unlock(&device_spinlock);
+	return ret;
+}
