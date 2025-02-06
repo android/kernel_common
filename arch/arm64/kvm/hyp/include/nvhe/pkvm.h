@@ -182,5 +182,6 @@ static inline int pkvm_init_power_domain(struct kvm_power_domain *pd,
 }
 
 int pkvm_init_devices(void);
+int pkvm_device_hyp_assign_mmio(u64 pfn, u64 nr_pages);
 
 #endif /* __ARM64_KVM_NVHE_PKVM_H__ */
