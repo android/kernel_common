@@ -479,6 +479,19 @@ void vfio_device_put_kvm(struct vfio_device *device)
 clear:
 	device->kvm = NULL;
 }
+
+static struct vfio_device *vfio_device_from_file(struct file *file);
+/**
+ * vfio_file_get_device - Return struct device from vfio device fd
+ * @file: VFIO device file
+ */
+struct device *vfio_file_get_device(struct file *file)
+{
+	struct vfio_device *device = vfio_device_from_file(file);
+
+	return device ? device->dev : NULL;
+}
+EXPORT_SYMBOL_GPL(vfio_file_get_device);
 #endif
 
 /* true if the vfio_device has open_device() called but not close_device() */
