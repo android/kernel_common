@@ -268,6 +268,7 @@ static inline bool kvm_pvm_ext_allowed(long ext)
 enum pkvm_moveable_reg_type {
 	PKVM_MREG_MEMORY,
 	PKVM_MREG_PROTECTED_RANGE,
+	PKVM_MREG_ASSIGN_MMIO,
 };
 
 struct pkvm_moveable_reg {
