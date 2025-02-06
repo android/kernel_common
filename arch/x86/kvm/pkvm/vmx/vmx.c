@@ -2553,7 +2553,11 @@ __init int vmx_hardware_setup(void)
 		flexpriority_enabled = 0;
 
 	if (!cpu_has_virtual_nmis())
+#ifdef __PKVM_HYP__
+		return -EINVAL;
+#else
 		enable_vnmi = 0;
+#endif
 
 #ifdef CONFIG_X86_SGX_KVM
 	if (!cpu_has_vmx_encls_vmexit())
