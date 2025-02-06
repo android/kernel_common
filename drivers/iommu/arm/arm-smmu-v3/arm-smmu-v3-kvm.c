@@ -1201,10 +1201,23 @@ static pkvm_handle_t kvm_arm_smmu_v3_id(struct device *dev)
 	return host_smmu->id;
 }
 
+static pkvm_handle_t kvm_arm_v3_id_by_of(struct device_node *np)
+{
+	struct device *dev;
+
+	dev = driver_find_device_by_of_node(&kvm_arm_smmu_driver.driver, np);
+	if (!dev)
+		return 0;
+
+	put_device(dev);
+
+	return kvm_arm_smmu_v3_id(dev);
+}
+
 struct kvm_iommu_driver kvm_smmu_v3_ops = {
 	.init_driver = kvm_arm_smmu_v3_init_drv,
 	.remove_driver = kvm_arm_smmu_v3_remove_drv,
-	.get_iommu_id = kvm_arm_smmu_v3_id,
+	.get_iommu_id_by_of = kvm_arm_v3_id_by_of,
 };
 
 static int kvm_arm_smmu_v3_register(void)

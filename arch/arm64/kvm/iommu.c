@@ -40,7 +40,7 @@ EXPORT_SYMBOL(kvm_iommu_init_hyp);
 
 int kvm_iommu_init_driver(void)
 {
-	if (!smp_load_acquire(&iommu_driver) || !iommu_driver->get_iommu_id) {
+	if (!smp_load_acquire(&iommu_driver) || !iommu_driver->get_iommu_id_by_of) {
 		kvm_err("pKVM enabled without an IOMMU driver, do not run confidential workloads in virtual machines\n");
 		return 0;
 	}
@@ -62,9 +62,18 @@ void kvm_iommu_remove_driver(void)
 		iommu_driver->remove_driver();
 }
 
+
+pkvm_handle_t kvm_get_iommu_id_by_of(struct device_node *np)
+{
+	if (!iommu_driver)
+		return 0;
+
+	return iommu_driver->get_iommu_id_by_of(np);
+}
+
 static pkvm_handle_t kvm_get_iommu_id(struct device *dev)
 {
-	return iommu_driver->get_iommu_id(dev);
+	return kvm_get_iommu_id_by_of(dev_of_node(dev));
 }
 
 int pkvm_iommu_suspend(struct device *dev)
