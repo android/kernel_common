@@ -50,6 +50,9 @@ DECLARE_HOOK(android_vh_io_statistics,
 	TP_PROTO(struct address_space *mapping, unsigned int index,
 		unsigned int nr_page, bool read, bool direct),
 	TP_ARGS(mapping, index, nr_page, read, direct));
+DECLARE_HOOK(android_vh_pagetypeinfo_show,
+	TP_PROTO(struct seq_file *m),
+	TP_ARGS(m));
 
 struct cma;
 DECLARE_HOOK(android_vh_cma_alloc_bypass,
