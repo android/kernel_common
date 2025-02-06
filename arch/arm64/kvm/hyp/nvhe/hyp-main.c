@@ -1772,6 +1772,34 @@ static void handle___pkvm_host_reclaim_hyp_mmio(struct kvm_cpu_context *host_ctx
 	cpu_reg(host_ctxt, 1) = pkvm_device_reclaim_mmio(pfn, nr_pages);
 }
 
+static void handle___pkvm_host_map_guest_mmio(struct kvm_cpu_context *host_ctxt)
+{
+	DECLARE_REG(u64, pfn, host_ctxt, 1);
+	DECLARE_REG(u64, gfn, host_ctxt, 2);
+	struct pkvm_hyp_vcpu *hyp_vcpu;
+	int ret = -EINVAL;
+
+	if (!is_protected_kvm_enabled())
+		goto out;
+
+	hyp_vcpu = pkvm_get_loaded_hyp_vcpu();
+	if (!hyp_vcpu)
+		goto out;
+
+	if (!pkvm_hyp_vcpu_is_protected(hyp_vcpu))
+		goto out;
+
+	/* Top-up our per-vcpu memcache from the host's */
+	ret = pkvm_refill_memcache(hyp_vcpu);
+	if (ret)
+		goto out;
+
+	ret = pkvm_host_map_guest_mmio(hyp_vcpu, pfn, gfn);
+
+out:
+	cpu_reg(host_ctxt, 1) = ret;
+}
+
 typedef void (*hcall_t)(struct kvm_cpu_context *);
 
 #define HANDLE_FUNC(x)	[__KVM_HOST_SMCCC_FUNC_##x] = (hcall_t)handle_##x
@@ -1844,6 +1872,7 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__pkvm_host_iommu_map_sg),
 	HANDLE_FUNC(__pkvm_host_donate_hyp_mmio),
 	HANDLE_FUNC(__pkvm_host_reclaim_hyp_mmio),
+	HANDLE_FUNC(__pkvm_host_map_guest_mmio),
 };
 
 static void handle_host_hcall(struct kvm_cpu_context *host_ctxt)
