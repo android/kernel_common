@@ -214,3 +214,48 @@ of processed granules * protection granule size).
 
 If the number of processed granules returned is zero (R1), an error (R0) will be
 set.
+
+``ARM_SMCCC_KVM_FUNC_DEV_REQ_MMIO``
+--------------------------------------
+
+Verify a device MMIO region matches the host description in the firmware
+tables for a physical device passthrough to a protected virtual machine.
+
+Called per page as defined by ``ARM_SMCCC_KVM_FUNC_HYP_MEMINFO`` using the
+IPA of the resource.
+
+Must be called after one of the following for the same IPA, which indicates
+that this IPA range is MMIO:
+  * ``ARM_SMCCC_KVM_FUNC_MMIO_RGUARD_MAP``
+  * ``ARM_SMCCC_KVM_FUNC_MMIO_RGUARD_UNMAP``
+
+Returns a token that can be used to verify the IPA page, the VM
+typically have access to a trusted description of the device containing
+the tokens. Where it can compare both.
+
+Must be called before any MMIO access for protected virtual machines.
+Ideally from the protected vm firmware.
+
+After this call succeeds, access to this IPA would be through stage-2 and won't
+exit to the host.
+
++---------------------+-------------------------------------------------------------+
+| Presence:           | Optional.                                                   |
++---------------------+-------------------------------------------------------------+
+| Calling convention: | HVC64                                                       |
++---------------------+----------+--------------------------------------------------+
+| Function ID:        | (uint32) | 0xC6000003F                                      |
++---------------------+----------+----+---------------------------------------------+
+| Arguments:          | (uint64) | R1 | Base IPA of MMIO region                     |
+|                     +----------+----+---------------------------------------------+
+|                     | (uint64) | R2 | Reserved / Must be zero                     |
+|                     +----------+----+---------------------------------------------+
+|                     | (uint64) | R3 | Reserved / Must be zero                     |
++---------------------+----------+----+---------------------------------------------+
+| Return Values:      | (int64)  | R0 | ``SUCCESS (0)``                             |
+|                     |          |    +---------------------------------------------+
+|                     |          |    | ``INVALID_PARAMETER (-3)``                  |
+|                     +----------+----+---------------------------------------------+
+|                     | (uint64) | R1 | Token used to represent the page which      |
+|                     |          |    | can be used to verify it.                   |
++---------------------+----------+----+---------------------------------------------+
