@@ -857,7 +857,8 @@ int kvm_arch_vcpu_run_pid_change(struct kvm_vcpu *vcpu)
 	 * This needs to happen after any restriction has been applied
 	 * to the feature set.
 	 */
-	kvm_calculate_traps(vcpu);
+	if (!is_protected_kvm_enabled())
+		kvm_calculate_traps(vcpu);
 
 	ret = kvm_timer_enable(vcpu);
 	if (ret)
