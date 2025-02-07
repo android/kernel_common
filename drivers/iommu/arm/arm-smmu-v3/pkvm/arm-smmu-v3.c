@@ -1550,6 +1550,31 @@ static bool smmu_dabt_device(struct hyp_arm_smmu_v3_device *smmu,
 	return true;
 }
 
+static int smmu_dev_block_dma(struct kvm_hyp_iommu *iommu, u32 sid, bool is_host2guest)
+{
+	struct hyp_arm_smmu_v3_device *smmu = to_smmu(iommu);
+	static struct arm_smmu_ste *dst;
+	int ret = 0;
+
+	kvm_iommu_lock(iommu);
+	dst = smmu_get_ste_ptr(smmu, sid);
+
+	/*
+	 * VFIO will attach the device to a blocking domain, this will make the
+	 * kernel driver detach the device which should be have zeroed STE.
+	 * So, if this is not the current state of the device, something
+	 * went wrong.
+	 * For guests, we need to do more as guests might not exit cleanly
+	 * and the device might be translating, so we have to actually block
+	 * the device and clean the STE/CD.
+	 */
+	if (dst->data[0])
+		ret = -EINVAL;
+
+	kvm_iommu_unlock(iommu);
+	return ret;
+}
+
 static bool smmu_dabt_handler(struct kvm_cpu_context *host_ctxt, u64 esr, u64 addr)
 {
 	struct hyp_arm_smmu_v3_device *smmu;
@@ -1688,4 +1713,5 @@ struct kvm_iommu_ops smmu_ops = {
 	.suspend			= smmu_suspend,
 	.resume				= smmu_resume,
 	.host_stage2_idmap		= smmu_host_stage2_idmap,
+	.dev_block_dma			= smmu_dev_block_dma,
 };

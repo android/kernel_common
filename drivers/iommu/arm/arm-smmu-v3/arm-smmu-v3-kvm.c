@@ -169,7 +169,8 @@ static struct iommu_domain *kvm_arm_smmu_domain_alloc(unsigned type)
 	 */
 	if (type != IOMMU_DOMAIN_DMA &&
 	    type != IOMMU_DOMAIN_UNMANAGED &&
-	    type != IOMMU_DOMAIN_IDENTITY)
+	    type != IOMMU_DOMAIN_IDENTITY &&
+		type != IOMMU_DOMAIN_BLOCKED)
 		return ERR_PTR(-EOPNOTSUPP);
 
 	kvm_smmu_domain = kzalloc(sizeof(*kvm_smmu_domain), GFP_KERNEL);
@@ -352,7 +353,7 @@ static int kvm_arm_smmu_set_dev_pasid(struct iommu_domain *domain,
 	host_smmu = smmu_to_host(smmu);
 
 	ret = kvm_arm_smmu_detach_dev_pasid(host_smmu, master, pasid);
-	if (ret)
+	if (ret || (domain->type == IOMMU_DOMAIN_BLOCKED))
 		return ret;
 
 	mutex_lock(&kvm_smmu_domain->init_mutex);
