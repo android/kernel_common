@@ -16,3 +16,4 @@ obj-$(CONFIG_VFIO_PLATFORM_BASE) += platform/
 obj-$(CONFIG_VFIO_MDEV) += mdev/
 obj-$(CONFIG_VFIO_FSL_MC) += fsl-mc/
 obj-$(CONFIG_VFIO_CDX) += cdx/
+obj-$(CONFIG_VFIO_PKVM_IOMMU) += vfio_pkvm_iommu.o

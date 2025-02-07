@@ -450,6 +450,10 @@ ssize_t vfio_platform_read(struct vfio_device *core_vdev,
 	unsigned int index = VFIO_PLATFORM_OFFSET_TO_INDEX(*ppos);
 	loff_t off = *ppos & VFIO_PLATFORM_OFFSET_MASK;
 
+	/* Only readable through mmap*/
+	if (core_vdev->protected)
+		return -EINVAL;
+
 	if (index >= vdev->num_regions)
 		return -EINVAL;
 
@@ -532,6 +536,10 @@ ssize_t vfio_platform_write(struct vfio_device *core_vdev, const char __user *bu
 		container_of(core_vdev, struct vfio_platform_device, vdev);
 	unsigned int index = VFIO_PLATFORM_OFFSET_TO_INDEX(*ppos);
 	loff_t off = *ppos & VFIO_PLATFORM_OFFSET_MASK;
+
+	/* Only writable through mmap*/
+	if (core_vdev->protected)
+		return -EINVAL;
 
 	if (index >= vdev->num_regions)
 		return -EINVAL;

@@ -57,6 +57,18 @@
 #define VFIO_UPDATE_VADDR		10
 
 /*
+ * pKVM can control IOMMUs (first-stage) instead of the kernel to enforce
+ * DMA protection for guests.
+ * In this case, pKVM can provide a para-virtualized interface for the kernel
+ * and for guests to program the IOMMU, where it will ensure that no VM can
+ * access other VM data.
+ * This allows the guest to have access to program it's IOMMU compared to
+ * VFIO_TYPE1v2_IOMMU which program. the IOMMU from the host and leave the
+ * VM with no control over its DMA
+ */
+#define VFIO_PKVM_IOMMU			30
+
+/*
  * The IOCTL interface is designed for extensibility by embedding the
  * structure length (argsz) and flags into structures passed between
  * kernel and userspace.  We therefore use the _IO() macro for these

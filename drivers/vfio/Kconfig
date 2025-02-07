@@ -75,6 +75,16 @@ config VFIO_NOIOMMU
 
 	  If you don't know what to do here, say N.
 
+config VFIO_PKVM_IOMMU
+	bool "VFIO pKVM IOMMU"
+	depends on ARM64
+	help
+	  This is needed if you plan to assign devices to pKVM protected virtual
+	  machines. PKVM_IOMMU, mostly does nothing as the hypervisor ensured DMA
+	  isolation and would provide a guest pvIOMMU interface if configured.
+
+	  If you don't know what to do here, say N.
+
 config VFIO_VIRQFD
 	bool
 	select EVENTFD

@@ -77,6 +77,8 @@ struct vfio_device {
 	 */
 	struct dentry *debug_root;
 #endif
+	/* protected by more privileged entity(hypervisor). */
+	bool				protected;
 };
 
 /**
