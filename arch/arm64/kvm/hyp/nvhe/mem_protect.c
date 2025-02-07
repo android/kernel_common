@@ -1411,7 +1411,7 @@ int ___pkvm_host_donate_hyp(u64 pfn, u64 nr_pages, bool accept_mmio)
 					    default_hyp_prot(hyp_pfn_to_phys(pfn)));
 }
 
-int pkvm_hyp_donate_guest(struct pkvm_hyp_vcpu *vcpu, u64 pfn, u64 gfn)
+static int pkvm_hyp_donate_guest(struct pkvm_hyp_vcpu *vcpu, u64 pfn, u64 gfn)
 {
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
 	u64 phys = hyp_pfn_to_phys(pfn);
@@ -1421,26 +1421,20 @@ int pkvm_hyp_donate_guest(struct pkvm_hyp_vcpu *vcpu, u64 pfn, u64 gfn)
 	enum kvm_pgtable_prot prot;
 	int ret;
 
-	hyp_lock_component();
-	guest_lock_component(vm);
+	hyp_assert_lock_held(&pkvm_pgd_lock);
+	hyp_assert_lock_held(&vm->pgtable_lock);
 
 	ret = __hyp_check_page_state_range(hyp_addr, size, PKVM_PAGE_OWNED);
 	if (ret)
-		goto unlock;
+		return ret;;
 	ret = __guest_check_page_state_range(vcpu, ipa, size, PKVM_NOPAGE);
 	if (ret)
-		goto unlock;
+		return ret;
 
 	WARN_ON(kvm_pgtable_hyp_unmap(&pkvm_pgtable, hyp_addr, size) != size);
 	prot = pkvm_mkstate(default_guest_prot(addr_is_memory(phys)), PKVM_PAGE_OWNED);
-	WARN_ON(kvm_pgtable_stage2_map(&vm->pgt, ipa, size, phys, prot,
-				       &vcpu->vcpu.arch.stage2_mc, 0));
-
-unlock:
-	guest_unlock_component(vm);
-	hyp_unlock_component();
-
-	return ret;
+	return WARN_ON(kvm_pgtable_stage2_map(&vm->pgt, ipa, size, phys, prot,
+					      &vcpu->vcpu.arch.stage2_mc, 0));
 }
 
 int __pkvm_host_donate_hyp_locked(u64 pfn, u64 nr_pages, enum kvm_pgtable_prot prot)
@@ -2169,6 +2163,49 @@ bool __pkvm_check_ioguard_page(struct pkvm_hyp_vcpu *hyp_vcpu)
 		ret &= __check_ioguard_page(hyp_vcpu, end);
 	guest_unlock_component(vm);
 
+	return ret;
+}
+
+static int __pkvm_remove_ioguard_page(struct pkvm_hyp_vm *vm, u64 ipa)
+{
+	int ret;
+	kvm_pte_t pte;
+	s8 level;
+
+	hyp_assert_lock_held(&vm->pgtable_lock);
+
+	if (!test_bit(KVM_ARCH_FLAG_MMIO_GUARD, &vm->kvm.arch.flags))
+		return -EINVAL;
+
+	if (!PAGE_ALIGNED(ipa))
+		return -EINVAL;
+
+	ret = kvm_pgtable_get_leaf(&vm->pgt, ipa, &pte, &level);
+	if (ret)
+		return ret;
+
+	if (BIT(ARM64_HW_PGTABLE_LEVEL_SHIFT(level)) == PAGE_SIZE &&
+	    pte == KVM_INVALID_PTE_MMIO_NOTE)
+		return kvm_pgtable_stage2_unmap(&vm->pgt, ipa, PAGE_SIZE);
+
+	return kvm_pte_valid(pte) ? -EEXIST : -EINVAL;
+}
+
+int __pkvm_install_guest_mmio(struct pkvm_hyp_vcpu *hyp_vcpu, u64 pfn, u64 gfn)
+{
+	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(hyp_vcpu);
+	u64 ipa = gfn << PAGE_SHIFT;
+	int ret;
+
+	hyp_lock_component();
+	guest_lock_component(vm);
+	ret = __pkvm_remove_ioguard_page(vm, ipa);
+	if (ret)
+		goto out_unlock;
+	ret = pkvm_hyp_donate_guest(hyp_vcpu, pfn, gfn);
+out_unlock:
+	guest_unlock_component(vm);
+	hyp_unlock_component();
 	return ret;
 }
 

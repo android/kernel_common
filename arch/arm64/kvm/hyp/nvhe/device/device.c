@@ -228,7 +228,7 @@ int pkvm_host_map_guest_mmio(struct pkvm_hyp_vcpu *hyp_vcpu, u64 pfn, u64 gfn)
 	if (ret)
 		goto out_ret;
 
-	ret = pkvm_hyp_donate_guest(hyp_vcpu, pfn, gfn);
+	ret = __pkvm_install_guest_mmio(hyp_vcpu, pfn, gfn);
 
 out_ret:
 	hyp_spin_unlock(&device_spinlock);
