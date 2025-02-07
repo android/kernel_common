@@ -162,6 +162,8 @@ int pkvm_host_hvc_pd(u64 device_id, u64 on);
 int pkvm_init_scmi_pd(struct kvm_power_domain *pd,
 		      const struct kvm_power_domain_ops *ops);
 
+bool pkvm_device_request_mmio(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code);
+
 /*
  * Register a power domain. When the hypervisor catches power requests from the
  * host for this power domain, it calls the power ops with @pd as argument.

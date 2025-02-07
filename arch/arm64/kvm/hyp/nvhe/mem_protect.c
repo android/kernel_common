@@ -1837,6 +1837,18 @@ static int guest_get_valid_pte(struct pkvm_hyp_vm *vm, u64 *phys, u64 ipa, u8 or
 	return 0;
 }
 
+int __pkvm_guest_get_valid_phys_page(struct pkvm_hyp_vm *vm, u64 *phys, u64 ipa)
+{
+	kvm_pte_t pte;
+	int ret;
+
+	guest_lock_component(vm);
+	ret = guest_get_valid_pte(vm, phys, ipa, 0, &pte);
+	guest_unlock_component(vm);
+
+	return ret;
+}
+
 /*
  * Ideally we would like to use check_unshare()... but this wouldn't let us
  * restrict the unshare range to the actual guest stage-2 mapping.
