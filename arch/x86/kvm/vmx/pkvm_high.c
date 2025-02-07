@@ -775,6 +775,9 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 		 kvm_arch_has_assigned_device(vcpu->kvm))
 		mds_clear_cpu_buffers();
 
+	vcpu->arch.nmi_injected = false;
+	kvm_clear_interrupt_queue(vcpu);
+
 	vmx->exit_reason.full = 0xdead;
 
 	vcpu->arch.regs_avail &= ~VMX_REGS_LAZY_LOAD_SET;
