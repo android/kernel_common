@@ -60,6 +60,8 @@
 #include <trace/hooks/power.h>
 #include <trace/hooks/dmabuf.h>
 #include <trace/hooks/signal.h>
+#include <trace/events/android_vendor_lmk.h>
+
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -296,3 +298,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cma_alloc_retry);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_smaps_pte_entry);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_show_smap);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_rebalance_anon_lru_bypass);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_trigger_vendor_lmk_kill);
