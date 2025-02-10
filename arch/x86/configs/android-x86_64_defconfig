@@ -3212,7 +3212,7 @@ CONFIG_HARDENED_USERCOPY=y
 CONFIG_SECURITY_SELINUX=y
 CONFIG_SECURITY_SELINUX_BOOTPARAM=y
 # CONFIG_INTEGRITY is not set
-CONFIG_LSM="lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor"
+CONFIG_LSM="landlock,lockdown,yama,loadpin,safesetid,integrity,selinux,smack,tomoyo,apparmor"
 CONFIG_INIT_STACK_NONE=y
 CONFIG_CRYPTO_USER=m
 CONFIG_CRYPTO_PCRYPT=m
