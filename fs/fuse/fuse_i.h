@@ -1815,6 +1815,8 @@ void *fuse_file_write_iter_finalize(struct fuse_bpf_args *fa,
 
 ssize_t fuse_splice_read_backing(struct file *in, loff_t *ppos,
 		struct pipe_inode_info *pipe, size_t len, unsigned long flags);
+ssize_t fuse_splice_write_backing(struct pipe_inode_info *pipe,
+		struct file *out, loff_t *ppos, size_t len, unsigned long flags);
 
 long fuse_backing_ioctl(struct file *file, unsigned int command, unsigned long arg, int flags);
 

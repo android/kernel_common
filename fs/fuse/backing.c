@@ -1001,6 +1001,22 @@ ssize_t fuse_splice_read_backing(struct file *in, loff_t *ppos,
 	return ret;
 }
 
+ssize_t fuse_splice_write_backing(struct pipe_inode_info *pipe,
+		struct file *out, loff_t *ppos, size_t len, unsigned long flags)
+{
+	ssize_t ret;
+	struct fuse_file *ff = out->private_data;
+
+	inode_lock(file_inode(out));
+	file_start_write(ff->backing_file);
+	ret = iter_file_splice_write(pipe, ff->backing_file, ppos, len, flags);
+	file_end_write(ff->backing_file);
+	if (ret > 0)
+		fuse_copyattr(out, ff->backing_file);
+	inode_unlock(file_inode(out));
+	return ret;
+}
+
 long fuse_backing_ioctl(struct file *file, unsigned int command, unsigned long arg, int flags)
 {
 	struct fuse_file *ff = file->private_data;

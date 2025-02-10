@@ -15,6 +15,7 @@
 #include <linux/sched.h>
 #include <linux/sched/signal.h>
 #include <linux/module.h>
+#include <linux/splice.h>
 #include <linux/swap.h>
 #include <linux/falloc.h>
 #include <linux/uio.h>
@@ -1843,9 +1844,9 @@ static ssize_t fuse_splice_read(struct file *in, loff_t *ppos,
 				struct pipe_inode_info *pipe, size_t len,
 				unsigned int flags)
 {
-#ifdef CONFIG_FUSE_BPF
 	struct fuse_file *ff = in->private_data;
 
+#ifdef CONFIG_FUSE_BPF
 	/* TODO - this is simply passthrough, not a proper BPF filter */
 	if (ff->backing_file)
 		return fuse_splice_read_backing(in, ppos, pipe, len, flags);
@@ -1862,6 +1863,12 @@ static ssize_t fuse_splice_write(struct pipe_inode_info *pipe, struct file *out,
 				 loff_t *ppos, size_t len, unsigned int flags)
 {
 	struct fuse_file *ff = out->private_data;
+
+#ifdef CONFIG_FUSE_BPF
+	/* TODO - this is simply passthrough, not a proper BPF filter */
+	if (ff->backing_file)
+		return fuse_splice_write_backing(pipe, out, ppos, len, flags);
+#endif
 
 	/* FOPEN_DIRECT_IO overrides FOPEN_PASSTHROUGH */
 	if (fuse_file_passthrough(ff) && !(ff->open_flags & FOPEN_DIRECT_IO))
