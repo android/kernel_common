@@ -52,3 +52,7 @@ obj-$(CONFIG_BPF_PRELOAD) += preload/
 obj-$(CONFIG_BPF_SYSCALL) += relo_core.o
 obj-$(CONFIG_BPF_SYSCALL) += btf_iter.o
 obj-$(CONFIG_BPF_SYSCALL) += btf_relocate.o
+
+ifeq ($(CONFIG_FUSE_BPF),y)
+obj-$(CONFIG_BPF_SYSCALL) += bpf_fuse.o
+endif
