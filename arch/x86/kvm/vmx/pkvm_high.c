@@ -292,10 +292,6 @@ static int handle_triple_fault(struct kvm_vcpu *vcpu)
 
 static int handle_nmi_window(struct kvm_vcpu *vcpu)
 {
-	if (KVM_BUG_ON(!enable_vnmi, vcpu->kvm))
-		return -EIO;
-
-	exec_controls_clearbit(to_vmx(vcpu), CPU_BASED_NMI_WINDOW_EXITING);
 	++vcpu->stat.nmi_window_exits;
 	kvm_make_request(KVM_REQ_EVENT, vcpu);
 
