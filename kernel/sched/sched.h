@@ -1336,6 +1336,8 @@ struct rq {
 #ifdef CONFIG_SMP
 	misfit_reason_t		misfit_reason;
 #endif
+
+	ANDROID_OEM_DATA_ARRAY(1, 16);
 };
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
