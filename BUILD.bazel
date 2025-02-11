@@ -180,6 +180,30 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
+_KUNIT_COMMON_GUIDE = [
+    "Modules for KUnit testing on Android devices only:",
+    "(KUnit: Linux Kernel Unit Testing https://www.kernel.org/doc/html/latest/dev-tools/kunit/)",
+    "(https://android.googlesource.com/kernel/common/+/refs/heads/android-mainline/tools/testing/kunit/android/README)",
+]
+
+write_file(
+    name = "generate_gki_module_info_arm64",
+    out = "generate_gki_module_info_arm64/README",
+    content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("arm64") + [
+        "",  # keep new line at the end
+    ],
+    visibility = ["//visibility:private"],
+)
+
+write_file(
+    name = "generate_gki_module_info_x86_64",
+    out = "generate_gki_module_info_x86_64/README",
+    content = _KUNIT_COMMON_GUIDE + get_kunit_modules_list("x86_64") + [
+        "",  # keep new line at the end
+    ],
+    visibility = ["//visibility:private"],
+)
+
 common_kernel(
     name = "kernel_aarch64",
     outs = DEFAULT_GKI_OUTS,
@@ -203,6 +227,7 @@ common_kernel(
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     protected_exports_list = "gki/aarch64/protected_exports",
     protected_modules_list = ":gki_aarch64_protected_modules",
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     trim_nonlisted_kmi = False,
     visibility = ["//visibility:public"],
 
@@ -230,6 +255,7 @@ common_kernel(
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     page_size = "16k",
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 )
 
@@ -259,6 +285,7 @@ common_kernel(
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 )
 
@@ -309,6 +336,7 @@ common_kernel(
     make_goals = _GKI_X86_64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("x86_64") + get_kunit_modules_list("x86_64"),
+    system_dlkm_extra_archive_files = [":generate_gki_module_info_x86_64"],
     visibility = ["//visibility:public"],
 )
 
