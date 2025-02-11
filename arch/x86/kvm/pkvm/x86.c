@@ -2122,8 +2122,17 @@ static bool kvm_is_vm_type_supported(unsigned long type)
 
 int kvm_emulate_wbinvd(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
+	/*
+	 * FIXME: Skip the instruction and return to the host VMM
+	 * to emualte. Any security concern for pVM?
+	 */
+	kvm_skip_emulated_instruction(vcpu);
 	return 0;
+#else
+	kvm_emulate_wbinvd_noskip(vcpu);
+	return kvm_skip_emulated_instruction(vcpu);
+#endif
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_wbinvd);
 

@@ -541,6 +541,36 @@ static int handle_halt(struct kvm_vcpu *vcpu)
 	return kvm_emulate_halt_noskip(vcpu);
 }
 
+static void wbinvd_ipi(void *garbage)
+{
+	wbinvd();
+}
+
+static inline bool pkvm_has_vmx_wbinvd_exit(void)
+{
+	/* FIXME: Check with the pkvm hypervisor */
+	return true;
+}
+
+static int handle_wbinvd(struct kvm_vcpu *vcpu)
+{
+	if (!kvm_arch_has_noncoherent_dma(vcpu->kvm))
+		return 1;
+
+	if (pkvm_has_vmx_wbinvd_exit()) {
+		int cpu = get_cpu();
+
+		cpumask_set_cpu(cpu, vcpu->arch.wbinvd_dirty_mask);
+		on_each_cpu_mask(vcpu->arch.wbinvd_dirty_mask,
+				wbinvd_ipi, NULL, 1);
+		put_cpu();
+		cpumask_clear(vcpu->arch.wbinvd_dirty_mask);
+	} else
+		wbinvd();
+
+	return 1;
+}
+
 /*
  * The exit handlers return 1 if the exit was handled fully and guest execution
  * may resume.  Otherwise they set the kvm_run parameter to indicate what needs
@@ -560,7 +590,7 @@ static int (*pkvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[EXIT_REASON_TPR_BELOW_THRESHOLD]     = handle_tpr_below_threshold,
 	[EXIT_REASON_APIC_WRITE]              = handle_apic_write,
 	[EXIT_REASON_EOI_INDUCED]             = handle_apic_eoi_induced,
-	[EXIT_REASON_WBINVD]                  = kvm_emulate_wbinvd,
+	[EXIT_REASON_WBINVD]                  = handle_wbinvd,
 	[EXIT_REASON_MCE_DURING_VMENTRY]      = handle_machine_check,
 	[EXIT_REASON_EPT_VIOLATION]	      = handle_ept_violation,
 	[EXIT_REASON_EPT_MISCONFIG]           = handle_ept_misconfig,
@@ -1873,7 +1903,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 
 	.vcpu_after_set_cpuid = pkvm_vcpu_after_set_cpuid,
 
-	.has_wbinvd_exit = cpu_has_vmx_wbinvd_exit,
+	.has_wbinvd_exit = pkvm_has_vmx_wbinvd_exit,
 
 	.get_l2_tsc_offset = pkvm_get_l2_tsc_offset,
 	.get_l2_tsc_multiplier = pkvm_get_l2_tsc_multiplier,
