@@ -339,6 +339,11 @@ static int rb_cpu_reset(struct hyp_rb_per_cpu *cpu_buffer)
 
 	prev_status = rb_cpu_disable_writing(cpu_buffer);
 
+	if (!rb_set_head_page(cpu_buffer))
+		return -ENODEV;
+
+	cpu_buffer->tail_page = cpu_buffer->head_page;
+
 	bpage = cpu_buffer->head_page;
 	do {
 		rb_page_reset(bpage);
@@ -346,6 +351,9 @@ static int rb_cpu_reset(struct hyp_rb_per_cpu *cpu_buffer)
 	} while (bpage != cpu_buffer->head_page);
 
 	rb_page_reset(cpu_buffer->reader_page);
+
+	cpu_buffer->last_overrun = 0;
+	cpu_buffer->write_stamp = 0;
 
 	cpu_buffer->meta->reader.read = 0;
 	cpu_buffer->meta->reader.lost_events = 0;

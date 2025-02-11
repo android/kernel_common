@@ -208,8 +208,9 @@ test_reset()
     echo "Test Reset..."
 
     setup_hyp_trace
-    write_events 5
+    write_events 1000
     echo 0 > trace
+    clock_before=$(host_clock)
     write_events 5
 
     pid=$(consuming_read $tmp)
@@ -217,7 +218,7 @@ test_reset()
     stop_hyp_trace
     kill $pid
 
-    validate_test $tmp 5 0 $(host_clock)
+    validate_test $tmp 5 $clock_before $(host_clock)
 
     rm $tmp
 
