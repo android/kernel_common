@@ -2075,6 +2075,7 @@ unsigned long get_wchan(struct task_struct *p)
 
 	return ip;
 }
+EXPORT_SYMBOL_GPL(get_wchan);
 
 void enqueue_task(struct rq *rq, struct task_struct *p, int flags)
 {
