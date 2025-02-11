@@ -4724,8 +4724,46 @@ static int handle_init(struct kvm_vcpu *vcpu)
 
 static int handle_io(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
+	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+
+	++vcpu->stat.io_exits;
+
+	if ((exit_qualification & 16) != 0) {
+		if (WARN_ON_ONCE(pkvm_is_protected_vcpu(vcpu))) {
+			/*
+			 * The pVM should be enlighted to unroll the string IO
+			 * instruction to IO instruction, so the string IO
+			 * vmexit shouldn't happen.
+			 *
+			 * In case this is happened, inject a #GP to the guest.
+			 * FIXME: Any better way for this case?
+			 */
+			kvm_queue_exception(vcpu, GP_VECTOR);
+			return 1;
+		}
+	}
+
 	return 0;
+#else
+	unsigned long exit_qualification;
+	int size, in, string;
+	unsigned port;
+
+	exit_qualification = vmx_get_exit_qual(vcpu);
+	string = (exit_qualification & 16) != 0;
+
+	++vcpu->stat.io_exits;
+
+	if (string)
+		return kvm_emulate_instruction(vcpu, 0);
+
+	port = exit_qualification >> 16;
+	size = (exit_qualification & 7) + 1;
+	in = (exit_qualification & 8) != 0;
+
+	return kvm_fast_pio(vcpu, size, port, in);
+#endif
 }
 
 /* called to set cr0 as appropriate for a mov-to-cr0 exit. */
@@ -7749,6 +7787,16 @@ static void update_protected_vcpu_state(struct kvm_vcpu *vcpu,
 		kvm_complete_insn_gp(vcpu,
 				     xchg(&to_pkvm_vcpu(vcpu)->host_emulated_msr_err, 0));
 		break;
+	case EXIT_REASON_IO_INSTRUCTION: {
+		unsigned long exit_qual = vmx_get_exit_qual(vcpu);
+		int in = (exit_qual & 8) != 0;
+
+		/* Only needs to update RAX for the input data */
+		if (in)
+			kvm_rax_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RAX]);
+		kvm_skip_emulated_instruction(vcpu);
+		break;
+	}
 	default:
 		break;
 	}
@@ -7805,6 +7853,17 @@ static void share_protected_vcpu_state(struct kvm_vcpu *vcpu,
 	case EXIT_REASON_EPT_VIOLATION:
 		to_vmx(shared_vcpu)->exit_gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
 		break;
+	case EXIT_REASON_IO_INSTRUCTION: {
+		unsigned long exit_qual = vmx_get_exit_qual(vcpu);
+
+		/* Doesn't support string PIO for the pVM */
+		if (WARN_ON_ONCE((exit_qual & 16) != 0))
+			break;
+
+		/* Output/Input data */
+		shared_vcpu->arch.regs[VCPU_REGS_RAX] = kvm_rax_read(vcpu);
+		break;
+	}
 	default:
 		break;
 	}
