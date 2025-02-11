@@ -24,7 +24,9 @@ DECLARE_HOOK(android_vh_mutex_wait_start,
 DECLARE_HOOK(android_vh_mutex_wait_finish,
 	TP_PROTO(struct mutex *lock),
 	TP_ARGS(lock));
-
+DECLARE_HOOK(android_vh_mutex_init,
+	TP_PROTO(struct mutex *lock),
+	TP_ARGS(lock));
 DECLARE_HOOK(android_vh_rtmutex_wait_start,
 	TP_PROTO(struct rt_mutex_base *lock),
 	TP_ARGS(lock));
