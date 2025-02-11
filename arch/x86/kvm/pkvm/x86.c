@@ -2659,8 +2659,18 @@ out:
 
 int kvm_emulate_halt(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
+	kvm_skip_emulated_instruction(vcpu);
+
 	return 0;
+#else
+	int ret = kvm_skip_emulated_instruction(vcpu);
+	/*
+	 * TODO: we might be squashing a GUESTDBG_SINGLESTEP-triggered
+	 * KVM_EXIT_DEBUG here.
+	 */
+	return kvm_emulate_halt_noskip(vcpu) && ret;
+#endif
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_halt);
 
