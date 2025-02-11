@@ -5235,8 +5235,37 @@ static int handle_ept_violation(struct kvm_vcpu *vcpu)
 
 static int handle_ept_misconfig(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
+	if (WARN_ON_ONCE(pkvm_is_protected_vcpu(vcpu))) {
+		/*
+		 * The pVM should not cause EPT_MISCONFIG vmexit. In case this
+		 * is happened, injecting a #GP to the pVM.
+		 * FIXME: Any better way for this case?
+		 */
+		kvm_queue_exception(vcpu, GP_VECTOR);
+		return 1;
+	}
+
 	return 0;
+#else
+	gpa_t gpa;
+
+	if (vmx_check_emulate_instruction(vcpu, EMULTYPE_PF, NULL, 0))
+		return 1;
+
+	/*
+	 * A nested guest cannot optimize MMIO vmexits, because we have an
+	 * nGPA here instead of the required GPA.
+	 */
+	gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+	if (!is_guest_mode(vcpu) &&
+	    !kvm_io_bus_write(vcpu, KVM_FAST_MMIO_BUS, gpa, 0, NULL)) {
+		trace_kvm_fast_mmio(gpa);
+		return kvm_skip_emulated_instruction(vcpu);
+	}
+
+	return kvm_mmu_page_fault(vcpu, gpa, PFERR_RSVD_MASK, NULL, 0);
+#endif
 }
 
 static int handle_nmi_window(struct kvm_vcpu *vcpu)
@@ -7800,6 +7829,12 @@ static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 		}
 		vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_CS, SEG_FIELD_AR);
 		vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_SS, SEG_FIELD_AR);
+
+		if (pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu) &&
+		    !vmx->exit_reason.failed_vmentry &&
+		    !vmx->fail &&
+		    vmx->exit_reason.basic == EXIT_REASON_EPT_MISCONFIG)
+			shared_vmx->exit_gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
 	}
 
 	if (pkvm_is_protected_vcpu(vcpu) &&

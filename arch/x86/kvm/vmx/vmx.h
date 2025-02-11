@@ -373,6 +373,7 @@ struct vcpu_vmx {
 	 * below fields can be moved from vcpu_vmx to the new one.
 	 */
 	u64 error_code;
+	u64 exit_gpa;
 };
 
 struct kvm_vmx {

@@ -406,7 +406,7 @@ static int handle_ept_misconfig(struct kvm_vcpu *vcpu)
 	if (pkvm_check_emulate_instruction(vcpu, EMULTYPE_PF, NULL, 0))
 		return 1;
 
-	gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+	gpa = to_vmx(vcpu)->exit_gpa;
 	if (!kvm_io_bus_write(vcpu, KVM_FAST_MMIO_BUS, gpa, 0, NULL)) {
 		trace_kvm_fast_mmio(gpa);
 		return kvm_skip_emulated_instruction(vcpu);
@@ -553,8 +553,7 @@ static int __pkvm_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
 		vcpu->run->internal.data[1] = exit_reason.full;
 		vcpu->run->internal.data[2] = vmx_get_exit_qual(vcpu);
 		if (exit_reason.basic == EXIT_REASON_EPT_MISCONFIG)
-			vcpu->run->internal.data[ndata++] =
-				vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+			vcpu->run->internal.data[ndata++] = vmx->exit_gpa;
 		vcpu->run->internal.data[ndata++] = vcpu->arch.last_vmentry_cpu;
 		vcpu->run->internal.ndata = ndata;
 		return 0;
