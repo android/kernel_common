@@ -428,7 +428,8 @@ static int handle_pause(struct kvm_vcpu *vcpu)
 	 * so the vcpu must be CPL=0 if it gets a PAUSE exit.
 	 */
 	kvm_vcpu_on_spin(vcpu, true);
-	return kvm_skip_emulated_instruction(vcpu);
+
+	return 1;
 }
 
 static int handle_bus_lock_vmexit(struct kvm_vcpu *vcpu)
