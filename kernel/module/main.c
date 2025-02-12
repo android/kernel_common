@@ -1279,18 +1279,12 @@ static int module_memory_alloc(struct module *mod, enum mod_mem_type type)
 	return 0;
 }
 
-static void module_memory_free(struct module *mod, enum mod_mem_type type,
-			       bool unload_codetags)
+static void module_memory_free(struct module *mod, enum mod_mem_type type)
 {
-	void *ptr = mod->mem[type].base;
-
-	if (!unload_codetags && mod_mem_type_is_core_data(type))
-		return;
-
-	execmem_free(ptr);
+	execmem_free(mod->mem[type].base);
 }
 
-static void free_mod_mem(struct module *mod, bool unload_codetags)
+static void free_mod_mem(struct module *mod)
 {
 	for_each_mod_mem_type(type) {
 		struct module_memory *mod_mem = &mod->mem[type];
@@ -1301,25 +1295,20 @@ static void free_mod_mem(struct module *mod, bool unload_codetags)
 		/* Free lock-classes; relies on the preceding sync_rcu(). */
 		lockdep_free_key_range(mod_mem->base, mod_mem->size);
 		if (mod_mem->size)
-			module_memory_free(mod, type, unload_codetags);
+			module_memory_free(mod, type);
 	}
 
 	/* MOD_DATA hosts mod, so free it at last */
 	lockdep_free_key_range(mod->mem[MOD_DATA].base, mod->mem[MOD_DATA].size);
-	module_memory_free(mod, MOD_DATA, unload_codetags);
+	module_memory_free(mod, MOD_DATA);
 }
 
 /* Free a module, remove from lists, etc. */
 static void free_module(struct module *mod)
 {
-	bool unload_codetags;
-
 	trace_module_free(mod);
 
-	unload_codetags = codetag_unload_module(mod);
-	if (!unload_codetags)
-		pr_warn("%s: memory allocation(s) from the module still alive, cannot unload cleanly\n",
-			mod->name);
+	codetag_unload_module(mod);
 
 	mod_sysfs_teardown(mod);
 
@@ -1362,7 +1351,7 @@ static void free_module(struct module *mod)
 	kfree(mod->args);
 	percpu_modfree(mod);
 
-	free_mod_mem(mod, unload_codetags);
+	free_mod_mem(mod);
 }
 
 void *__symbol_get(const char *symbol)
@@ -1640,6 +1629,20 @@ static void __layout_sections(struct module *mod, struct load_info *info, bool i
 
 			if (WARN_ON_ONCE(type == MOD_INVALID))
 				continue;
+
+			/*
+			 * Do not allocate codetag memory as we load it into
+			 * preallocated contiguous memory.
+			 */
+			if (codetag_needs_module_section(mod, sname, s->sh_size)) {
+				/*
+				 * s->sh_entsize won't be used but populate the
+				 * type field to avoid confusion.
+				 */
+				s->sh_entsize = ((unsigned long)(type) & SH_ENTSIZE_TYPE_MASK)
+						<< SH_ENTSIZE_TYPE_SHIFT;
+				continue;
+			}
 
 			s->sh_entsize = module_get_offset_and_type(mod, type, s, i);
 			pr_debug("\t%s\n", sname);
@@ -2638,6 +2641,7 @@ static int move_module(struct module *mod, struct load_info *info)
 	int i;
 	enum mod_mem_type t = 0;
 	int ret = -ENOMEM;
+	bool codetag_section_found = false;
 
 	for_each_mod_mem_type(type) {
 		if (!mod->mem[type].size) {
@@ -2648,7 +2652,7 @@ static int move_module(struct module *mod, struct load_info *info)
 		ret = module_memory_alloc(mod, type);
 		if (ret) {
 			t = type;
-			goto out_enomem;
+			goto out_err;
 		}
 	}
 
@@ -2657,12 +2661,33 @@ static int move_module(struct module *mod, struct load_info *info)
 	for (i = 0; i < info->hdr->e_shnum; i++) {
 		void *dest;
 		Elf_Shdr *shdr = &info->sechdrs[i];
-		enum mod_mem_type type = shdr->sh_entsize >> SH_ENTSIZE_TYPE_SHIFT;
+		const char *sname;
 
 		if (!(shdr->sh_flags & SHF_ALLOC))
 			continue;
 
-		dest = mod->mem[type].base + (shdr->sh_entsize & SH_ENTSIZE_OFFSET_MASK);
+		sname = info->secstrings + shdr->sh_name;
+		/*
+		 * Load codetag sections separately as they might still be used
+		 * after module unload.
+		 */
+		if (codetag_needs_module_section(mod, sname, shdr->sh_size)) {
+			dest = codetag_alloc_module_section(mod, sname, shdr->sh_size,
+					arch_mod_section_prepend(mod, i), shdr->sh_addralign);
+			if (WARN_ON(!dest)) {
+				ret = -EINVAL;
+				goto out_err;
+			}
+			if (IS_ERR(dest)) {
+				ret = PTR_ERR(dest);
+				goto out_err;
+			}
+			codetag_section_found = true;
+		} else {
+			enum mod_mem_type type = shdr->sh_entsize >> SH_ENTSIZE_TYPE_SHIFT;
+
+			dest = mod->mem[type].base + (shdr->sh_entsize & SH_ENTSIZE_OFFSET_MASK);
+		}
 
 		if (shdr->sh_type != SHT_NOBITS) {
 			/*
@@ -2674,7 +2699,7 @@ static int move_module(struct module *mod, struct load_info *info)
 			if (i == info->index.mod &&
 			   (WARN_ON_ONCE(shdr->sh_size != sizeof(struct module)))) {
 				ret = -ENOEXEC;
-				goto out_enomem;
+				goto out_err;
 			}
 			memcpy(dest, (void *)shdr->sh_addr, shdr->sh_size);
 		}
@@ -2690,9 +2715,12 @@ static int move_module(struct module *mod, struct load_info *info)
 	}
 
 	return 0;
-out_enomem:
+out_err:
 	for (t--; t >= 0; t--)
-		module_memory_free(mod, t, true);
+		module_memory_free(mod, t);
+	if (codetag_section_found)
+		codetag_free_module_sections(mod);
+
 	return ret;
 }
 
@@ -2813,6 +2841,8 @@ static struct module *layout_and_allocate(struct load_info *info, int flags)
 	/* Module has been copied to its final place now: return it. */
 	mod = (void *)info->sechdrs[info->index.mod].sh_addr;
 	kmemleak_load_module(mod, info);
+	codetag_module_replaced(info->mod, mod);
+
 	return mod;
 }
 
@@ -2822,7 +2852,7 @@ static void module_deallocate(struct module *mod, struct load_info *info)
 	percpu_modfree(mod);
 	module_arch_freeing_init(mod);
 
-	free_mod_mem(mod, true);
+	free_mod_mem(mod);
 }
 
 int __weak module_finalize(const Elf_Ehdr *hdr,

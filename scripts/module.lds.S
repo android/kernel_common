@@ -79,7 +79,7 @@ SECTIONS {
 	.data : {
 		*(.data .data.[0-9a-zA-Z_]*)
 		*(.data..L*)
-		CODETAG_SECTIONS()
+		MOD_CODETAG_SECTIONS()
 	}
 
 	.rodata : {
@@ -97,9 +97,10 @@ SECTIONS {
 	}
 #else
 	.data : {
-		CODETAG_SECTIONS()
+		MOD_CODETAG_SECTIONS()
 	}
 #endif
+	MOD_SEPARATE_CODETAG_SECTIONS()
 }
 
 /* bring in arch-specific sections */
