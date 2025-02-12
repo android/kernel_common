@@ -18,7 +18,11 @@
 	. = ALIGN(PAGE_SIZE);					\
 	__hyp_event_ids_start = .;				\
 	*(HYP_SECTION_NAME(.event_ids))				\
-	__hyp_event_ids_end = .;
+	__hyp_event_ids_end = .;				\
+	__hyp_patchable_function_entries_start = .;		\
+	*(HYP_SECTION_NAME(__patchable_function_entries))	\
+	__hyp_patchable_function_entries_end = .;
+
 #else
 #define HYPERVISOR_EVENT_IDS
 #endif

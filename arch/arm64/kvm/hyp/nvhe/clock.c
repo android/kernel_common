@@ -34,7 +34,7 @@ void trace_clock_update(u32 mult, u32 shift, u64 epoch_ns, u64 epoch_cyc)
 }
 
 /* Using host provided data. Do not use for anything else than debugging. */
-u64 trace_clock(void)
+u64 __attribute__((patchable_function_entry(0, 0))) trace_clock(void)
 {
 	struct clock_data *clock = &trace_clock_data;
 	u64 bank = smp_load_acquire(&clock->cur);
