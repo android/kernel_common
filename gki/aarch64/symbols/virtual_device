@@ -109,8 +109,6 @@
   drm_atomic_helper_update_plane
   drm_compat_ioctl
   drm_connector_attach_encoder
-  drm_connector_cleanup
-  drm_connector_init
   drm_crtc_arm_vblank_event
   drm_crtc_handle_vblank
   drm_crtc_send_vblank_event
@@ -120,10 +118,13 @@
   drm_debugfs_create_files
   drm_dev_alloc
   __drm_dev_dbg
+  drm_dev_printk
   drm_dev_put
   drm_dev_register
   drm_dev_unregister
   __drm_err
+  drm_format_info_block_height
+  drm_format_info_block_width
   drm_gem_create_mmap_offset
   drm_gem_fb_create
   drm_gem_handle_create
@@ -135,6 +136,7 @@
   drm_gem_vm_open
   drm_helper_probe_single_connector_modes
   drm_ioctl
+  drmm_kmalloc
   drmm_mode_config_init
   drm_mode_config_reset
   __drmm_universal_plane_alloc
@@ -243,6 +245,7 @@
   log_post_write_mmio
   log_read_mmio
   log_write_mmio
+  mem_alloc_profiling_key
   memcpy
   memmove
   memset
@@ -685,8 +688,6 @@
   dma_mmap_pages
   drm_atomic_helper_damage_iter_init
   drm_atomic_helper_damage_iter_next
-  drm_format_info_block_height
-  drm_format_info_block_width
   drm_gem_fb_get_obj
   drm_gem_object_init
   drm_prime_gem_destroy
@@ -1139,6 +1140,8 @@
   drm_atomic_helper_plane_duplicate_state
   drm_atomic_helper_plane_reset
   drm_connector_attach_edid_property
+  drm_connector_cleanup
+  drm_connector_init
   drm_connector_register
   drm_connector_unregister
   drm_crtc_cleanup
@@ -1147,7 +1150,6 @@
   drm_dev_enter
   drm_dev_exit
   drm_dev_get
-  drm_dev_printk
   drm_dev_unplug
   drm_edid_connector_add_modes
   drm_edid_connector_update
@@ -1185,7 +1187,6 @@
   drm_helper_mode_fill_fb_struct
   drm_kms_helper_hotplug_event
   drmm_kfree
-  drmm_kmalloc
   drm_mm_init
   drm_mm_insert_node_in_range
   drm_mm_print
@@ -1382,15 +1383,12 @@
   __drm_atomic_helper_crtc_reset
   drm_atomic_helper_fake_vblank
   drm_atomic_helper_wait_for_flip_done
-  drm_calc_timestamping_constants
   drm_crtc_accurate_vblank_count
   drm_crtc_add_crc_entry
   drm_crtc_enable_color_mgmt
   drm_crtc_vblank_crtc
   drm_crtc_vblank_put
   drm_debugfs_add_files
-  drm_encoder_cleanup
-  drm_encoder_init
   __drm_gem_destroy_shadow_plane_state
   __drm_gem_duplicate_shadow_plane_state
   drm_gem_fb_vmap
@@ -1399,13 +1397,25 @@
   __drm_gem_reset_shadow_plane
   drm_gem_shmem_dumb_create
   drm_gem_shmem_prime_import_sg_table
-  drmm_crtc_init_with_planes
+  __drmm_add_action_or_reset
+  drmm_connector_init
+  __drmm_crtc_alloc_with_planes
+  drmm_encoder_init
   drm_mode_crtc_set_gamma_size
   drm_mode_object_get
   drm_mode_object_put
+  __drmm_workqueue_release
+  drmm_writeback_connector_init
   drm_plane_create_rotation_property
+  drm_rect_rotate_inv
+  drm_writeback_queue_job
+  drm_writeback_signal_completion
+
+# preserved by --additions-only
+  drm_calc_timestamping_constants
+  drm_encoder_cleanup
+  drm_encoder_init
+  drmm_crtc_init_with_planes
   drm_rect_rotate
   drm_rotation_simplify
   drm_writeback_connector_init
-  drm_writeback_queue_job
-  drm_writeback_signal_completion
