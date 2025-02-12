@@ -92,6 +92,18 @@ config PROTECTED_NVHE_TESTING
 
 	  If unsure, say N.
 
+config PROTECTED_NVHE_FTRACE
+	bool "Protected KVM hypervisor function tracing"
+	depends on KVM
+	depends on TRACING
+	default n
+	help
+	  Say Y here to enable func and func_ret hypervisor tracing events.
+	  Those events are raised whenever the hypervisor branch to a
+	  function.
+
+	  If unsure, Say N.
+
 config PKVM_MODULE_PATH
 	string "Path to pKVM modules"
 	default ""

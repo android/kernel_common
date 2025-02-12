@@ -11,6 +11,32 @@
  * Hypervisor events definitions.
  */
 
+#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+HYP_EVENT(func,
+	HE_PROTO(unsigned long ip, unsigned long parent),
+	HE_STRUCT(
+		he_field(unsigned long, ip)
+		he_field(unsigned long, parent)
+	),
+	HE_ASSIGN(
+		__entry->ip = ip;
+		__entry->parent = parent;
+	),
+	HE_PRINTK("    %ps <- %ps", (void *)__entry->ip, (void *)__entry->parent)
+);
+
+HYP_EVENT(func_ret,
+	HE_PROTO(unsigned long ip),
+	HE_STRUCT(
+		he_field(unsigned long, ip)
+	),
+	HE_ASSIGN(
+		__entry->ip = ip;
+	),
+	HE_PRINTK("%ps", (void *)__entry->ip)
+);
+#endif
+
 HYP_EVENT(hyp_enter,
 	HE_PROTO(void),
 	HE_STRUCT(

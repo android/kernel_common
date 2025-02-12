@@ -97,6 +97,8 @@ unsigned long __hyp_ftrace_trace(unsigned long ip, unsigned long parent,
 	/* When modules are called from core */
 	parent_offset_idx = parent > (unsigned long)__hyp_text_start ? 0 : offset_idx;
 
+	trace_func(func, __kern_addr(parent_offset_idx, parent));
+
 	/* Only install the trampoline if we can revert to the original parent */
 	if (hyp_ftrace_func_push(func, parent))
 		return (unsigned long)__hyp_ftrace_ret_tramp;
@@ -109,6 +111,7 @@ unsigned long __hyp_ftrace_ret_trace(void)
 	struct hyp_ftrace_stack_frame *frame = hyp_ftrace_func_pop();
 
 	BUG_ON(!frame);
+	trace_func_ret(frame->func);
 
 	return frame->ret;
 }
@@ -117,8 +120,10 @@ void hyp_ftrace_ret_flush(void)
 {
 	struct hyp_ftrace_stack_frame *frame = hyp_ftrace_func_pop();
 
-	while (frame)
+	while (frame) {
+		trace_func_ret(frame->func);
 		frame = hyp_ftrace_func_pop();
+	}
 }
 
 static int __get_offset_idx_ins(unsigned long *func, unsigned long ip, u32 *insn,
