@@ -244,6 +244,80 @@ test_big_bpacking()
     echo "done."
 }
 
+validate_event()
+{
+    local line="$1"
+    local expect_event="$2"
+    local expect_arg="$3"
+    local event="$(echo "$line" | awk '{print $3}')"
+    local arg="$(echo "$line" | awk '{print $4}')"
+
+    [ $event == $expect_event ] || log_and_die "Expected event '$expect_event', got: '$event'"
+    [ $arg == $expect_arg ] || log_and_die "Expected arg '$expect_arg', got: '$arg'"
+}
+
+setup_hyp_ftrace()
+{
+    reset_hyp_trace
+    echo 1 > events/hypervisor/func/enable
+    echo 1 > events/hypervisor/func_ret/enable
+}
+
+run_test_ftrace()
+{
+    local output="$2"
+
+    setup_hyp_ftrace
+
+    echo 1 > tracing_on
+    write_events 1
+    echo 0 > tracing_on
+
+    pid=$(consuming_read $tmp)
+    sleep 1
+    kill $pid
+
+}
+
+test_ftrace_nofilter()
+{
+    local func="__kvm_nvhe_handle___pkvm_selftest_event"
+    local tmp="$(mktemp)"
+
+    echo "Test ftrace..."
+
+    echo "*" > set_ftrace_filter
+
+    run_test_ftrace $tmp
+
+    grep -qE "func *$func" $tmp || \
+        log_and_die "Couldn't find 'func' event with arg '$func'"
+    grep -q "func_ret $func" $tmp || \
+        log_and_die "Couldn't find 'func_ret' event with arg '$func'"
+
+    rm $tmp
+}
+
+test_ftrace_filter()
+{
+    local func="__kvm_nvhe_handle___pkvm_selftest_event"
+    local tmp="$(mktemp)"
+
+    echo "Test ftrace filtering..."
+
+    echo "$func" > set_ftrace_filter
+
+    [ "$(cat set_ftrace_filter)" == "$func" ] || \
+        log_and_die "Failed to set set_ftrace_filter"
+
+    run_test_ftrace $tmp
+
+    validate_event "$(awk 'NR==1 {print}' $tmp)" "func" "$func"
+    validate_event "$(awk 'NR==2 {print}' $tmp)" "func_ret" "$func"
+
+    rm $tmp
+}
+
 goto_hyp_trace
 
 test_reset
@@ -251,5 +325,7 @@ test_unloading
 test_big_bpacking
 test_ts
 test_extended_ts
+test_ftrace_nofilter
+test_ftrace_filter
 
 exit 0
