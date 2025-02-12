@@ -7,6 +7,7 @@
 #include <linux/osq_lock.h>
 #include <linux/spinlock_types.h>
 #include <linux/types.h>
+#include <linux/android_vendor.h>
 
 #ifndef CONFIG_PREEMPT_RT
 
@@ -51,6 +52,7 @@ struct mutex {
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map	dep_map;
 #endif
+	ANDROID_OEM_DATA_ARRAY(1, 2);
 };
 
 #else /* !CONFIG_PREEMPT_RT */
@@ -64,6 +66,7 @@ struct mutex {
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map	dep_map;
 #endif
+	ANDROID_OEM_DATA_ARRAY(1, 2);
 };
 
 #endif /* CONFIG_PREEMPT_RT */
