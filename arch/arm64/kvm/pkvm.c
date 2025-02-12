@@ -1244,6 +1244,7 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 		{ &mod->bss, KVM_PGTABLE_PROT_R | KVM_PGTABLE_PROT_W },
 		{ &mod->rodata, KVM_PGTABLE_PROT_R },
 		{ &mod->event_ids, KVM_PGTABLE_PROT_R },
+		{ &mod->patchable_function_entries, KVM_PGTABLE_PROT_R },
 		{ &mod->data, KVM_PGTABLE_PROT_R | KVM_PGTABLE_PROT_W },
 	};
 	void *start, *end, *hyp_va, *mod_remap;

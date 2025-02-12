@@ -613,6 +613,15 @@ static int module_init_hyp(const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs,
 		hyp_mod->nr_hyp_printk_fmts = s->sh_size /
 			sizeof(*hyp_mod->hyp_printk_fmts);
 	}
+
+	s = find_section(hdr, sechdrs, ".hyp.patchable_function_entries");
+	if (s && s->sh_size) {
+		hyp_mod->patchable_function_entries = (struct pkvm_module_section) {
+			.start	= (void *)s->sh_addr,
+			.end	= (void *)s->sh_addr + s->sh_size,
+		};
+	}
+
 #endif
 	return 0;
 }

@@ -28,6 +28,7 @@ struct pkvm_el2_module {
 	struct pkvm_module_section rodata;
 	struct pkvm_module_section data;
 	struct pkvm_module_section event_ids;
+	struct pkvm_module_section patchable_function_entries;
 	struct pkvm_module_section sections;
 	void *hyp_va;
 	struct hyp_event *hyp_events;

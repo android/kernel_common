@@ -51,6 +51,10 @@ SECTIONS {
 		*(.hyp.printk_fmt_offset)
 		. = ALIGN(PAGE_SIZE);
 	}
+	.hyp.patchable_function_entries : ALIGN(PAGE_SIZE) {
+		*(.hyp.patchable_function_entries)
+		. = ALIGN(PAGE_SIZE);
+	}
 	.hyp.data : ALIGN(PAGE_SIZE) {
 		*(.hyp.data)
 		. = ALIGN(PAGE_SIZE);
