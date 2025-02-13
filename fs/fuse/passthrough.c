@@ -10,6 +10,7 @@
 #include <linux/file.h>
 #include <linux/backing-file.h>
 #include <linux/splice.h>
+#include <linux/pagemap.h>
 
 static void fuse_file_accessed(struct file *file)
 {
@@ -34,6 +35,10 @@ static void fuse_passthrough_end_write(struct file *file, loff_t pos, ssize_t re
 		inode->i_blocks = backing_inode->i_blocks;
 		i_size_write(inode, i_size_read(backing_inode));
 	}
+	if (ret > 0) {
+		invalidate_inode_pages2_range(inode->i_mapping,
+				(pos - ret) >> PAGE_SHIFT, pos >> PAGE_SHIFT);
+	}
 }
 
 ssize_t fuse_passthrough_read_iter(struct kiocb *iocb, struct iov_iter *iter)
@@ -56,6 +61,8 @@ ssize_t fuse_passthrough_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 	if (!count)
 		return 0;
 
+	/* Flush any dirtied cache pages from fuse cache */
+	write_inode_now(file_inode(file), 1);
 	ret = backing_file_read_iter(backing_file, iter, iocb, iocb->ki_flags,
 				     &ctx);
 
@@ -106,6 +113,8 @@ ssize_t fuse_passthrough_splice_read(struct file *in, loff_t *ppos,
 	pr_debug("%s: backing_file=0x%p, pos=%lld, len=%zu, flags=0x%x\n", __func__,
 		 backing_file, ppos ? *ppos : 0, len, flags);
 
+	/* Flush any dirtied cache pages from fuse cache */
+	write_inode_now(file_inode(in), 1);
 	return backing_file_splice_read(backing_file, ppos, pipe, len, flags,
 					&ctx);
 }
