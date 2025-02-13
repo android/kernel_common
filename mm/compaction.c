@@ -66,6 +66,7 @@ static inline bool is_via_compact_memory(int order) { return false; }
 #undef CREATE_TRACE_POINTS
 
 #include <trace/hooks/vmscan.h>
+#include <trace/hooks/compaction.h>
 
 #define block_start_pfn(pfn, order)	round_down(pfn, 1UL << (order))
 #define block_end_pfn(pfn, order)	ALIGN((pfn) + 1, 1UL << (order))
@@ -2285,6 +2286,7 @@ static bool should_proactive_compact_node(pg_data_t *pgdat)
 		return false;
 
 	wmark_high = fragmentation_score_wmark(false);
+	trace_android_vh_proactive_compact_wmark_high(&wmark_high);
 	return fragmentation_score_node(pgdat) > wmark_high;
 }
 
