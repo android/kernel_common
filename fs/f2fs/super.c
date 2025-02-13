@@ -39,6 +39,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/f2fs.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/fs.h>
+
 static struct kmem_cache *f2fs_inode_cachep;
 
 #ifdef CONFIG_F2FS_FAULT_INJECTION
@@ -291,7 +294,7 @@ void f2fs_printk(struct f2fs_sb_info *sbi, bool limit_rate,
 	else
 		printk("%c%cF2FS-fs (%s): %pV\n",
 			KERN_SOH_ASCII, level, sbi->sb->s_id, &vaf);
-
+	trace_android_vh_f2fs_printk(sbi, &vaf, level, limit_rate);
 	va_end(args);
 }
 

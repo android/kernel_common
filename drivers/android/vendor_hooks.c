@@ -134,6 +134,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ufs_transfer_rsp_status);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_f2fs_down_read);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_f2fs_improve_priority);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_f2fs_restore_priority);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_f2fs_printk);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_io_statistics);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_cgroup_attach);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_iommu_setup_dma_ops);
