@@ -136,6 +136,9 @@ struct fuse_inode {
 			/** Number of files/maps using page cache */
 			int iocachectr;
 
+			/* Number of files using passthrough */
+			int iopassctr;
+
 			/* Waitq for writepage completion */
 			wait_queue_head_t page_waitq;
 
@@ -261,7 +264,7 @@ struct fuse_file {
 	wait_queue_head_t poll_wait;
 
 	/** Does file hold a fi->iocachectr refcount? */
-	enum { IOM_NONE, IOM_CACHED, IOM_UNCACHED } iomode;
+	enum { IOM_NONE, IOM_CACHED, IOM_UNCACHED, IOM_PASSTHROUGH } iomode;
 
 #ifdef CONFIG_FUSE_PASSTHROUGH
 	/** Reference to backing file in passthrough mode */

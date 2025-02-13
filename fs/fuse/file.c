@@ -3354,6 +3354,7 @@ void fuse_init_file_inode(struct inode *inode, unsigned int flags)
 	INIT_LIST_HEAD(&fi->queued_writes);
 	fi->writectr = 0;
 	fi->iocachectr = 0;
+	fi->iopassctr = 0;
 	init_waitqueue_head(&fi->page_waitq);
 	init_waitqueue_head(&fi->direct_io_waitq);
 	fi->writepages = RB_ROOT;
