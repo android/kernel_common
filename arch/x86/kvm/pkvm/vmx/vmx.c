@@ -2205,6 +2205,9 @@ int setup_vmcs_config_common(struct vmcs_config *vmcs_conf,
 					&_cpu_based_2nd_exec_control))
 			return -EIO;
 	}
+#ifdef __PKVM_HYP__
+	_cpu_based_2nd_exec_control &= ~SECONDARY_EXEC_DESC;
+#endif
 	if (!IS_ENABLED(CONFIG_KVM_INTEL_PROVE_VE))
 		_cpu_based_2nd_exec_control &= ~SECONDARY_EXEC_EPT_VIOLATION_VE;
 
@@ -4466,11 +4469,19 @@ static int handle_io(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+#ifndef __PKVM_HYP__
 static int handle_desc(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	/*
+	 * UMIP emulation relies on intercepting writes to CR4.UMIP, i.e. this
+	 * and other code needs to be updated if UMIP can be guest owned.
+	 */
+	BUILD_BUG_ON(KVM_POSSIBLE_CR4_GUEST_BITS & X86_CR4_UMIP);
+
+	WARN_ON_ONCE(!kvm_is_cr4_bit_set(vcpu, X86_CR4_UMIP));
+	return kvm_emulate_instruction(vcpu, 0);
 }
+#endif
 
 static int handle_cr(struct kvm_vcpu *vcpu)
 {
@@ -4928,8 +4939,10 @@ static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[EXIT_REASON_TASK_SWITCH]             = handle_task_switch,
 #endif
 	[EXIT_REASON_MCE_DURING_VMENTRY]      = handle_machine_check,
+#ifndef __PKVM_HYP__
 	[EXIT_REASON_GDTR_IDTR]		      = handle_desc,
 	[EXIT_REASON_LDTR_TR]		      = handle_desc,
+#endif
 	[EXIT_REASON_EPT_VIOLATION]	      = handle_ept_violation,
 	[EXIT_REASON_EPT_MISCONFIG]           = handle_ept_misconfig,
 	[EXIT_REASON_PAUSE_INSTRUCTION]       = handle_pause,
