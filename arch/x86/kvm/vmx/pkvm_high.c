@@ -515,14 +515,6 @@ static int handle_notify(struct kvm_vcpu *vcpu)
 
 	++vcpu->stat.notify_window_exits;
 
-	/*
-	 * Notify VM exit happened while executing iret from NMI,
-	 * "blocked by NMI" bit has to be set before next VM entry.
-	 */
-	if (enable_vnmi && (exit_qual & INTR_INFO_UNBLOCK_NMI))
-		vmcs_set_bits(GUEST_INTERRUPTIBILITY_INFO,
-			      GUEST_INTR_STATE_NMI);
-
 	if (vcpu->kvm->arch.notify_vmexit_flags & KVM_X86_NOTIFY_VMEXIT_USER ||
 	    context_invalid) {
 		vcpu->run->exit_reason = KVM_EXIT_NOTIFY;

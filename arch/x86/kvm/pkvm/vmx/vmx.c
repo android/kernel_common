@@ -5604,8 +5604,34 @@ static int handle_bus_lock_vmexit(struct kvm_vcpu *vcpu)
 
 static int handle_notify(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+	unsigned long exit_qual = vmx_get_exit_qual(vcpu);
+#ifndef __PKVM_HYP__
+	bool context_invalid = exit_qual & NOTIFY_VM_CONTEXT_INVALID;
+
+	++vcpu->stat.notify_window_exits;
+#endif
+
+	/*
+	 * Notify VM exit happened while executing iret from NMI,
+	 * "blocked by NMI" bit has to be set before next VM entry.
+	 */
+	if (enable_vnmi && (exit_qual & INTR_INFO_UNBLOCK_NMI))
+		vmcs_set_bits(GUEST_INTERRUPTIBILITY_INFO,
+			      GUEST_INTR_STATE_NMI);
+
+#ifdef __PKVM_HYP__
 	return 0;
+#else
+	if (vcpu->kvm->arch.notify_vmexit_flags & KVM_X86_NOTIFY_VMEXIT_USER ||
+	    context_invalid) {
+		vcpu->run->exit_reason = KVM_EXIT_NOTIFY;
+		vcpu->run->notify.flags = context_invalid ?
+					  KVM_NOTIFY_CONTEXT_INVALID : 0;
+		return 0;
+	}
+
+	return 1;
+#endif
 }
 
 /*
