@@ -37,6 +37,9 @@ static struct bio_set f2fs_bioset;
 
 #define	F2FS_BIO_POOL_SIZE	NR_CURSEG_TYPE
 
+EXPORT_TRACEPOINT_SYMBOL_GPL(f2fs_write_begin);
+EXPORT_TRACEPOINT_SYMBOL_GPL(f2fs_submit_folio_write);
+
 int __init f2fs_init_bioset(void)
 {
 	return bioset_init(&f2fs_bioset, F2FS_BIO_POOL_SIZE,
