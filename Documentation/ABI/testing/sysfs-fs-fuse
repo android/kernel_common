@@ -1,0 +1,7 @@
+What:		/sys/fs/fuse/features/fuse_passthrough
+Date:		February 2025
+Contact:	Daniel Rosenberg <drosen@google.com>
+Description:
+		Read-only file that contains the word 'supported' if fuse
+		passthrough with Android modifications is supported, does not
+		exist otherwise
