@@ -144,7 +144,7 @@ impl Deref for CurrentTask {
 }
 
 /// The type of process identifiers (PIDs).
-type Pid = bindings::pid_t;
+pub type Pid = bindings::pid_t;
 
 /// The type of user identifiers (UIDs).
 #[derive(Copy, Clone)]
