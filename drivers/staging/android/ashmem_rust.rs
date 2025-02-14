@@ -42,7 +42,6 @@ const PROT_WRITE: usize = bindings::PROT_WRITE as usize;
 const PROT_MASK: usize = PROT_EXEC | PROT_READ | PROT_WRITE;
 
 mod ashmem_shrinker;
-use ashmem_shrinker::{ShrinkerBuilder, ShrinkerRegistration};
 
 mod ashmem_range;
 use ashmem_range::{Area, AshmemGuard, NewRange, ASHMEM_MUTEX, LRU_COUNT};
@@ -79,7 +78,6 @@ module! {
 
 struct AshmemModule {
     _misc: Pin<Box<MiscDeviceRegistration<Ashmem>>>,
-    _shrinker: ShrinkerRegistration<Self>,
 }
 
 impl kernel::Module for AshmemModule {
@@ -88,11 +86,12 @@ impl kernel::Module for AshmemModule {
         unsafe { shmem::SHMEM_FOPS_ONCE.init() };
         // SAFETY: Called once since this is the module initializer.
         unsafe { ASHMEM_MUTEX.init() };
+        // SAFETY: Called once since this is the module initializer.
+        unsafe { ashmem_range::ASHMEM_SHRINKER.init() };
 
         pr_info!("Using Rust implementation.");
 
-        let mut shrinker = ShrinkerBuilder::new(c_str!("android-ashmem"))?;
-        shrinker.set_seeks(4 * ashmem_shrinker::DEFAULT_SEEKS);
+        ashmem_range::register_shrinker()?;
 
         Ok(Self {
             _misc: Box::pin_init(
@@ -101,7 +100,6 @@ impl kernel::Module for AshmemModule {
                 }),
                 GFP_KERNEL,
             )?,
-            _shrinker: shrinker.register(()),
         })
     }
 }

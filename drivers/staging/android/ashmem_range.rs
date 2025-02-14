@@ -5,8 +5,12 @@
 //! Keeps track of unpinned ranges in an ashmem file.
 
 use crate::{
-    ashmem_shrinker::{CountObjects, ScanObjects, ShrinkControl, Shrinker},
+    ashmem_shrinker::{
+        self, CountObjects, ScanObjects, ShrinkControl, Shrinker, ShrinkerBuilder,
+        ShrinkerRegistration,
+    },
     shmem::ShmemFile,
+    AshmemModule,
 };
 use core::{
     mem::MaybeUninit,
@@ -14,6 +18,8 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use kernel::{
+    alloc::AllocError,
+    c_str,
     list::{List, ListArc, ListLinks},
     page::PAGE_SIZE,
     prelude::*,
@@ -438,6 +444,26 @@ impl Shrinker for super::AshmemModule {
         let num_freed = guard.free_lru(sc.nr_to_scan());
         ScanObjects::from_count(num_freed)
     }
+}
+
+/// Make line below shorter.
+type AshmemShrinkerType = Option<ShrinkerRegistration<AshmemModule>>;
+
+kernel::sync::global_lock! {
+    // SAFETY: We call `init` as the very first thing in the initialization of this module, so
+    // there are no calls to `lock` before `init` is called.
+    pub(crate) unsafe(uninit) static ASHMEM_SHRINKER: Mutex<AshmemShrinkerType> = None;
+}
+
+pub(crate) fn register_shrinker() -> Result<(), AllocError> {
+    let mut lock = ASHMEM_SHRINKER.lock();
+    if lock.is_none() {
+        let mut shrinker = ShrinkerBuilder::new(c_str!("android-ashmem"))?;
+        shrinker.set_seeks(4 * ashmem_shrinker::DEFAULT_SEEKS);
+
+        *lock = Some(shrinker.register(()));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
