@@ -108,6 +108,25 @@ impl ShmemFile {
         }
     }
 
+    pub(crate) fn punch_hole(&self, start: usize, len: usize) {
+        use kernel::bindings::{FALLOC_FL_KEEP_SIZE, FALLOC_FL_PUNCH_HOLE};
+
+        let f = self.inner.as_ptr();
+        // SAFETY: f_op of a file is immutable, so okay to read.
+        let fallocate = unsafe { (*(*f).f_op).fallocate };
+
+        if let Some(fallocate) = fallocate {
+            unsafe {
+                fallocate(
+                    f,
+                    (FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE) as _,
+                    start as _,
+                    len as _,
+                )
+            };
+        }
+    }
+
     pub(crate) fn inode_ino(&self) -> usize {
         // SAFETY: Accessing the ino is always okay.
         unsafe { (*(*self.inner.as_ptr()).f_inode).i_ino as usize }

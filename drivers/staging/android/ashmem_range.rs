@@ -4,17 +4,27 @@
 
 //! Keeps track of unpinned ranges in an ashmem file.
 
-use crate::shmem::ShmemFile;
-use core::{mem::MaybeUninit, pin::Pin};
+use crate::{
+    ashmem_shrinker::{CountObjects, ScanObjects, ShrinkControl, Shrinker},
+    shmem::ShmemFile,
+};
+use core::{
+    mem::MaybeUninit,
+    pin::Pin,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 use kernel::{
     list::{List, ListArc, ListLinks},
+    page::PAGE_SIZE,
     prelude::*,
     sync::{GlobalGuard, GlobalLockedBy, UniqueArc},
 };
 
+// Only updated with ASHMEM_MUTEX held, but the shrinker will read it without the mutex.
+pub(crate) static LRU_COUNT: AtomicUsize = AtomicUsize::new(0);
+
 pub(crate) struct AshmemLru {
     lru_list: List<Range, 0>,
-    lru_count: usize,
 }
 
 /// Represents ownership of the `ASHMEM_MUTEX` lock.
@@ -47,15 +57,19 @@ impl AshmemGuard {
 
         // Only change the counter if the range is on the lru list.
         if !range.purged(self) {
-            self.lru_count -= old_size;
-            self.lru_count += new_size;
+            let mut lru_count = LRU_COUNT.load(Ordering::Relaxed);
+            lru_count -= old_size;
+            lru_count += new_size;
+            LRU_COUNT.store(lru_count, Ordering::Relaxed);
         }
     }
 
     fn insert_lru(&mut self, range: ListArc<Range>) {
         // Don't insert the range if it's already purged.
         if !range.purged(self) {
-            self.lru_count += range.size(self);
+            let mut lru_count = LRU_COUNT.load(Ordering::Relaxed);
+            lru_count += range.size(self);
+            LRU_COUNT.store(lru_count, Ordering::Relaxed);
             self.lru_list.push_front(range);
         }
     }
@@ -67,7 +81,9 @@ impl AshmemGuard {
 
         // Only decrement lru_count if the range was actually in the list.
         if ret.is_some() {
-            self.lru_count -= range.size(self);
+            let mut lru_count = LRU_COUNT.load(Ordering::Relaxed);
+            lru_count -= range.size(self);
+            LRU_COUNT.store(lru_count, Ordering::Relaxed);
         }
 
         ret
@@ -79,7 +95,6 @@ kernel::sync::global_lock! {
     // there are no calls to `lock` before `init` is called.
     pub(crate) unsafe(uninit) static ASHMEM_MUTEX: Mutex<AshmemLru> = AshmemLru {
         lru_list: List::new(),
-        lru_count: 0
     };
 }
 
@@ -93,6 +108,7 @@ pub(crate) struct Range {
     lru: ListLinks<0>,
     #[pin]
     unpinned: ListLinks<1>,
+    file: ShmemFile,
     pub(crate) inner: GlobalLockedBy<RangeInner, ASHMEM_MUTEX>,
 }
 
@@ -103,6 +119,10 @@ pub(crate) struct RangeInner {
 }
 
 impl Range {
+    pub(crate) fn set_purged(&self, guard: &mut AshmemGuard) {
+        self.inner.as_mut(guard).purged = true;
+    }
+
     pub(crate) fn purged(&self, guard: &AshmemGuard) -> bool {
         self.inner.as_ref(guard).purged
     }
@@ -344,7 +364,6 @@ impl Area {
 }
 
 pub(crate) struct NewRange<'a> {
-    #[allow(dead_code)]
     pub(crate) file: &'a ShmemFile,
     pub(crate) alloc: UniqueArc<MaybeUninit<Range>>,
 }
@@ -354,6 +373,7 @@ impl<'a> NewRange<'a> {
         let new_range = self.alloc.pin_init_with(pin_init!(Range {
             lru <- ListLinks::new(),
             unpinned <- ListLinks::new(),
+            file: self.file.clone(),
             inner: GlobalLockedBy::new(inner),
         }));
 
@@ -361,6 +381,62 @@ impl<'a> NewRange<'a> {
             Ok(new_range) => new_range,
             Err(infallible) => match infallible {},
         }
+    }
+}
+
+impl AshmemGuard {
+    pub(crate) fn free_lru(&mut self, stop_after: usize) -> usize {
+        let mut freed = 0;
+        while let Some(range) = self.lru_list.pop_back() {
+            let start = range.pgstart(self) * PAGE_SIZE;
+            let end = (range.pgend(self) + 1) * PAGE_SIZE;
+            range.set_purged(self);
+            self.remove_lru(&range);
+            freed += range.size(self);
+
+            // C ashmem releases the mutex and uses a different mechanism to ensure mutual
+            // exclusion with `pin_unpin` operations, but we only hold `ASHMEM_MUTEX` here and in
+            // `pin_unpin`, so we don't need to release the mutex. A different mutex is used for
+            // all of the other ashmem operations.
+            range.file.punch_hole(start, end - start);
+
+            if freed >= stop_after {
+                break;
+            }
+
+            if super::shrinker_should_stop() {
+                break;
+            }
+        }
+        freed
+    }
+}
+
+impl Shrinker for super::AshmemModule {
+    // Our shrinker data is in a global, so we don't need to set the private data.
+    type Ptr = ();
+
+    fn count_objects(_: (), _sc: ShrinkControl<'_>) -> CountObjects {
+        let count = LRU_COUNT.load(super::Ordering::Relaxed);
+        if count == 0 {
+            CountObjects::EMPTY
+        } else {
+            CountObjects::new(count)
+        }
+    }
+
+    fn scan_objects(_: (), sc: ShrinkControl<'_>) -> ScanObjects {
+        if !sc.reclaim_fs_allowed() {
+            return ScanObjects::STOP;
+        }
+
+        let Some(guard) = super::ASHMEM_MUTEX.try_lock() else {
+            return ScanObjects::STOP;
+        };
+        let mut guard = AshmemGuard(guard);
+
+        let num_freed = guard.free_lru(sc.nr_to_scan());
+        ScanObjects::from_count(num_freed)
     }
 }
 

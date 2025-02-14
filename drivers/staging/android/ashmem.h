@@ -15,6 +15,10 @@
 
 #include "uapi/ashmem.h"
 
+#include <linux/shrinker.h>
+const gfp_t RUST_CONST_HELPER___GFP_FS = ___GFP_FS;
+const gfp_t RUST_CONST_HELPER___GFP_IO = ___GFP_IO;
+
 #define ASHMEM_NAME_PREFIX "dev/ashmem/"
 #define ASHMEM_NAME_PREFIX_LEN (sizeof(ASHMEM_NAME_PREFIX) - 1)
 #define ASHMEM_FULL_NAME_LEN (ASHMEM_NAME_LEN + ASHMEM_NAME_PREFIX_LEN)
