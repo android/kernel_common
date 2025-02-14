@@ -12,16 +12,17 @@
 
 use core::{ffi::c_int, pin::Pin};
 use kernel::{
-    bindings, c_str,
+    bindings::{self, ASHMEM_GET_PIN_STATUS, ASHMEM_PIN, ASHMEM_UNPIN},
+    c_str,
     error::Result,
     fs::{File, LocalFile},
     ioctl::_IOC_SIZE,
     miscdevice::{loff_t, IovIter, Kiocb, MiscDevice, MiscDeviceOptions, MiscDeviceRegistration},
     mm::virt::{flags as vma_flags, VmAreaNew},
-    page::page_align,
+    page::{page_align, PAGE_MASK, PAGE_SIZE},
     prelude::*,
     seq_file::{seq_print, SeqFile},
-    sync::{new_mutex, Mutex},
+    sync::{new_mutex, Mutex, UniqueArc},
     task::Task,
     uaccess::{UserSlice, UserSliceReader, UserSliceWriter},
 };
@@ -35,6 +36,9 @@ const PROT_READ: usize = bindings::PROT_READ as usize;
 const PROT_EXEC: usize = bindings::PROT_EXEC as usize;
 const PROT_WRITE: usize = bindings::PROT_WRITE as usize;
 const PROT_MASK: usize = PROT_EXEC | PROT_READ | PROT_WRITE;
+
+mod ashmem_range;
+use ashmem_range::{Area, AshmemGuard, NewRange, ASHMEM_MUTEX};
 
 mod shmem;
 use shmem::ShmemFile;
@@ -62,6 +66,8 @@ impl kernel::Module for AshmemModule {
     fn init(_module: &'static kernel::ThisModule) -> Result<Self> {
         // SAFETY: Called once since this is the module initializer.
         unsafe { shmem::SHMEM_FOPS_ONCE.init() };
+        // SAFETY: Called once since this is the module initializer.
+        unsafe { ASHMEM_MUTEX.init() };
 
         pr_info!("Using Rust implementation.");
 
@@ -89,6 +95,7 @@ struct AshmemInner {
     /// If set, then this holds the ashmem name without the dev/ashmem/ prefix. No zero terminator.
     name: Option<Vec<u8>>,
     file: Option<ShmemFile>,
+    area: Area,
 }
 
 #[vtable]
@@ -104,6 +111,7 @@ impl MiscDevice for Ashmem {
                         prot_mask: PROT_MASK,
                         name: None,
                         file: None,
+                        area: Area::new(),
                     }),
                 }
             },
@@ -210,6 +218,9 @@ impl MiscDevice for Ashmem {
             bindings::ASHMEM_SET_PROT_MASK => me.set_prot_mask(arg),
             bindings::ASHMEM_GET_PROT_MASK => me.get_prot_mask(),
             bindings::ASHMEM_GET_FILE_ID => me.get_file_id(UserSlice::new(arg, size).writer()),
+            ASHMEM_PIN | ASHMEM_UNPIN | ASHMEM_GET_PIN_STATUS => {
+                me.pin_unpin(cmd, UserSlice::new(arg, size).reader())
+            }
             _ => Err(EINVAL),
         }
     }
@@ -324,6 +335,78 @@ impl Ashmem {
         };
         writer.write(&ino)?;
         Ok(0)
+    }
+
+    fn pin_unpin(&self, cmd: u32, mut reader: UserSliceReader) -> Result<isize> {
+        let (offset, cmd_len) = {
+            #[allow(dead_code)] // spurious warning because it is never explicitly constructed
+            #[repr(transparent)]
+            struct AshmemPin(bindings::ashmem_pin);
+            // SAFETY: All bit-patterns are valid for `ashmem_pin`.
+            unsafe impl kernel::types::FromBytes for AshmemPin {}
+            let AshmemPin(pin) = reader.read()?;
+            (pin.offset as usize, pin.len as usize)
+        };
+
+        // If `pin`/`unpin` needs a new range, they will take it from this `Option`. Otherwise,
+        // they will leave it here, and it gets dropped after the mutexes are released.
+        let new_range = if cmd == ASHMEM_GET_PIN_STATUS {
+            None
+        } else {
+            Some(UniqueArc::new_uninit(GFP_KERNEL)?)
+        };
+
+        let mut guard = AshmemGuard(ASHMEM_MUTEX.lock());
+        // C ashmem waits for in-flight shrinkers here using a separate mechanism, but we don't
+        // release the lock when calling `punch_hole` in the shrinker, so we don't need to do that.
+        let asma = &mut *self.inner.lock();
+        let mut new_range = match asma.file.as_ref() {
+            Some(file) => new_range.map(|alloc| NewRange { file, alloc }),
+            None => return Err(EINVAL),
+        };
+
+        // Per custom, you can pass zero for len to mean "everything onward".
+        let len = if cmd_len == 0 {
+            page_align(asma.size) - offset
+        } else {
+            cmd_len
+        };
+
+        if (offset | len) & !PAGE_MASK != 0 {
+            return Err(EINVAL);
+        }
+        let len_plus_offset = offset.checked_add(len).ok_or(EINVAL)?;
+        if page_align(asma.size) < len_plus_offset {
+            return Err(EINVAL);
+        }
+
+        let pgstart = offset / PAGE_SIZE;
+        let pgend = pgstart + (len / PAGE_SIZE) - 1;
+
+        match cmd {
+            ASHMEM_PIN => {
+                if asma.area.pin(pgstart, pgend, &mut new_range, &mut guard) {
+                    Ok(bindings::ASHMEM_WAS_PURGED as isize)
+                } else {
+                    Ok(bindings::ASHMEM_NOT_PURGED as isize)
+                }
+            }
+            ASHMEM_UNPIN => {
+                asma.area.unpin(pgstart, pgend, &mut new_range, &mut guard);
+                Ok(0)
+            }
+            ASHMEM_GET_PIN_STATUS => {
+                if asma
+                    .area
+                    .range_has_unpinned_page(pgstart, pgend, &mut guard)
+                {
+                    Ok(bindings::ASHMEM_IS_UNPINNED as isize)
+                } else {
+                    Ok(bindings::ASHMEM_IS_PINNED as isize)
+                }
+            }
+            _ => unreachable!(),
+        }
     }
 }
 
