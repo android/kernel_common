@@ -16,7 +16,7 @@ use kernel::{
     error::Result,
     fs::File,
     ioctl::_IOC_SIZE,
-    miscdevice::{MiscDevice, MiscDeviceOptions, MiscDeviceRegistration},
+    miscdevice::{IovIter, Kiocb, MiscDevice, MiscDeviceOptions, MiscDeviceRegistration},
     mm::virt::{flags as vma_flags, VmAreaNew},
     page::page_align,
     prelude::*,
@@ -153,6 +153,29 @@ impl MiscDevice for Ashmem {
 
         shmem::set_file(vma, file.file());
         Ok(())
+    }
+
+    fn read_iter(mut kiocb: Kiocb<'_, Self::Ptr>, iov: &mut IovIter) -> Result<usize> {
+        let me = kiocb.private_data();
+        let asma_file = {
+            let asma = me.inner.lock();
+            if asma.size == 0 {
+                // If size is not set, or set to 0, always return EOF.
+                return Ok(0);
+            }
+            match asma.file.as_ref() {
+                Some(asma_file) => asma_file.clone(),
+                None => return Err(EBADF),
+            }
+        };
+
+        let ret = asma_file.vfs_iter_read(iov, kiocb.ki_pos_mut())?;
+
+        // SAFETY: We protect the shmem file with the same mechanism as the ashmem file. We are in
+        // read_iter, so our caller ensures that accessing f_pos is okay.
+        unsafe { shmem::file_set_fpos(asma_file.file(), kiocb.ki_pos()) };
+
+        Ok(ret as usize)
     }
 
     fn ioctl(me: Pin<&Ashmem>, _file: &File, cmd: u32, arg: usize) -> Result<isize> {

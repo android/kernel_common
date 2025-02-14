@@ -7,7 +7,8 @@
 use kernel::{
     bindings,
     error::{from_err_ptr, to_result, Result},
-    fs::file::File,
+    fs::file::{File, LocalFile},
+    miscdevice::{loff_t, IovIter},
     mm::virt::{vm_flags_t, VmAreaNew},
     prelude::*,
     str::CStr,
@@ -19,6 +20,14 @@ use core::{
     ffi::{c_int, c_ulong},
     ptr::{addr_of_mut, NonNull},
 };
+
+/// # Safety
+///
+/// Caller must ensure that access to the file position is properly synchronized.
+pub(crate) unsafe fn file_set_fpos(file: &LocalFile, pos: loff_t) {
+    // SAFETY: Caller ensures that this is okay.
+    unsafe { (*file.as_ptr()).f_pos = pos };
+}
 
 pub(crate) fn vma_set_anonymous(vma: &VmAreaNew) {
     // SAFETY: The `VmAreaNew` type is only used when the vma is being set up, so this operation is
@@ -67,6 +76,17 @@ impl ShmemFile {
 
     pub(crate) fn file(&self) -> &File {
         &self.inner
+    }
+
+    pub(crate) fn vfs_iter_read(&self, iov: &mut IovIter, pos: &mut loff_t) -> Result<loff_t> {
+        // SAFETY: Just an FFI call. The file and iov is valid.
+        let ret = unsafe { bindings::vfs_iter_read(self.inner.as_ptr(), iov.as_raw(), pos, 0) };
+
+        if ret < 0 {
+            Err(Error::from_errno(ret as i32))
+        } else {
+            Ok(ret as loff_t)
+        }
     }
 }
 
