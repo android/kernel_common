@@ -722,8 +722,7 @@ static int mtk_nor_enable_clk(struct mtk_nor *sp)
 			dev_err(sp->dev, "get %s fail\n",sp->clocks[i].id);
 			return PTR_ERR(sp->clocks[i].clk);
 		}
-
-		if(strcmp(sp->clocks[i].id, "spi"))
+		if (!strcmp(sp->clocks[i].id, "spi"))
 			sp->spi_freq = clk_get_rate(sp->clocks[i].clk);
 	}
 
