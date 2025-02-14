@@ -1333,6 +1333,15 @@ static int skip_emulated_instruction(struct kvm_vcpu *vcpu)
 	unsigned long rip, orig_rip;
 	u32 instr_len;
 
+#ifdef __PKVM_HYP__
+	/*
+	 * The instruction caused EPT_MISCONFIG/VIOLATION is emulated and
+	 * skipped by the host VMM. The increased RIP will be accepted by
+	 * the pkvm hypervisor before entering the guest.
+	 */
+	if (exit_reason.basic != EXIT_REASON_EPT_MISCONFIG &&
+	    exit_reason.basic != EXIT_REASON_EPT_VIOLATION) {
+#else
 	/*
 	 * Using VMCS.VM_EXIT_INSTRUCTION_LEN on EPT misconfig depends on
 	 * undefined behavior: Intel's SDM doesn't mandate the VMCS field be
@@ -1343,6 +1352,7 @@ static int skip_emulated_instruction(struct kvm_vcpu *vcpu)
 	 */
 	if (!static_cpu_has(X86_FEATURE_HYPERVISOR) ||
 	    exit_reason.basic != EXIT_REASON_EPT_MISCONFIG) {
+#endif
 		instr_len = vmcs_read32(VM_EXIT_INSTRUCTION_LEN);
 
 		/*
