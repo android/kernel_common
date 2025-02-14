@@ -34,7 +34,8 @@ impl LockClassKey {
         Self(Opaque::uninit())
     }
 
-    pub(crate) fn as_ptr(&self) -> *mut bindings::lock_class_key {
+    /// Returns a raw pointer to the lock class key.
+    pub fn as_ptr(&self) -> *mut bindings::lock_class_key {
         self.0.get()
     }
 }
