@@ -41,11 +41,6 @@ static void free_pkvm_memcache(struct pkvm_memcache *mc)
 			     kvm_host_va, NULL);
 }
 
-static inline bool cpu_need_virtualize_apic_accesses(struct kvm_vcpu *vcpu)
-{
-	return flexpriority_enabled && lapic_in_kernel(vcpu);
-}
-
 static void free_pml_buffer(struct vcpu_vmx *vmx)
 {
 	if (vmx->pml_pg) {
@@ -356,12 +351,6 @@ static int pkvm_vcpu_create(struct kvm_vcpu *vcpu)
 
 	vmx->loaded_vmcs = &vmx->vmcs01;
 	vmx->loaded_vmcs->cpu = -1;
-
-	if (cpu_need_virtualize_apic_accesses(vcpu)) {
-		ret = kvm_alloc_apic_access_page(vcpu->kvm);
-		if (ret)
-			goto free_vmcs;
-	}
 
 	ret = -ENOMEM;
 
@@ -943,9 +932,11 @@ static void pkvm_set_virtual_apic_mode(struct kvm_vcpu *vcpu)
 		return;
 
 	kvm_call_pkvm(set_virtual_apic_mode, vcpu, vcpu->arch.apic_base);
+}
 
-	if (kvm_get_apic_mode(vcpu) == LAPIC_MODE_XAPIC)
-		kvm_make_request(KVM_REQ_APIC_PAGE_RELOAD, vcpu);
+static void pkvm_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
+{
+	/* No virtual apic access support in the pkvm hypervisor */
 }
 
 static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
@@ -1150,7 +1141,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 
 	.x2apic_icr_is_split = false,
 	.set_virtual_apic_mode = pkvm_set_virtual_apic_mode,
-	.set_apic_access_page_addr = vmx_set_apic_access_page_addr,
+	.set_apic_access_page_addr = pkvm_set_apic_access_page_addr,
 	.refresh_apicv_exec_ctrl = vmx_refresh_apicv_exec_ctrl,
 	.load_eoi_exitmap = vmx_load_eoi_exitmap,
 	.apicv_pre_state_restore = vmx_apicv_pre_state_restore,

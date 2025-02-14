@@ -7021,6 +7021,12 @@ int setup_vmx(void)
 	dump_invalid_vmcs = true;
 #endif
 
+	/*
+	 * Disable virtual apic access to simplify the pkvm hypervisor, which
+	 * can avoid setting the virtual apic access page.
+	 */
+	flexpriority_enabled = 0;
+
 	for_each_possible_cpu(cpu)
 		INIT_LIST_HEAD(&per_cpu(loaded_vmcss_on_cpu, cpu));
 
