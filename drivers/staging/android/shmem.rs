@@ -107,6 +107,11 @@ impl ShmemFile {
             Ok(ret as loff_t)
         }
     }
+
+    pub(crate) fn inode_ino(&self) -> usize {
+        // SAFETY: Accessing the ino is always okay.
+        unsafe { (*(*self.inner.as_ptr()).f_inode).i_ino as usize }
+    }
 }
 
 /// Fix the lockdep class of the shmem inode.
