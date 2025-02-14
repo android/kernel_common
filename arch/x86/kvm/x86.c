@@ -675,6 +675,15 @@ int kvm_set_apic_base(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	u64 reserved_bits = kvm_vcpu_reserved_gpa_bits_raw(vcpu) | 0x2ff |
 		(guest_cpuid_has(vcpu, X86_FEATURE_X2APIC) ? 0 : X2APIC_ENABLE);
 
+	/*
+	 * FIXME: The reserved_bits may have X2APIC_ENABLED as at this point
+	 * the guest cpuid may not be setup yet thus may not have
+	 * X86_FEATURE_X2APIC. So if this is for pVM, make sure X2APIC_ENABLE
+	 * bit is not in the reserved_bits.
+	 */
+	if (pkvm_is_protected_vcpu(vcpu))
+		reserved_bits &= ~X2APIC_ENABLE;
+
 	if ((msr_info->data & reserved_bits) != 0 || new_mode == LAPIC_MODE_INVALID)
 		return 1;
 	if (!msr_info->host_initiated) {
@@ -683,6 +692,11 @@ int kvm_set_apic_base(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		if (old_mode == LAPIC_MODE_DISABLED && new_mode == LAPIC_MODE_X2APIC)
 			return 1;
 	}
+
+	/* Only x2apic mode is supported for the pVM */
+	if (pkvm_is_protected_vcpu(vcpu) &&
+		new_mode != LAPIC_MODE_X2APIC)
+		return 0;
 
 	kvm_lapic_set_base(vcpu, msr_info->data);
 	kvm_recalculate_apic_map(vcpu->kvm);

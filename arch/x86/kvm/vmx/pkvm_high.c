@@ -430,6 +430,18 @@ static void pkvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 
 	kvm_set_cr8(vcpu, 0);
 	kvm_make_request(KVM_REQ_APIC_PAGE_RELOAD, vcpu);
+
+	/* Enable x2apic by default */
+	if (pkvm_is_protected_vcpu(vcpu)) {
+		struct msr_data apic_base_msr;
+
+		apic_base_msr.data = APIC_DEFAULT_PHYS_BASE |
+				     LAPIC_MODE_X2APIC |
+				     (kvm_vcpu_is_reset_bsp(vcpu) ? MSR_IA32_APICBASE_BSP : 0);
+		apic_base_msr.host_initiated = true;
+
+		kvm_set_apic_base(vcpu, &apic_base_msr);
+	}
 }
 
 static void pkvm_prepare_switch_to_guest(struct kvm_vcpu *vcpu) {}
