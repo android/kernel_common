@@ -598,10 +598,14 @@ phys_addr_t __pkvm_private_range_pa(void *va)
 int refill_hyp_pool(struct hyp_pool *pool, struct kvm_hyp_memcache *host_mc)
 {
 	unsigned long order;
+	u64 nr_pages;
 	void *p;
 
 	while (host_mc->nr_pages) {
 		order = FIELD_GET(~PAGE_MASK, host_mc->head);
+		if (check_shl_overflow(1UL, order, &nr_pages))
+			return -EINVAL;
+
 		p = admit_host_page(host_mc, order);
 		if (!p)
 			return -EINVAL;
