@@ -12,7 +12,10 @@ use kernel::{
     sync::{GlobalGuard, GlobalLockedBy, UniqueArc},
 };
 
-pub(crate) struct AshmemLru {}
+pub(crate) struct AshmemLru {
+    lru_list: List<Range, 0>,
+    lru_count: usize,
+}
 
 /// Represents ownership of the `ASHMEM_MUTEX` lock.
 ///
@@ -34,16 +37,50 @@ impl core::ops::DerefMut for AshmemGuard {
 
 impl AshmemGuard {
     fn shrink_range(&mut self, range: &Range, pgstart: usize, pgend: usize) {
-        let inner = range.inner.as_mut(self);
-        inner.pgstart = pgstart;
-        inner.pgend = pgend;
+        let old_size = range.size(self);
+        {
+            let inner = range.inner.as_mut(self);
+            inner.pgstart = pgstart;
+            inner.pgend = pgend;
+        }
+        let new_size = range.size(self);
+
+        // Only change the counter if the range is on the lru list.
+        if !range.purged(self) {
+            self.lru_count -= old_size;
+            self.lru_count += new_size;
+        }
+    }
+
+    fn insert_lru(&mut self, range: ListArc<Range>) {
+        // Don't insert the range if it's already purged.
+        if !range.purged(self) {
+            self.lru_count += range.size(self);
+            self.lru_list.push_front(range);
+        }
+    }
+
+    fn remove_lru(&mut self, range: &Range) -> Option<ListArc<Range>> {
+        // SAFETY: The only list with ID 0 is this list, so the range can't be in some other list
+        // with the same ID.
+        let ret = unsafe { self.lru_list.remove(range) };
+
+        // Only decrement lru_count if the range was actually in the list.
+        if ret.is_some() {
+            self.lru_count -= range.size(self);
+        }
+
+        ret
     }
 }
 
 kernel::sync::global_lock! {
     // SAFETY: We call `init` as the very first thing in the initialization of this module, so
     // there are no calls to `lock` before `init` is called.
-    pub(crate) unsafe(uninit) static ASHMEM_MUTEX: Mutex<AshmemLru> = AshmemLru {};
+    pub(crate) unsafe(uninit) static ASHMEM_MUTEX: Mutex<AshmemLru> = AshmemLru {
+        lru_list: List::new(),
+        lru_count: 0
+    };
 }
 
 #[pin_data]
@@ -52,6 +89,8 @@ pub(crate) struct Range {
     ///
     /// Note that "unpinned" here refers to the ASHMEM_PIN/UNPIN ioctls, which is unrelated to
     /// Rust's concept of pinning.
+    #[pin]
+    lru: ListLinks<0>,
     #[pin]
     unpinned: ListLinks<1>,
     pub(crate) inner: GlobalLockedBy<RangeInner, ASHMEM_MUTEX>,
@@ -74,6 +113,11 @@ impl Range {
 
     pub(crate) fn pgend(&self, guard: &AshmemGuard) -> usize {
         self.inner.as_ref(guard).pgend
+    }
+
+    pub(crate) fn size(&self, guard: &AshmemGuard) -> usize {
+        let inner = self.inner.as_ref(guard);
+        inner.pgend - inner.pgstart + 1
     }
 
     pub(crate) fn is_before_page(&self, page: usize, guard: &AshmemGuard) -> bool {
@@ -119,14 +163,17 @@ impl Range {
 }
 
 kernel::list::impl_has_list_links! {
+    impl HasListLinks<0> for Range { self.lru }
     impl HasListLinks<1> for Range { self.unpinned }
 }
 
 kernel::list::impl_list_arc_safe! {
+    impl ListArcSafe<0> for Range { untracked; }
     impl ListArcSafe<1> for Range { untracked; }
 }
 
 kernel::list::impl_list_item! {
+    impl ListItem<0> for Range { using ListLinks; }
     impl ListItem<1> for Range { using ListLinks; }
 }
 
@@ -135,6 +182,15 @@ pub(crate) struct Area {
     ///
     /// The ranges are sorted in descending order.
     unpinned_list: List<Range, 1>,
+}
+
+impl Drop for Area {
+    fn drop(&mut self) {
+        let mut guard = AshmemGuard(super::ASHMEM_MUTEX.lock());
+        for range in &self.unpinned_list {
+            guard.remove_lru(&range);
+        }
+    }
 }
 
 impl Area {
@@ -173,7 +229,7 @@ impl Area {
                 pgstart = usize::min(pgstart, next.pgstart(guard));
                 pgend = usize::max(pgend, next.pgend(guard));
                 purged |= next.purged(guard);
-                next.remove();
+                guard.remove_lru(&next.remove());
 
                 // restart loop
                 cursor = self.unpinned_list.cursor_front();
@@ -189,7 +245,8 @@ impl Area {
             purged,
         });
 
-        let new_range = ListArc::from(new_range);
+        let (range_lru, new_range) = ListArc::<Range, 0>::pair_from_pin_unique::<1>(new_range);
+        guard.insert_lru(range_lru);
         cursor.insert(new_range);
     }
 
@@ -236,7 +293,8 @@ impl Area {
 
                 if next.is_subset_of_range(pgstart, pgend, guard) {
                     // Case #1: Easy. Just nuke the whole thing.
-                    next.remove();
+                    let removed = next.remove();
+                    guard.remove_lru(&removed);
                     continue;
                 } else if curr_pgstart >= pgstart {
                     // Case #2: We overlap from the start, so adjust it.
@@ -257,7 +315,9 @@ impl Area {
                         purged,
                     });
 
-                    let new_range = ListArc::from(new_range);
+                    let (range_lru, new_range) =
+                        ListArc::<Range, 0>::pair_from_pin_unique::<1>(new_range);
+                    guard.insert_lru(range_lru);
                     cursor.insert(new_range);
                     break;
                 }
@@ -292,6 +352,7 @@ pub(crate) struct NewRange<'a> {
 impl<'a> NewRange<'a> {
     fn init(self, inner: RangeInner) -> Pin<UniqueArc<Range>> {
         let new_range = self.alloc.pin_init_with(pin_init!(Range {
+            lru <- ListLinks::new(),
             unpinned <- ListLinks::new(),
             inner: GlobalLockedBy::new(inner),
         }));
