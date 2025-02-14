@@ -204,7 +204,7 @@ handle it in two different ways:
 
 1. return EXDEV error: this error is returned by rename(2) when trying to
    move a file or directory across filesystem boundaries.  Hence
-   applications are usually prepared to handle this error (mv(1) for example
+   applications are usually prepared to hande this error (mv(1) for example
    recursively copies the directory tree).  This is the default behavior.
 
 2. If the "redirect_dir" feature is enabled, then the directory will be
@@ -332,30 +332,6 @@ and::
 The resulting access permissions should be the same.  The difference is in
 the time of copy (on-demand vs. up-front).
 
-### Non overlapping credentials
-
-As noted above, all access to the upper, lower and work directories is the
-recorded mounter's MAC and DAC credentials.  The incoming accesses are
-checked against the caller's credentials.
-
-It is possible, however, that the mounting process (say, init) has access to
-mount an overlay, but not access to read or execute certain files in the lower
-dir.  Meanwhile another process may ONLY have access to files in the lower dir.
-This scenario is very common in a "principle of least privilege" security
-model.  And in this case, using the mounter's credentials will result in access
-errors for the calling process, even though the calling process can access the
-lower dir.
-
-To address this, the override_creds=off mount option will disable using the
-mounter's credentials.
-
-The ability to search and read a directory entry is spotty as a result of the
-cache mechanism not re-testing the credentials because of the assumption, a
-privileged caller can fill cache, then a lower privilege can read the directory
-cache.  The uneven security model where cache, upperdir and workdir are opened
-at privilege, but accessed without creating a form of privilege escalation,
-should only be used with strict understanding of the side effects and of the
-security policies.
 
 Multiple lower layers
 ---------------------
