@@ -33,6 +33,7 @@ int __pkvm_create_private_mapping(phys_addr_t phys, size_t size,
 int pkvm_create_stack(phys_addr_t phys, unsigned long *haddr);
 int pkvm_alloc_private_va_range(size_t size, unsigned long *haddr);
 void pkvm_remove_mappings(void *from, void *to);
+unsigned long pkvm_remove_mappings_locked(void *from, void *to);
 phys_addr_t __pkvm_private_range_pa(void *va);
 int __hyp_allocator_map(unsigned long start, phys_addr_t phys);
 

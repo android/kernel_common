@@ -1639,8 +1639,10 @@ int pkvm_pgtable_stage2_map(struct kvm_pgtable *pgt, u64 addr, u64 size,
 	}
 
 	ret = kvm_call_hyp_nvhe(__pkvm_host_share_guest, pfn, gfn, prot, size / PAGE_SIZE);
-	if (WARN_ON(ret))
+	if (ret) {
+		WARN_ON(ret != -ENOMEM);
 		return ret;
+	}
 
 	swap(mapping, cache->mapping);
 	mapping->gfn = gfn;

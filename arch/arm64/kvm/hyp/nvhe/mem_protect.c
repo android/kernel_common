@@ -1285,7 +1285,14 @@ int __pkvm_host_share_hyp(u64 pfn)
 	}
 
 	prot = pkvm_mkstate(PAGE_HYP, PKVM_PAGE_SHARED_BORROWED);
-	WARN_ON(pkvm_create_mappings_locked(virt, virt + size, prot));
+	ret = pkvm_create_mappings_locked(virt, virt + size, prot);
+	if (ret) {
+		WARN_ON(ret != -ENOMEM);
+		/* We might have failed halfway through, so remove anything we've installed */
+		pkvm_remove_mappings_locked(virt, virt + size);
+		goto unlock;
+	}
+
 	WARN_ON(__host_set_page_state_range(phys, size, PKVM_PAGE_SHARED_OWNED));
 
 unlock:
@@ -1477,7 +1484,13 @@ int __pkvm_host_donate_hyp_locked(u64 pfn, u64 nr_pages, enum kvm_pgtable_prot p
 	}
 
 	prot = pkvm_mkstate(prot, PKVM_PAGE_OWNED);
-	WARN_ON(pkvm_create_mappings_locked(virt, virt + size, prot));
+	ret = pkvm_create_mappings_locked(virt, virt + size, prot);
+	if (ret) {
+		WARN_ON(ret != -ENOMEM);
+		/* We might have failed halfway through, so remove anything we've installed */
+		pkvm_remove_mappings_locked(virt, virt + size);
+		goto unlock;
+	}
 	WARN_ON(host_stage2_set_owner_locked(phys, size, PKVM_ID_HYP));
 
 unlock:
