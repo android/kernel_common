@@ -1855,9 +1855,8 @@ unlock:
 	return ret;
 }
 
-static int __check_host_shared_guest(struct pkvm_hyp_vm *vm, u64 *__phys, u64 ipa, u8 order)
+static int __check_host_shared_guest(struct pkvm_hyp_vm *vm, u64 *__phys, u64 ipa, size_t size)
 {
-	size_t size = PAGE_SIZE << order;
 	enum pkvm_page_state state;
 	struct hyp_page *page;
 	kvm_pte_t pte;
@@ -1865,7 +1864,7 @@ static int __check_host_shared_guest(struct pkvm_hyp_vm *vm, u64 *__phys, u64 ip
 	s8 level;
 	int ret;
 
-	if (order && size != PMD_SIZE)
+	if (size != PAGE_SIZE && size != PMD_SIZE)
 		return -EINVAL;
 	ret = kvm_pgtable_get_leaf(&vm->pgt, ipa, &pte, &level);
 	if (ret)
@@ -1898,9 +1897,9 @@ static int __check_host_shared_guest(struct pkvm_hyp_vm *vm, u64 *__phys, u64 ip
 	return 0;
 }
 
-int __pkvm_host_unshare_guest(u64 gfn, struct pkvm_hyp_vm *vm, u8 order)
+int __pkvm_host_unshare_guest(u64 gfn, struct pkvm_hyp_vm *vm, u64 nr_pages)
 {
-	size_t size = PAGE_SIZE << order;
+	size_t size = PAGE_SIZE * nr_pages;
 	u64 ipa = hyp_pfn_to_phys(gfn);
 	struct hyp_page *page;
 	u64 phys, end;
@@ -1909,7 +1908,7 @@ int __pkvm_host_unshare_guest(u64 gfn, struct pkvm_hyp_vm *vm, u8 order)
 	host_lock_component();
 	guest_lock_component(vm);
 
-	ret = __check_host_shared_guest(vm, &phys, ipa, order);
+	ret = __check_host_shared_guest(vm, &phys, ipa, size);
 	if (ret)
 		goto unlock;
 
