@@ -2021,12 +2021,10 @@ int __pkvm_host_wrprotect_guest(u64 gfn, struct pkvm_hyp_vm *vm, u8 order)
 	host_lock_component();
 	guest_lock_component(vm);
 
-	ret = __check_host_unshare_guest(vm, &phys, ipa, order);
-	if (ret)
-		goto unlock;
+	ret = __check_host_shared_guest(vm, &phys, ipa, order);
+	if (!ret)
+		ret = kvm_pgtable_stage2_wrprotect(&vm->pgt, ipa, PAGE_SIZE << order);
 
-	ret = kvm_pgtable_stage2_wrprotect(&vm->pgt, ipa, PAGE_SIZE << order);
-unlock:
 	guest_unlock_component(vm);
 	host_unlock_component();
 
