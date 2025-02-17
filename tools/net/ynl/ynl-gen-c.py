@@ -4,12 +4,15 @@
 import argparse
 import collections
 import filecmp
+import pathlib
 import os
 import re
 import shutil
+import sys
 import tempfile
 import yaml
 
+sys.path.append(pathlib.Path(__file__).resolve().parent.as_posix())
 from lib import SpecFamily, SpecAttrSet, SpecAttr, SpecOperation, SpecEnumSet, SpecEnumEntry
 
 
@@ -2416,6 +2419,7 @@ def uapi_enum_start(family, cw, obj, ckey='', enum_name='enum-name'):
 
 def render_uapi(family, cw):
     hdr_prot = f"_UAPI_LINUX_{c_upper(family.uapi_header_name)}_H"
+    hdr_prot = hdr_prot.replace('/', '_')
     cw.p('#ifndef ' + hdr_prot)
     cw.p('#define ' + hdr_prot)
     cw.nl()
@@ -2437,11 +2441,15 @@ def render_uapi(family, cw):
             enum = family.consts[const['name']]
 
             if enum.has_doc():
-                cw.p('/**')
-                doc = ''
-                if 'doc' in enum:
-                    doc = ' - ' + enum['doc']
-                cw.write_doc_line(enum.enum_name + doc)
+                if enum.has_entry_doc():
+                    cw.p('/**')
+                    doc = ''
+                    if 'doc' in enum:
+                        doc = ' - ' + enum['doc']
+                    cw.write_doc_line(enum.enum_name + doc)
+                else:
+                    cw.p('/*')
+                    cw.write_doc_line(enum['doc'], indent=False)
                 for entry in enum.entries.values():
                     if entry.has_doc():
                         doc = '@' + entry.c_name + ': ' + entry['doc']
