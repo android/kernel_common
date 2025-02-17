@@ -1354,6 +1354,23 @@ int __pkvm_register_el2_call(unsigned long hfn_hyp_va)
 	return kvm_call_hyp_nvhe(__pkvm_register_hcall, hfn_hyp_va);
 }
 EXPORT_SYMBOL(__pkvm_register_el2_call);
+
+void pkvm_el2_mod_frob_sections(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs, char *secstrings)
+{
+#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+	int i;
+
+	for (i = 0; i < ehdr->e_shnum; i++) {
+		if (!strcmp(secstrings + sechdrs[i].sh_name, ".hyp.text")) {
+			Elf_Shdr *hyp_text = sechdrs + i;
+
+			/* .hyp.text.ftrace_tramp pollutes .hyp.text flags */
+			hyp_text->sh_flags = SHF_EXECINSTR | SHF_ALLOC;
+			break;
+		}
+	}
+#endif
+}
 #endif /* CONFIG_MODULES */
 
 int __pkvm_topup_hyp_alloc(unsigned long nr_pages)

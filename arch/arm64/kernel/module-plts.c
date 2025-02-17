@@ -10,6 +10,8 @@
 #include <linux/moduleloader.h>
 #include <linux/sort.h>
 
+#include <asm/kvm_pkvm_module.h>
+
 static struct plt_entry __get_adrp_add_pair(u64 dst, u64 pc,
 					    enum aarch64_insn_register reg)
 {
@@ -362,6 +364,8 @@ int module_frob_arch_sections(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs,
 		tramp->sh_addralign = __alignof__(struct plt_entry);
 		tramp->sh_size = NR_FTRACE_PLTS * sizeof(struct plt_entry);
 	}
+
+	pkvm_el2_mod_frob_sections(ehdr, sechdrs, secstrings);
 
 	return 0;
 }

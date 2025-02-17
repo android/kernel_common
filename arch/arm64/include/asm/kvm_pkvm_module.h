@@ -291,6 +291,8 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token);
 int __pkvm_register_el2_call(unsigned long hfn_hyp_va);
 
 unsigned long pkvm_el2_mod_kern_va(unsigned long addr);
+
+void pkvm_el2_mod_frob_sections(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs, char *secstrings);
 #else
 static inline int __pkvm_load_el2_module(struct module *this,
 					 unsigned long *token)
