@@ -2048,28 +2048,6 @@ kvm_pte_t __pkvm_host_mkyoung_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu)
 	return pte;
 }
 
-int __pkvm_host_dirty_log_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu)
-{
-	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
-	u64 ipa = hyp_pfn_to_phys(gfn);
-	u64 phys;
-	int ret;
-
-	host_lock_component();
-	guest_lock_component(vm);
-
-	ret = __check_host_shared_guest(vm, &phys, ipa, 0);
-	if (!ret) {
-		ret = kvm_pgtable_stage2_map(&vm->pgt, ipa, PAGE_SIZE, phys, KVM_PGTABLE_PROT_RWX,
-					     &vcpu->vcpu.arch.stage2_mc, 0);
-	}
-
-	guest_unlock_component(vm);
-	host_unlock_component();
-
-	return ret;
-}
-
 int __pkvm_host_donate_guest(u64 pfn, u64 gfn, struct pkvm_hyp_vcpu *vcpu, u64 nr_pages)
 {
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
