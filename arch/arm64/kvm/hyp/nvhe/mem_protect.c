@@ -1996,18 +1996,16 @@ int __pkvm_host_relax_perms_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu, enum kvm_
 	u64 phys;
 	int ret;
 
-	if ((prot & KVM_PGTABLE_PROT_RWX) != prot)
-		return -EPERM;
+	if (prot & ~KVM_PGTABLE_PROT_RWX)
+		return -EINVAL;
 
 	host_lock_component();
 	guest_lock_component(vm);
 
-	ret = __check_host_unshare_guest(vm, &phys, ipa, order);
-	if (ret)
-		goto unlock;
+	ret = __check_host_shared_guest(vm, &phys, ipa, order);
+	if (!ret)
+		ret = kvm_pgtable_stage2_relax_perms(&vm->pgt, ipa, prot, 0);
 
-	ret = kvm_pgtable_stage2_relax_perms(&vm->pgt, ipa, prot, 0);
-unlock:
 	guest_unlock_component(vm);
 	host_unlock_component();
 
