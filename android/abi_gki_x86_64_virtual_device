@@ -241,8 +241,6 @@
   param_ops_uint
   passthru_features_check
   pci_bus_type
-  pci_release_region
-  pci_request_region
   pcpu_hot
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
@@ -575,6 +573,8 @@
   pci_enable_device
   pci_read_config_byte
   __pci_register_driver
+  pci_release_region
+  pci_request_region
   pci_unregister_driver
 
 # required by goldfish_battery.ko
@@ -622,6 +622,7 @@
   unregister_candev
   usb_control_msg_recv
   usb_control_msg_send
+  usb_find_common_endpoints
 
 # required by hci_vhci.ko
   _copy_from_iter
@@ -1112,16 +1113,6 @@
   xdp_rxq_info_reg_mem_model
   xdp_rxq_info_unreg
   xdp_warn
-
-# required by virtio_pci_legacy_dev.ko
-  ioread16
-  ioread32
-  ioread8
-  iowrite16
-  iowrite32
-  iowrite8
-  pci_iomap
-  pci_iounmap
 
 # required by virtio_pmem.ko
   nvdimm_bus_register

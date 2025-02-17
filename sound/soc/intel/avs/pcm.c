@@ -449,7 +449,7 @@ static int avs_dai_hda_be_trigger(struct snd_pcm_substream *substream, int cmd,
 		break;
 	}
 
-	return ret;
+	return 0;
 }
 
 static const struct snd_soc_dai_ops avs_dai_hda_be_ops = {

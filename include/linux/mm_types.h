@@ -516,10 +516,7 @@ static_assert(sizeof(struct ptdesc) <= sizeof(struct page));
  */
 #define page_private(page)		((page)->private)
 
-static inline void set_page_private(struct page *page, unsigned long private)
-{
-	page->private = private;
-}
+void set_page_private(struct page *page, unsigned long private);
 
 static inline void *folio_get_private(struct folio *folio)
 {
@@ -607,6 +604,9 @@ struct vma_numab_state {
 	 * every VMA_PID_RESET_PERIOD jiffies:
 	 */
 	unsigned long pids_active[2];
+
+	/* MM scan sequence ID when scan first started after VMA creation */
+	int start_scan_seq;
 
 	/*
 	 * MM scan sequence ID when the VMA was last completely scanned.
