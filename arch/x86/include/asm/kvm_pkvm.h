@@ -278,6 +278,7 @@ enum pkvm_fn {
 	__pkvm__set_idt,
 	__pkvm__get_gdt,
 	__pkvm__set_gdt,
+	__pkvm__set_dr7,
 };
 
 union pkvm_pv_param {

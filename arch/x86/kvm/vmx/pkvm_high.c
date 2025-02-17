@@ -687,6 +687,14 @@ static void pkvm_set_gdt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
 	pkvm_access_idt_gdt(vcpu, dt, true, false);
 }
 
+static void pkvm_set_dr7(struct kvm_vcpu *vcpu, unsigned long val)
+{
+	if (vcpu->arch.guest_state_protected)
+		return;
+
+	kvm_call_pkvm(set_dr7, vcpu, val);
+}
+
 void vmx_do_nmi_irqoff(void);
 
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
@@ -922,7 +930,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_idt = pkvm_set_idt,
 	.get_gdt = pkvm_get_gdt,
 	.set_gdt = pkvm_set_gdt,
-	.set_dr7 = vmx_set_dr7,
+	.set_dr7 = pkvm_set_dr7,
 	.sync_dirty_debug_regs = vmx_sync_dirty_debug_regs,
 	.cache_reg = vmx_cache_reg,
 	.get_rflags = vmx_get_rflags,

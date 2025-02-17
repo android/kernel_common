@@ -651,6 +651,14 @@ static void pkvm_access_idt_gdt(struct pkvm_vcpu *pkvm_vcpu, struct desc_ptr *de
 	}
 }
 
+static void pkvm_set_dr7(struct pkvm_vcpu *pkvm_vcpu, unsigned long val)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(set_dr7)(to_kvm_vcpu(pkvm_vcpu), val);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -717,6 +725,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 	case __pkvm__set_gdt:
 		pkvm_access_idt_gdt(pkvm_vcpu, (struct desc_ptr *)kern_pkvm_va((void *)p2),
 				    true, false);
+		break;
+	case __pkvm__set_dr7:
+		pkvm_set_dr7(pkvm_vcpu, p2);
 		break;
 	default:
 		ret = -EINVAL;
