@@ -185,6 +185,12 @@ out_fail:
 	return ret;
 }
 
+static int __init early_hyp_lm_size_mb_cfg(char *arg)
+{
+	return kstrtoull(arg, 10, &kvm_nvhe_sym(hyp_lm_size_mb));
+}
+early_param("kvm-arm.hyp_lm_size_mb", early_hyp_lm_size_mb_cfg);
+
 void __init kvm_hyp_reserve(void)
 {
 	u64 hyp_mem_pages = 0;
