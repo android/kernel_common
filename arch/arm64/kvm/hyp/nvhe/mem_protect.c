@@ -1817,8 +1817,7 @@ int __pkvm_host_share_guest(u64 pfn, u64 gfn, struct pkvm_hyp_vcpu *vcpu,
 			continue;
 		else if (page->host_state == PKVM_PAGE_SHARED_OWNED && page->host_share_guest_count)
 			continue;
-		WARN_ON(1);
-		ret = -EINVAL;
+		ret = -EPERM;
 		goto unlock;
 	}
 
