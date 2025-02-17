@@ -1562,15 +1562,9 @@ static bool kvm_vma_mte_allowed(struct vm_area_struct *vma)
 	return vma->vm_flags & VM_MTE_ALLOWED;
 }
 
-static int pkvm_host_map_guest(struct kvm *kvm, u64 pfn, u64 gfn, u64 nr_pages,
-			       enum kvm_pgtable_prot prot)
+static int pkvm_host_donate_guest(struct kvm *kvm, u64 pfn, u64 gfn, u64 nr_pages)
 {
-	int ret;
-
-	if (kvm_vm_is_protected(kvm))
-		ret = kvm_call_hyp_nvhe(__pkvm_host_donate_guest, pfn, gfn, nr_pages);
-	else
-		ret = kvm_call_hyp_nvhe(__pkvm_host_share_guest, pfn, gfn, prot, nr_pages);
+	int ret = kvm_call_hyp_nvhe(__pkvm_host_donate_guest, pfn, gfn, nr_pages);
 
 	/*
 	 * Getting -EPERM at this point implies that the pfn has already been
@@ -1620,6 +1614,9 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t *fault_ipa,
 	u64 pfn;
 	int ret;
 
+	if (WARN_ON(!kvm->arch.pkvm.enabled))
+		return -EINVAL;
+
 	ret = topup_hyp_memcache_account(kvm, hyp_memcache, kvm_mmu_cache_min_pages(mmu), 0);
 	if (ret)
 		return -ENOMEM;
@@ -1666,8 +1663,7 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t *fault_ipa,
 	} else if (ret != 1) {
 		ret = -EFAULT;
 		goto free_ppage;
-	} else if (kvm->arch.pkvm.enabled
-		   && !folio_test_swapbacked(page_folio(page))) {
+	} else if (!folio_test_swapbacked(page_folio(page))) {
 		/*
 		 * We really can't deal with page-cache pages returned by GUP
 		 * because (a) we may trigger writeback of a page for which we
@@ -1704,7 +1700,7 @@ retry:
 	write_lock(&kvm->mmu_lock);
 	/*
 	 * If we already have a mapping in the middle of the THP, we have no
-	 * other choice than enforcing PAGE_SIZE for pkvm_host_map_guest() to
+	 * other choice than enforcing PAGE_SIZE for pkvm_host_donate_guest() to
 	 * succeed.
 	 */
 	if (page_size > PAGE_SIZE &&
@@ -1718,8 +1714,7 @@ retry:
 		goto retry;
 	}
 
-	ret = pkvm_host_map_guest(kvm, pfn, *fault_ipa >> PAGE_SHIFT,
-				  page_size >> PAGE_SHIFT, KVM_PGTABLE_PROT_R);
+	ret = pkvm_host_donate_guest(kvm, pfn, *fault_ipa >> PAGE_SHIFT, page_size >> PAGE_SHIFT);
 	if (ret) {
 		if (ret == -EAGAIN)
 			ret = 0;
@@ -1731,7 +1726,6 @@ retry:
 	ppage->ipa = *fault_ipa;
 	ppage->order = get_order(page_size);
 	ppage->pins = 1 << ppage->order;
-	ppage->dirty = kvm->arch.pkvm.enabled;
 	WARN_ON(insert_ppage(kvm, ppage));
 	write_unlock(&kvm->mmu_lock);
 
