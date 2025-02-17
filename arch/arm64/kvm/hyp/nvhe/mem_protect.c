@@ -1965,29 +1965,6 @@ int __pkvm_guest_get_valid_phys_page(struct pkvm_hyp_vm *vm, u64 *phys, u64 ipa)
 	return ret;
 }
 
-/*
- * Ideally we would like to use check_unshare()... but this wouldn't let us
- * restrict the unshare range to the actual guest stage-2 mapping.
- */
-static int __check_host_unshare_guest(struct pkvm_hyp_vm *vm, u64 *phys, u64 ipa,
-				      u8 order)
-{
-	enum pkvm_page_state state;
-	kvm_pte_t pte;
-	int ret;
-
-	ret = guest_get_valid_pte(vm, phys, ipa, order, &pte);
-	if (ret)
-		return ret;
-
-	state = guest_get_page_state(pte, ipa) & ~PKVM_PAGE_RESTRICTED_PROT;
-	if (state != PKVM_PAGE_SHARED_BORROWED)
-		return -EPERM;
-
-	return __host_check_page_state_range(*phys, PAGE_SIZE << order,
-					     PKVM_PAGE_SHARED_OWNED);
-}
-
 int __pkvm_host_relax_perms_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu, enum kvm_pgtable_prot prot,
 				  u8 order)
 {
@@ -2041,20 +2018,16 @@ int __pkvm_host_dirty_log_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu)
 	host_lock_component();
 	guest_lock_component(vm);
 
-	ret = __check_host_unshare_guest(vm, &phys, ipa, 0);
-	if (ret)
-		goto unlock;
+	ret = __check_host_shared_guest(vm, &phys, ipa, 0);
+	if (!ret) {
+		ret = kvm_pgtable_stage2_map(&vm->pgt, ipa, PAGE_SIZE, phys, KVM_PGTABLE_PROT_RWX,
+					     &vcpu->vcpu.arch.stage2_mc, 0);
+	}
 
-	ret = kvm_pgtable_stage2_map(&vm->pgt, ipa, PAGE_SIZE,
-				     phys, KVM_PGTABLE_PROT_RWX,
-				     &vcpu->vcpu.arch.stage2_mc,
-				     0);
-unlock:
 	guest_unlock_component(vm);
 	host_unlock_component();
 
 	return ret;
-
 }
 
 int __pkvm_host_donate_guest(u64 pfn, u64 gfn, struct pkvm_hyp_vcpu *vcpu, u64 nr_pages)
