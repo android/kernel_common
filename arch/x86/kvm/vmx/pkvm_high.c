@@ -595,6 +595,35 @@ static void pkvm_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int
 	put_this_pv_param(pkvm_var);
 }
 
+static int pkvm_get_cpl(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	int seg = VCPU_SREG_SS;
+	u32 ar;
+
+	if (WARN_ON_ONCE(!pkvm_segment_cache_test(vmx, seg, SEG_FIELD_AR)))
+		return 0;
+
+	ar = vmx->segment_cache.seg[seg].ar;
+	return VMX_AR_DPL(ar);
+}
+
+static void pkvm_get_cs_db_l_bits(struct kvm_vcpu *vcpu, int *db, int *l)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	int seg = VCPU_SREG_CS;
+	u32 ar;
+
+	if (WARN_ON_ONCE(!pkvm_segment_cache_test(vmx, seg, SEG_FIELD_AR))) {
+		*db = *l = 0;
+		return;
+	}
+
+	ar = vmx->segment_cache.seg[seg].ar;
+	*db = (ar >> 14) & 1;
+	*l = (ar >> 13) & 1;
+}
+
 static bool pkvm_is_valid_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
 {
 	return true;
@@ -1176,8 +1205,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.get_segment_base = pkvm_get_segment_base,
 	.get_segment = pkvm_get_segment,
 	.set_segment = pkvm_set_segment,
-	.get_cpl = vmx_get_cpl,
-	.get_cs_db_l_bits = vmx_get_cs_db_l_bits,
+	.get_cpl = pkvm_get_cpl,
+	.get_cs_db_l_bits = pkvm_get_cs_db_l_bits,
 	.is_valid_cr0 = pkvm_is_valid_cr0,
 	.set_cr0 = pkvm_set_cr0,
 	.is_valid_cr4 = pkvm_is_valid_cr4,
