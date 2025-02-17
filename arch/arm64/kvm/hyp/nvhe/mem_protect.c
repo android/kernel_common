@@ -1965,64 +1965,51 @@ int __pkvm_guest_get_valid_phys_page(struct pkvm_hyp_vm *vm, u64 *phys, u64 ipa)
 	return ret;
 }
 
-int __pkvm_host_relax_perms_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu, enum kvm_pgtable_prot prot,
-				  u8 order)
+int __pkvm_host_relax_perms_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu, enum kvm_pgtable_prot prot)
 {
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
 	u64 ipa = hyp_pfn_to_phys(gfn);
-	u64 phys;
 	int ret;
+
+	if (WARN_ON(kvm_vm_is_protected(&vm->kvm)))
+		return -EPERM;
 
 	if (prot & ~KVM_PGTABLE_PROT_RWX)
 		return -EINVAL;
 
-	host_lock_component();
 	guest_lock_component(vm);
-
-	ret = __check_host_shared_guest(vm, &phys, ipa, order);
-	if (!ret)
-		ret = kvm_pgtable_stage2_relax_perms(&vm->pgt, ipa, prot, 0);
-
+	ret = kvm_pgtable_stage2_relax_perms(&vm->pgt, ipa, prot, 0);
 	guest_unlock_component(vm);
-	host_unlock_component();
 
 	return ret;
 }
 
-int __pkvm_host_wrprotect_guest(u64 gfn, struct pkvm_hyp_vm *vm, u8 order)
+int __pkvm_host_wrprotect_guest(u64 gfn, struct pkvm_hyp_vm *vm, u64 size)
 {
 	u64 ipa = hyp_pfn_to_phys(gfn);
-	u64 phys;
 	int ret;
 
-	host_lock_component();
+	if (WARN_ON(kvm_vm_is_protected(&vm->kvm)))
+		return -EPERM;
+
 	guest_lock_component(vm);
-
-	ret = __check_host_shared_guest(vm, &phys, ipa, order);
-	if (!ret)
-		ret = kvm_pgtable_stage2_wrprotect(&vm->pgt, ipa, PAGE_SIZE << order);
-
+	ret = kvm_pgtable_stage2_wrprotect(&vm->pgt, ipa, size);
 	guest_unlock_component(vm);
-	host_unlock_component();
 
 	return ret;
 }
 
-int __pkvm_host_test_clear_young_guest(u64 gfn, bool mkold, struct pkvm_hyp_vm *vm)
+int __pkvm_host_test_clear_young_guest(u64 gfn, u64 size, bool mkold, struct pkvm_hyp_vm *vm)
 {
 	u64 ipa = hyp_pfn_to_phys(gfn);
-	u64 phys;
 	int ret;
 
-	host_lock_component();
+	if (WARN_ON(kvm_vm_is_protected(&vm->kvm)))
+		return -EPERM;
+
 	guest_lock_component(vm);
-
-	ret = __check_host_shared_guest(vm, &phys, ipa, 0);
-	if (!ret)
-		ret = kvm_pgtable_stage2_test_clear_young(&vm->pgt, ipa, PAGE_SIZE, mkold);
-
+	ret = kvm_pgtable_stage2_test_clear_young(&vm->pgt, ipa, size, mkold);
 	guest_unlock_component(vm);
-	host_unlock_component();
 
 	return ret;
 }
@@ -2032,18 +2019,13 @@ kvm_pte_t __pkvm_host_mkyoung_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu)
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
 	u64 ipa = hyp_pfn_to_phys(gfn);
 	kvm_pte_t pte;
-	u64 phys;
-	int ret;
 
-	host_lock_component();
+	if (WARN_ON(kvm_vm_is_protected(&vm->kvm)))
+		return 0;
+
 	guest_lock_component(vm);
-
-	ret = __check_host_shared_guest(vm, &phys, ipa, 0);
-	if (!ret)
-		pte = kvm_pgtable_stage2_mkyoung(&vm->pgt, ipa, 0);
-
+	pte = kvm_pgtable_stage2_mkyoung(&vm->pgt, ipa, 0);
 	guest_unlock_component(vm);
-	host_unlock_component();
 
 	return pte;
 }
