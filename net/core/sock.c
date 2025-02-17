@@ -821,14 +821,11 @@ EXPORT_SYMBOL(sock_set_sndtimeo);
 
 static void __sock_set_timestamps(struct sock *sk, bool val, bool new, bool ns)
 {
+	sock_valbool_flag(sk, SOCK_RCVTSTAMP, val);
+	sock_valbool_flag(sk, SOCK_RCVTSTAMPNS, val && ns);
 	if (val)  {
 		sock_valbool_flag(sk, SOCK_TSTAMP_NEW, new);
-		sock_valbool_flag(sk, SOCK_RCVTSTAMPNS, ns);
-		sock_set_flag(sk, SOCK_RCVTSTAMP);
 		sock_enable_timestamp(sk, SOCK_TIMESTAMP);
-	} else {
-		sock_reset_flag(sk, SOCK_RCVTSTAMP);
-		sock_reset_flag(sk, SOCK_RCVTSTAMPNS);
 	}
 }
 
@@ -2599,14 +2596,11 @@ void __sock_wfree(struct sk_buff *skb)
 void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
 {
 	skb_orphan(skb);
-	skb->sk = sk;
 #ifdef CONFIG_INET
-	if (unlikely(!sk_fullsock(sk))) {
-		skb->destructor = sock_edemux;
-		sock_hold(sk);
-		return;
-	}
+	if (unlikely(!sk_fullsock(sk)))
+		return skb_set_owner_edemux(skb, sk);
 #endif
+	skb->sk = sk;
 	skb->destructor = sock_wfree;
 	skb_set_hash_from_sk(skb, sk);
 	/*
@@ -3846,9 +3840,6 @@ void sk_common_release(struct sock *sk)
 	 */
 
 	sk->sk_prot->unhash(sk);
-
-	if (sk->sk_socket)
-		sk->sk_socket->sk = NULL;
 
 	/*
 	 * In this point socket cannot receive new packets, but it is possible

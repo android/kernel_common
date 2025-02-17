@@ -289,6 +289,8 @@ static int fbnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 
 	fbnic_devlink_register(fbd);
 
+	fbnic_hwmon_register(fbd);
+
 	if (!fbd->dsn) {
 		dev_warn(&pdev->dev, "Reading serial number failed\n");
 		goto init_failure_mode;
@@ -300,14 +302,20 @@ static int fbnic_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto init_failure_mode;
 	}
 
+	err = fbnic_ptp_setup(fbd);
+	if (err)
+		goto ifm_free_netdev;
+
 	err = fbnic_netdev_register(netdev);
 	if (err) {
 		dev_err(&pdev->dev, "Netdev registration failed: %d\n", err);
-		goto ifm_free_netdev;
+		goto ifm_destroy_ptp;
 	}
 
 	return 0;
 
+ifm_destroy_ptp:
+	fbnic_ptp_destroy(fbd);
 ifm_free_netdev:
 	fbnic_netdev_free(fbd);
 init_failure_mode:
@@ -342,9 +350,11 @@ static void fbnic_remove(struct pci_dev *pdev)
 
 		fbnic_netdev_unregister(netdev);
 		cancel_delayed_work_sync(&fbd->service_task);
+		fbnic_ptp_destroy(fbd);
 		fbnic_netdev_free(fbd);
 	}
 
+	fbnic_hwmon_unregister(fbd);
 	fbnic_devlink_unregister(fbd);
 	fbnic_fw_disable_mbx(fbd);
 	fbnic_free_irqs(fbd);

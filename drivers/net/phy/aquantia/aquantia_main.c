@@ -42,6 +42,7 @@
 #define MDIO_PHYXS_VEND_IF_STATUS_TYPE_XAUI	4
 #define MDIO_PHYXS_VEND_IF_STATUS_TYPE_SGMII	6
 #define MDIO_PHYXS_VEND_IF_STATUS_TYPE_RXAUI	7
+#define MDIO_PHYXS_VEND_IF_STATUS_TYPE_OFF	9
 #define MDIO_PHYXS_VEND_IF_STATUS_TYPE_OCSGMII	10
 
 #define MDIO_AN_VEND_PROV			0xc400
@@ -348,9 +349,19 @@ static int aqr107_read_status(struct phy_device *phydev)
 	if (!phydev->link || phydev->autoneg == AUTONEG_DISABLE)
 		return 0;
 
-	val = phy_read_mmd(phydev, MDIO_MMD_PHYXS, MDIO_PHYXS_VEND_IF_STATUS);
-	if (val < 0)
-		return val;
+	/**
+	 * The status register is not immediately correct on line side link up.
+	 * Poll periodically until it reflects the correct ON state.
+	 * Only return fail for read error, timeout defaults to OFF state.
+	 */
+	ret = phy_read_mmd_poll_timeout(phydev, MDIO_MMD_PHYXS,
+					MDIO_PHYXS_VEND_IF_STATUS, val,
+					(FIELD_GET(MDIO_PHYXS_VEND_IF_STATUS_TYPE_MASK, val) !=
+					MDIO_PHYXS_VEND_IF_STATUS_TYPE_OFF),
+					AQR107_OP_IN_PROG_SLEEP,
+					AQR107_OP_IN_PROG_TIMEOUT, false);
+	if (ret && ret != -ETIMEDOUT)
+		return ret;
 
 	switch (FIELD_GET(MDIO_PHYXS_VEND_IF_STATUS_TYPE_MASK, val)) {
 	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_KR:
@@ -377,7 +388,9 @@ static int aqr107_read_status(struct phy_device *phydev)
 	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_OCSGMII:
 		phydev->interface = PHY_INTERFACE_MODE_2500BASEX;
 		break;
+	case MDIO_PHYXS_VEND_IF_STATUS_TYPE_OFF:
 	default:
+		phydev->link = false;
 		phydev->interface = PHY_INTERFACE_MODE_NA;
 		break;
 	}
@@ -500,7 +513,7 @@ static int aqr107_config_mdi(struct phy_device *phydev)
 	ret = of_property_read_u32(np, "marvell,mdi-cfg-order", &mdi_conf);
 
 	/* Do nothing in case property "marvell,mdi-cfg-order" is not present */
-	if (ret == -ENOENT)
+	if (ret == -EINVAL || ret == -ENOSYS)
 		return 0;
 
 	if (ret)
@@ -517,7 +530,7 @@ static int aqr107_config_mdi(struct phy_device *phydev)
 static int aqr107_config_init(struct phy_device *phydev)
 {
 	struct aqr107_priv *priv = phydev->priv;
-	u32 led_active_low;
+	u32 led_idx;
 	int ret;
 
 	/* Check that the PHY interface type is compatible */
@@ -548,8 +561,14 @@ static int aqr107_config_init(struct phy_device *phydev)
 		return ret;
 
 	/* Restore LED polarity state after reset */
-	for_each_set_bit(led_active_low, &priv->leds_active_low, AQR_MAX_LEDS) {
-		ret = aqr_phy_led_active_low_set(phydev, led_active_low, true);
+	for_each_set_bit(led_idx, &priv->leds_active_low, AQR_MAX_LEDS) {
+		ret = aqr_phy_led_active_low_set(phydev, led_idx, true);
+		if (ret)
+			return ret;
+	}
+
+	for_each_set_bit(led_idx, &priv->leds_active_high, AQR_MAX_LEDS) {
+		ret = aqr_phy_led_active_low_set(phydev, led_idx, false);
 		if (ret)
 			return ret;
 	}

@@ -101,7 +101,8 @@ static void notify_rule_change(int event, struct fib_rule *rule,
 			       struct fib_rules_ops *ops, struct nlmsghdr *nlh,
 			       u32 pid);
 
-static struct fib_rules_ops *lookup_rules_ops(struct net *net, int family)
+static struct fib_rules_ops *lookup_rules_ops(const struct net *net,
+					      int family)
 {
 	struct fib_rules_ops *ops;
 
@@ -370,7 +371,9 @@ static int call_fib_rule_notifiers(struct net *net,
 		.rule = rule,
 	};
 
-	ops->fib_rules_seq++;
+	ASSERT_RTNL();
+	/* Paired with READ_ONCE() in fib_rules_seq() */
+	WRITE_ONCE(ops->fib_rules_seq, ops->fib_rules_seq + 1);
 	return call_fib_notifiers(net, event_type, &info.info);
 }
 
@@ -397,17 +400,16 @@ int fib_rules_dump(struct net *net, struct notifier_block *nb, int family,
 }
 EXPORT_SYMBOL_GPL(fib_rules_dump);
 
-unsigned int fib_rules_seq_read(struct net *net, int family)
+unsigned int fib_rules_seq_read(const struct net *net, int family)
 {
 	unsigned int fib_rules_seq;
 	struct fib_rules_ops *ops;
 
-	ASSERT_RTNL();
-
 	ops = lookup_rules_ops(net, family);
 	if (!ops)
 		return 0;
-	fib_rules_seq = ops->fib_rules_seq;
+	/* Paired with WRITE_ONCE() in call_fib_rule_notifiers() */
+	fib_rules_seq = READ_ONCE(ops->fib_rules_seq);
 	rules_ops_put(ops);
 
 	return fib_rules_seq;
@@ -1289,12 +1291,18 @@ static struct pernet_operations fib_rules_net_ops = {
 	.exit = fib_rules_net_exit,
 };
 
+static const struct rtnl_msg_handler fib_rules_rtnl_msg_handlers[] __initconst = {
+	{.msgtype = RTM_NEWRULE, .doit = fib_nl_newrule},
+	{.msgtype = RTM_DELRULE, .doit = fib_nl_delrule},
+	{.msgtype = RTM_GETRULE, .dumpit = fib_nl_dumprule,
+	 .flags = RTNL_FLAG_DUMP_UNLOCKED},
+};
+
 static int __init fib_rules_init(void)
 {
 	int err;
-	rtnl_register(PF_UNSPEC, RTM_NEWRULE, fib_nl_newrule, NULL, 0);
-	rtnl_register(PF_UNSPEC, RTM_DELRULE, fib_nl_delrule, NULL, 0);
-	rtnl_register(PF_UNSPEC, RTM_GETRULE, NULL, fib_nl_dumprule, 0);
+
+	rtnl_register_many(fib_rules_rtnl_msg_handlers);
 
 	err = register_pernet_subsys(&fib_rules_net_ops);
 	if (err < 0)
@@ -1309,9 +1317,7 @@ static int __init fib_rules_init(void)
 fail_unregister:
 	unregister_pernet_subsys(&fib_rules_net_ops);
 fail:
-	rtnl_unregister(PF_UNSPEC, RTM_NEWRULE);
-	rtnl_unregister(PF_UNSPEC, RTM_DELRULE);
-	rtnl_unregister(PF_UNSPEC, RTM_GETRULE);
+	rtnl_unregister_many(fib_rules_rtnl_msg_handlers);
 	return err;
 }
 

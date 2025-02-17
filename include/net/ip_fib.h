@@ -347,7 +347,7 @@ static inline int fib4_rules_dump(struct net *net, struct notifier_block *nb,
 	return 0;
 }
 
-static inline unsigned int fib4_rules_seq_read(struct net *net)
+static inline unsigned int fib4_rules_seq_read(const struct net *net)
 {
 	return 0;
 }
@@ -411,7 +411,7 @@ static inline bool fib4_has_custom_rules(const struct net *net)
 bool fib4_rule_default(const struct fib_rule *rule);
 int fib4_rules_dump(struct net *net, struct notifier_block *nb,
 		    struct netlink_ext_ack *extack);
-unsigned int fib4_rules_seq_read(struct net *net);
+unsigned int fib4_rules_seq_read(const struct net *net);
 
 static inline bool fib4_rules_early_flow_dissect(struct net *net,
 						 struct sk_buff *skb,
@@ -449,8 +449,9 @@ int fib_gw_from_via(struct fib_config *cfg, struct nlattr *nla,
 __be32 fib_compute_spec_dst(struct sk_buff *skb);
 bool fib_info_nh_uses_dev(struct fib_info *fi, const struct net_device *dev);
 int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
-			u8 tos, int oif, struct net_device *dev,
+			dscp_t dscp, int oif, struct net_device *dev,
 			struct in_device *idev, u32 *itag);
+
 #ifdef CONFIG_IP_ROUTE_CLASSID
 static inline int fib_num_tclassid_users(struct net *net)
 {

@@ -293,7 +293,7 @@ __be32 fib_compute_spec_dst(struct sk_buff *skb)
 			.flowi4_iif = LOOPBACK_IFINDEX,
 			.flowi4_l3mdev = l3mdev_master_ifindex_rcu(dev),
 			.daddr = ip_hdr(skb)->saddr,
-			.flowi4_tos = ip_hdr(skb)->tos & INET_DSCP_MASK,
+			.flowi4_tos = inet_dscp_to_dsfield(ip4h_dscp(ip_hdr(skb))),
 			.flowi4_scope = scope,
 			.flowi4_mark = vmark ? skb->mark : 0,
 		};
@@ -342,7 +342,7 @@ EXPORT_SYMBOL_GPL(fib_info_nh_uses_dev);
  * called with rcu_read_lock()
  */
 static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
-				 u8 tos, int oif, struct net_device *dev,
+				 dscp_t dscp, int oif, struct net_device *dev,
 				 int rpf, struct in_device *idev, u32 *itag)
 {
 	struct net *net = dev_net(dev);
@@ -357,7 +357,7 @@ static int __fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
 	fl4.flowi4_iif = oif ? : LOOPBACK_IFINDEX;
 	fl4.daddr = src;
 	fl4.saddr = dst;
-	fl4.flowi4_tos = tos;
+	fl4.flowi4_tos = inet_dscp_to_dsfield(dscp);
 	fl4.flowi4_scope = RT_SCOPE_UNIVERSE;
 	fl4.flowi4_tun_key.tun_id = 0;
 	fl4.flowi4_flags = 0;
@@ -419,7 +419,7 @@ e_rpf:
 
 /* Ignore rp_filter for packets protected by IPsec. */
 int fib_validate_source(struct sk_buff *skb, __be32 src, __be32 dst,
-			u8 tos, int oif, struct net_device *dev,
+			dscp_t dscp, int oif, struct net_device *dev,
 			struct in_device *idev, u32 *itag)
 {
 	int r = secpath_exists(skb) ? 0 : IN_DEV_RPFILTER(idev);
@@ -448,7 +448,8 @@ ok:
 	}
 
 full_check:
-	return __fib_validate_source(skb, src, dst, tos, oif, dev, r, idev, itag);
+	return __fib_validate_source(skb, src, dst, dscp, oif, dev, r, idev,
+				     itag);
 }
 
 static inline __be32 sk_extract_addr(struct sockaddr *addr)
@@ -1648,6 +1649,15 @@ static struct pernet_operations fib_net_ops = {
 	.exit_batch = fib_net_exit_batch,
 };
 
+static const struct rtnl_msg_handler fib_rtnl_msg_handlers[] __initconst = {
+	{.protocol = PF_INET, .msgtype = RTM_NEWROUTE,
+	 .doit = inet_rtm_newroute},
+	{.protocol = PF_INET, .msgtype = RTM_DELROUTE,
+	 .doit = inet_rtm_delroute},
+	{.protocol = PF_INET, .msgtype = RTM_GETROUTE, .dumpit = inet_dump_fib,
+	 .flags = RTNL_FLAG_DUMP_UNLOCKED | RTNL_FLAG_DUMP_SPLIT_NLM_DONE},
+};
+
 void __init ip_fib_init(void)
 {
 	fib_trie_init();
@@ -1657,8 +1667,5 @@ void __init ip_fib_init(void)
 	register_netdevice_notifier(&fib_netdev_notifier);
 	register_inetaddr_notifier(&fib_inetaddr_notifier);
 
-	rtnl_register(PF_INET, RTM_NEWROUTE, inet_rtm_newroute, NULL, 0);
-	rtnl_register(PF_INET, RTM_DELROUTE, inet_rtm_delroute, NULL, 0);
-	rtnl_register(PF_INET, RTM_GETROUTE, NULL, inet_dump_fib,
-		      RTNL_FLAG_DUMP_UNLOCKED | RTNL_FLAG_DUMP_SPLIT_NLM_DONE);
+	rtnl_register_many(fib_rtnl_msg_handlers);
 }

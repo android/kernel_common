@@ -1158,12 +1158,22 @@ static void __init netns_ipv4_struct_check(void)
 	CACHELINE_ASSERT_GROUP_MEMBER(struct netns_ipv4, netns_ipv4_read_rx,
 				      sysctl_tcp_early_demux);
 	CACHELINE_ASSERT_GROUP_MEMBER(struct netns_ipv4, netns_ipv4_read_rx,
+				      sysctl_tcp_l3mdev_accept);
+	CACHELINE_ASSERT_GROUP_MEMBER(struct netns_ipv4, netns_ipv4_read_rx,
 				      sysctl_tcp_reordering);
 	CACHELINE_ASSERT_GROUP_MEMBER(struct netns_ipv4, netns_ipv4_read_rx,
 				      sysctl_tcp_rmem);
-	CACHELINE_ASSERT_GROUP_SIZE(struct netns_ipv4, netns_ipv4_read_rx, 18);
+	CACHELINE_ASSERT_GROUP_SIZE(struct netns_ipv4, netns_ipv4_read_rx, 22);
 }
 #endif
+
+static const struct rtnl_msg_handler net_ns_rtnl_msg_handlers[] __initconst = {
+	{.msgtype = RTM_NEWNSID, .doit = rtnl_net_newid,
+	 .flags = RTNL_FLAG_DOIT_UNLOCKED},
+	{.msgtype = RTM_GETNSID, .doit = rtnl_net_getid,
+	 .dumpit = rtnl_net_dumpid,
+	 .flags = RTNL_FLAG_DOIT_UNLOCKED | RTNL_FLAG_DUMP_UNLOCKED},
+};
 
 void __init net_ns_init(void)
 {
@@ -1202,11 +1212,7 @@ void __init net_ns_init(void)
 	if (register_pernet_subsys(&net_ns_ops))
 		panic("Could not register network namespace subsystems");
 
-	rtnl_register(PF_UNSPEC, RTM_NEWNSID, rtnl_net_newid, NULL,
-		      RTNL_FLAG_DOIT_UNLOCKED);
-	rtnl_register(PF_UNSPEC, RTM_GETNSID, rtnl_net_getid, rtnl_net_dumpid,
-		      RTNL_FLAG_DOIT_UNLOCKED |
-		      RTNL_FLAG_DUMP_UNLOCKED);
+	rtnl_register_many(net_ns_rtnl_msg_handlers);
 }
 
 static void free_exit_list(struct pernet_operations *ops, struct list_head *net_exit_list)
