@@ -52,7 +52,14 @@ static int virtio_video_query_cap_resp_buf(struct virtio_video *vv, void
 	int ret = 0;
 	int resp_size = vv->max_caps_len;
 
-	*resp_buf = kzalloc(vv->max_caps_len, GFP_KERNEL);
+	/*
+	 * In case of a timeout, we can't free this buffer immediately, because
+	 * the virtqueue will still hold it and an asynchronous request from
+	 * the host can cause it to be dereferenced. Therefore defer freeing it
+	 * to when the driver remove callback is called and ensures there is
+	 * no asynchronous activity anymore.
+	 */
+	*resp_buf = devm_kzalloc(&vv->vdev->dev, vv->max_caps_len, GFP_KERNEL);
 	if (!*resp_buf) {
 		ret = -ENOMEM;
 		goto err;
@@ -113,16 +120,18 @@ static int virtio_video_init(struct virtio_video *vv)
 		v4l2_err(&vv->v4l2_dev, "failed to initialize devices\n");
 		goto err_init;
 	}
+	/*
+	 * We can free these safely now, since they were returned back from
+	 * the virtqueue.
+	 */
+	devm_kfree(&vv->vdev->dev, input_resp_buf);
+	devm_kfree(&vv->vdev->dev, output_resp_buf);
 
 	return 0;
 
 err_init:
 	v4l2_device_unregister(&vv->v4l2_dev);
 err:
-	virtio_video_remove(vv->vdev);
-	kfree(input_resp_buf);
-	kfree(output_resp_buf);
-
 	return ret;
 };
 
