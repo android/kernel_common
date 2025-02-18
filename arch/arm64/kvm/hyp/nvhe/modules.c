@@ -144,7 +144,7 @@ static int mod_handler_register(enum mod_handler_type type, void *handler)
 	int i;
 
 	for (i = 0; i < MAX_MOD_HANDLERS; i++) {
-		if (!cmpxchg64_release(&mod_handlers[type][i], handler, NULL))
+		if (!cmpxchg64_release(&mod_handlers[type][i], NULL, handler))
 			return 0;
 	}
 
