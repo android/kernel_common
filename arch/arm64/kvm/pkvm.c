@@ -458,7 +458,6 @@ static int __pkvm_create_hyp_vm(struct kvm *host_kvm)
 
 	/* Donate memory for the vcpus at hyp and initialize it. */
 	kvm_for_each_vcpu(idx, host_vcpu, host_kvm) {
-		__kvm_calculate_traps(host_vcpu);
 		ret = __pkvm_create_hyp_vcpu(host_kvm, host_vcpu, idx);
 		if (ret)
 			goto destroy_vm;
