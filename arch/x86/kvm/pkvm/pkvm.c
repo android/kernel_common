@@ -1098,6 +1098,21 @@ static void pkvm_post_set_cr3(struct pkvm_vcpu *pkvm_vcpu, unsigned long cr3)
 	kvm_x86_call(post_set_cr3)(to_kvm_vcpu(pkvm_vcpu), cr3);
 }
 
+static void pkvm_load_mmu_pgd(struct pkvm_vcpu *pkvm_vcpu, hpa_t root_hpa, int root_level)
+{
+	struct kvm_vcpu *vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+	pkvm_x86_call(setup_virtual_mmu)(vcpu, root_hpa, root_level);
+
+	kvm_x86_call(load_mmu_pgd)(vcpu, vcpu->arch.mmu->root.hpa,
+				   vcpu->arch.mmu->root_role.level);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1251,6 +1266,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__post_set_cr3:
 		pkvm_post_set_cr3(pkvm_vcpu, p2);
+		break;
+	case __pkvm__load_mmu_pgd:
+		pkvm_load_mmu_pgd(pkvm_vcpu, (hpa_t)p2, (int)p3);
 		break;
 	default:
 		ret = -EINVAL;
