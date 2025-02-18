@@ -61,10 +61,6 @@ struct pkvm_hyp_vm {
 
 	unsigned short refcount;
 
-	/*
-	 * The number of vcpus initialized and ready to run.
-	 */
-	unsigned int nr_vcpus;
 	hyp_spinlock_t vcpus_lock;
 
 	/*

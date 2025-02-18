@@ -244,6 +244,15 @@ void __init kvm_hyp_reserve(void)
 		 hyp_mem_base);
 }
 
+
+static void __pkvm_vcpu_hyp_created(struct kvm_vcpu *vcpu)
+{
+	if (kvm_vm_is_protected(vcpu->kvm))
+		vcpu->arch.sve_state = NULL;
+
+	vcpu_set_flag(vcpu, VCPU_PKVM_FINALIZED);
+}
+
 static int __pkvm_create_hyp_vcpu(struct kvm_vcpu *host_vcpu)
 {
 	pkvm_handle_t handle = host_vcpu->kvm->arch.pkvm.handle;
@@ -262,8 +271,10 @@ static int __pkvm_create_hyp_vcpu(struct kvm_vcpu *host_vcpu)
 	host_vcpu->arch.hyp_reqs = hyp_reqs;
 
 	ret = kvm_call_refill_hyp_nvhe(__pkvm_init_vcpu, handle, host_vcpu);
-	if (!ret)
+	if (!ret) {
+		__pkvm_vcpu_hyp_created(host_vcpu);
 		return 0;
+	}
 
 	kvm_unshare_hyp(hyp_reqs, hyp_reqs + 1);
 err_free_reqs:
@@ -400,12 +411,6 @@ out_free:
 	}
 }
 
-static void __pkvm_vcpu_hyp_created(struct kvm_vcpu *vcpu)
-{
-	if (kvm_vm_is_protected(vcpu->kvm))
-		vcpu->arch.sve_state = NULL;
-}
-
 /*
  * Allocates and donates memory for hypervisor VM structs at EL2.
  *
@@ -418,8 +423,6 @@ static void __pkvm_vcpu_hyp_created(struct kvm_vcpu *vcpu)
  */
 static int __pkvm_create_hyp_vm(struct kvm *host_kvm)
 {
-	struct kvm_vcpu *host_vcpu;
-	unsigned long idx;
 	size_t pgd_sz;
 	void *pgd;
 	int ret;
@@ -448,21 +451,9 @@ static int __pkvm_create_hyp_vm(struct kvm *host_kvm)
 
 	WRITE_ONCE(host_kvm->arch.pkvm.handle, ret);
 
-	/* Donate memory for the vcpus at hyp and initialize it. */
-	kvm_for_each_vcpu(idx, host_vcpu, host_kvm) {
-		ret = __pkvm_create_hyp_vcpu(host_vcpu);
-		if (ret)
-			goto destroy_vm;
-		__pkvm_vcpu_hyp_created(host_vcpu);
-	}
-
 	kvm_account_pgtable_pages(pgd, pgd_sz >> PAGE_SHIFT);
 
 	return 0;
-
-destroy_vm:
-	__pkvm_destroy_hyp_vm(host_kvm);
-	return ret;
 free_pgd:
 	free_pages_exact(pgd, pgd_sz);
 	atomic64_sub(pgd_sz, &host_kvm->stat.protected_hyp_mem);
@@ -483,6 +474,18 @@ int pkvm_create_hyp_vm(struct kvm *host_kvm)
 	if (!pkvm_is_hyp_created(host_kvm))
 		ret = __pkvm_create_hyp_vm(host_kvm);
 	mutex_unlock(&host_kvm->arch.config_lock);
+
+	return ret;
+}
+
+int pkvm_create_hyp_vcpu(struct kvm_vcpu *vcpu)
+{
+	int ret = 0;
+
+	mutex_lock(&vcpu->kvm->arch.config_lock);
+	if (!vcpu_get_flag(vcpu, VCPU_PKVM_FINALIZED))
+		ret = __pkvm_create_hyp_vcpu(vcpu);
+	mutex_unlock(&vcpu->kvm->arch.config_lock);
 
 	return ret;
 }

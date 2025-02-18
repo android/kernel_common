@@ -871,7 +871,12 @@ int kvm_arch_vcpu_run_pid_change(struct kvm_vcpu *vcpu)
 		/* Start with the vcpu in a dirty state */
 		if (!kvm_vm_is_protected(vcpu->kvm))
 			vcpu_set_flag(vcpu, PKVM_HOST_STATE_DIRTY);
+
 		ret = pkvm_create_hyp_vm(kvm);
+		if (ret)
+			return ret;
+
+		ret = pkvm_create_hyp_vcpu(vcpu);
 		if (ret)
 			return ret;
 	}
