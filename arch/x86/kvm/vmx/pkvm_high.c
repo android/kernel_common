@@ -456,6 +456,11 @@ static void pkvm_vcpu_put(struct kvm_vcpu *vcpu)
 	vmx_vcpu_pi_put(vcpu);
 }
 
+static void pkvm_update_exception_bitmap(struct kvm_vcpu *vcpu)
+{
+	/* TODO: Support for npVM */
+}
+
 static int pkvm_get_feature_msr(u32 msr, u64 *data)
 {
 	switch (msr) {
@@ -836,7 +841,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.vcpu_load = pkvm_vcpu_load,
 	.vcpu_put = pkvm_vcpu_put,
 
-	.update_exception_bitmap = vmx_update_exception_bitmap,
+	.update_exception_bitmap = pkvm_update_exception_bitmap,
 	.get_feature_msr = pkvm_get_feature_msr,
 	.get_msr = pkvm_get_msr,
 	.set_msr = pkvm_set_msr,
