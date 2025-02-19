@@ -15,6 +15,13 @@ struct dma_buf_sysfs_entry;
 DECLARE_RESTRICTED_HOOK(android_rvh_dma_buf_stats_teardown,
 	TP_PROTO(struct dma_buf_sysfs_entry *sysfs_entry, bool *skip_sysfs_release),
 	TP_ARGS(sysfs_entry, skip_sysfs_release), 1);
+DECLARE_HOOK(android_vh_dma_heap_buffer_alloc_start,
+		TP_PROTO(const char *name, size_t len,
+			u32 fd_flags, u64 heap_flags),
+		TP_ARGS(name, len, fd_flags, heap_flags));
+DECLARE_HOOK(android_vh_dma_heap_buffer_alloc_end,
+		TP_PROTO(const char *name, size_t len),
+		TP_ARGS(name, len));
 #endif /* _TRACE_HOOK_DMABUF_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>

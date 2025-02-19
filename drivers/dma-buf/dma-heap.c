@@ -17,6 +17,7 @@
 #include <linux/uaccess.h>
 #include <linux/xarray.h>
 #include <uapi/linux/dma-heap.h>
+#include <trace/hooks/dmabuf.h>
 
 #define DEVNAME "dma_heap"
 
@@ -79,6 +80,8 @@ struct dma_buf *dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
 				      u32 fd_flags,
 				      u64 heap_flags)
 {
+	struct dma_buf *dma_buf;
+
 	if (fd_flags & ~DMA_HEAP_VALID_FD_FLAGS)
 		return ERR_PTR(-EINVAL);
 
@@ -92,7 +95,12 @@ struct dma_buf *dma_heap_buffer_alloc(struct dma_heap *heap, size_t len,
 	if (!len)
 		return ERR_PTR(-EINVAL);
 
-	return heap->ops->allocate(heap, len, fd_flags, heap_flags);
+	trace_android_vh_dma_heap_buffer_alloc_start(heap->name, len,
+			fd_flags, heap_flags);
+	dma_buf = heap->ops->allocate(heap, len, fd_flags, heap_flags);
+	trace_android_vh_dma_heap_buffer_alloc_end(heap->name, len);
+
+	return dma_buf;
 }
 EXPORT_SYMBOL_GPL(dma_heap_buffer_alloc);
 
