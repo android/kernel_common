@@ -599,7 +599,7 @@ static long madvise_cold(struct vm_area_struct *vma,
 	return 0;
 }
 
-static void madvise_pageout_page_range(struct mmu_gather *tlb,
+static int madvise_pageout_page_range(struct mmu_gather *tlb,
 			     struct vm_area_struct *vma,
 			     unsigned long addr, unsigned long end)
 {
@@ -607,10 +607,13 @@ static void madvise_pageout_page_range(struct mmu_gather *tlb,
 		.pageout = true,
 		.tlb = tlb,
 	};
+	int ret;
 
 	tlb_start_vma(tlb, vma);
-	walk_page_range(vma->vm_mm, addr, end, &cold_walk_ops, &walk_private);
+	ret = walk_page_range(vma->vm_mm, addr, end, &cold_walk_ops, &walk_private);
 	tlb_end_vma(tlb, vma);
+
+	return ret;
 }
 
 static long madvise_pageout(struct vm_area_struct *vma,
@@ -619,6 +622,8 @@ static long madvise_pageout(struct vm_area_struct *vma,
 {
 	struct mm_struct *mm = vma->vm_mm;
 	struct mmu_gather tlb;
+	int ret;
+	bool return_error = false;
 
 	*prev = vma;
 	if (!can_madv_lru_vma(vma))
@@ -636,8 +641,12 @@ static long madvise_pageout(struct vm_area_struct *vma,
 
 	lru_add_drain();
 	tlb_gather_mmu(&tlb, mm);
-	madvise_pageout_page_range(&tlb, vma, start_addr, end_addr);
+	ret = madvise_pageout_page_range(&tlb, vma, start_addr, end_addr);
 	tlb_finish_mmu(&tlb);
+
+	trace_android_vh_madvise_pageout_return_error(ret, &return_error);
+	if (return_error)
+		return (long)ret;
 
 	return 0;
 }
@@ -1492,6 +1501,7 @@ SYSCALL_DEFINE5(process_madvise, int, pidfd, const struct iovec __user *, vec,
 	size_t total_len;
 	unsigned int f_flags;
 	bool bypass = false;
+	bool return_error = false;
 
 	trace_android_rvh_process_madvise_bypass(pidfd, vec,
 			vlen, behavior, flags, &ret, &bypass);
@@ -1547,6 +1557,9 @@ SYSCALL_DEFINE5(process_madvise, int, pidfd, const struct iovec __user *, vec,
 			break;
 		iov_iter_advance(&iter, iter_iov_len(&iter));
 	}
+	trace_android_vh_process_madvise_return_error(behavior, ret, &return_error);
+	if (return_error)
+		goto release_mm;
 
 	ret = (total_len - iov_iter_count(&iter)) ? : ret;
 

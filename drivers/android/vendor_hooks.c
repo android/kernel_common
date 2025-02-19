@@ -331,3 +331,5 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_use_vm_swappiness);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tune_scan_control);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_exit_signal);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_process_madvise_bypass);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_madvise_pageout_return_error);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_process_madvise_return_error);
