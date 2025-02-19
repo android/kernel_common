@@ -27,7 +27,7 @@ int android_rvh_probe_register(struct tracepoint *tp, void *probe, void *data);
 	struct tracepoint __tracepoint_##_name	__used			\
 	__section("__tracepoints") = {					\
 		.name = __tpstrtab_##_name,				\
-		.key = STATIC_KEY_INIT_FALSE,				\
+		.key = STATIC_KEY_FALSE_INIT,				\
 		.static_call_key = &STATIC_CALL_KEY(tp_func_##_name),	\
 		.static_call_tramp = STATIC_CALL_TRAMP_ADDR(tp_func_##_name), \
 		.iterator = &__traceiter_##_name,			\
@@ -88,7 +88,7 @@ int android_rvh_probe_register(struct tracepoint *tp, void *probe, void *data);
 	extern struct tracepoint __tracepoint_##name;			\
 	static inline void trace_##name(proto)				\
 	{								\
-		if (static_key_false(&__tracepoint_##name.key))		\
+		if (static_branch_unlikely(&__tracepoint_##name.key))	\
 			DO_RESTRICTED_HOOK(name,			\
 					   TP_ARGS(args),		\
 					   TP_CONDITION(cond));		\
@@ -96,7 +96,7 @@ int android_rvh_probe_register(struct tracepoint *tp, void *probe, void *data);
 	static inline bool						\
 	trace_##name##_enabled(void)					\
 	{								\
-		return static_key_false(&__tracepoint_##name.key);	\
+		return static_branch_unlikely(&__tracepoint_##name.key);\
 	}								\
 	static inline int						\
 	register_trace_##name(void (*probe)(data_proto), void *data) 	\
