@@ -19,7 +19,7 @@ int android_rvh_probe_register(struct tracepoint *tp, void *probe, void *data);
 
 #ifdef TRACE_HEADER_MULTI_READ
 
-#define DEFINE_HOOK_FN(_name, _reg, _unreg, proto, args)		\
+#define __DEFINE_HOOK_EXT(_name, _ext, proto, args)			\
 	static const char __tpstrtab_##_name[]				\
 	__section("__tracepoints_strings") = #_name;			\
 	extern struct static_call_key STATIC_CALL_KEY(tp_func_##_name);	\
@@ -31,9 +31,9 @@ int android_rvh_probe_register(struct tracepoint *tp, void *probe, void *data);
 		.static_call_key = &STATIC_CALL_KEY(tp_func_##_name),	\
 		.static_call_tramp = STATIC_CALL_TRAMP_ADDR(tp_func_##_name), \
 		.iterator = &__traceiter_##_name,			\
-		.regfunc = _reg,					\
-		.unregfunc = _unreg,					\
-		.funcs = NULL };					\
+		.funcs = NULL,						\
+		.ext = _ext,						\
+	};								\
 	__TRACEPOINT_ENTRY(_name);					\
 	int __traceiter_##_name(void *__data, proto)			\
 	{								\
@@ -52,8 +52,16 @@ int android_rvh_probe_register(struct tracepoint *tp, void *probe, void *data);
 	DEFINE_STATIC_CALL(tp_func_##_name, __traceiter_##_name);
 
 #undef DECLARE_RESTRICTED_HOOK
+
+#define DEFINE_HOOK_FN(_name, _reg, _unreg, _proto, _args)		\
+	static struct tracepoint_ext __tracepoint_ext_##_name = {	\
+		.regfunc = _reg,					\
+		.unregfunc = _unreg,					\
+	};								\
+	__DEFINE_HOOK_EXT(_name, &__tracepoint_ext_##_name, PARAMS(_proto), PARAMS(_args));
 #define DECLARE_RESTRICTED_HOOK(name, proto, args, cond) \
-	DEFINE_HOOK_FN(name, NULL, NULL, PARAMS(proto), PARAMS(args))
+	__DEFINE_HOOK_EXT(name, NULL, PARAMS(proto), PARAMS(args));
+
 
 /* prevent additional recursion */
 #undef TRACE_HEADER_MULTI_READ
