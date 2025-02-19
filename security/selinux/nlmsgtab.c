@@ -248,9 +248,16 @@ static void nlmsg_set_perm_for_type(u16 type, u32 perm)
 /**
  * Use nlmsg_readpriv as the permission for RTM_GETLINK messages if the
  * netlink_route_getlink policy capability is set.
+ * Similarly, use nlmsg_getneigh for RTM_GETNEIGH and RTM_GETNEIGHTBL if the
+ * netlink_route_getneigh policy capability is set.
  */
 void selinux_nlmsg_init(void)
 {
 	if (selinux_android_nlroute_getlink())
 		nlmsg_set_perm_for_type(RTM_GETLINK, NETLINK_ROUTE_SOCKET__NLMSG_READPRIV);
+
+	if (selinux_android_nlroute_getneigh()) {
+		nlmsg_set_perm_for_type(RTM_GETNEIGH, NETLINK_ROUTE_SOCKET__NLMSG_GETNEIGH);
+		nlmsg_set_perm_for_type(RTM_GETNEIGHTBL, NETLINK_ROUTE_SOCKET__NLMSG_GETNEIGH);
+	}
 }
