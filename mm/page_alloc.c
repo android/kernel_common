@@ -1405,9 +1405,17 @@ static void __free_pages_ok(struct page *page, unsigned int order,
 {
 	unsigned long pfn = page_to_pfn(page);
 	struct zone *zone = page_zone(page);
+	bool skip_free_pages_prepare = false;
 
-	if (free_pages_prepare(page, order))
-		free_one_page(zone, page, pfn, order, fpi_flags);
+	trace_android_vh_free_pages_prepare_bypass(page, order,
+			fpi_flags, &skip_free_pages_prepare);
+	if (skip_free_pages_prepare)
+		goto skip_prepare;
+
+	if (!free_pages_prepare(page, order))
+		return;
+skip_prepare:
+	free_one_page(zone, page, pfn, order, fpi_flags);
 }
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
