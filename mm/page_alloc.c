@@ -1406,6 +1406,7 @@ static void __free_pages_ok(struct page *page, unsigned int order,
 	unsigned long pfn = page_to_pfn(page);
 	struct zone *zone = page_zone(page);
 	bool skip_free_pages_prepare = false;
+	bool skip_free_pages_ok = false;
 
 	trace_android_vh_free_pages_prepare_bypass(page, order,
 			fpi_flags, &skip_free_pages_prepare);
@@ -1415,6 +1416,11 @@ static void __free_pages_ok(struct page *page, unsigned int order,
 	if (!free_pages_prepare(page, order))
 		return;
 skip_prepare:
+	trace_android_vh_free_pages_ok_bypass(page, order,
+			fpi_flags, &skip_free_pages_ok);
+	if (skip_free_pages_ok)
+		return;
+
 	free_one_page(zone, page, pfn, order, fpi_flags);
 }
 
