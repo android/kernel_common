@@ -230,7 +230,6 @@
   vring_del_virtqueue
   vring_interrupt
   vring_transport_features
-  wait_for_completion
   wait_woken
   __wake_up
   __warn_printk
@@ -739,11 +738,13 @@
   blk_mq_complete_request
   blk_mq_end_request
   blk_mq_free_tag_set
+  blk_mq_freeze_queue
   blk_mq_init_queue
-  blk_mq_quiesce_queue
+  blk_mq_quiesce_queue_nowait
   blk_mq_start_request
   blk_mq_start_stopped_hw_queues
   blk_mq_stop_hw_queue
+  blk_mq_unfreeze_queue
   blk_mq_unquiesce_queue
   blk_mq_virtio_map_queues
   blk_put_request
@@ -800,6 +801,7 @@
   __splice_from_pipe
   system_freezing_cnt
   __unregister_chrdev
+  wait_for_completion
 
 # required by virtio_input.ko
   input_alloc_absinfo
@@ -813,14 +815,10 @@
 
 # required by virtio_mmio.ko
   device_for_each_child
-  devm_ioremap
-  devm_kfree
-  __devm_request_region
-  iomem_resource
+  devm_platform_ioremap_resource
   memparse
   platform_device_register_full
   platform_get_irq
-  platform_get_resource
   sscanf
 
 # required by virtio_net.ko
@@ -956,6 +954,12 @@
   sock_i_ino
 
 # preserved by --additions-only
+  blk_mq_quiesce_queue
+  devm_ioremap
+  devm_kfree
+  __devm_request_region
   generic_shutdown_super
+  iomem_resource
+  platform_get_resource
   refcount_dec_and_test_checked
   refcount_inc_checked
