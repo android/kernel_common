@@ -1048,6 +1048,27 @@ static int pkvm_sync_pir_to_irr(struct kvm_vcpu *vcpu)
 	return max_irr;
 }
 
+static void pkvm_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason, u64 *info1,
+			       u64 *info2, u32 *intr_info, u32 *error_code)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	*reason = vmx->exit_reason.full;
+	*info1 = vmx_get_exit_qual(vcpu);
+	if (!(vmx->exit_reason.failed_vmentry)) {
+		*info2 = vmx->idt_vectoring_info;
+		*intr_info = vmx->exit_intr_info;
+		if (is_exception_with_error_code(*intr_info))
+			*error_code = vmx->error_code;
+		else
+			*error_code = 0;
+	} else {
+		*info2 = 0;
+		*intr_info = 0;
+		*error_code = 0;
+	}
+}
+
 static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid_entry2 *e2 = vcpu->arch.cpuid_entries;
@@ -1265,7 +1286,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_identity_map_addr = vmx_set_identity_map_addr,
 	.get_mt_mask = vmx_get_mt_mask,
 
-	.get_exit_info = vmx_get_exit_info,
+	.get_exit_info = pkvm_get_exit_info,
 
 	.vcpu_after_set_cpuid = pkvm_vcpu_after_set_cpuid,
 
