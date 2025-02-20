@@ -124,9 +124,17 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	case PKVM_HC_TLB_REMOTE_FLUSH_RANGE:
 		nested_invalidate_shadow_ept(a0, a1, a2);
 		break;
-	case PKVM_HC_SET_MMIO_VE:
-		pkvm_shadow_clear_suppress_ve(vcpu, a0);
+	case PKVM_HC_SET_MMIO_VE: {
+		struct pkvm_vcpu *pkvm_vcpu = get_pkvm_vcpu(a0, a1);
+
+		if (!pkvm_vcpu) {
+			ret = -EINVAL;
+			break;
+		}
+		pkvm_shadow_clear_suppress_ve(to_kvm_vcpu(pkvm_vcpu), a2);
+		put_pkvm_vcpu(pkvm_vcpu);
 		break;
+	}
 	case PKVM_HC_ADD_PTDEV:
 		ret = pkvm_add_ptdev(a0, a1, a2);
 		break;

@@ -1030,15 +1030,15 @@ void pkvm_flush_shadow_ept(struct shadow_ept_desc *desc)
 
 void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 {
+	struct pkvm_vcpu_vmx *pkvm_vcpu_vmx;
 	unsigned long gpa = gfn * PAGE_SIZE;
-	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
-	struct shadow_vcpu_state *shadow_vcpu = hvcpu->current_shadow_vcpu;
-	struct pkvm_shadow_vm *vm = shadow_vcpu->vm;
-	struct shadow_ept_desc *desc = &vm->sept_desc;
-	struct pkvm_pgtable *sept = &desc->sept;
+	struct pkvm_pgtable *sept;
 
-	if (!shadow_vcpu_is_protected(shadow_vcpu))
+	if (!pkvm_is_protected_vcpu(vcpu))
 		return;
+
+	pkvm_vcpu_vmx = container_of(to_vmx(vcpu), struct pkvm_vcpu_vmx, vmx);
+	sept = &pkvm_vcpu_vmx->shadow_vcpu.vm->sept_desc.sept;
 
 	/*
 	 * Set the mmio_pte with prot 0, which means it is invalid and with

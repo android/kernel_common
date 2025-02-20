@@ -1268,7 +1268,11 @@ int pkvm_tlb_remote_flush(struct kvm *kvm)
 int pkvm_set_mmio_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 {
 	if (pkvm_is_protected_vcpu(vcpu)) {
-		kvm_hypercall1(PKVM_HC_SET_MMIO_VE, gfn);
+		int pkvm_vm_handle = vcpu->kvm->arch.pkvm.pkvm_vm_handle;
+		int pkvm_vcpu_handle = vcpu->arch.pkvm_vcpu_handle;
+
+		kvm_hypercall3(PKVM_HC_SET_MMIO_VE, pkvm_vm_handle,
+			       pkvm_vcpu_handle, gfn);
 		return 1;
 	}
 
