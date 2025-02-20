@@ -527,9 +527,9 @@ DEFINE_EVENT_SCHEDSTAT(sched_stat_template, sched_stat_blocked,
  */
 TRACE_EVENT(sched_blocked_reason,
 
-	TP_PROTO(struct task_struct *tsk),
+	TP_PROTO(struct task_struct *tsk, void *blocked_func),
 
-	TP_ARGS(tsk),
+	TP_ARGS(tsk, blocked_func),
 
 	TP_STRUCT__entry(
 		__field( pid_t,	pid	)
@@ -539,7 +539,7 @@ TRACE_EVENT(sched_blocked_reason,
 
 	TP_fast_assign(
 		__entry->pid	= tsk->pid;
-		__entry->caller = (void *)__get_wchan(tsk);
+		__entry->caller = blocked_func;
 		__entry->io_wait = tsk->in_iowait;
 	),
 
