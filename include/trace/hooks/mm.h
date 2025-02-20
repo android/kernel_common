@@ -244,6 +244,12 @@ DECLARE_HOOK(android_vh_filemap_fault_start,
 DECLARE_HOOK(android_vh_filemap_fault_end,
 	TP_PROTO(struct file *file, pgoff_t pgoff),
 	TP_ARGS(file, pgoff));
+DECLARE_HOOK(android_vh_zs_shrinker_adjust,
+	TP_PROTO(unsigned long *pages_to_free),
+	TP_ARGS(pages_to_free));
+DECLARE_HOOK(android_vh_zs_shrinker_bypass,
+	TP_PROTO(bool *bypass),
+	TP_ARGS(bypass));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
