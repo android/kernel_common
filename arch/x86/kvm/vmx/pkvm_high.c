@@ -402,11 +402,14 @@ static int handle_ept_violation(struct kvm_vcpu *vcpu)
 	return kvm_mmu_page_fault(vcpu, gpa, error_code, NULL, 0);
 }
 
+static int pkvm_check_emulate_instruction(struct kvm_vcpu *vcpu, int emul_type,
+					  void *insn, int insn_len);
+
 static int handle_ept_misconfig(struct kvm_vcpu *vcpu)
 {
 	gpa_t gpa;
 
-	if (vmx_check_emulate_instruction(vcpu, EMULTYPE_PF, NULL, 0))
+	if (pkvm_check_emulate_instruction(vcpu, EMULTYPE_PF, NULL, 0))
 		return 1;
 
 	gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
@@ -1634,6 +1637,23 @@ static bool pkvm_apic_init_signal_blocked(struct kvm_vcpu *vcpu)
 
 static void pkvm_migrate_timers(struct kvm_vcpu *vcpu) {}
 
+static int pkvm_check_emulate_instruction(struct kvm_vcpu *vcpu, int emul_type,
+					  void *insn, int insn_len)
+{
+	/*
+	 * This can only be triggered when the host is emulating a MMIO
+	 * instruction. For the pVM, this shouldn't happen if the pVM is
+	 * enlighted to use hypercall to access MMIO. Or the pVM still expects
+	 * receiving #VE, then returns X86EMUL_RETRY_INSTR to let the pVM to retry
+	 * after clearing the suppress #VE bit in the shadow EPT.
+	 */
+	if (pkvm_is_protected_vcpu(vcpu))
+		return X86EMUL_RETRY_INSTR;
+
+	/* For npVM, the instruction can be emulated */
+	return X86EMUL_CONTINUE;
+}
+
 static void pkvm_msr_filter_changed(struct kvm_vcpu *vcpu) {}
 
 static int pkvm_complete_emulated_msr(struct kvm_vcpu *vcpu, int err)
@@ -1821,7 +1841,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.enable_smi_window = pkvm_enable_smi_window,
 #endif
 
-	.check_emulate_instruction = vmx_check_emulate_instruction,
+	.check_emulate_instruction = pkvm_check_emulate_instruction,
 	.apic_init_signal_blocked = pkvm_apic_init_signal_blocked,
 	.migrate_timers = pkvm_migrate_timers,
 
