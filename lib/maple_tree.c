@@ -3897,7 +3897,8 @@ static inline void mas_wr_slot_store(struct ma_wr_state *wr_mas)
 			wr_mas->pivots[offset] = mas->index - 1;
 			mas->offset++; /* Keep mas accurate. */
 		}
-	} else if (!mt_in_rcu(mas->tree)) {
+	} else {
+		WARN_ON_ONCE(mt_in_rcu(mas->tree));
 		/*
 		 * Expand the range, only partially overwriting the previous and
 		 * next ranges
@@ -3907,8 +3908,6 @@ static inline void mas_wr_slot_store(struct ma_wr_state *wr_mas)
 		wr_mas->pivots[offset] = mas->index - 1;
 		wr_mas->pivots[offset + 1] = mas->last;
 		mas->offset++; /* Keep mas accurate. */
-	} else {
-		return;
 	}
 
 	trace_ma_write(__func__, mas, 0, wr_mas->entry);
@@ -4211,13 +4210,13 @@ static inline enum store_type mas_wr_store_type(struct ma_wr_state *wr_mas)
 	if (!wr_mas->entry)
 		mas_wr_extend_null(wr_mas);
 
-	new_end = mas_wr_new_end(wr_mas);
 	if ((wr_mas->r_min == mas->index) && (wr_mas->r_max == mas->last))
 		return wr_exact_fit;
 
 	if (unlikely(!mas->index && mas->last == ULONG_MAX))
 		return wr_new_root;
 
+	new_end = mas_wr_new_end(wr_mas);
 	/* Potential spanning rebalance collapsing a node */
 	if (new_end < mt_min_slots[wr_mas->type]) {
 		if (!mte_is_root(mas->node) && !(mas->mas_flags & MA_STATE_BULK))
