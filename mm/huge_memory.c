@@ -83,6 +83,21 @@ unsigned long huge_anon_orders_madvise __read_mostly;
 unsigned long huge_anon_orders_inherit __read_mostly;
 static bool anon_orders_configured __initdata;
 
+static inline bool file_thp_enabled(struct vm_area_struct *vma)
+{
+	struct inode *inode;
+
+	if (!IS_ENABLED(CONFIG_READ_ONLY_THP_FOR_FS))
+		return false;
+
+	if (!vma->vm_file)
+		return false;
+
+	inode = file_inode(vma->vm_file);
+
+	return !inode_is_open_for_write(inode) && S_ISREG(inode->i_mode);
+}
+
 unsigned long __thp_vma_allowable_orders(struct vm_area_struct *vma,
 					 unsigned long vm_flags,
 					 unsigned long tva_flags,
@@ -1162,7 +1177,13 @@ static struct folio *vma_alloc_anon_folio_pmd(struct vm_area_struct *vma,
 	}
 	folio_throttle_swaprate(folio, gfp);
 
-	folio_zero_user(folio, addr);
+       /*
+	* When a folio is not zeroed during allocation (__GFP_ZERO not used),
+	* folio_zero_user() is used to make sure that the page corresponding
+	* to the faulting address will be hot in the cache after zeroing.
+	*/
+	if (!alloc_zeroed())
+		folio_zero_user(folio, addr);
 	/*
 	 * The memory barrier inside __folio_mark_uptodate makes sure that
 	 * folio_zero_user writes become visible before the set_pmd_at()

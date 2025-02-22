@@ -1207,19 +1207,17 @@ static inline void mas_push_node(struct ma_state *mas, struct maple_node *used)
 
 	reuse->request_count = 0;
 	reuse->node_count = 0;
-	if (count && (head->node_count < MAPLE_ALLOC_SLOTS)) {
-		head->slot[head->node_count++] = reuse;
-		head->total++;
-		goto done;
-	}
-
-	reuse->total = 1;
-	if ((head) && !((unsigned long)head & 0x1)) {
+	if (count) {
+		if (head->node_count < MAPLE_ALLOC_SLOTS) {
+			head->slot[head->node_count++] = reuse;
+			head->total++;
+			goto done;
+		}
 		reuse->slot[0] = head;
 		reuse->node_count = 1;
-		reuse->total += head->total;
 	}
 
+	reuse->total = count + 1;
 	mas->alloc = reuse;
 done:
 	if (requested > 1)
@@ -1265,11 +1263,11 @@ static inline void mas_alloc_nodes(struct ma_state *mas, gfp_t gfp)
 
 		mas->alloc = node;
 		node->total = ++allocated;
+		node->request_count = 0;
 		requested--;
 	}
 
 	node = mas->alloc;
-	node->request_count = 0;
 	while (requested) {
 		max_req = MAPLE_ALLOC_SLOTS - node->node_count;
 		slots = (void **)&node->slot[node->node_count];
@@ -1285,7 +1283,10 @@ static inline void mas_alloc_nodes(struct ma_state *mas, gfp_t gfp)
 
 		node->node_count += count;
 		allocated += count;
-		node = node->slot[0];
+		/* find a non-full node*/
+		do {
+			node = node->slot[0];
+		} while (unlikely(node->node_count == MAPLE_ALLOC_SLOTS));
 		requested -= count;
 	}
 	mas->alloc->total = allocated;
@@ -1294,10 +1295,9 @@ static inline void mas_alloc_nodes(struct ma_state *mas, gfp_t gfp)
 nomem_bulk:
 	/* Clean up potential freed allocations on bulk failure */
 	memset(slots, 0, max_req * sizeof(unsigned long));
+	mas->alloc->total = allocated;
 nomem_one:
 	mas_set_alloc_req(mas, requested);
-	if (mas->alloc && !(((unsigned long)mas->alloc & 0x1)))
-		mas->alloc->total = allocated;
 	mas_set_err(mas, -ENOMEM);
 }
 
@@ -2152,9 +2152,7 @@ static inline bool mas_prev_sibling(struct ma_state *mas)
 {
 	unsigned int p_slot = mte_parent_slot(mas->node);
 
-	if (mte_is_root(mas->node))
-		return false;
-
+	/* For root node, p_slot is set to 0 by mte_parent_slot(). */
 	if (!p_slot)
 		return false;
 
@@ -4191,24 +4189,22 @@ static inline int mas_prealloc_calc(struct ma_state *mas, void *entry)
 }
 
 /*
- * mas_wr_store_type() - Set the store type for a given
+ * mas_wr_store_type() - Determine the store type for a given
  * store operation.
  * @wr_mas: The maple write state
+ *
+ * Return: the type of store needed for the operation
  */
-static inline void mas_wr_store_type(struct ma_wr_state *wr_mas)
+static inline enum store_type mas_wr_store_type(struct ma_wr_state *wr_mas)
 {
 	struct ma_state *mas = wr_mas->mas;
 	unsigned char new_end;
 
-	if (unlikely(mas_is_none(mas) || mas_is_ptr(mas))) {
-		mas->store_type = wr_store_root;
-		return;
-	}
+	if (unlikely(mas_is_none(mas) || mas_is_ptr(mas)))
+		return wr_store_root;
 
-	if (unlikely(!mas_wr_walk(wr_mas))) {
-		mas->store_type = wr_spanning_store;
-		return;
-	}
+	if (unlikely(!mas_wr_walk(wr_mas)))
+		return wr_spanning_store;
 
 	/* At this point, we are at the leaf node that needs to be altered. */
 	mas_wr_end_piv(wr_mas);
@@ -4216,50 +4212,30 @@ static inline void mas_wr_store_type(struct ma_wr_state *wr_mas)
 		mas_wr_extend_null(wr_mas);
 
 	new_end = mas_wr_new_end(wr_mas);
-	if ((wr_mas->r_min == mas->index) && (wr_mas->r_max == mas->last)) {
-		mas->store_type = wr_exact_fit;
-		return;
-	}
+	if ((wr_mas->r_min == mas->index) && (wr_mas->r_max == mas->last))
+		return wr_exact_fit;
 
-	if (unlikely(!mas->index && mas->last == ULONG_MAX)) {
-		mas->store_type = wr_new_root;
-		return;
-	}
+	if (unlikely(!mas->index && mas->last == ULONG_MAX))
+		return wr_new_root;
 
 	/* Potential spanning rebalance collapsing a node */
 	if (new_end < mt_min_slots[wr_mas->type]) {
-		if (!mte_is_root(mas->node) && !(mas->mas_flags & MA_STATE_BULK)) {
-			mas->store_type = wr_rebalance;
-			return;
-		}
-		mas->store_type = wr_node_store;
-		return;
+		if (!mte_is_root(mas->node) && !(mas->mas_flags & MA_STATE_BULK))
+			return  wr_rebalance;
+		return wr_node_store;
 	}
 
-	if (new_end >= mt_slots[wr_mas->type]) {
-		mas->store_type = wr_split_store;
-		return;
-	}
+	if (new_end >= mt_slots[wr_mas->type])
+		return wr_split_store;
 
-	if (!mt_in_rcu(mas->tree) && (mas->offset == mas->end)) {
-		mas->store_type = wr_append;
-		return;
-	}
+	if (!mt_in_rcu(mas->tree) && (mas->offset == mas->end))
+		return wr_append;
 
 	if ((new_end == mas->end) && (!mt_in_rcu(mas->tree) ||
-		(wr_mas->offset_end - mas->offset == 1))) {
-		mas->store_type = wr_slot_store;
-		return;
-	}
+		(wr_mas->offset_end - mas->offset == 1)))
+		return wr_slot_store;
 
-	if (mte_is_root(mas->node) || (new_end >= mt_min_slots[wr_mas->type]) ||
-		(mas->mas_flags & MA_STATE_BULK)) {
-		mas->store_type = wr_node_store;
-		return;
-	}
-
-	mas->store_type = wr_invalid;
-	MAS_WARN_ON(mas, 1);
+	return wr_node_store;
 }
 
 /**
@@ -4274,7 +4250,7 @@ static inline void mas_wr_preallocate(struct ma_wr_state *wr_mas, void *entry)
 	int request;
 
 	mas_wr_prealloc_setup(wr_mas);
-	mas_wr_store_type(wr_mas);
+	mas->store_type = mas_wr_store_type(wr_mas);
 	request = mas_prealloc_calc(mas, entry);
 	if (!request)
 		return;
@@ -5446,7 +5422,7 @@ void *mas_store(struct ma_state *mas, void *entry)
 	 * overwrite multiple entries within a self-balancing B-Tree.
 	 */
 	mas_wr_prealloc_setup(&wr_mas);
-	mas_wr_store_type(&wr_mas);
+	mas->store_type = mas_wr_store_type(&wr_mas);
 	if (mas->mas_flags & MA_STATE_PREALLOC) {
 		mas_wr_store_entry(&wr_mas);
 		MAS_WR_BUG_ON(&wr_mas, mas_is_err(mas));
@@ -5549,7 +5525,7 @@ int mas_preallocate(struct ma_state *mas, void *entry, gfp_t gfp)
 	int request;
 
 	mas_wr_prealloc_setup(&wr_mas);
-	mas_wr_store_type(&wr_mas);
+	mas->store_type = mas_wr_store_type(&wr_mas);
 	request = mas_prealloc_calc(mas, entry);
 	if (!request)
 		return ret;
