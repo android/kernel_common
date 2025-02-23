@@ -1051,7 +1051,8 @@ static int unmerge_ksm_pages(struct vm_area_struct *vma,
 	return err;
 }
 
-static inline struct ksm_stable_node *folio_stable_node(struct folio *folio)
+static inline
+struct ksm_stable_node *folio_stable_node(const struct folio *folio)
 {
 	return folio_test_ksm(folio) ? folio_raw_mapping(folio) : NULL;
 }
@@ -1256,7 +1257,7 @@ static int write_protect_page(struct vm_area_struct *vma, struct folio *folio,
 	if (WARN_ON_ONCE(folio_test_large(folio)))
 		return err;
 
-	pvmw.address = page_address_in_vma(&folio->page, vma);
+	pvmw.address = page_address_in_vma(folio, folio_page(folio, 0), vma);
 	if (pvmw.address == -EFAULT)
 		goto out;
 
@@ -1340,7 +1341,7 @@ static int replace_page(struct vm_area_struct *vma, struct page *page,
 {
 	struct folio *kfolio = page_folio(kpage);
 	struct mm_struct *mm = vma->vm_mm;
-	struct folio *folio;
+	struct folio *folio = page_folio(page);
 	pmd_t *pmd;
 	pmd_t pmde;
 	pte_t *ptep;
@@ -1350,7 +1351,7 @@ static int replace_page(struct vm_area_struct *vma, struct page *page,
 	int err = -EFAULT;
 	struct mmu_notifier_range range;
 
-	addr = page_address_in_vma(page, vma);
+	addr = page_address_in_vma(folio, page, vma);
 	if (addr == -EFAULT)
 		goto out;
 
@@ -1416,7 +1417,6 @@ static int replace_page(struct vm_area_struct *vma, struct page *page,
 	ptep_clear_flush(vma, addr, ptep);
 	set_pte_at(mm, addr, ptep, newpte);
 
-	folio = page_folio(page);
 	folio_remove_rmap_pte(folio, page, vma);
 	if (!folio_mapped(folio))
 		folio_free_swap(folio);
@@ -2261,8 +2261,7 @@ static void cmp_and_merge_page(struct page *page, struct ksm_rmap_item *rmap_ite
 
 	/* Start by searching for the folio in the stable tree */
 	kfolio = stable_tree_search(page);
-	if (!IS_ERR_OR_NULL(kfolio) && &kfolio->page == page &&
-	    rmap_item->head == stable_node) {
+	if (&kfolio->page == page && rmap_item->head == stable_node) {
 		folio_put(kfolio);
 		return;
 	}
@@ -3068,7 +3067,7 @@ again:
 /*
  * Collect processes when the error hit an ksm page.
  */
-void collect_procs_ksm(struct folio *folio, struct page *page,
+void collect_procs_ksm(const struct folio *folio, const struct page *page,
 		struct list_head *to_kill, int force_early)
 {
 	struct ksm_stable_node *stable_node;

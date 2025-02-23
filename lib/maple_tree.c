@@ -3408,7 +3408,7 @@ static noinline_for_kasan void mas_commit_b_node(struct ma_wr_state *wr_mas,
  * @mas: The maple state
  * @entry: The entry to store into the tree
  */
-static inline int mas_root_expand(struct ma_state *mas, void *entry)
+static inline void mas_root_expand(struct ma_state *mas, void *entry)
 {
 	void *contents = mas_root_locked(mas);
 	enum maple_type type = maple_leaf_64;
@@ -3444,12 +3444,23 @@ static inline int mas_root_expand(struct ma_state *mas, void *entry)
 	ma_set_meta(node, maple_leaf_64, 0, slot);
 	/* swap the new root into the tree */
 	rcu_assign_pointer(mas->tree->ma_root, mte_mk_root(mas->node));
-	return slot;
+	return;
 }
 
+/*
+ * mas_store_root() - Storing value into root.
+ * @mas: The maple state
+ * @entry: The entry to store.
+ *
+ * There is no root node now and we are storing a value into the root - this
+ * function either assigns the pointer or expands into a node.
+ */
 static inline void mas_store_root(struct ma_state *mas, void *entry)
 {
-	if (likely((mas->last != 0) || (mas->index != 0)))
+	if (!entry) {
+		if (!mas->index)
+			rcu_assign_pointer(mas->tree->ma_root, NULL);
+	} else if (likely((mas->last != 0) || (mas->index != 0)))
 		mas_root_expand(mas, entry);
 	else if (((unsigned long) (entry) & 3) == 2)
 		mas_root_expand(mas, entry);
@@ -3670,7 +3681,9 @@ static inline void mas_new_root(struct ma_state *mas, void *entry)
 	void __rcu **slots;
 	unsigned long *pivots;
 
-	if (!entry && !mas->index && mas->last == ULONG_MAX) {
+	WARN_ON_ONCE(mas->index || mas->last != ULONG_MAX);
+
+	if (!entry) {
 		mas->depth = 0;
 		mas_set_height(mas);
 		rcu_assign_pointer(mas->tree->ma_root, entry);
@@ -7273,10 +7286,12 @@ void mt_dump(const struct maple_tree *mt, enum mt_dump_format format)
 
 	pr_info("maple_tree(" PTR_FMT ") flags %X, height %u root " PTR_FMT "\n",
 		 mt, mt->ma_flags, mt_height(mt), entry);
-	if (!xa_is_node(entry))
-		mt_dump_entry(entry, 0, 0, 0, format);
-	else if (entry)
+	if (xa_is_node(entry))
 		mt_dump_node(mt, entry, 0, mt_node_max(entry), 0, format);
+	else if (entry)
+		mt_dump_entry(entry, 0, 0, 0, format);
+	else
+		pr_info("(empty)\n");
 }
 EXPORT_SYMBOL_GPL(mt_dump);
 
