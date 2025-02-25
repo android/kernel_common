@@ -43,6 +43,7 @@
 #include <asm/pgtable_types.h>
 #include <asm/shared/io.h>
 #include <asm/special_insns.h>
+#include <asm/paravirt.h>
 
 #define build_mmio_read(name, size, type, reg, barrier) \
 static inline type name(const volatile void __iomem *addr) \
@@ -54,58 +55,79 @@ static inline void name(type val, volatile void __iomem *addr) \
 { asm volatile("mov" size " %0,%1": :reg (val), \
 "m" (*(volatile type __force *)addr) barrier); }
 
-build_mmio_read(readb, "b", unsigned char, "=q", :"memory")
-build_mmio_read(readw, "w", unsigned short, "=r", :"memory")
-build_mmio_read(readl, "l", unsigned int, "=r", :"memory")
+build_mmio_read(raw_readb, "b", unsigned char, "=q", : "memory")
+build_mmio_read(raw_readw, "w", unsigned short, "=r", : "memory")
+build_mmio_read(raw_readl, "l", unsigned int, "=r", : "memory")
 
-build_mmio_read(__readb, "b", unsigned char, "=q", )
-build_mmio_read(__readw, "w", unsigned short, "=r", )
-build_mmio_read(__readl, "l", unsigned int, "=r", )
+build_mmio_read(raw_readb_relaxed, "b", unsigned char, "=q", )
+build_mmio_read(raw_readw_relaxed, "w", unsigned short, "=r", )
+build_mmio_read(raw_readl_relaxed, "l", unsigned int, "=r", )
 
-build_mmio_write(writeb, "b", unsigned char, "q", :"memory")
-build_mmio_write(writew, "w", unsigned short, "r", :"memory")
-build_mmio_write(writel, "l", unsigned int, "r", :"memory")
+build_mmio_write(raw_writeb, "b", unsigned char, "q", : "memory")
+build_mmio_write(raw_writew, "w", unsigned short, "r", : "memory")
+build_mmio_write(raw_writel, "l", unsigned int, "r", : "memory")
 
-build_mmio_write(__writeb, "b", unsigned char, "q", )
-build_mmio_write(__writew, "w", unsigned short, "r", )
-build_mmio_write(__writel, "l", unsigned int, "r", )
+build_mmio_write(raw_writeb_relaxed, "b", unsigned char, "q", )
+build_mmio_write(raw_writew_relaxed, "w", unsigned short, "r", )
+build_mmio_write(raw_writel_relaxed, "l", unsigned int, "r", )
 
-#define readb readb
-#define readw readw
-#define readl readl
-#define readb_relaxed(a) __readb(a)
-#define readw_relaxed(a) __readw(a)
-#define readl_relaxed(a) __readl(a)
-#define __raw_readb __readb
-#define __raw_readw __readw
-#define __raw_readl __readl
+#ifdef CONFIG_PARAVIRT
+#define readb pv_readb
+#define readw pv_readw
+#define readl pv_readl
+#define __raw_readb pv_readb_relaxed
+#define __raw_readw pv_readw_relaxed
+#define __raw_readl pv_readl_relaxed
+#define writeb pv_writeb
+#define writew pv_writew
+#define writel pv_writel
+#define __raw_writeb pv_writeb_relaxed
+#define __raw_writew pv_writew_relaxed
+#define __raw_writel pv_writel_relaxed
+#else
+#define readb raw_readb
+#define readw raw_readw
+#define readl raw_readl
+#define __raw_readb raw_readb_relaxed
+#define __raw_readw raw_readw_relaxed
+#define __raw_readl raw_readl_relaxed
+#define writeb raw_writeb
+#define writew raw_writew
+#define writel raw_writel
+#define __raw_writeb raw_writeb_relaxed
+#define __raw_writew raw_writew_relaxed
+#define __raw_writel raw_writel_relaxed
+#endif
 
-#define writeb writeb
-#define writew writew
-#define writel writel
-#define writeb_relaxed(v, a) __writeb(v, a)
-#define writew_relaxed(v, a) __writew(v, a)
-#define writel_relaxed(v, a) __writel(v, a)
-#define __raw_writeb __writeb
-#define __raw_writew __writew
-#define __raw_writel __writel
+#define readb_relaxed(a) __raw_readb(a)
+#define readw_relaxed(a) __raw_readw(a)
+#define readl_relaxed(a) __raw_readl(a)
+
+#define writeb_relaxed(v, a) __raw_writeb(v, a)
+#define writew_relaxed(v, a) __raw_writew(v, a)
+#define writel_relaxed(v, a) __raw_writel(v, a)
 
 #ifdef CONFIG_X86_64
 
-build_mmio_read(readq, "q", u64, "=r", :"memory")
-build_mmio_read(__readq, "q", u64, "=r", )
-build_mmio_write(writeq, "q", u64, "r", :"memory")
-build_mmio_write(__writeq, "q", u64, "r", )
+build_mmio_read(raw_readq, "q", u64, "=r", : "memory")
+build_mmio_read(raw_readq_relaxed, "q", u64, "=r", )
+build_mmio_write(raw_writeq, "q", u64, "r", : "memory")
+build_mmio_write(raw_writeq_relaxed, "q", u64, "r", )
 
-#define readq_relaxed(a)	__readq(a)
-#define writeq_relaxed(v, a)	__writeq(v, a)
+#ifdef CONFIG_PARAVIRT
+#define readq			pv_readq
+#define __raw_readq		pv_readq_relaxed
+#define writeq			pv_writeq
+#define __raw_writeq		pv_writeq_relaxed
+#else
+#define readq			raw_readq
+#define __raw_readq		raw_readq_relaxed
+#define writeq			raw_writeq
+#define __raw_writeq		raw_writeq_relaxed
+#endif
 
-#define __raw_readq		__readq
-#define __raw_writeq		__writeq
-
-/* Let people know that we have them */
-#define readq			readq
-#define writeq			writeq
+#define readq_relaxed(a)	__raw_readq(a)
+#define writeq_relaxed(v, a)	__raw_writeq(v, a)
 
 #endif
 
