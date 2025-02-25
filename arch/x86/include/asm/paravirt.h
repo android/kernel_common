@@ -710,6 +710,87 @@ static __always_inline unsigned long arch_local_irq_save(void)
 }
 #endif
 
+static __always_inline unsigned char pv_readb(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(unsigned char, mmio.raw_readb, addr);
+}
+
+static __always_inline unsigned short pv_readw(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(unsigned short, mmio.raw_readw, addr);
+}
+
+static __always_inline unsigned int pv_readl(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(unsigned int, mmio.raw_readl, addr);
+}
+
+static __always_inline unsigned char pv_readb_relaxed(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(unsigned char, mmio.raw_readb_relaxed, addr);
+}
+
+static __always_inline unsigned short pv_readw_relaxed(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(unsigned short, mmio.raw_readw_relaxed, addr);
+}
+
+static __always_inline unsigned int pv_readl_relaxed(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(unsigned int, mmio.raw_readl_relaxed, addr);
+}
+
+static __always_inline void pv_writeb(unsigned char val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.raw_writeb, val, addr);
+}
+
+static __always_inline void pv_writew(unsigned short val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.raw_writew, val, addr);
+}
+
+static __always_inline void pv_writel(unsigned int val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.raw_writel, val, addr);
+}
+
+static __always_inline void pv_writeb_relaxed(unsigned char val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.raw_writeb_relaxed, val, addr);
+}
+
+static __always_inline void pv_writew_relaxed(unsigned short val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.raw_writew_relaxed, val, addr);
+}
+
+static __always_inline void pv_writel_relaxed(unsigned int val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.raw_writel_relaxed, val, addr);
+}
+
+#ifdef CONFIG_X86_64
+static __always_inline u64 pv_readq(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(u64, mmio.raw_readq, addr);
+}
+
+static __always_inline u64 pv_readq_relaxed(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(u64, mmio.raw_readq_relaxed, addr);
+}
+
+static __always_inline void pv_writeq(u64 val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.raw_writeq, val, addr);
+}
+
+static __always_inline void pv_writeq_relaxed(u64 val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.raw_writeq_relaxed, val, addr);
+}
+#endif
 
 /* Make sure as little as possible of this mess escapes. */
 #undef PARAVIRT_CALL
