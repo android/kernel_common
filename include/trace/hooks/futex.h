@@ -41,6 +41,10 @@ DECLARE_HOOK(android_vh_futex_wake_this,
 DECLARE_HOOK(android_vh_futex_wake_up_q_finish,
 	TP_PROTO(int nr_wake, int target_nr),
 	TP_ARGS(nr_wake, target_nr));
+DECLARE_HOOK(android_vh_futex_sleep_start,
+	TP_PROTO(struct task_struct *p),
+	TP_ARGS(p));
+
 #endif /* _TRACE_HOOK_FUTEX_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
