@@ -165,6 +165,8 @@ struct binder_work {
 		BINDER_WORK_FROZEN_BINDER,
 		BINDER_WORK_CLEAR_FREEZE_NOTIFICATION,
 	} type;
+
+	ANDROID_OEM_DATA(1);
 };
 
 struct binder_error {
@@ -481,6 +483,7 @@ struct binder_proc {
 	spinlock_t outer_lock;
 	struct dentry *binderfs_entry;
 	bool oneway_spam_detection_enabled;
+	ANDROID_OEM_DATA(1);
 };
 
 /**
@@ -602,6 +605,7 @@ struct binder_transaction {
 	 */
 	spinlock_t lock;
 	ANDROID_VENDOR_DATA(1);
+	ANDROID_OEM_DATA(1);
 };
 
 /**

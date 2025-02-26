@@ -58,9 +58,21 @@ DECLARE_HOOK(android_vh_binder_buffer_release,
 	TP_ARGS(proc, thread, buffer, has_transaction));
 struct binder_proc;
 struct binder_thread;
+DECLARE_HOOK(android_vh_binder_list_add_work,
+	TP_PROTO(struct binder_work *work, struct list_head *target_list),
+	TP_ARGS(work, target_list));
+DECLARE_HOOK(android_vh_binder_has_proc_work_ilocked,
+	TP_PROTO(struct binder_thread *thread, bool do_proc_work, bool *has_work),
+	TP_ARGS(thread, do_proc_work, has_work));
+DECLARE_HOOK(android_vh_binder_check_special_work,
+	TP_PROTO(struct binder_proc *proc, struct list_head **special_list),
+	TP_ARGS(proc, special_list));
+DECLARE_HOOK(android_vh_binder_free_proc,
+	TP_PROTO(struct binder_proc *proc),
+	TP_ARGS(proc));
 DECLARE_HOOK(android_vh_binder_preset,
-	TP_PROTO(struct hlist_head *hhead, struct mutex *lock),
-	TP_ARGS(hhead, lock));
+	TP_PROTO(struct hlist_head *hhead, struct mutex *lock, struct binder_proc *proc),
+	TP_ARGS(hhead, lock, proc));
 struct binder_transaction_data;
 DECLARE_HOOK(android_vh_binder_reply,
 	TP_PROTO(struct binder_proc *target_proc, struct binder_proc *proc,
@@ -70,7 +82,6 @@ DECLARE_HOOK(android_vh_binder_trans,
 	TP_PROTO(struct binder_proc *target_proc, struct binder_proc *proc,
 		struct binder_thread *thread, struct binder_transaction_data *tr),
 	TP_ARGS(target_proc, proc, thread, tr));
-
 #endif /* _TRACE_HOOK_BINDER_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
