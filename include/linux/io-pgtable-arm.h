@@ -233,5 +233,5 @@ void __arm_lpae_free_pages(void *pages, size_t size, struct io_pgtable_cfg *cfg,
 void __arm_lpae_sync_pte(arm_lpae_iopte *ptep, int num_entries,
 			 struct io_pgtable_cfg *cfg);
 int arm_lpae_map_exists(void);
-int arm_lpae_unmap_empty(void);
+void arm_lpae_unmap_empty(void);
 #endif /* IO_PGTABLE_H_ */

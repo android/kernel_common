@@ -31,10 +31,9 @@ int arm_lpae_map_exists(void)
 	return -EEXIST;
 }
 
-int arm_lpae_unmap_empty(void)
+void arm_lpae_unmap_empty(void)
 {
 	WARN_ON(!selftest_running);
-	return -EEXIST;
 }
 
 static dma_addr_t __arm_lpae_dma_addr(void *pages)

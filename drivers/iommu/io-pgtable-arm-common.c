@@ -231,7 +231,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 		cptep = iopte_deref(pte, data);
 	} else if (iopte_valid(pte)) {
 		/* We require an unmap first */
-		return arm_lpae_unmap_empty();
+		return arm_lpae_map_exists();
 	}
 
 	/* Rinse, repeat */
@@ -428,8 +428,10 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 	unmap_idx_start = ARM_LPAE_LVL_IDX(iova, lvl, data);
 	ptep += unmap_idx_start;
 	pte = READ_ONCE(*ptep);
-	if (WARN_ON(!iopte_valid(pte)))
+	if (!iopte_valid(pte)) {
+		arm_lpae_unmap_empty();
 		return 0;
+	}
 
 	/* If the size matches this level, we're in the right place */
 	if (size == ARM_LPAE_BLOCK_SIZE(lvl, data)) {
@@ -439,8 +441,10 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		/* Find and handle non-leaf entries */
 		for (i = 0; i < num_entries; i++) {
 			pte = READ_ONCE(ptep[i]);
-			if (WARN_ON(!iopte_valid(pte)))
+			if (!iopte_valid(pte)) {
+				arm_lpae_unmap_empty();
 				break;
+			}
 
 			if (!iopte_leaf(pte, lvl, iop->fmt)) {
 				__arm_lpae_clear_pte(&ptep[i], &iop->cfg, 1);

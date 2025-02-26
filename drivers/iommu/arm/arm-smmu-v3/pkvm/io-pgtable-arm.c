@@ -25,9 +25,8 @@ int arm_lpae_map_exists(void)
 	return -EEXIST;
 }
 
-int arm_lpae_unmap_empty(void)
+void arm_lpae_unmap_empty(void)
 {
-	return -EEXIST;
 }
 
 void *__arm_lpae_alloc_pages(size_t size, gfp_t gfp,
