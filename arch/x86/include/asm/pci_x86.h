@@ -9,6 +9,7 @@
 #include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/spinlock.h>
+#include <asm/io.h>
 
 #undef DEBUG
 
@@ -201,38 +202,32 @@ extern struct list_head pci_mmcfg_list;
  */
 static inline unsigned char mmio_config_readb(void __iomem *pos)
 {
-	u8 val;
-	asm volatile("movb (%1),%%al" : "=a" (val) : "r" (pos));
-	return val;
+	return readb_relaxed(pos);
 }
 
 static inline unsigned short mmio_config_readw(void __iomem *pos)
 {
-	u16 val;
-	asm volatile("movw (%1),%%ax" : "=a" (val) : "r" (pos));
-	return val;
+	return readw_relaxed(pos);
 }
 
 static inline unsigned int mmio_config_readl(void __iomem *pos)
 {
-	u32 val;
-	asm volatile("movl (%1),%%eax" : "=a" (val) : "r" (pos));
-	return val;
+	return readl_relaxed(pos);
 }
 
 static inline void mmio_config_writeb(void __iomem *pos, u8 val)
 {
-	asm volatile("movb %%al,(%1)" : : "a" (val), "r" (pos) : "memory");
+	writeb(val, pos);
 }
 
 static inline void mmio_config_writew(void __iomem *pos, u16 val)
 {
-	asm volatile("movw %%ax,(%1)" : : "a" (val), "r" (pos) : "memory");
+	writew(val, pos);
 }
 
 static inline void mmio_config_writel(void __iomem *pos, u32 val)
 {
-	asm volatile("movl %%eax,(%1)" : : "a" (val), "r" (pos) : "memory");
+	writel(val, pos);
 }
 
 #ifdef CONFIG_PCI
