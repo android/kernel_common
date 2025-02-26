@@ -18,6 +18,7 @@ struct rt_mutex;
 struct rt_mutex_base;
 struct rw_semaphore;
 struct task_struct;
+struct percpu_rw_semaphore;
 
 DECLARE_HOOK(android_vh_mutex_wait_start,
 	TP_PROTO(struct mutex *lock),
@@ -102,6 +103,9 @@ DECLARE_HOOK(android_vh_flush_work_wait_finish,
 DECLARE_HOOK(android_vh_sched_show_task,
 	TP_PROTO(struct task_struct *task),
 	TP_ARGS(task));
+DECLARE_HOOK(android_vh_percpu_rwsem_wq_add,
+	TP_PROTO(struct percpu_rw_semaphore *sem, bool reader),
+	TP_ARGS(sem, reader));
 
 struct mutex_waiter;
 DECLARE_HOOK(android_vh_alter_mutex_list_add,
