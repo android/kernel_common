@@ -78,6 +78,7 @@ static void *__kvm_iommu_donate_pages(struct hyp_pool *pool, u8 order, int flags
 	void *p;
 	struct kvm_hyp_req *req = this_cpu_ptr(&host_hyp_reqs);
 	int ret;
+	size_t size = (1 << order) * PAGE_SIZE;
 
 	p = hyp_alloc_pages(pool, order);
 	if (p) {
@@ -87,6 +88,9 @@ static void *__kvm_iommu_donate_pages(struct hyp_pool *pool, u8 order, int flags
 		 * assumed to be cacheable.
 		 */
 		if (flags & IOMMU_PAGE_NOCACHE) {
+			/* Make sure all data written before converting to nc. */
+			kvm_flush_dcache_to_poc(p, size);
+
 			ret = pkvm_remap_range(p, 1 << order, true);
 			if (ret) {
 				hyp_put_page(pool, p);
@@ -98,7 +102,7 @@ static void *__kvm_iommu_donate_pages(struct hyp_pool *pool, u8 order, int flags
 
 	req->type = KVM_HYP_REQ_TYPE_MEM;
 	req->mem.dest = REQ_MEM_DEST_HYP_IOMMU;
-	req->mem.sz_alloc = (1 << order) * PAGE_SIZE;
+	req->mem.sz_alloc = size;
 	req->mem.nr_pages = 1;
 	return NULL;
 }
