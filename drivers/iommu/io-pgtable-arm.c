@@ -361,15 +361,49 @@ struct io_pgtable_init_fns io_pgtable_arm_mali_lpae_init_fns = {
 #ifdef CONFIG_IOMMU_IO_PGTABLE_LPAE_SELFTEST
 
 static struct io_pgtable_cfg *cfg_cookie __initdata;
+static struct io_pgtable_ops *cur_ops;
 
 static void __init dummy_tlb_flush_all(void *cookie)
 {
 	WARN_ON(cookie != cfg_cookie);
 }
 
+static unsigned long skip_addr = 0xFFFF;
+static void arm_lpae_selftest_validate(phys_addr_t addr, size_t size,
+				       struct io_pgtable_walk_common *data,
+				       void *wd)
+{
+	struct arm_lpae_io_pgtable_walk_data *arm_wd = data->data;
+	unsigned long *iova = (unsigned long *)(arm_wd->cookie);
+	arm_lpae_iopte *ptep = wd;
+
+	/* PASS */
+	if (*iova == addr)
+		*iova = *iova + size;
+
+	WARN_ON(skip_addr == addr);
+	WARN_ON(!(*ptep));
+	*ptep = 0;
+}
+
 static void __init dummy_tlb_flush(unsigned long iova, size_t size,
 				   size_t granule, void *cookie)
+
 {
+	unsigned long iova_cookie = iova;
+	struct arm_lpae_io_pgtable_walk_data wd = {
+		.cookie = &iova_cookie,
+	};
+	struct io_pgtable_walk_common walk_data = {
+		.visit_leaf = arm_lpae_selftest_validate,
+		.data = &wd,
+	};
+
+	if (cur_ops && (cfg_cookie->quirks & IO_PGTABLE_QUIRK_UNMAP_INVAL)) {
+		/* Not straight forward to propagate failures, so WARN_ON is noisy enough. */
+		cur_ops->pgtable_walk(cur_ops, iova, size, &walk_data);
+	}
+
 	WARN_ON(cookie != cfg_cookie);
 	WARN_ON(!(size & cfg_cookie->pgsize_bitmap));
 }
@@ -378,7 +412,8 @@ static void __init dummy_tlb_add_page(struct iommu_iotlb_gather *gather,
 				      unsigned long iova, size_t granule,
 				      void *cookie)
 {
-	dummy_tlb_flush(iova, granule, granule, cookie);
+	WARN_ON(cookie != cfg_cookie);
+	WARN_ON(!(granule & cfg_cookie->pgsize_bitmap));
 }
 
 static const struct iommu_flush_ops dummy_tlb_ops __initconst = {
@@ -414,14 +449,18 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 	};
 
 	int i, j;
-	unsigned long iova;
+	unsigned long iova, iova_cookie;
 	size_t size, mapped;
 	struct io_pgtable_ops *ops;
+	struct arm_lpae_io_pgtable_walk_data arm_wd;
+	struct io_pgtable_walk_common common_wd;
+	int ret;
 
 	selftest_running = true;
 
 	for (i = 0; i < ARRAY_SIZE(fmts); ++i) {
 		cfg_cookie = cfg;
+		cfg->quirks = 0;
 		ops = alloc_io_pgtable_ops(fmts[i], cfg, cfg);
 		if (!ops) {
 			pr_err("selftest: failed to allocate io pgtable ops\n");
@@ -501,6 +540,143 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 			iova += SZ_1G;
 		}
 
+		free_io_pgtable_ops(ops);
+
+		/* Test: IO_PGTABLE_QUIRK_UNMAP_INVAL */
+		cfg->quirks = IO_PGTABLE_QUIRK_UNMAP_INVAL;
+		ops = alloc_io_pgtable_ops(fmts[i], cfg, cfg);
+		cur_ops = ops;
+		if (!ops) {
+			pr_err("selftest: failed to allocate io pgtable ops with IO_PGTABLE_QUIRK_UNMAP_INVAL\n");
+			return -ENOMEM;
+		}
+
+		common_wd.visit_leaf = arm_lpae_selftest_validate;
+		common_wd.data = &arm_wd;
+		arm_wd.cookie = &iova_cookie;
+
+		/*
+		 * Map with leaf size => unmap with leaf size
+		 * Then walk the table to check the pages
+		 */
+		size = 1UL << __ffs(cfg->pgsize_bitmap);
+		iova = size * 3; /* Arbitrary aligned address. */
+		if (ops->map_pages(ops, iova, iova, size, 1,
+				   IOMMU_READ | IOMMU_WRITE |
+				   IOMMU_NOEXEC | IOMMU_CACHE,
+				   GFP_KERNEL, &mapped))
+			return __FAIL(ops, i);
+
+		if (ops->unmap_pages(ops, iova, size, 1, NULL) != size)
+			return __FAIL(ops, i);
+
+		iova_cookie = iova;
+		ret = ops->pgtable_walk(ops, iova, size, &common_wd);
+		if (ret || (iova_cookie != iova + size))
+			return __FAIL(ops, i);
+
+		/*
+		 * Map with leaf size => partial unmap with leaf size
+		 * Then walk the table to check the pages
+		 */
+		if (ops->map_pages(ops, iova, iova, size, 42,
+				   IOMMU_READ | IOMMU_WRITE |
+				   IOMMU_NOEXEC | IOMMU_CACHE,
+				   GFP_KERNEL, &mapped))
+			return __FAIL(ops, i);
+
+		if (ops->unmap_pages(ops, iova + 41 * size, size, 1, NULL) != size)
+			return __FAIL(ops, i);
+
+		iova_cookie = iova + 41 * size;
+		ret = ops->pgtable_walk(ops, iova_cookie, size, &common_wd);
+		if (ret || (iova_cookie != (iova + 42 * size)))
+			return __FAIL(ops, i);
+
+		if (ops->unmap_pages(ops, iova, size, 41, NULL) != 41 * size)
+			return __FAIL(ops, i);
+
+		iova_cookie = iova;
+		ret = ops->pgtable_walk(ops, iova, size * 41, &common_wd);
+		if (ret || (iova_cookie != (iova + 41 * size)))
+			return __FAIL(ops, i);
+		/*
+		 * Distinct mappings of different granule sizes.
+		 */
+		iova = 0;
+		for_each_set_bit(j, &cfg->pgsize_bitmap, BITS_PER_LONG) {
+			size = 1UL << j;
+
+			if (ops->map_pages(ops, iova, iova, size, 1,
+					   IOMMU_READ | IOMMU_WRITE |
+					   IOMMU_NOEXEC | IOMMU_CACHE,
+					   GFP_KERNEL, &mapped))
+				return __FAIL(ops, i);
+
+			/* Overlapping mappings */
+			if (!ops->map_pages(ops, iova, iova + size, size, 1,
+					    IOMMU_READ | IOMMU_NOEXEC,
+					    GFP_KERNEL, &mapped))
+				return __FAIL(ops, i);
+
+			if (ops->iova_to_phys(ops, iova + 42) != (iova + 42))
+				return __FAIL(ops, i);
+
+			iova += SZ_1G;
+		}
+
+		/* Partial unmap (split blk) */
+		size = 1UL << __ffs(cfg->pgsize_bitmap);
+		iova = SZ_1G + size;
+		if (ops->unmap_pages(ops, iova, size, 1, NULL) != size)
+			return __FAIL(ops, i);
+
+		/* Now we have table instead of block, with missing entry let's see */
+		iova_cookie = iova;
+		ret = ops->pgtable_walk(ops, iova, size, &common_wd);
+		if (ret || (iova_cookie != (iova + size)))
+			return __FAIL(ops, i);
+
+		if (ops->iova_to_phys(ops, iova))
+			return __FAIL(ops, i);
+
+		/*
+		 * Let's replace with a block again.
+		 * We expect the freed table will be called in tlb_flush_walk()
+		 * that's how we can track the unmapped pages.
+		 */
+		size = 1ULL << __ffs(cfg->pgsize_bitmap & ~(1UL << __ffs(cfg->pgsize_bitmap)));
+		/* Already unmapped shouldn't walk it again! */
+		skip_addr = SZ_1G + size;
+		iova = SZ_1G;
+		iova_cookie = iova;
+		if (ops->map_pages(ops, iova, iova, size, 1,
+				   IOMMU_READ, GFP_KERNEL, &mapped))
+			return __FAIL(ops, i);
+		skip_addr = 0XFFFF;
+
+		/* Let's break the block to table again, this time at the start. */
+		size = 1UL << __ffs(cfg->pgsize_bitmap);
+
+		if (ops->unmap_pages(ops, iova, size, 1, NULL) != size)
+			return __FAIL(ops, i);
+
+		/* Now we have table instead of block, with missing entry let's see */
+		iova_cookie = iova;
+		ret = ops->pgtable_walk(ops, iova_cookie, size, &common_wd);
+		if (ret || (iova_cookie != (iova + size)))
+			return __FAIL(ops, i);
+
+		if (ops->iova_to_phys(ops, iova))
+			return __FAIL(ops, i);
+
+		/* Let's unmap the whole table at once. */
+		size = 1ULL << __ffs(cfg->pgsize_bitmap & ~(1UL << __ffs(cfg->pgsize_bitmap)));
+		skip_addr = iova;
+		if (ops->unmap_pages(ops, iova, size, 1, NULL) != size)
+			return __FAIL(ops, i);
+		skip_addr = 0xFFFF;
+		cur_ops = NULL;
 		free_io_pgtable_ops(ops);
 	}
 
