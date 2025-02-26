@@ -890,10 +890,43 @@ static void smmu_tlb_inv_range(struct kvm_hyp_iommu_domain *domain,
 	hyp_read_unlock(&smmu_domain->list_lock);
 }
 
+static void smmu_unmap_visit_leaf(phys_addr_t addr, size_t size,
+				  struct io_pgtable_walk_common *data,
+				  void *wd)
+{
+	u64 *ptep = wd;
+	u64 pte = *ptep;
+
+	/* Might be a cleared table. */
+	if (!pte)
+		return;
+	WARN_ON(__pkvm_host_unuse_dma(addr, size));
+	*ptep = 0;
+}
+
 static void smmu_tlb_flush_walk(unsigned long iova, size_t size,
 				size_t granule, void *cookie)
 {
-	smmu_tlb_inv_range(cookie, iova, size, granule, false);
+	struct kvm_hyp_iommu_domain *domain = cookie;
+	struct hyp_arm_smmu_v3_domain *smmu_domain = domain->priv;
+	struct io_pgtable *pgtable = smmu_domain->pgtable;
+	struct arm_lpae_io_pgtable *data = io_pgtable_to_data(pgtable);
+	struct arm_lpae_io_pgtable_walk_data wd = {
+		.cookie = data,
+	};
+	struct io_pgtable_walk_common walk_data = {
+		.visit_leaf = smmu_unmap_visit_leaf,
+		.data = &wd,
+	};
+
+	smmu_tlb_inv_range(domain, iova, size, granule, false);
+
+	/* idmapped domains doesn't elevate refcounts. */
+	if (data->idmapped)
+		return;
+
+	/* We need to walk the table to make sure all leafs un-tracked. */
+	pgtable->ops.pgtable_walk(&pgtable->ops, iova, size, &walk_data);
 }
 
 static void smmu_tlb_add_page(struct iommu_iotlb_gather *gather,
@@ -912,48 +945,6 @@ static const struct iommu_flush_ops smmu_tlb_ops = {
 	.tlb_add_page	= smmu_tlb_add_page,
 };
 
-static void smmu_unmap_visit_leaf(phys_addr_t addr, size_t size,
-				  struct io_pgtable_walk_common *data,
-				  void *wd)
-{
-	u64 *ptep = wd;
-
-	WARN_ON(__pkvm_host_unuse_dma(addr, size));
-	*ptep = 0;
-}
-
-/*
- * On unmap with the IO_PGTABLE_QUIRK_UNMAP_INVAL, unmap doesn't clear
- * or free any tables, so after the unmap walk the table and on the post
- * walk we free invalid tables.
- * One caveat, is that a table can be unmapped while it points to other
- * tables which would be valid, and we would need to free those also.
- * The simples solution is to look at the walk PTE info and if any of
- * the parents is invalid it means that this table also needs to freed.
- */
-static void smmu_unmap_visit_post_table(struct arm_lpae_io_pgtable_walk_data *walk_data,
-					arm_lpae_iopte *ptep, int lvl)
-{
-	struct arm_lpae_io_pgtable *data = walk_data->cookie;
-	size_t table_size;
-	int i;
-	bool invalid = false;
-
-	if (lvl == data->start_level)
-		table_size = ARM_LPAE_PGD_SIZE(data);
-	else
-		table_size = ARM_LPAE_GRANULE(data);
-
-	for (i = 0 ; i <= lvl ; ++i)
-		invalid |= !iopte_valid(walk_data->ptes[lvl]);
-
-	if (!invalid)
-		return;
-
-	__arm_lpae_free_pages(ptep, table_size, &data->iop.cfg, data->iop.cookie);
-	*ptep = 0;
-}
-
 static void smmu_iotlb_sync(struct kvm_hyp_iommu_domain *domain,
 			    struct iommu_iotlb_gather *gather)
 {
@@ -963,7 +954,6 @@ static void smmu_iotlb_sync(struct kvm_hyp_iommu_domain *domain,
 	struct arm_lpae_io_pgtable *data = io_pgtable_to_data(pgtable);
 	struct arm_lpae_io_pgtable_walk_data wd = {
 		.cookie = data,
-		.visit_post_table = smmu_unmap_visit_post_table,
 	};
 	struct io_pgtable_walk_common walk_data = {
 		.visit_leaf = smmu_unmap_visit_leaf,
