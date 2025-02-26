@@ -26,6 +26,7 @@ DECLARE_HOOK(android_vh_ptype_head,
 
 struct sock;
 struct sockaddr_in6;
+struct tcp_sock;
 DECLARE_HOOK(android_vh_tcp_v4_connect,
 	TP_PROTO(struct sock *sk, struct sockaddr *uaddr), TP_ARGS(sk, uaddr));
 DECLARE_HOOK(android_vh_tcp_v6_connect,
@@ -86,6 +87,8 @@ DECLARE_HOOK(android_vh_dc_send_copy,
 	TP_PROTO(struct sk_buff *skb, struct net_device *dev), TP_ARGS(skb, dev));
 DECLARE_HOOK(android_vh_dc_receive,
 	TP_PROTO(struct sk_buff *skb, int *flag), TP_ARGS(skb, flag));
+DECLARE_HOOK(android_vh_tcp_rcv_rtt_update,
+	TP_PROTO(struct tcp_sock *tp, u32 sample, int win_dep), TP_ARGS(tp, sample, win_dep));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_NET_VH_H */
