@@ -50,7 +50,7 @@ int pkvm_set_mem_host_visibility(unsigned long addr, int numpages, bool enc)
 static void pkvm_get_ve_info(struct ve_info *ve)
 {
 	/* Reuse the tdx output for pkvm. */
-	struct tdx_module_output out;
+	struct tdx_module_args out;
 
 	__pkvm_module_call(PKVM_GHC_GET_VE_INFO, &out);
 

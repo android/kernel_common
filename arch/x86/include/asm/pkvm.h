@@ -148,7 +148,7 @@ void pkvm_guest_init_coco(void);
 bool pkvm_is_protected_guest(void);
 int pkvm_set_mem_host_visibility(unsigned long addr, int numpages, bool enc);
 
-u64 __pkvm_module_call(u64 fn, struct tdx_module_output *out);
+u64 __pkvm_module_call(u64 fn, struct tdx_module_args *out);
 
 #else
 
