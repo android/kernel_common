@@ -224,8 +224,10 @@
   __kmalloc_noprof
   kmemdup_noprof
   kstrndup
+  kstrtobool
   kstrtobool_from_user
   kstrtoint
+  kstrtouint
   kthread_create_on_node
   kthread_park
   kthread_should_stop
@@ -977,9 +979,7 @@
   input_mt_report_slot_state
   input_mt_sync_frame
   input_set_capability
-  kstrtobool
   kstrtou8
-  kstrtouint
   ps2_begin_command
   ps2_command
   ps2_drain
@@ -1368,6 +1368,10 @@
   topology_set_scale_freq_source
 
 # required by vkms.ko
+  configfs_register_subsystem
+  configfs_unregister_subsystem
+  config_group_init
+  config_group_init_type_name
   __devm_drm_dev_alloc
   devres_open_group
   devres_release_group
@@ -1410,12 +1414,10 @@
   drm_rect_rotate_inv
   drm_writeback_queue_job
   drm_writeback_signal_completion
-
-# preserved by --additions-only
-  drm_calc_timestamping_constants
-  drm_encoder_cleanup
-  drm_encoder_init
-  drmm_crtc_init_with_planes
-  drm_rect_rotate
-  drm_rotation_simplify
-  drm_writeback_connector_init
+  kfree_const
+  kstrdup_const
+  __xa_alloc
+  xa_destroy
+  xa_erase
+  xa_find
+  xa_find_after
