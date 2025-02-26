@@ -242,6 +242,7 @@ config GKI_HIDDEN_ETHERNET_CONFIGS
 config GKI_HIDDEN_DMA_CONFIGS
 	bool "Hidden DMA configuration needed for GKI"
 	select ASYNC_TX_ENABLE_CHANNEL_SWITCH
+	select DMA_ENGINE_RAID
 	help
 	  Dummy config option used to enable the hidden DMA configs,
 	  required by various SoC platforms.
