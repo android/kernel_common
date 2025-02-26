@@ -1747,12 +1747,37 @@ int __pkvm_host_use_dma(phys_addr_t phys_addr, size_t size)
 		return -EINVAL;
 
 	host_lock_component();
-	ret = ___host_check_page_state_range(phys_addr, size, PKVM_PAGE_OWNED, reg, false);
-	if (ret || !reg)
-		goto out_ret;
+	/*
+	 * Some differences between handling of RAM and device memory:
+	 * - The hyp vmemmap area for device memory is not backed by physical
+	 *   pages in the hyp page tables.
+	 * - However, in some cases modules can donate MMIO, as they can't be
+	 *   refcounted, taint them by marking them as shared PKVM_PAGE_TAINTED, and that
+	 *   will prevent any future transition.
+	 */
+	if (!reg) {
+		enum kvm_pgtable_prot prot;
 
-	for (i = 0; i < nr_pages; i++)
-		__pkvm_host_use_dma_page(phys_addr + i * PAGE_SIZE);
+		ret = ___host_check_page_state_range(phys_addr, size,
+						     PKVM_PAGE_TAINTED,
+						     reg, false);
+		if (!ret)
+			goto out_ret;
+		ret = ___host_check_page_state_range(phys_addr, size,
+						     PKVM_PAGE_OWNED,
+						     reg, false);
+		if (ret)
+			goto out_ret;
+		prot = pkvm_mkstate(PKVM_HOST_MMIO_PROT, PKVM_PAGE_TAINTED);
+		ret = host_stage2_idmap_locked(phys_addr, size, prot, false);
+	} else {
+		ret = ___host_check_page_state_range(phys_addr, size, PKVM_PAGE_OWNED, reg, false);
+		if (ret)
+			goto out_ret;
+
+		for (i = 0; i < nr_pages; i++)
+			__pkvm_host_use_dma_page(phys_addr + i * PAGE_SIZE);
+	}
 
 out_ret:
 	host_unlock_component();
