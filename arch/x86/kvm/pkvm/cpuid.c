@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/array_size.h>
 #include <reverse_cpuid.h>
+#include <asm/kvm_pkvm.h>
 #include <asm/cpuid.h>
 #include <cpuid.h>
 
@@ -297,6 +298,28 @@ EXPORT_SYMBOL_GPL(kvm_set_cpu_caps);
 
 int kvm_emulate_cpuid(struct kvm_vcpu *vcpu)
 {
+#ifdef __PKVM_HYP__
+	/*
+	 * TODO:
+	 * Overriding the KVM_CPUID_SIGNATURE leaf with
+	 * "PKVMPKVMPKVM" is to make the guest aware that it is running
+	 * with the protection from the pkvm hypervisor so it has to
+	 * enable some enlightenment.
+	 *
+	 * To achieve this, is there any better solution rather than
+	 * changing the KVM_CPUID_SIGNATURE leaf? Probably other leaf
+	 * like 0x21 which is used by TDX guest?
+	 */
+	if ((kvm_rax_read(vcpu) == KVM_CPUID_SIGNATURE) && pkvm_is_protected_vcpu(vcpu)) {
+		const u32 *sigptr = (const u32 *)"PKVMPKVMPKVM";
+
+		vcpu->arch.regs[VCPU_REGS_RBX] = sigptr[0];
+		vcpu->arch.regs[VCPU_REGS_RCX] = sigptr[1];
+		vcpu->arch.regs[VCPU_REGS_RDX] = sigptr[2];
+
+		return kvm_skip_emulated_instruction(vcpu);
+	}
+#endif
 	/* TODO */
 	return 0;
 }
