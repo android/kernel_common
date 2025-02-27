@@ -31,6 +31,7 @@
   alloc_workqueue
   alt_cb_patch_nops
   amba_bustype
+  __amba_driver_register
   amba_driver_unregister
   android_rvh_probe_register
   anon_inode_getfile
@@ -471,6 +472,7 @@
   debugfs_lookup
   debugfs_remove
   debugfs_rename
+  debug_locks
   debug_locks_off
   debug_locks_silent
   dec_node_page_state
@@ -488,6 +490,7 @@
   __dev_change_net_namespace
   dev_close
   dev_close_many
+  dev_coredumpm_timeout
   dev_coredumpv
   _dev_crit
   dev_driver_string
@@ -1106,6 +1109,7 @@
   __folio_put
   folio_unlock
   folio_wait_bit
+  __fortify_panic
   fput
   fqdir_exit
   fqdir_init
@@ -1632,6 +1636,7 @@
   kill_anon_super
   kill_fasync
   kimage_voffset
+  __kmalloc_cache_node_noprof
   kmalloc_caches
   kmem_cache_destroy
   kmem_cache_free
@@ -1655,6 +1660,7 @@
   kobject_uevent
   kobject_uevent_env
   kobj_sysfs_ops
+  krealloc_noprof
   kset_create_and_add
   kset_find_obj
   kset_unregister
