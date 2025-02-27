@@ -1062,6 +1062,7 @@
   eventfd_ctx_fileget
   eventfd_ctx_put
   eventfd_ctx_remove_wait_queue
+  eventfd_signal_mask
   event_triggers_call
   extcon_get_edev_by_phandle
   extcon_get_edev_name
@@ -1856,6 +1857,7 @@
   module_layout
   module_put
   __module_put_and_kthread_exit
+  module_refcount
   __msecs_to_jiffies
   msi_domain_first_desc
   msi_lock_descs
@@ -1863,6 +1865,11 @@
   msi_unlock_descs
   msleep
   msleep_interruptible
+  mt_find
+  mt_find_after
+  mtree_destroy
+  mtree_erase
+  mtree_insert_range
   mtree_load
   __mutex_init
   mutex_is_locked
