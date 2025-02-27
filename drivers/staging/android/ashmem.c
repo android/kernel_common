@@ -108,13 +108,15 @@ static struct lock_class_key backing_shmem_inode_class;
 static bool unpinning_enable = true;
 
 /*
- * memfd does not allow removing permissions to map a buffer with PROT_READ. This variable
- * is exposed as a tunable so that it can be used to make ashmem behave more like memfd for
- * test purposes.
+ * memfd does not allow removing permissions to map a buffer with PROT_READ or PROT_EXEC. These
+ * variables are exposed as tunables so that they can be used to make ashmem behave more like memfd
+ * for test purposes.
  *
- * It is set to false by default to retain compatibility with the original behavior of the driver.
+ * They are set to false by default to retain compatibility with the original behavior of the
+ * driver.
  */
 static bool ignore_unset_prot_read;
+static bool ignore_unset_prot_exec;
 
 static inline unsigned long range_size(struct ashmem_range *range)
 {
@@ -562,6 +564,10 @@ static int set_prot_mask(struct ashmem_area *asma, unsigned long prot)
 	if (ignore_unset_prot_read)
 		prot |= asma->prot_mask & PROT_READ;
 
+	/* Ensure the buffer can only be mapped with PROT_EXEC iff it has that permission. */
+	if (ignore_unset_prot_exec)
+		prot |= asma->prot_mask & PROT_EXEC;
+
 	/* the user can only remove, not add, protection bits */
 	if ((asma->prot_mask & prot) != prot) {
 		ret = -EINVAL;
@@ -953,6 +959,12 @@ static int ignore_unset_prot_read_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
+static int ignore_unset_prot_exec_open(struct inode *inode, struct file *file)
+{
+	file->private_data = &ignore_unset_prot_exec;
+	return 0;
+}
+
 static ssize_t attr_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
 {
 	bool *attrp = file->private_data;
@@ -1019,6 +1031,13 @@ static const struct file_operations ignore_unset_prot_read_fops = {
 	.write = attr_write,
 };
 
+static const struct file_operations ignore_unset_prot_exec_fops = {
+	.owner = THIS_MODULE,
+	.open = ignore_unset_prot_exec_open,
+	.read= attr_read,
+	.write = attr_write,
+};
+
 static struct miscdevice ashmem_miscs[] = {
 	{
 		.minor = MISC_DYNAMIC_MINOR,
@@ -1034,6 +1053,11 @@ static struct miscdevice ashmem_miscs[] = {
 		.minor = MISC_DYNAMIC_MINOR,
 		.name = "ashmem_ignore_unset_prot_read",
 		.fops = &ignore_unset_prot_read_fops,
+	},
+	{
+		.minor = MISC_DYNAMIC_MINOR,
+		.name = "ashmem_ignore_unset_prot_exec",
+		.fops = &ignore_unset_prot_exec_fops,
 	},
 };
 
