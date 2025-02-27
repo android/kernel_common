@@ -1319,6 +1319,7 @@
   __hw_addr_init
   __hw_addr_sync
   __hw_addr_unsync
+  hw_pressure
   hwrng_register
   hwrng_unregister
   hwspin_lock_bust
@@ -2269,6 +2270,7 @@
   phy_trigger_machine
   phy_write_mmd
   pick_highest_pushable_task
+  pick_task
   pid_nr_ns
   pid_task
   pid_vnr
@@ -2470,6 +2472,7 @@
   _raw_write_lock_bh
   _raw_write_lock_irq
   _raw_write_lock_irqsave
+  _raw_write_lock_nested
   _raw_write_unlock
   _raw_write_unlock_bh
   _raw_write_unlock_irq
@@ -3173,6 +3176,7 @@
   tipc_sk_fill_sock_diag
   topology_clear_scale_freq_source
   topology_update_done
+  topology_update_hw_pressure
   _totalram_pages
   trace_array_put
   __trace_bprintk
@@ -3733,6 +3737,7 @@
   vchan_init
   vchan_tx_desc_free
   vchan_tx_submit
+  vendor_data_pad
   verify_pkcs7_signature
   vfree
   vhost_add_used_and_signal
@@ -3827,6 +3832,7 @@
   wake_up_bit
   wake_up_if_idle
   __wake_up_locked
+  wakeup_preempt
   wake_up_process
   wakeup_source_register
   wakeup_source_unregister
