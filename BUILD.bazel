@@ -210,6 +210,7 @@ write_file(
 common_kernel(
     name = "kernel_aarch64",
     outs = DEFAULT_GKI_OUTS,
+    abi_definition_stg = "gki/aarch64/abi.stg",
     additional_kmi_symbol_lists = [":aarch64_additional_kmi_symbol_lists"],
     arch = "arm64",
     build_gki_artifacts = True,
@@ -223,6 +224,7 @@ common_kernel(
     gki_boot_img_sizes = _GKI_AARCH64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
     kcflags = COMMON_KCFLAGS,
+    kmi_enforced = True,
     kmi_symbol_list = "gki/aarch64/symbols/base",
     kmi_symbol_list_strict_mode = True,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
@@ -233,10 +235,6 @@ common_kernel(
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     trim_nonlisted_kmi = False,
     visibility = ["//visibility:public"],
-
-    # ABI
-    # abi_definition_stg = None,
-    # kmi_enforced = False,
 )
 
 common_kernel(
