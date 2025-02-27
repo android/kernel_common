@@ -18,7 +18,6 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 use kernel::{
-    alloc::AllocError,
     c_str,
     list::{List, ListArc, ListLinks},
     page::PAGE_SIZE,
@@ -455,15 +454,22 @@ kernel::sync::global_lock! {
     pub(crate) unsafe(uninit) static ASHMEM_SHRINKER: Mutex<AshmemShrinkerType> = None;
 }
 
-pub(crate) fn register_shrinker() -> Result<(), AllocError> {
-    let mut lock = ASHMEM_SHRINKER.lock();
-    if lock.is_none() {
-        let mut shrinker = ShrinkerBuilder::new(c_str!("android-ashmem"))?;
-        shrinker.set_seeks(4 * ashmem_shrinker::DEFAULT_SEEKS);
-
-        *lock = Some(shrinker.register(()));
+pub(crate) fn set_shrinker_enabled(enabled: bool) -> Result<()> {
+    let mut shrinker = ASHMEM_SHRINKER.lock();
+    if enabled {
+        if shrinker.is_none() {
+            let mut builder = ShrinkerBuilder::new(c_str!("android-ashmem"))?;
+            builder.set_seeks(4 * ashmem_shrinker::DEFAULT_SEEKS);
+            *shrinker = Some(builder.register(()));
+        }
+    } else {
+        *shrinker = None;
     }
     Ok(())
+}
+
+pub(crate) fn get_shrinker_enabled() -> bool {
+    ASHMEM_SHRINKER.lock().is_some()
 }
 
 #[cfg(test)]

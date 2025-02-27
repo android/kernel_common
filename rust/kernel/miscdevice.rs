@@ -17,10 +17,10 @@ use crate::{
     prelude::*,
     seq_file::SeqFile,
     str::CStr,
-    types::{ForeignOwnable, Opaque},
+    types::{AsBytes, ForeignOwnable, Opaque},
 };
 use core::{
-    ffi::{c_int, c_long, c_uint, c_ulong},
+    ffi::{c_int, c_long, c_uint, c_ulong, c_void},
     marker::PhantomData,
     mem::MaybeUninit,
     pin::Pin,
@@ -160,6 +160,11 @@ pub trait MiscDevice: Sized {
         kernel::build_error(VTABLE_DEFAULT_ERROR)
     }
 
+    /// Write to this miscdevice.
+    fn write_iter(_kiocb: Kiocb<'_, Self::Ptr>, _iov: &mut IovIter) -> Result<usize> {
+        kernel::build_error(VTABLE_DEFAULT_ERROR)
+    }
+
     /// Handler for ioctls.
     ///
     /// The `cmd` argument is usually manipulated using the utilties in [`kernel::ioctl`].
@@ -241,6 +246,33 @@ impl IovIter {
     pub fn as_raw(&self) -> *mut bindings::iov_iter {
         self.inner.get()
     }
+
+    /// Copy bytes from this iterator.
+    pub fn copy_from_iter(&mut self, buf: &mut [u8]) -> usize {
+        // SAFETY: The local variable `out` is valid for writing `size_of::<T>()` bytes.
+        unsafe {
+            bindings::_copy_from_iter(
+                buf.as_mut_ptr().cast::<c_void>(),
+                buf.len(),
+                self.inner.get(),
+            )
+        }
+    }
+
+    /// Copy bytes to this iterator.
+    pub fn copy_to_iter<T: AsBytes>(&mut self, value: &T) -> Result<()> {
+        let len = size_of::<T>();
+        // SAFETY: The reference points to a value of type `T`, so it is valid for reading
+        // `size_of::<T>()` bytes.
+        let res = unsafe {
+            bindings::_copy_to_iter((value as *const T).cast::<c_void>(), len, self.inner.get())
+        };
+        if res == len {
+            Ok(())
+        } else {
+            Err(EFAULT)
+        }
+    }
 }
 
 const fn create_vtable<T: MiscDevice>() -> &'static bindings::file_operations {
@@ -262,6 +294,7 @@ const fn create_vtable<T: MiscDevice>() -> &'static bindings::file_operations {
             mmap: maybe_fn(T::HAS_MMAP, fops_mmap::<T>),
             llseek: maybe_fn(T::HAS_LLSEEK, fops_llseek::<T>),
             read_iter: maybe_fn(T::HAS_READ_ITER, fops_read_iter::<T>),
+            write_iter: maybe_fn(T::HAS_WRITE_ITER, fops_write_iter::<T>),
             unlocked_ioctl: maybe_fn(T::HAS_IOCTL, fops_ioctl::<T>),
             #[cfg(CONFIG_COMPAT)]
             compat_ioctl: if T::HAS_COMPAT_IOCTL {
@@ -407,6 +440,25 @@ unsafe extern "C" fn fops_read_iter<T: MiscDevice>(
     let iov = unsafe { &mut *iter.cast::<IovIter>() };
 
     match T::read_iter(kiocb, iov) {
+        Ok(res) => res as isize,
+        Err(err) => err.to_errno() as isize,
+    }
+}
+
+/// # Safety
+///
+/// Arguments must be valid.
+unsafe extern "C" fn fops_write_iter<T: MiscDevice>(
+    kiocb: *mut bindings::kiocb,
+    iter: *mut bindings::iov_iter,
+) -> isize {
+    let kiocb = Kiocb {
+        inner: unsafe { NonNull::new_unchecked(kiocb) },
+        _phantom: PhantomData,
+    };
+    let iov = unsafe { &mut *iter.cast::<IovIter>() };
+
+    match T::write_iter(kiocb, iov) {
         Ok(res) => res as isize,
         Err(err) => err.to_errno() as isize,
     }
