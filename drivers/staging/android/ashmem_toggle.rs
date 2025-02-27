@@ -4,8 +4,8 @@
 
 //! Provides knobs for Rust ashmem.
 
-use crate::ashmem_range;
-use core::marker::PhantomData;
+use crate::{ashmem_range, IGNORE_UNSET_PROT_READ};
+use core::{marker::PhantomData, sync::atomic::Ordering};
 use kernel::{
     c_str,
     error::to_result,
@@ -77,5 +77,18 @@ impl AshmemToggle for AshmemToggleShrinker {
     }
     fn get() -> bool {
         ashmem_range::get_shrinker_enabled()
+    }
+}
+
+pub(crate) struct AshmemToggleRead;
+
+impl AshmemToggle for AshmemToggleRead {
+    const NAME: &'static CStr = c_str!("ashmem_ignore_unset_prot_read");
+    fn set(enabled: bool) -> Result<()> {
+        IGNORE_UNSET_PROT_READ.store(enabled, Ordering::Relaxed);
+        Ok(())
+    }
+    fn get() -> bool {
+        IGNORE_UNSET_PROT_READ.load(Ordering::Relaxed)
     }
 }

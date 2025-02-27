@@ -13,7 +13,7 @@
 use core::{
     ffi::c_int,
     pin::Pin,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 use kernel::{
     bindings::{self, ASHMEM_GET_PIN_STATUS, ASHMEM_PIN, ASHMEM_UNPIN},
@@ -50,7 +50,7 @@ mod shmem;
 use shmem::ShmemFile;
 
 mod ashmem_toggle;
-use ashmem_toggle::{AshmemToggleMisc, AshmemToggleShrinker};
+use ashmem_toggle::{AshmemToggleMisc, AshmemToggleRead, AshmemToggleShrinker};
 
 /// Does PROT_READ imply PROT_EXEC for this task?
 fn read_implies_exec(task: &Task) -> bool {
@@ -66,6 +66,7 @@ fn has_cap_sys_admin() -> bool {
 }
 
 static NUM_PIN_IOCTLS_WAITING: AtomicUsize = AtomicUsize::new(0);
+static IGNORE_UNSET_PROT_READ: AtomicBool = AtomicBool::new(false);
 
 fn shrinker_should_stop() -> bool {
     NUM_PIN_IOCTLS_WAITING.load(Ordering::Relaxed) > 0
@@ -82,6 +83,7 @@ module! {
 struct AshmemModule {
     _misc: Pin<Box<MiscDeviceRegistration<Ashmem>>>,
     _toggle_unpin: Pin<Box<MiscDeviceRegistration<AshmemToggleMisc<AshmemToggleShrinker>>>>,
+    _toggle_read: Pin<Box<MiscDeviceRegistration<AshmemToggleMisc<AshmemToggleRead>>>>,
 }
 
 impl kernel::Module for AshmemModule {
@@ -105,6 +107,7 @@ impl kernel::Module for AshmemModule {
                 GFP_KERNEL,
             )?,
             _toggle_unpin: AshmemToggleMisc::<AshmemToggleShrinker>::new()?,
+            _toggle_read: AshmemToggleMisc::<AshmemToggleRead>::new()?,
         })
     }
 }
@@ -338,6 +341,11 @@ impl Ashmem {
 
         if (prot & PROT_READ != 0) && read_implies_exec(current!()) {
             prot |= PROT_EXEC;
+        }
+
+        if IGNORE_UNSET_PROT_READ.load(Ordering::Relaxed) {
+            // Add back PROT_READ if asma.prot_mask has it.
+            prot |= asma.prot_mask & PROT_READ;
         }
 
         // The user can only remove, not add, protection bits.
