@@ -17,15 +17,10 @@ config ASHMEM
 	  because it can discard shared memory units when under memory pressure.
 
 config ASHMEM_RUST
-	bool "Enable the Anonymous Shared Memory Subsystem in Rust"
-	depends on SHMEM && RUST && !ASHMEM
-	select ANDROID_STAGING
-	help
-	  The ashmem subsystem is a new shared memory allocator, similar to
-	  POSIX SHM but with different behavior and sporting a simpler
-	  file-based API.
+	bool "Use the Rust implementation of Ashmem"
+	depends on ASHMEM && RUST
 
-	  It is, in theory, a good memory allocator for low-memory devices,
-	  because it can discard shared memory units when under memory pressure.
+config ASHMEM_C
+	def_bool ASHMEM && !ASHMEM_RUST
 
 endmenu
