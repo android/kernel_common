@@ -386,7 +386,7 @@ void folio_promote(struct folio *folio)
 }
 
 #else
-static inline void folio_activate_drain(int cpu)
+static inline void folio_update_drain(int cpu)
 {
 }
 
