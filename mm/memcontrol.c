@@ -3415,6 +3415,7 @@ struct mem_cgroup *mem_cgroup_from_id(unsigned short id)
 	WARN_ON_ONCE(!rcu_read_lock_held());
 	return xa_load(&mem_cgroup_ids, id);
 }
+EXPORT_SYMBOL_GPL(mem_cgroup_from_id);
 
 #ifdef CONFIG_SHRINKER_DEBUG
 struct mem_cgroup *mem_cgroup_get_from_ino(unsigned long ino)
