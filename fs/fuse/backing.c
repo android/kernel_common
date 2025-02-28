@@ -780,9 +780,7 @@ static void fuse_bpf_aio_cleanup_handler(struct fuse_bpf_aio_req *aio_req)
 	struct kiocb *iocb_orig = aio_req->iocb_orig;
 
 	if (iocb->ki_flags & IOCB_WRITE) {
-		__sb_writers_acquired(file_inode(iocb->ki_filp)->i_sb,
-				      SB_FREEZE_WRITE);
-		file_end_write(iocb->ki_filp);
+		kiocb_end_write(iocb);
 		fuse_copyattr(iocb_orig->ki_filp, iocb->ki_filp);
 	}
 	iocb_orig->ki_pos = iocb->ki_pos;
@@ -945,10 +943,8 @@ int fuse_file_write_iter_backing(struct fuse_bpf_args *fa,
 	fuse_copyattr(file, ff->backing_file);
 
 	if (is_sync_kiocb(iocb)) {
-		file_start_write(ff->backing_file);
 		ret = vfs_iter_write(ff->backing_file, from, &iocb->ki_pos,
 					   iocb->ki_flags & FUSE_BPF_IOCB_MASK);
-		file_end_write(ff->backing_file);
 
 		/* Must reflect change in size of backing file to upper file */
 		if (ret > 0)
@@ -961,8 +957,6 @@ int fuse_file_write_iter_backing(struct fuse_bpf_args *fa,
 		if (!aio_req)
 			goto out;
 
-		file_start_write(ff->backing_file);
-		__sb_writers_release(file_inode(ff->backing_file)->i_sb, SB_FREEZE_WRITE);
 		aio_req->iocb_orig = iocb;
 		kiocb_clone(&aio_req->iocb, iocb, ff->backing_file);
 		aio_req->iocb.ki_complete = fuse_bpf_aio_rw_complete;
