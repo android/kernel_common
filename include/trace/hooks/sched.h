@@ -277,8 +277,8 @@ DECLARE_RESTRICTED_HOOK(android_rvh_after_enqueue_task,
 	TP_ARGS(rq, p, flags), 1);
 
 DECLARE_RESTRICTED_HOOK(android_rvh_after_dequeue_task,
-	TP_PROTO(struct rq *rq, struct task_struct *p, int flags),
-	TP_ARGS(rq, p, flags), 1);
+	TP_PROTO(struct rq *rq, struct task_struct *p, int flags, bool *dequeue_task_result),
+	TP_ARGS(rq, p, flags, dequeue_task_result), 1);
 
 struct cfs_rq;
 struct sched_entity;
