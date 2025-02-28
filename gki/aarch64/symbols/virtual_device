@@ -1299,6 +1299,8 @@
   netif_tx_unlock
   nr_cpu_ids
   __num_online_cpus
+  page_pinner_inited
+  __page_pinner_put_page
   sched_clock
   skb_coalesce_rx_frag
   __skb_flow_dissect
