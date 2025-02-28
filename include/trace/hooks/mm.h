@@ -298,6 +298,10 @@ DECLARE_HOOK(android_vh_alloc_flags_cma_adjust,
 DECLARE_HOOK(android_vh_rmqueue_cma_fallback,
 	TP_PROTO(struct zone *zone, unsigned int order, struct page **page),
 	TP_ARGS(zone, order, page));
+DECLARE_HOOK(android_vh_filemap_map_pages_range,
+	TP_PROTO(struct file *file, pgoff_t orig_start_pgoff,
+		pgoff_t last_pgoff, vm_fault_t ret),
+	TP_ARGS(file, orig_start_pgoff, last_pgoff, ret));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
