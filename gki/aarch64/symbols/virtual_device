@@ -93,7 +93,6 @@
   __dma_sync_single_for_device
   dma_unmap_sg_attrs
   do_trace_netlink_extack
-  down_write
   drm_add_modes_noedid
   drm_atomic_get_crtc_state
   drm_atomic_helper_check
@@ -455,7 +454,6 @@
   unregister_netdevice_queue
   unregister_pernet_device
   unregister_virtio_driver
-  up_write
   usb_add_hcd
   usb_alloc_urb
   usb_anchor_urb
@@ -514,6 +512,7 @@
   virtqueue_notify
   vmalloc_noprof
   vmalloc_to_page
+  __vma_start_write
   vm_get_page_prot
   vzalloc_noprof
   wait_for_completion_timeout
@@ -1421,3 +1420,7 @@
   xa_erase
   xa_find
   xa_find_after
+
+# preserved by --additions-only
+  down_write
+  up_write

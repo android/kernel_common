@@ -1452,7 +1452,6 @@
   dma_resv_set_deadline
   dma_resv_test_signaled
   dma_resv_wait_timeout
-  down_write
   drm_add_modes_noedid
   drm_aperture_remove_conflicting_framebuffers
   drm_atomic_get_new_crtc_for_encoder
@@ -1670,8 +1669,8 @@
   __tracepoint_gpu_mem_total
   unmap_mapping_range
   unregister_vmap_purge_notifier
-  up_write
   video_firmware_drivers_only
+  __vma_start_write
   vmf_insert_pfn
   vm_get_page_prot
   vscnprintf
