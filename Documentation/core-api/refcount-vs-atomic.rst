@@ -87,7 +87,7 @@ Memory ordering guarantee changes:
 
 
 case 2) - non-"Read/Modify/Write" (RMW) ops with release ordering
--------------------------------------------
+-----------------------------------------------------------------
 
 Function changes:
 
@@ -139,7 +139,7 @@ Memory ordering guarantees changes:
 
 
 case 6) - increment-based RMW ops with acquire ordering that return a value
------------------------------------------------------
+---------------------------------------------------------------------------
 
 Function changes:
 
