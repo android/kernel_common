@@ -591,6 +591,12 @@ struct page_frag_cache {
 typedef unsigned long vm_flags_t;
 
 /*
+ * freeptr_t represents a SLUB freelist pointer, which might be encoded
+ * and not dereferenceable if CONFIG_SLAB_FREELIST_HARDENED is enabled.
+ */
+typedef struct { unsigned long v; } freeptr_t;
+
+/*
  * A region containing a mapping of a non-memory backed file under NOMMU
  * conditions.  These are held in a global tree and are pinned by the VMAs that
  * map parts of them.
@@ -693,6 +699,9 @@ struct vma_numab_state {
  *
  * Only explicitly marked struct members may be accessed by RCU readers before
  * getting a stable reference.
+ *
+ * WARNING: when adding new members, please update vm_area_init_from() to copy
+ * them during vm_area_struct content duplication.
  */
 struct vm_area_struct {
 	/* The first cache line has the info for VMA tree walking. */
@@ -703,9 +712,7 @@ struct vm_area_struct {
 			unsigned long vm_start;
 			unsigned long vm_end;
 		};
-#ifdef CONFIG_PER_VMA_LOCK
-		struct rcu_head vm_rcu;	/* Used for deferred freeing. */
-#endif
+		freeptr_t vm_freeptr; /* Pointer used by SLAB_TYPESAFE_BY_RCU */
 	};
 
 	/*
