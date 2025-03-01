@@ -17,10 +17,12 @@
 #include "memfd-ashmem-shim-internal.h"
 
 /* file_path() returns the path of the file including the root, hence the additional "/". */
-#define MEMFD_PATH_PREFIX_LEN strlen("/memfd:")
+#define MEMFD_PATH_PREFIX "/memfd:"
+#define MEMFD_PATH_PREFIX_LEN (sizeof(MEMFD_PATH_PREFIX) - 1)
 
 /* All memfd files are unlinked, and are therefore suffixed with the " (deleted)" string. */
-#define UNLINKED_FILE_SUFFIX_LEN strlen(" (deleted)")
+#define UNLINKED_FILE_SUFFIX " (deleted)"
+#define UNLINKED_FILE_SUFFIX_LEN (sizeof(UNLINKED_FILE_SUFFIX) - 1)
 
 /*
  * 1 character for the start of the path (/), NAME_MAX for the maximum length of a full memfd file
@@ -38,8 +40,8 @@ static char *get_memfd_file_name(struct file *file, char *buf, size_t size)
 		return path;
 
 	/* Only handle memfds; we cannot make assumptions about other file names. */
-	name_end = strstr(path, " (deleted)");
-	if ((strstr(path, "/memfd:") != path) || !name_end)
+	name_end = strstr(path, UNLINKED_FILE_SUFFIX);
+	if ((strstr(path, MEMFD_PATH_PREFIX) != path) || !name_end)
 		return ERR_PTR(-EINVAL);
 
 	/*
