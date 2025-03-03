@@ -8,6 +8,7 @@
 SECTIONS {
 	PKVM_SECTION(.text)
 	PKVM_SECTION(.noinstr.text)
+	PKVM_SECTION(.init.text)
 	PKVM_SECTION(.rodata)
 	/*
 	 * .pkvm.data..percpu needs to be defined before .data section
@@ -22,5 +23,6 @@ SECTIONS {
 		PERCPU_INPUT(INTERNODE_CACHE_BYTES)
 	END_PKVM_SECTION
 	PKVM_SECTION(.data)
+	PKVM_SECTION(.init.data)
 	PKVM_SECTION(.bss)
 }

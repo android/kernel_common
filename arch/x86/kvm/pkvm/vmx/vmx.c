@@ -4,6 +4,7 @@
 #include <asm/cpuid.h>
 #include <asm/msr.h>
 #include <vmx/vmx.h>
+#include <vmx/x86_ops.h>
 #include "vmx.h"
 
 static bool __read_mostly error_on_inconsistent_vmcs_config = true;
@@ -346,9 +347,28 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf, struct vmx_capabilit
 	return ret;
 }
 
+__init int vmx_hardware_setup(void)
+{
+	return 0;
+}
+
 #ifdef __PKVM_HYP__
+struct kvm_x86_ops vt_x86_ops __initdata = {
+	.name = KBUILD_MODNAME,
+};
+
+struct kvm_x86_init_ops vt_init_ops __initdata = {
+	.hardware_setup = vmx_hardware_setup,
+	.runtime_ops = &vt_x86_ops,
+};
+
 int setup_vmx(void)
 {
-	return setup_vmcs_config(&vmcs_config, &vmx_capability);
+	int ret = setup_vmcs_config(&vmcs_config, &vmx_capability);
+
+	if (ret)
+		return ret;
+
+	return kvm_x86_vendor_init(&vt_init_ops);
 }
 #endif

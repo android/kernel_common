@@ -1406,6 +1406,7 @@ static int __init pkvm_firmware_rmem_clear(void)
 static void __init setup_pkvm_syms(void)
 {
 	memcpy(&pkvm_sym(boot_cpu_data), &boot_cpu_data, sizeof(struct cpuinfo_x86));
+	pkvm_sym(tsc_khz) = tsc_khz;
 }
 
 int __init vmx_pkvm_init(void)
