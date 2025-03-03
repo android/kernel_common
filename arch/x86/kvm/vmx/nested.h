@@ -17,6 +17,14 @@ enum nvmx_vmentry_status {
 	NVMX_VMENTRY_KVM_INTERNAL_ERROR,/* KVM internal error */
 };
 
+#ifdef __PKVM_HYP__
+static inline void nested_vmx_setup_ctls_msrs(struct vmcs_config *vmcs_conf, u32 ept_caps) {}
+static inline void nested_vmx_hardware_unsetup(void) {}
+static inline __init int nested_vmx_hardware_setup(int (*exit_handlers[])(struct kvm_vcpu *))
+{
+	return 0;
+}
+#else
 void vmx_leave_nested(struct kvm_vcpu *vcpu);
 void nested_vmx_setup_ctls_msrs(struct vmcs_config *vmcs_conf, u32 ept_caps);
 void nested_vmx_hardware_unsetup(void);
@@ -36,6 +44,7 @@ int get_vmx_mem_address(struct kvm_vcpu *vcpu, unsigned long exit_qualification,
 void nested_mark_vmcs12_pages_dirty(struct kvm_vcpu *vcpu);
 bool nested_vmx_check_io_bitmaps(struct kvm_vcpu *vcpu, unsigned int port,
 				 int size);
+#endif
 
 static inline struct vmcs12 *get_vmcs12(struct kvm_vcpu *vcpu)
 {

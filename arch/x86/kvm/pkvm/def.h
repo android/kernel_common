@@ -24,6 +24,9 @@
 #undef CONFIG_TRACEPOINTS
 #undef CONFIG_TRACE_IRQFLAGS
 #undef CONFIG_DEBUG_IRQFLAGS
+/* FIXME: Disable SGX to simplify POC */
+#undef CONFIG_X86_SGX_KVM
+#undef CONFIG_PREEMPT_COUNT
 
 unsigned long pkvm_virt_to_phys(void *virt);
 #undef __pa

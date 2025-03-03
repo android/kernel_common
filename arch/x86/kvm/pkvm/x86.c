@@ -2,6 +2,11 @@
 #include <x86.h>
 #include <asm/fpu/xcr.h>
 
+#ifdef __PKVM_HYP__
+#undef module_param_named
+#define module_param_named(...)
+#endif
+
 /*
  * Note, kvm_caps fields should *never* have default values, all fields must be
  * recomputed from scratch during vendor module load, e.g. to account for a
@@ -13,12 +18,81 @@ EXPORT_SYMBOL_GPL(kvm_caps);
 struct kvm_host_values kvm_host __read_mostly;
 EXPORT_SYMBOL_GPL(kvm_host);
 
+/* EFER defaults:
+ * - enable syscall per default because its emulated by KVM
+ * - enable LME and LMA per default on 64 bit KVM
+ */
+#ifdef CONFIG_X86_64
+static
+u64 __read_mostly efer_reserved_bits = ~((u64)(EFER_SCE | EFER_LME | EFER_LMA));
+#else
+static u64 __read_mostly efer_reserved_bits = ~((u64)EFER_SCE);
+#endif
+
 struct kvm_x86_ops kvm_x86_ops __read_mostly;
+
+/* Enable/disable PMU virtualization */
+bool __read_mostly enable_pmu = true;
+EXPORT_SYMBOL_GPL(enable_pmu);
+module_param(enable_pmu, bool, 0444);
+
+/*
+ * Restoring the host value for MSRs that are only consumed when running in
+ * usermode, e.g. SYSCALL MSRs and TSC_AUX, can be deferred until the CPU
+ * returns to userspace, i.e. the kernel can run with the guest's value.
+ */
+#define KVM_MAX_NR_USER_RETURN_MSRS 16
+
+u32 __read_mostly kvm_nr_uret_msrs;
+EXPORT_SYMBOL_GPL(kvm_nr_uret_msrs);
+static u32 __read_mostly kvm_uret_msrs_list[KVM_MAX_NR_USER_RETURN_MSRS];
 
 #define KVM_SUPPORTED_XCR0     (XFEATURE_MASK_FP | XFEATURE_MASK_SSE \
 				| XFEATURE_MASK_YMM | XFEATURE_MASK_BNDREGS \
 				| XFEATURE_MASK_BNDCSR | XFEATURE_MASK_AVX512 \
 				| XFEATURE_MASK_PKRU | XFEATURE_MASK_XTILE)
+
+bool __read_mostly enable_apicv = true;
+EXPORT_SYMBOL_GPL(enable_apicv);
+
+static int kvm_probe_user_return_msr(u32 msr)
+{
+	u64 val;
+	int ret;
+
+	preempt_disable();
+	ret = rdmsrl_safe(msr, &val);
+	if (ret)
+		goto out;
+	ret = wrmsrl_safe(msr, val);
+out:
+	preempt_enable();
+	return ret;
+}
+
+int kvm_add_user_return_msr(u32 msr)
+{
+	BUG_ON(kvm_nr_uret_msrs >= KVM_MAX_NR_USER_RETURN_MSRS);
+
+	if (kvm_probe_user_return_msr(msr))
+		return -1;
+
+	kvm_uret_msrs_list[kvm_nr_uret_msrs] = msr;
+	return kvm_nr_uret_msrs++;
+}
+EXPORT_SYMBOL_GPL(kvm_add_user_return_msr);
+
+int kvm_find_user_return_msr(u32 msr)
+{
+	int i;
+
+	for (i = 0; i < kvm_nr_uret_msrs; ++i) {
+		if (kvm_uret_msrs_list[i] == msr)
+			return i;
+	}
+	return -1;
+}
+EXPORT_SYMBOL_GPL(kvm_find_user_return_msr);
 
 noinstr void kvm_spurious_fault(void)
 {
@@ -28,6 +102,12 @@ noinstr void kvm_spurious_fault(void)
 #endif
 }
 EXPORT_SYMBOL_GPL(kvm_spurious_fault);
+
+void kvm_enable_efer_bits(u64 mask)
+{
+       efer_reserved_bits &= ~mask;
+}
+EXPORT_SYMBOL_GPL(kvm_enable_efer_bits);
 
 int kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 {
