@@ -5,7 +5,6 @@
 int setup_vmcs_config_with_setting(struct vmcs_config *vmcs_conf,
 				   struct vmx_capability *vmx_cap,
 				   struct vmcs_config_setting *setting);
-int setup_vmcs_config(struct vmcs_config *vmcs_conf,
-		      struct vmx_capability *vmx_cap);
+int setup_vmx(void);
 
 #endif /* __PKVM_X86_VMX_H */

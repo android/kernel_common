@@ -27,6 +27,8 @@
 #include "lapic.h"
 #include "pci.h"
 #include "init_finalise.h"
+#include <vmx/vmx.h>
+#include <pkvm/vmx/vmx.h>
 
 bool pvmfw_present;
 phys_addr_t pvmfw_base;
@@ -367,6 +369,10 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 					pkvm_shadow_ept_pgtable_pages(PKVM_MAX_NORMAL_VM_NUM +
 								      PKVM_MAX_PROTECTED_VM_NUM) +
 					pkvm_host_shadow_iommu_pgtable_pages(PKVM_MAX_PDEV_NUM));
+	if (ret)
+		goto out;
+
+	ret = setup_vmx();
 	if (ret)
 		goto out;
 

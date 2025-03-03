@@ -235,7 +235,7 @@ int setup_vmcs_config_common(struct vmcs_config *vmcs_conf,
 	return 0;
 }
 
-int setup_vmcs_config(struct vmcs_config *vmcs_conf, struct vmx_capability *vmx_cap)
+static int setup_vmcs_config(struct vmcs_config *vmcs_conf, struct vmx_capability *vmx_cap)
 {
 	int i, ret;
 	struct vmcs_config_setting setting = {
@@ -291,3 +291,10 @@ int setup_vmcs_config(struct vmcs_config *vmcs_conf, struct vmx_capability *vmx_
 
 	return ret;
 }
+
+#ifdef __PKVM_HYP__
+int setup_vmx(void)
+{
+	return setup_vmcs_config(&vmcs_config, &vmx_capability);
+}
+#endif
