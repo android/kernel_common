@@ -178,6 +178,7 @@ filegroup(
         "gki/aarch64/symbols/galaxy",
         "gki/aarch64/symbols/pixel",
         "gki/aarch64/symbols/qcom",
+        "gki/aarch64/symbols/unisoc",
         "gki/aarch64/symbols/virtual_device",
     ],
     visibility = ["//visibility:public"],
