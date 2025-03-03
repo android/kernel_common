@@ -43,7 +43,7 @@ bool pci_ats_supported(struct pci_dev *dev)
 	if (!dev->ats_cap)
 		return false;
 
-	return (dev->untrusted == 0);
+	return (dev->requires_dma_protection == 0);
 }
 EXPORT_SYMBOL_GPL(pci_ats_supported);
 
