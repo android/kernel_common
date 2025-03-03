@@ -5,6 +5,7 @@
 
 #include <linux/memblock.h>
 #include <asm/kvm_pkvm.h>
+#include <pkvm/pkvm.h>
 #include <pkvm.h>
 #include "trace.h"
 #include "vmexit.h"
@@ -128,6 +129,9 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 		break;
 	case PKVM_HC_ADD_PTDEV:
 		ret = pkvm_add_ptdev(a0, a1, a2);
+		break;
+	case PKVM_HC_KVM_CALL:
+		ret = handle_kvm_call(a0, a1, a2, a3);
 		break;
 	default:
 		ret = -EINVAL;

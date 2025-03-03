@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <asm/processor.h>
+#include "pkvm.h"
 
 struct cpuinfo_x86 boot_cpu_data;
 unsigned int tsc_khz;
@@ -10,3 +11,9 @@ unsigned int tsc_khz;
  * hypervisor, define the tdp_enabled here to simplify.
  */
 bool tdp_enabled = true;
+
+unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
+			      unsigned long p2, unsigned long p3)
+{
+	return -EINVAL;
+}
