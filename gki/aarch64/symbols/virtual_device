@@ -121,6 +121,10 @@
   drm_dev_put
   drm_dev_register
   drm_dev_unregister
+  drm_edid_connector_add_modes
+  drm_edid_connector_update
+  drm_edid_free
+  drm_edid_read_custom
   __drm_err
   drm_format_info_block_height
   drm_format_info_block_width
@@ -135,6 +139,7 @@
   drm_gem_vm_open
   drm_helper_probe_single_connector_modes
   drm_ioctl
+  drm_kms_helper_hotplug_event
   drmm_kmalloc
   drmm_mode_config_init
   drm_mode_config_reset
@@ -143,7 +148,6 @@
   drm_poll
   drm_read
   drm_release
-  drm_set_preferred_mode
   drm_vblank_init
   ether_setup
   eth_mac_addr
@@ -1150,10 +1154,6 @@
   drm_dev_exit
   drm_dev_get
   drm_dev_unplug
-  drm_edid_connector_add_modes
-  drm_edid_connector_update
-  drm_edid_free
-  drm_edid_read_custom
   drm_event_reserve_init
   drm_framebuffer_init
   drm_gem_dmabuf_mmap
@@ -1184,7 +1184,6 @@
   drm_gem_unmap_dma_buf
   drm_helper_hpd_irq_event
   drm_helper_mode_fill_fb_struct
-  drm_kms_helper_hotplug_event
   drmm_kfree
   drm_mm_init
   drm_mm_insert_node_in_range
@@ -1196,6 +1195,7 @@
   __drm_printfn_seq_file
   __drm_puts_seq_file
   drm_send_event
+  drm_set_preferred_mode
   drm_simple_encoder_init
   drm_syncobj_add_point
   drm_syncobj_find
@@ -1394,6 +1394,7 @@
   drm_crtc_vblank_crtc
   drm_crtc_vblank_put
   drm_debugfs_add_files
+  drm_format_info_bpp
   __drm_gem_destroy_shadow_plane_state
   __drm_gem_duplicate_shadow_plane_state
   drm_gem_fb_vmap
@@ -1411,11 +1412,13 @@
   drm_mode_object_put
   __drmm_workqueue_release
   drmm_writeback_connector_init
+  drm_plane_create_color_properties
   drm_plane_create_rotation_property
   drm_rect_rotate_inv
   drm_writeback_queue_job
   drm_writeback_signal_completion
   kfree_const
+  krealloc_noprof
   kstrdup_const
   __xa_alloc
   xa_destroy
