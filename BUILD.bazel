@@ -235,7 +235,7 @@ common_kernel(
     protected_exports_list = "gki/aarch64/protected_exports",
     protected_modules_list = ":gki_aarch64_protected_modules",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
-    trim_nonlisted_kmi = False,
+    trim_nonlisted_kmi = True,
     visibility = ["//visibility:public"],
 )
 
