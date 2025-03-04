@@ -175,6 +175,7 @@ filegroup(
         # keep sorted
         "gki/aarch64/symbols/db845c",
         "gki/aarch64/symbols/exynosauto",
+        "gki/aarch64/symbols/fips140",
         "gki/aarch64/symbols/galaxy",
         "gki/aarch64/symbols/oplus",
         "gki/aarch64/symbols/pixel",
@@ -1339,10 +1340,17 @@ kernel_build(
     base_kernel = ":kernel_aarch64",
     build_config = "build.config.common",
     defconfig = "arch/arm64/configs/gki_defconfig",
+    kmi_symbol_list = "gki/aarch64/symbols/fips140",
     make_goals = ["modules"],
     makefile = ":Makefile",
     module_outs = ["crypto/fips140.ko"],
     post_defconfig_fragments = ["arch/arm64/configs/fips140_gki.fragment"],
+)
+
+kernel_abi(
+    name = "fips140_abi",
+    kernel_build = ":fips140",
+    kmi_symbol_list_add_only = True,
 )
 
 pkg_files(
