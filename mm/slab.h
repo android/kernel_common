@@ -11,6 +11,7 @@
 #include <linux/memcontrol.h>
 #include <linux/kfence.h>
 #include <linux/kasan.h>
+#include <linux/stackdepot.h>
 
 /*
  * Internal slab definitions
@@ -515,6 +516,22 @@ struct slabinfo {
 
 void get_slabinfo(struct kmem_cache *s, struct slabinfo *sinfo);
 
+/*
+ * Tracking user of a slab.
+ */
+#define TRACK_ADDRS_COUNT 16
+struct track {
+	unsigned long addr;	/* Called from address */
+#ifdef CONFIG_STACKDEPOT
+	depot_stack_handle_t handle;
+#endif
+	int cpu;		/* Was running on cpu */
+	int pid;		/* Pid context */
+	unsigned long when;	/* When did the operation occur */
+};
+
+enum track_item { TRACK_ALLOC, TRACK_FREE };
+
 #ifdef CONFIG_SLUB_DEBUG
 #ifdef CONFIG_SLUB_DEBUG_ON
 DECLARE_STATIC_KEY_TRUE(slub_debug_enabled);
@@ -523,6 +540,12 @@ DECLARE_STATIC_KEY_FALSE(slub_debug_enabled);
 #endif
 extern void print_tracking(struct kmem_cache *s, void *object);
 long validate_slab_cache(struct kmem_cache *s);
+extern struct track *get_track(struct kmem_cache *s, void *object,
+				enum track_item alloc);
+extern unsigned long get_each_kmemcache_object(struct kmem_cache *s,
+		int (*fn)(struct kmem_cache *, void *, void *),
+		void *private);
+
 static inline bool __slub_debug_enabled(void)
 {
 	return static_branch_unlikely(&slub_debug_enabled);
