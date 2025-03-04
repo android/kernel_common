@@ -12,6 +12,7 @@
 #include "pci.h"
 #include "debug.h"
 #include "memory.h"
+#include <pkvm/vmx/vmx.h>
 
 #define MAX_PTDEV_NUM	(PKVM_MAX_PDEV_NUM + PKVM_MAX_PASID_PDEV_NUM)
 static DEFINE_HASHTABLE(ptdev_hasht, 8);
@@ -172,6 +173,7 @@ void pkvm_detach_ptdev(struct pkvm_ptdev *ptdev, struct pkvm_shadow_vm *vm)
 int pkvm_attach_ptdev(u16 bdf, u32 pasid, struct pkvm_shadow_vm *vm)
 {
 	struct pkvm_ptdev *ptdev = pkvm_get_ptdev(bdf, pasid);
+	int vm_handle;
 
 	if (!ptdev) {
 		ptdev = pkvm_alloc_ptdev(bdf, pasid,
@@ -182,7 +184,8 @@ int pkvm_attach_ptdev(u16 bdf, u32 pasid, struct pkvm_shadow_vm *vm)
 
 	pkvm_spin_lock(&ptdev->lock);
 
-	if (cmpxchg(&ptdev->shadow_vm_handle, 0, vm->shadow_vm_handle) != 0) {
+	vm_handle = shadow_to_kvm(vm)->arch.pkvm.pkvm_vm_handle;
+	if (cmpxchg(&ptdev->shadow_vm_handle, 0, vm_handle) != 0) {
 		pkvm_err("%s: ptdev with bdf 0x%x pasid 0x%x is already attached\n",
 			 __func__, bdf, pasid);
 		pkvm_spin_unlock(&ptdev->lock);

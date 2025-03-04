@@ -12,6 +12,7 @@
 #include "ept.h"
 #include "iommu.h"
 #include "memory.h"
+#include <pkvm/vmx/vmx.h>
 
 struct check_walk_data {
 	int 			nstate;
@@ -134,8 +135,10 @@ static int __host_check_page_state_range(struct pkvm_pgtable *pgt_override, u64 
 
 static pkvm_id pkvm_guest_id(struct pkvm_pgtable *pgt)
 {
-	/* Using the shadow_vm_handle as guest_id. */
-	return pgstate_pgt_to_shadow_vm(pgt)->shadow_vm_handle;
+	struct pkvm_shadow_vm *shadow_vm = pgstate_pgt_to_shadow_vm(pgt);
+
+	/* Using the pkvm_vm handle as guest_id. */
+	return shadow_to_kvm(shadow_vm)->arch.pkvm.pkvm_vm_handle;
 }
 
 static pkvm_id __pkvm_owner_id(const struct pkvm_mem_trans_desc *desc)

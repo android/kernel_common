@@ -23,21 +23,14 @@
 
 #define pgstate_pgt_to_shadow_vm(_pgt) container_of(_pgt, struct pkvm_shadow_vm, pgstate_pgt)
 
-int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
-			  unsigned long shadow_pa,  size_t shadow_size);
 int __pkvm_finalize_shadow_vm(int shadow_vm_handle, int primary_vcpu_handle,
 			      gpa_t pvmfw_load_addr);
-unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle);
 struct pkvm_shadow_vm *get_shadow_vm(int handle);
 void put_shadow_vm(struct pkvm_shadow_vm *shadow_vm);
 void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
 			       struct list_head *node, bool coherency);
 void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,
 				 struct list_head *node, bool coherency);
-s64 __pkvm_init_shadow_vcpu(struct kvm_vcpu *hvcpu, int shadow_vm_handle,
-			    unsigned long vcpu_va, unsigned long shadow_pa,
-			    size_t shadow_size);
-unsigned long __pkvm_teardown_shadow_vcpu(s64 shadow_vcpu_handle);
 struct shadow_vcpu_state *get_shadow_vcpu(s64 shadow_vcpu_handle);
 void put_shadow_vcpu(struct shadow_vcpu_state *shadow_vcpu);
 s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa);

@@ -49,14 +49,9 @@ struct shadow_vcpu_state {
 
 	struct pkvm_shadow_vm *vm;
 
-	/* The donated size of shadow_vcpu. */
-	unsigned long shadow_size;
-
 	struct hlist_node hnode;
 	unsigned long vmcs12_pa;
 	bool vmcs02_inited;
-
-	struct vcpu_vmx vmx;
 
 	/* represents for the virtual EPT configured by kvm-high */
 	struct pkvm_pgtable vept;
@@ -78,40 +73,9 @@ struct shadow_vcpu_state {
 } __aligned(PAGE_SIZE);
 
 /*
- * Shadow_vcpu_array will be appended to the end of the pkvm_shadow_vm area
- * implicitly, so that the shadow_vcpu_state pointer cannot be got directly
- * from the pkvm_shadow_vm, but needs to be done through the interface
- * get/put_shadow_vcpu. This can prevent the shadow_vcpu_state pointer from
- * being abused without getting/putting the refcount.
- */
-struct shadow_vcpu_array {
-	struct shadow_vcpu_ref {
-		atomic_t refcount;
-		struct shadow_vcpu_state *vcpu;
-	} ref[KVM_MAX_VCPUS];
-} __aligned(PAGE_SIZE);
-
-static inline size_t pkvm_shadow_vcpu_array_size(void)
-{
-	return sizeof(struct shadow_vcpu_array);
-}
-
-/*
  * Holds the relevant data for running a protected vm.
  */
 struct pkvm_shadow_vm {
-	/* A unique id to the shadow structs in the hyp shadow area. */
-	int shadow_vm_handle;
-
-	/* Number of vcpus for the vm. */
-	int created_vcpus;
-
-	/* The host's kvm va. */
-	unsigned long host_kvm_va;
-
-	/* The donated size of shadow_vm. */
-	unsigned long shadow_size;
-
 	/*
 	 * VM's shadow EPT. All vCPU shares one mapping.
 	 * FIXME: a potential security issue if some vCPUs are
