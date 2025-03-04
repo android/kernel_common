@@ -14,6 +14,7 @@
 #include "memory.h"
 #include "debug.h"
 #include <pkvm/pkvm.h>
+#include <pkvm/vmx/vmx.h>
 
 struct pkvm_hyp *pkvm_hyp;
 
@@ -560,4 +561,43 @@ int pkvm_load_pvmfw_pages(struct pkvm_shadow_vm *vm, u64 gpa, u64 phys, u64 size
 
 	memcpy(__pkvm_va(phys), __pkvm_va(pvmfw_base + offset), size);
 	return 0;
+}
+
+int pkvm_init_shadow_vm(struct kvm *kvm)
+{
+	struct pkvm_shadow_vm *vm = kvm_to_shadow(kvm);
+	int ret;
+
+	pkvm_spin_lock_init(&vm->lock);
+	INIT_LIST_HEAD(&vm->ptdev_head);
+	vm->vm_type = kvm->arch.vm_type;
+	vm->pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
+	vm->finalized = !shadow_vm_is_protected(vm);
+
+	ret = pkvm_pgstate_pgt_init(vm);
+	if (ret)
+		goto out;
+
+	ret = pkvm_shadow_ept_init(&vm->sept_desc);
+	if (ret)
+		goto deinit_pgstate_pgt;
+
+	return 0;
+
+deinit_pgstate_pgt:
+	pkvm_pgstate_pgt_deinit(vm);
+out:
+	return ret;
+}
+
+void pkvm_teardown_shadow_vm(struct kvm *kvm)
+{
+	struct pkvm_shadow_vm *vm = kvm_to_shadow(kvm);
+	struct pkvm_ptdev *ptdev, *tmp;
+
+	pkvm_shadow_ept_deinit(&vm->sept_desc);
+	pkvm_pgstate_pgt_deinit(vm);
+
+	list_for_each_entry_safe(ptdev, tmp, &vm->ptdev_head, vm_node)
+		pkvm_detach_ptdev(ptdev, vm);
 }

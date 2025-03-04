@@ -7,6 +7,7 @@
 
 #include <asm/kvm_pkvm.h>
 #include "pkvm_hyp_types.h"
+#include <pkvm.h>
 
 #define SHADOW_VM_HANDLE_SHIFT		32
 #define SHADOW_VCPU_INDEX_MASK		((1UL << SHADOW_VM_HANDLE_SHIFT) - 1)
@@ -72,4 +73,6 @@ static inline bool gpa_range_has_pvmfw(struct pkvm_shadow_vm *vm, u64 gpa_start,
 	return gpa_end > vm->pvmfw_load_addr && gpa_start < pvmfw_load_end;
 }
 
+int pkvm_init_shadow_vm(struct kvm *kvm);
+void pkvm_teardown_shadow_vm(struct kvm *kvm);
 #endif

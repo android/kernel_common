@@ -10,6 +10,9 @@
 
 #define SUPPRESS_VE	BIT(63)
 
+struct pkvm_pgtable;
+struct pkvm_pgtable_cap;
+
 struct pkvm_mm_ops {
 	void *(*phys_to_virt)(unsigned long phys);
 	unsigned long (*virt_to_phys)(void *vaddr);

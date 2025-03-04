@@ -11,6 +11,7 @@
 #include <vmx/sgx.h>
 #include "vmx.h"
 #include <pkvm/pkvm.h>
+#include <vmx/pkvm/hyp/pkvm_hyp.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -638,6 +639,49 @@ static __init int alloc_kvm_area(void)
 static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 };
 
+int vmx_vm_init(struct kvm *kvm)
+{
+	if (!ple_gap)
+		kvm->arch.pause_in_guest = true;
+
+#ifdef __PKVM_HYP__
+	BUILD_BUG_ON(offsetof(struct pkvm_vm_vmx, kvm_vmx) != 0);
+	BUILD_BUG_ON(offsetof(struct kvm_vmx, kvm) != 0);
+
+	/*
+	 * FIXME: Initialize shadow VM for using VMX emulation method.
+	 * Should revisit when PV method is ready.
+	 */
+	return pkvm_init_shadow_vm(kvm);
+#else
+	if (boot_cpu_has(X86_BUG_L1TF) && enable_ept) {
+		switch (l1tf_mitigation) {
+		case L1TF_MITIGATION_OFF:
+		case L1TF_MITIGATION_FLUSH_NOWARN:
+			/* 'I explicitly don't care' is set */
+			break;
+		case L1TF_MITIGATION_FLUSH:
+		case L1TF_MITIGATION_FLUSH_NOSMT:
+		case L1TF_MITIGATION_FULL:
+			/*
+			 * Warn upon starting the first VM in a potentially
+			 * insecure environment.
+			 */
+			if (sched_smt_active())
+				pr_warn_once(L1TF_MSG_SMT);
+			if (l1tf_vmx_mitigation == VMENTER_L1D_FLUSH_NEVER)
+				pr_warn_once(L1TF_MSG_L1D);
+			break;
+		case L1TF_MITIGATION_FULL_FORCE:
+			/* Flush is enforced */
+			break;
+		}
+	}
+
+	return 0;
+#endif
+}
+
 static __init u64 vmx_get_perf_capabilities(void)
 {
 #ifdef __PKVM_HYP__
@@ -747,6 +791,26 @@ static __init void vmx_set_cpu_caps(void)
 
 	if (cpu_has_vmx_waitpkg())
 		kvm_cpu_cap_check_and_set(X86_FEATURE_WAITPKG);
+}
+
+void vmx_vm_destroy(struct kvm *kvm)
+{
+#ifdef __PKVM_HYP__
+	/*
+	 * FIXME: Teardown shadow vm as it is initialized when doing
+	 * vm init. Should revisit when PV method is ready.
+	 */
+	pkvm_teardown_shadow_vm(kvm);
+
+	/*
+	 * TODO: Support teardown the pid_table in the pkvm hypervisor when ipiv
+	 * is supported.
+	 */
+#else
+	struct kvm_vmx *kvm_vmx = to_kvm_vmx(kvm);
+
+	free_pages((unsigned long)kvm_vmx->pid_table, vmx_get_pid_table_order(kvm));
+#endif
 }
 
 static __init void vmx_setup_user_return_msrs(void)
@@ -996,6 +1060,9 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 
 	.enable_virtualization_cpu = vmx_enable_virtualization_cpu,
 	.disable_virtualization_cpu = vmx_disable_virtualization_cpu,
+
+	.vm_init = vmx_vm_init,
+	.vm_destroy = vmx_vm_destroy,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {
@@ -1037,6 +1104,8 @@ int setup_vmx(void)
 
 	for_each_possible_cpu(cpu)
 		INIT_LIST_HEAD(&per_cpu(loaded_vmcss_on_cpu, cpu));
+
+	pkvm_vm_sz = sizeof(struct pkvm_vm) + sizeof(struct pkvm_vm_vmx);
 
 	return kvm_x86_vendor_init(&vt_init_ops);
 }
