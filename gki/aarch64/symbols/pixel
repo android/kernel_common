@@ -2387,6 +2387,12 @@
   tasklet_setup
   tasklet_unlock_wait
   __task_pid_nr_ns
+  tcpci_get_tcpm_port
+  tcpci_irq
+  tcpci_register_port
+  tcpci_register_port
+  tcpci_unregister_port
+  tcpci_unregister_port
   tcpm_cc_change
   tcpm_pd_hard_reset
   tcpm_pd_receive
@@ -2618,6 +2624,7 @@
   usb_hcd_platform_shutdown
   usb_hub_find_child
   usb_interface_id
+  usb_otg_state_string
   usb_put_function_instance
   usb_put_hcd
   usb_register_notify
