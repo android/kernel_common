@@ -159,6 +159,7 @@
   tcp_cong_avoid_ai
   tcp_reno_undo_cwnd
   touch_atime
+  __traceiter_android_vh_account_task_time
   __traceiter_android_rvh_post_init_entity_util_avg
   __traceiter_android_rvh_set_cpus_allowed_comm
   __traceiter_android_vh_adjust_alloc_flags
@@ -242,6 +243,7 @@
   __traceiter_sched_stat_wait
   __traceiter_sched_waking
   __traceiter_task_rename
+  __tracepoint_android_vh_account_task_time
   __tracepoint_android_rvh_post_init_entity_util_avg
   __tracepoint_android_rvh_set_cpus_allowed_comm
   __tracepoint_android_vh_adjust_alloc_flags
