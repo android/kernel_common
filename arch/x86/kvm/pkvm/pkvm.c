@@ -14,6 +14,8 @@ unsigned int tsc_khz;
 bool tdp_enabled = true;
 DEFINE_PER_CPU(struct kvm_vcpu *, host_vcpu);
 
+size_t pkvm_vm_sz = sizeof(struct pkvm_vm);
+
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3)
 {
