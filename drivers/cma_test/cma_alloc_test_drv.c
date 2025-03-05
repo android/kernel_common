@@ -6,7 +6,7 @@
  *
  * / {
  *
- *        ......
+ *	......
  *
  *	memory@40000000 {
  *		reg = <0x00 0x40000000 0x00 0x40000000>;
@@ -18,7 +18,7 @@
  *		#size-cells = <2>;
  *		ranges;
  *
- *              // CMA reservation are taken from "shared-dma-pool".
+ *		// CMA reservation are taken from "shared-dma-pool".
  *		cma_test_reserve: cma_test_reserve {
  *			compatible = "shared-dma-pool";
  *			reusable;
@@ -29,7 +29,7 @@
  *		};
  *	};
  *
- *      // This node uses the CMA reservation.
+ *	// This node uses the CMA reservation.
  *	cma_test_node {
  *		compatible = "cma_test_dummy";
  *		memory-region = <&cma_test_reserve>;
@@ -50,6 +50,8 @@
 
 #define pr_fmt(fmt) "%s: %s: " fmt, KBUILD_MODNAME, __func__
 
+#include <linux/cma.h>
+#include <linux/highmem.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/of.h>
@@ -57,6 +59,14 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/platform_device.h>
 #include <linux/printk.h>
+#include <linux/types.h>
+
+#define SZ_32MiB (32 * 1024 * 1024)
+
+struct cma *cma_ptr;
+struct page *pages;
+int nr_pages = SZ_32MiB / PAGE_SIZE;
+char *buffer;
 
 static const struct platform_device_id cma_test_id_table[] = {
 	{ "cma_test_dev_id", 23 },
@@ -83,6 +93,7 @@ static int cma_test_probe(struct platform_device *pdev)
 
 	pr_info("Probing device");
 
+	buffer = NULL;
 	of_id = of_match_device(cma_test_dt_ids, &pdev->dev);
 	if (!of_id) {
 		pr_info("The node was not found in DTB");
@@ -103,6 +114,18 @@ static int cma_test_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	cma_ptr = pdev->dev.cma_area;
+	pages = cma_alloc(cma_ptr, nr_pages, get_order(PAGE_SIZE), false);
+	if (pages) {
+		pr_info("CMA allocation of %d pages was successful", nr_pages);
+		buffer = kmap_local_page(pages);
+		for (int i = 0; i < nr_pages; i++) {
+			// Write one byte of every page.
+			buffer[i * PAGE_SIZE] = 'A';
+		}
+
+	}
+
 	return 0;
 }
 
@@ -114,6 +137,10 @@ static void cma_test_remove(struct platform_device *pdev)
 static void cma_test_shutdown(struct platform_device *pdev)
 {
 	pr_info("Shutdown cma alloc test driver");
+	if (pages) {
+		pr_info("Unmapping %d CMA pages", nr_pages);
+		kunmap_local(buffer);
+	}
 }
 
 static int cma_test_suspend(struct platform_device *pdev, pm_message_t state)
