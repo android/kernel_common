@@ -104,11 +104,25 @@ static inline void *kern_pkvm_va(void *va)
 	return va;
 }
 
+struct pkvm_x86_ops {
+	void (*switch_to_guest_vcpu)(struct kvm_vcpu *vcpu);
+	void (*switch_to_host_vcpu)(struct kvm_vcpu *vcpu);
+};
+
+extern struct pkvm_x86_ops pkvm_x86_ops;
+
+#define pkvm_x86_call(func)				\
+({							\
+	BUG_ON(!pkvm_x86_ops.func);			\
+	(pkvm_x86_ops.func);				\
+})
+
 struct pkvm_vm *get_pkvm_vm(int handle);
 void put_pkvm_vm(struct pkvm_vm *pkvm_vm);
 struct pkvm_vcpu *get_pkvm_vcpu(int vm_handle, int vcpu_handle);
 void put_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu);
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3);
+void pkvm_x86_ops_init(struct pkvm_x86_ops *ops);
 
 #endif /* __PKVM_X86_PKVM_H */

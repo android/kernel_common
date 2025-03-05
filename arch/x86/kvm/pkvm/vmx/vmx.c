@@ -1577,6 +1577,28 @@ __init int vmx_hardware_setup(void)
 }
 
 #ifdef __PKVM_HYP__
+static void vmx_switch_to_guest_vcpu(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	int cpu = raw_smp_processor_id();
+
+	/* Guest vcpu is not loaded, no need to switch */
+	if (vmx->loaded_vmcs->cpu == -1)
+		return;
+
+	if (WARN_ON_ONCE(vmx->loaded_vmcs->cpu != cpu))
+		return;
+
+	/* Load guest vmcs */
+	vmcs_load(vmx->loaded_vmcs->vmcs);
+}
+
+static void vmx_switch_to_host_vcpu(struct kvm_vcpu *vcpu)
+{
+	/* Load host vmcs */
+	vmcs_load(to_vmx(vcpu)->vmcs01.vmcs);
+}
+
 struct kvm_x86_ops vt_x86_ops __initdata = {
 	.name = KBUILD_MODNAME,
 
@@ -1595,6 +1617,11 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 struct kvm_x86_init_ops vt_init_ops __initdata = {
 	.hardware_setup = vmx_hardware_setup,
 	.runtime_ops = &vt_x86_ops,
+};
+
+static struct pkvm_x86_ops pkvm_vt_x86_ops = {
+	.switch_to_guest_vcpu = vmx_switch_to_guest_vcpu,
+	.switch_to_host_vcpu = vmx_switch_to_host_vcpu,
 };
 
 int setup_vmx(void)
@@ -1634,6 +1661,8 @@ int setup_vmx(void)
 
 	pkvm_vm_sz = sizeof(struct pkvm_vm) + sizeof(struct pkvm_vm_vmx);
 	pkvm_vcpu_sz = sizeof(struct pkvm_vcpu) + sizeof(struct pkvm_vcpu_vmx);
+
+	pkvm_x86_ops_init(&pkvm_vt_x86_ops);
 
 	return kvm_x86_vendor_init(&vt_init_ops);
 }

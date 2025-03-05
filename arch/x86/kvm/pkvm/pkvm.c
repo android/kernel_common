@@ -24,6 +24,7 @@ size_t pkvm_vcpu_sz = sizeof(struct pkvm_vcpu);
 static DECLARE_BITMAP(pkvm_vms_bitmap, MAX_PKVM_VMS);
 static pkvm_spinlock_t pkvm_vms_lock = __PKVM_SPINLOCK_UNLOCKED;
 static struct pkvm_vm_ref pkvm_vms_ref[MAX_PKVM_VMS];
+struct pkvm_x86_ops pkvm_x86_ops __read_mostly;
 
 #define HANDLE_OFFSET 1
 
@@ -378,4 +379,9 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 	}
 
 	return ret;
+}
+
+void pkvm_x86_ops_init(struct pkvm_x86_ops *ops)
+{
+	memcpy(&pkvm_x86_ops, ops, sizeof(struct pkvm_x86_ops));
 }
