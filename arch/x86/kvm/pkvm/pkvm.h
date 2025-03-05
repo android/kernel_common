@@ -98,6 +98,10 @@ static inline void *kern_pkvm_va(void *va)
 	return va;
 }
 
+struct pkvm_vm *get_pkvm_vm(int handle);
+void put_pkvm_vm(struct pkvm_vm *pkvm_vm);
+struct pkvm_vcpu *get_pkvm_vcpu(int vm_handle, int vcpu_handle);
+void put_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu);
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3);
 

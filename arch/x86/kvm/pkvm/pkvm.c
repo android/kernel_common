@@ -211,7 +211,7 @@ static void detach_pkvm_vcpu_from_vm(struct pkvm_vcpu *pkvm_vcpu, struct pkvm_vm
 	pkvm_spin_unlock(&pkvm_vm->lock);
 }
 
-static struct pkvm_vm *get_pkvm_vm(int handle)
+struct pkvm_vm *get_pkvm_vm(int handle)
 {
 	int idx = vm_handle_to_idx(handle);
 	struct pkvm_vm_ref *pkvm_vm_ref;
@@ -223,7 +223,7 @@ static struct pkvm_vm *get_pkvm_vm(int handle)
 	return atomic_inc_not_zero(&pkvm_vm_ref->refcount) ? pkvm_vm_ref->pkvm_vm : NULL;
 }
 
-static void put_pkvm_vm(struct pkvm_vm *pkvm_vm)
+void put_pkvm_vm(struct pkvm_vm *pkvm_vm)
 {
 	int idx = vm_handle_to_idx(to_kvm(pkvm_vm)->arch.pkvm.shadow_vm_handle);
 	struct pkvm_vm_ref *pkvm_vm_ref;
@@ -310,6 +310,41 @@ static void pkvm_vm_destroy(int handle)
 				(void *)pkvm_vm, pkvm_vm->size);
 
 	/* TODO: unpin shared_kvm */
+}
+
+static struct pkvm_vcpu *get_pkvm_vcpu_from_vm(struct pkvm_vm *pkvm_vm, int handle)
+{
+	struct pkvm_vcpu *pkvm_vcpu = NULL;
+
+	pkvm_spin_lock(&pkvm_vm->lock);
+
+	if (handle < to_kvm(pkvm_vm)->created_vcpus)
+		pkvm_vcpu = pkvm_vm->vcpus[handle];
+
+	pkvm_spin_unlock(&pkvm_vm->lock);
+
+	return pkvm_vcpu;
+}
+
+struct pkvm_vcpu *get_pkvm_vcpu(int vm_handle, int vcpu_handle)
+{
+	struct pkvm_vcpu *pkvm_vcpu;
+	struct pkvm_vm *pkvm_vm;
+
+	pkvm_vm = get_pkvm_vm(vm_handle);
+	if (!pkvm_vm)
+		return NULL;
+
+	pkvm_vcpu = get_pkvm_vcpu_from_vm(pkvm_vm, vcpu_handle);
+	if (!pkvm_vcpu)
+		put_pkvm_vm(pkvm_vm);
+
+	return pkvm_vcpu;
+}
+
+void put_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
+{
+	put_pkvm_vm(pkvm_vcpu->pkvm_vm);
 }
 
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
