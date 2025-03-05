@@ -41,6 +41,7 @@ config GKI_HIDDEN_CRYPTO_CONFIGS
 
 config GKI_HIDDEN_SND_CONFIGS
 	bool "Hidden SND configs needed for GKI"
+	select SND_COMPRESS_ACCEL
 	select SND_VMASTER
 	select SND_PCM_ELD
 	select SND_JACK
