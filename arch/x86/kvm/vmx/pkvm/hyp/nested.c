@@ -1578,3 +1578,19 @@ void pkvm_nested_load_vmcs(struct kvm_vcpu *guest_vcpu)
 	hvcpu->current_shadow_vcpu = shadow_vcpu;
 	vmx->nested.current_vmptr = vmptr;
 }
+
+void pkvm_nested_release_vmcs(struct kvm_vcpu *guest_vcpu)
+{
+	unsigned long vmptr = __pkvm_pa(to_vmx(guest_vcpu)->loaded_vmcs->vmcs);
+	struct kvm_vcpu *vcpu = this_cpu_read(host_vcpu);
+	struct shadow_vcpu_state *shadow_vcpu;
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct vmcs12 *vmcs12;
+
+	if (vmx->nested.current_vmptr == vmptr)
+		nested_release_vmcs12(vcpu);
+
+	shadow_vcpu = kvm_vcpu_to_shadow(guest_vcpu);
+	vmcs12 = (struct vmcs12 *)shadow_vcpu->cached_vmcs12;
+	vmcs12->launch_state = 0;
+}
