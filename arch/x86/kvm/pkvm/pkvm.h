@@ -2,6 +2,8 @@
 #ifndef __PKVM_X86_PKVM_H
 #define __PKVM_X86_PKVM_H
 
+DECLARE_PER_CPU(struct kvm_vcpu *, host_vcpu);
+
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3);
 

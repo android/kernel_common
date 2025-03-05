@@ -29,6 +29,7 @@
 #include "init_finalise.h"
 #include <vmx/vmx.h>
 #include <pkvm/vmx/vmx.h>
+#include <pkvm/pkvm.h>
 
 bool pvmfw_present;
 phys_addr_t pvmfw_base;
@@ -306,6 +307,8 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 	phys_addr_t hyp_mem_base;
 	unsigned long hyp_mem_size = 0;
 	u64 eptp;
+
+	this_cpu_write(host_vcpu, vcpu);
 
 	if (pkvm_init) {
 		/* Switch to pkvm mmu in root mode in case some setup may need this */

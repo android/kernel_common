@@ -11,6 +11,7 @@ unsigned int tsc_khz;
  * hypervisor, define the tdp_enabled here to simplify.
  */
 bool tdp_enabled = true;
+DEFINE_PER_CPU(struct kvm_vcpu *, host_vcpu);
 
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3)
