@@ -699,8 +699,9 @@ device_initcall_sync(finalize_pkvm);
 
 void pkvm_host_reclaim_page(struct kvm *host_kvm, phys_addr_t ipa)
 {
-	struct kvm_pinned_page *ppage;
 	struct mm_struct *mm = current->mm;
+	struct kvm_pinned_page *ppage;
+	u16 pins;
 
 	write_lock(&host_kvm->mmu_lock);
 	ppage = kvm_pinned_pages_iter_first(&host_kvm->arch.pkvm.pinned_pages,
@@ -711,17 +712,17 @@ void pkvm_host_reclaim_page(struct kvm *host_kvm, phys_addr_t ipa)
 		else
 			WARN_ON(1);
 
-		if (!ppage->pins)
+		pins = ppage->pins;
+		if (!pins)
 			kvm_pinned_pages_remove(ppage,
 						&host_kvm->arch.pkvm.pinned_pages);
 	}
 	write_unlock(&host_kvm->mmu_lock);
 
-	WARN_ON(!ppage);
-	if (!ppage)
+	if (WARN_ON(!ppage) || pins)
 		return;
 
-	account_locked_vm(mm, 1, false);
+	account_locked_vm(mm, 1 << ppage->order, false);
 	unpin_user_pages_dirty_lock(&ppage->page, 1, true);
 	kfree(ppage);
 }
