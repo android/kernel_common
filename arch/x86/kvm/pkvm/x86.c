@@ -815,6 +815,7 @@ void kvm_arch_destroy_vm(struct kvm *kvm)
 void kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 {
 	fastpath_t exit_fastpath;
+	int ret;
 
 	if (kvm_x86_call(vcpu_pre_run)(vcpu) <= 0)
 		return;
@@ -842,8 +843,11 @@ void kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 		 */
 		smp_store_mb(vcpu->mode, OUTSIDE_GUEST_MODE);
 
-		if (likely(exit_fastpath != EXIT_FASTPATH_REENTER_GUEST))
-			break;
+		if (likely(exit_fastpath != EXIT_FASTPATH_REENTER_GUEST)) {
+			ret = kvm_x86_call(handle_exit)(vcpu, exit_fastpath);
+			if (ret <= 0)
+				break;
+		}
 	}
 
 	/* TODO: Restore the host VMM fpu and save the guest fpu */
