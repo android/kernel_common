@@ -16,6 +16,7 @@
 #include <vmx/pkvm/hyp/pkvm_hyp.h>
 #include <vmx/pkvm/hyp/mem_protect.h>
 #include <vmx/pkvm/hyp/nested.h>
+#include <vmx/pkvm/hyp/ept.h>
 #include <pkvm.h>
 
 #ifdef __PKVM_HYP__
@@ -69,6 +70,9 @@ static bool __read_mostly enable_preemption_timer = 1;
 #ifdef CONFIG_X86_64
 module_param_named(preemption_timer, enable_preemption_timer, bool, S_IRUGO);
 #endif
+
+extern bool __read_mostly allow_smaller_maxphyaddr;
+module_param(allow_smaller_maxphyaddr, bool, S_IRUGO);
 
 #define RMODE_GUEST_OWNED_EFLAGS_BITS (~(X86_EFLAGS_IOPL | X86_EFLAGS_VM))
 
@@ -1559,8 +1563,58 @@ static int handle_task_switch(struct kvm_vcpu *vcpu)
 
 static int handle_ept_violation(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	unsigned long exit_qualification;
+	gpa_t gpa;
+	u64 error_code;
+
+	exit_qualification = vmx_get_exit_qual(vcpu);
+
+	/*
+	 * EPT violation happened while executing iret from NMI,
+	 * "blocked by NMI" bit has to be set before next VM entry.
+	 * There are errata that may cause this bit to not be set:
+	 * AAK134, BY25.
+	 */
+	if (!(to_vmx(vcpu)->idt_vectoring_info & VECTORING_INFO_VALID_MASK) &&
+			enable_vnmi &&
+			(exit_qualification & INTR_INFO_UNBLOCK_NMI))
+		vmcs_set_bits(GUEST_INTERRUPTIBILITY_INFO, GUEST_INTR_STATE_NMI);
+
+	gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+	trace_kvm_page_fault(vcpu, gpa, exit_qualification);
+
+	/* Is it a read fault? */
+	error_code = (exit_qualification & EPT_VIOLATION_ACC_READ)
+		     ? PFERR_USER_MASK : 0;
+	/* Is it a write fault? */
+	error_code |= (exit_qualification & EPT_VIOLATION_ACC_WRITE)
+		      ? PFERR_WRITE_MASK : 0;
+	/* Is it a fetch fault? */
+	error_code |= (exit_qualification & EPT_VIOLATION_ACC_INSTR)
+		      ? PFERR_FETCH_MASK : 0;
+	/* ept page table entry is present? */
+	error_code |= (exit_qualification & EPT_VIOLATION_RWX_MASK)
+		      ? PFERR_PRESENT_MASK : 0;
+
+	error_code |= (exit_qualification & EPT_VIOLATION_GVA_TRANSLATED) != 0 ?
+	       PFERR_GUEST_FINAL_MASK : PFERR_GUEST_PAGE_MASK;
+
+	/*
+	 * Check that the GPA doesn't exceed physical memory limits, as that is
+	 * a guest page fault.  We have to emulate the instruction here, because
+	 * if the illegal address is that of a paging structure, then
+	 * EPT_VIOLATION_ACC_WRITE bit is set.  Alternatively, if supported we
+	 * would also use advanced VM-exit information for EPT violations to
+	 * reconstruct the page fault error code.
+	 */
+	if (unlikely(allow_smaller_maxphyaddr && !kvm_vcpu_is_legal_gpa(vcpu, gpa)))
+		return kvm_emulate_instruction(vcpu, 0);
+
+#ifdef __PKVM_HYP__
+	return pkvm_handle_guest_ept_violation(vcpu, gpa);
+#else
+	return kvm_mmu_page_fault(vcpu, gpa, error_code, NULL, 0);
+#endif
 }
 
 static int handle_ept_misconfig(struct kvm_vcpu *vcpu)

@@ -1046,3 +1046,36 @@ void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 	 */
 	pkvm_pgtable_annotate(sept, gpa, PAGE_SIZE, SHADOW_EPT_MMIO_ENTRY);
 }
+
+int pkvm_handle_guest_ept_violation(struct kvm_vcpu *vcpu, u64 gpa)
+{
+	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	enum sept_handle_ret ret;
+	int handled = 0;
+
+	ret = pkvm_handle_shadow_ept_violation(shadow_vcpu,
+					       gpa, vmx->exit_qualification);
+	switch (ret) {
+	case PKVM_INJECT_EPT_MISC:
+		/*
+		 * Inject EPT_MISCONFIG vmexit reason if can directly modify
+		 * the read-only fields. Otherwise still deliver EPT_VIOLATION
+		 * for simplification.
+		 */
+		vmx->exit_reason.full = EXIT_REASON_EPT_MISCONFIG;
+		break;
+	case PKVM_HANDLED:
+		handled = 1;
+		break;
+	default:
+		break;
+	}
+
+	if (handled && (vmcs_read32(IDT_VECTORING_INFO_FIELD) &
+			VECTORING_INFO_VALID_MASK))
+		/* pending interrupt, back to kvm-high to inject */
+		handled = 0;
+
+	return handled;
+}

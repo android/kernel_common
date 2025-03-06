@@ -54,6 +54,9 @@ static u32 __read_mostly kvm_uret_msrs_list[KVM_MAX_NR_USER_RETURN_MSRS];
 				| XFEATURE_MASK_BNDCSR | XFEATURE_MASK_AVX512 \
 				| XFEATURE_MASK_PKRU | XFEATURE_MASK_XTILE)
 
+bool __read_mostly allow_smaller_maxphyaddr = 0;
+EXPORT_SYMBOL_GPL(allow_smaller_maxphyaddr);
+
 bool __read_mostly enable_apicv = true;
 EXPORT_SYMBOL_GPL(enable_apicv);
 
@@ -278,6 +281,16 @@ int kvm_emulate_wbinvd(struct kvm_vcpu *vcpu)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_wbinvd);
+
+int kvm_emulate_instruction(struct kvm_vcpu *vcpu, int emulation_type)
+{
+#ifdef __PKVM_HYP__
+	return 0;
+#else
+	return x86_emulate_instruction(vcpu, 0, emulation_type, NULL, 0);
+#endif
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_instruction);
 
 int kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 {
