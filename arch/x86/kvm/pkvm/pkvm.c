@@ -408,14 +408,77 @@ static struct pkvm_vcpu *get_pkvm_vcpu_via_shared(struct kvm_vcpu *shared_vcpu)
 	return NULL;
 }
 
-static struct pkvm_vcpu *load_pkvm_vcpu(struct kvm_vcpu *shared_vcpu)
+static bool is_kvm_vcpu_accessible(struct kvm_vcpu *vcpu, unsigned long fn)
+{
+	/*
+	 * Determine if the vcpu is accessible for a specific PV interface.
+	 * For the npVM, the vcpu is always accessible.
+	 */
+	if (!pkvm_is_protected_vcpu(vcpu))
+		return true;
+
+	switch (fn) {
+	/*
+	 * FIXME:
+	 * Any security concern to allow the host using below PV interfaces?
+	 * 1) __pkvm__get_nmi_mask: the host KVM needs these for nmi injection.
+	 *
+	 * TODO: Add protection for below PV interfaces:
+	 *	__pkvm__write_tsc_offset
+	 *	__pkvm__write_tsc_multiplier
+	 */
+	case __pkvm__vcpu_after_set_cpuid:
+	case __pkvm__vcpu_reset:
+	case __pkvm__get_segment_base:
+	case __pkvm__get_segment:
+	case __pkvm__set_segment:
+	case __pkvm__set_cr0:
+	case __pkvm__set_cr4:
+	case __pkvm__set_msr:
+	case __pkvm__get_msr:
+	case __pkvm__set_efer:
+	case __pkvm__get_idt:
+	case __pkvm__set_idt:
+	case __pkvm__get_gdt:
+	case __pkvm__set_gdt:
+	case __pkvm__get_rflags:
+	case __pkvm__set_rflags:
+	case __pkvm__set_dr7:
+	case __pkvm__set_interrupt_shadow:
+	case __pkvm__get_interrupt_shadow:
+	case __pkvm__inject_exception:
+	case __pkvm__set_nmi_mask:
+	case __pkvm__post_set_cr3:
+		/*
+		 * FIXME: As the host still needs to pre-configure pVM's vcpu
+		 * state for booting, the protection is enforced by the pkvm
+		 * hypervisor only if the vcpu has started running. If the host
+		 * doesn't need to do so, the protection can be enforced
+		 * directly.
+		 */
+		return !kvm_vcpu_has_run(vcpu);
+	default:
+		break;
+	}
+
+	return true;
+}
+
+static struct pkvm_vcpu *load_pkvm_vcpu(struct kvm_vcpu *shared_vcpu, unsigned long fn)
 {
 	struct pkvm_vcpu *pkvm_vcpu = get_pkvm_vcpu_via_shared(shared_vcpu);
+	struct kvm_vcpu *vcpu;
 
 	if (!pkvm_vcpu)
 		return NULL;
 
-	pkvm_x86_call(switch_to_guest_vcpu)(to_kvm_vcpu(pkvm_vcpu));
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	if (!is_kvm_vcpu_accessible(vcpu, fn)) {
+		put_pkvm_vcpu(pkvm_vcpu);
+		return NULL;
+	}
+
+	pkvm_x86_call(switch_to_guest_vcpu)(vcpu);
 
 	return pkvm_vcpu;
 }
@@ -1139,7 +1202,7 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 	struct pkvm_vcpu *pkvm_vcpu;
 	unsigned long ret = 0;
 
-	pkvm_vcpu = load_pkvm_vcpu(shared_vcpu);
+	pkvm_vcpu = load_pkvm_vcpu(shared_vcpu, fn);
 
 	switch (fn) {
 	case __pkvm__vcpu_load:
