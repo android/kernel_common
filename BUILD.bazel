@@ -184,6 +184,7 @@ filegroup(
         "gki/aarch64/symbols/trusty",
         "gki/aarch64/symbols/unisoc",
         "gki/aarch64/symbols/virtual_device",
+        "gki/aarch64/symbols/xiaomi",
     ],
     visibility = ["//visibility:public"],
 )
