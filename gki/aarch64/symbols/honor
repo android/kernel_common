@@ -1,0 +1,4 @@
+[abi_symbol_list]
+  __traceiter_android_vh_add_lazyfree_bypass
+  __tracepoint_android_vh_add_lazyfree_bypass
+
