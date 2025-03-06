@@ -18,6 +18,9 @@
   devres_free
   dev_set_name
   _dev_warn
+  dmaengine_unmap_put
+  dma_map_page_attrs
+  dma_release_channel
   dma_set_coherent_mask
   dma_set_mask
   __fortify_panic
@@ -37,11 +40,13 @@
   memcpy
   memset
   module_layout
+  __msecs_to_jiffies
+  mutex_lock
+  mutex_unlock
   of_alias_get_id
   of_device_is_available
   of_find_matching_node_and_match
   of_find_property
-  of_get_property
   of_match_node
   of_property_read_variable_u32_array
   __platform_driver_register
@@ -58,13 +63,48 @@
   regmap_update_bits_base
   regmap_write
   seq_printf
+  sized_strscpy
   snprintf
   sprintf
   sscanf
   __stack_chk_fail
+  strcmp
+  strnlen
   syscon_regmap_lookup_by_phandle
   sysfs_emit
   utf8_data_table
+  __warn_printk
+
+# required by dmatest.ko
+  dmaengine_get_unmap_data
+  __dma_request_channel
+  dma_sync_wait
+  finish_wait
+  get_random_bytes
+  init_wait_entry
+  __init_waitqueue_head
+  kthread_create_on_node
+  kthread_should_stop
+  kthread_stop
+  ktime_get
+  msleep
+  param_get_bool
+  param_get_string
+  param_ops_bool
+  param_ops_int
+  param_ops_string
+  param_ops_uint
+  param_set_bool
+  param_set_copystring
+  prepare_to_wait_event
+  refcount_warn_saturate
+  schedule
+  schedule_timeout
+  set_freezable
+  set_user_nice
+  strim
+  __wake_up
+  wake_up_process
 
 # required by exynos-chipid_v2.ko
   kasprintf
@@ -85,15 +125,15 @@
   clk_enable
   clk_get_rate
   clk_set_rate
+  console_lock
   console_suspend_enabled
+  console_unlock
   __const_udelay
   dev_driver_string
   devm_clk_get
   devm_pinctrl_get
   disable_irq_nosync
   dma_get_slave_caps
-  dma_map_page_attrs
-  dma_release_channel
   dma_request_chan
   __dma_sync_single_for_cpu
   __dma_sync_single_for_device
@@ -108,6 +148,7 @@
   __kmalloc_large_noprof
   kunit_hooks
   kunit_running
+  of_get_property
   oops_in_progress
   panic_notifier_list
   pinctrl_lookup_state
@@ -138,7 +179,6 @@
   uart_unregister_driver
   uart_update_timeout
   uart_write_wakeup
-  __warn_printk
 
 # required by hwmon.ko
   bpf_trace_run3
@@ -158,8 +198,6 @@
   kstrdup
   kstrtobool
   kstrtoll
-  mutex_lock
-  mutex_unlock
   perf_trace_buf_alloc
   perf_trace_run_bpf_submit
   preempt_schedule_notrace
@@ -199,7 +237,6 @@
   i2c_transfer
   i2c_transfer_buffer_flags
   memdup_user
-  __msecs_to_jiffies
   register_chrdev_region
   unregister_chrdev_region
 
@@ -239,8 +276,6 @@
   pinctrl_remove_gpio_range
   platform_get_irq_optional
   register_syscore_ops
-  sized_strscpy
-  strnlen
 
 # required by pl330.ko
   __amba_driver_register
@@ -254,7 +289,6 @@
   dma_async_device_register
   dma_async_device_unregister
   dma_async_tx_descriptor_init
-  dmaengine_unmap_put
   dma_free_attrs
   dma_get_slave_channel
   dma_map_resource
@@ -264,6 +298,7 @@
   loops_per_jiffy
   of_dma_controller_free
   of_dma_controller_register
+  of_property_read_u32_index
   pm_runtime_force_resume
   pm_runtime_force_suspend
   pm_runtime_irq_safe
@@ -288,7 +323,6 @@
   kfree_const
   kstrdup_const
   register_reboot_notifier
-  strcmp
   strncmp
   unregister_reboot_notifier
 
