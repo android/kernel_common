@@ -703,6 +703,7 @@
   drm_bridge_hpd_disable
   drm_bridge_hpd_enable
   drm_bridge_hpd_notify
+  drm_bridge_is_panel
   drm_bridge_remove
   drm_bus_flags_from_videomode
   drm_compat_ioctl
@@ -758,7 +759,9 @@
   drm_edid_free
   drm_edid_get_monitor_name
   drm_edid_raw
+  drm_edid_read_custom
   drm_edid_read_ddc
+  drm_edid_valid
   drm_encoder_cleanup
   drm_encoder_init
   __drm_err
@@ -784,14 +787,19 @@
   drm_get_format_info
   drm_hdmi_avi_infoframe_from_display_mode
   drm_hdmi_avi_infoframe_quant_range
+  drm_hdmi_connector_get_output_format_name
   drm_hdmi_vendor_infoframe_from_display_mode
   drm_helper_hpd_irq_event
   drm_helper_probe_single_connector_modes
   drm_ioctl
+  drm_kms_helper_connector_hotplug_event
   drm_kms_helper_hotplug_event
   drm_kms_helper_poll_fini
   drm_kms_helper_poll_init
   drm_match_cea_mode
+  drmm_connector_hdmi_init
+  drmm_connector_init
+  drmm_kmalloc
   drmm_mode_config_init
   drm_mode_config_cleanup
   drm_mode_config_helper_resume
@@ -833,6 +841,7 @@
   drm_panel_add
   drm_panel_bridge_add_typed
   drm_panel_bridge_remove
+  drm_panel_bridge_set_orientation
   drm_panel_disable
   drm_panel_enable
   drm_panel_get_modes
@@ -853,6 +862,7 @@
   drm_prime_gem_destroy
   drm_prime_get_contiguous_size
   drm_printf
+  __drm_printfn_dbg
   drm_probe_ddc
   drm_property_create_enum
   drm_property_create_range
@@ -896,6 +906,8 @@
   ether_setup
   eth_header_parse_protocol
   eth_mac_addr
+  ethnl_cable_test_fault_length_with_src
+  ethnl_cable_test_result_with_src
   ethtool_aggregate_ctrl_stats
   ethtool_aggregate_mac_stats
   ethtool_aggregate_pause_stats
@@ -906,6 +918,7 @@
   __ethtool_get_link_ksettings
   ethtool_op_get_link
   ethtool_op_get_ts_info
+  ethtool_puts
   eth_type_trans
   eth_validate_addr
   extcon_get_edev_by_phandle
@@ -1474,6 +1487,7 @@
   mutex_lock_interruptible
   mutex_trylock
   mutex_unlock
+  napi_alloc_skb
   napi_complete_done
   napi_consume_skb
   napi_disable
@@ -1498,6 +1512,8 @@
   netdev_txq_to_tc
   netdev_update_features
   netdev_warn
+  net_dim
+  net_dim_get_rx_moderation
   netif_carrier_off
   netif_carrier_on
   netif_device_attach
@@ -1518,6 +1534,7 @@
   netif_tx_unlock
   netif_tx_wake_queue
   netlink_broadcast
+  netlink_broadcast_filtered
   __netlink_kernel_create
   netlink_kernel_release
   netlink_register_notifier
@@ -1679,6 +1696,7 @@
   page_pool_alloc_pages
   page_pool_create
   page_pool_destroy
+  page_pool_put_unrefed_netmem
   panic
   panic_notifier_list
   param_array_ops
@@ -1714,6 +1732,8 @@
   pci_enable_msix_range
   pci_enable_sriov
   pci_enable_wake
+  pci_epc_init_notify
+  pci_find_host_bridge
   pci_free_irq_vectors
   pci_get_domain_bus_and_slot
   pci_iomap
@@ -1721,6 +1741,7 @@
   pci_irq_vector
   pci_msi_enabled
   pci_pme_active
+  pci_prepare_ats
   pci_read_config_dword
   __pci_register_driver
   pci_release_region
@@ -1767,11 +1788,13 @@
   phy_ethtool_set_link_ksettings
   phy_ethtool_set_wol
   phy_exit
+  phy_gbit_features
   phy_init
   phy_init_eee
   phy_init_hw
   phylink_connect_phy
   phylink_create
+  phylink_decode_usxgmii_word
   phylink_destroy
   phylink_disconnect_phy
   phylink_ethtool_get_eee
@@ -1796,6 +1819,7 @@
   phylink_mii_c45_pcs_get_state
   phylink_mii_ioctl
   phylink_of_phy_connect
+  phylink_pcs_pre_init
   phylink_resolve_c73
   phylink_resume
   phylink_speed_down
@@ -1826,13 +1850,17 @@
   phy_select_page
   phy_set_max_speed
   phy_set_mode_ext
+  phy_set_speed
   phy_set_sym_pause
   phy_sfp_attach
+  phy_sfp_connect_phy
   phy_sfp_detach
+  phy_sfp_disconnect_phy
   phy_sfp_probe
   phy_start
   phy_start_aneg
   phy_stop
+  phy_support_eee
   phy_support_sym_pause
   phy_trigger_machine
   phy_validate
@@ -2248,6 +2276,7 @@
   single_open
   single_release
   sized_strscpy
+  skb_add_rx_frag_netmem
   skb_checksum_help
   skb_clone
   skb_clone_sk
@@ -2265,6 +2294,7 @@
   skb_flow_dissect_meta
   skb_flow_dissector_init
   skb_flow_dissect_tunnel_info
+  __skb_get_hash_net
   __skb_gso_segment
   skb_pull
   skb_push
@@ -2275,6 +2305,7 @@
   skb_realloc_headroom
   skb_trim
   skb_tstamp_tx
+  sk_skb_reason_drop
   snd_compr_malloc_pages
   snd_ctl_add
   snd_ctl_boolean_mono_info
@@ -2358,6 +2389,7 @@
   snd_soc_dapm_put_volsw
   snd_soc_dapm_sync
   snd_soc_dapm_sync_unlocked
+  snd_soc_dapm_widget_name_cmp
   snd_soc_dlc_use_cpu_as_platform
   snd_soc_dpcm_get_substream
   snd_soc_dummy_dlc
@@ -2426,6 +2458,7 @@
   __spi_register_driver
   spi_setup
   spi_sync
+  spi_target_abort
   spi_unregister_controller
   sprintf
   srcu_init_notifier_head
@@ -2672,6 +2705,7 @@
   v4l2_async_nf_init
   v4l2_async_nf_register
   v4l2_async_nf_unregister
+  __v4l2_async_register_subdev
   v4l2_async_register_subdev_sensor
   v4l2_async_subdev_nf_init
   v4l2_async_unregister_subdev
@@ -2697,6 +2731,7 @@
   v4l2_ctrl_subdev_subscribe_event
   v4l2_ctrl_subscribe_event
   v4l2_device_register
+  __v4l2_device_register_subdev
   __v4l2_device_register_subdev_nodes
   v4l2_device_unregister
   v4l2_device_unregister_subdev
@@ -2762,6 +2797,9 @@
   v4l2_m2m_update_stop_streaming_state
   v4l2_match_dv_timings
   v4l2_s_parm_cap
+  v4l2_pipeline_link_notify
+  v4l2_pipeline_pm_get
+  v4l2_pipeline_pm_put
   v4l2_src_change_event_subscribe
   v4l2_subdev_call_wrappers
   v4l2_subdev_cleanup
@@ -2778,6 +2816,10 @@
   v4l2_subdev_routing_find_opposite_end
   v4l2_subdev_routing_validate
   v4l2_subdev_set_routing_with_fmt
+  v4l2_subdev_s_stream_helper
+  __v4l2_subdev_state_get_compose
+  __v4l2_subdev_state_get_crop
+  __v4l2_subdev_state_get_format
   v4l2_subdev_state_get_opposite_stream_format
   v4l2_subdev_state_xlate_streams
   v4l_bound_align_image
@@ -2828,6 +2870,7 @@
   video_devdata
   video_device_alloc
   __video_device_pipeline_start
+  __video_device_pipeline_stop
   video_device_pipeline_stop
   video_device_release
   video_device_release_empty
