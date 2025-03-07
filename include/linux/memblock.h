@@ -596,9 +596,11 @@ static inline void memtest_report_meminfo(struct seq_file *m) { }
 #ifdef CONFIG_MEMBLOCK_MEMSIZE
 extern void __init_memblock memblock_memsize_record(const char *name,
 		phys_addr_t base, phys_addr_t size, bool nomap, bool reusable);
+extern void __init memblock_memsize_detect_hole(void);
 #else
 static inline void __init_memblock memblock_memsize_record(const char *name,
 		phys_addr_t base, phys_addr_t size, bool nomap, bool reusable) { }
+static inline void __init memblock_memsize_detect_hole(void) { }
 #endif
 
 #endif /* _LINUX_MEMBLOCK_H */

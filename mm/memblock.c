@@ -2093,6 +2093,50 @@ void __init_memblock memblock_memsize_record(const char *name, phys_addr_t base,
 	memblock_dbg("%s %pa..%pa nomap:%d reusable:%d\n",
 		     __func__, &base, &end, nomap, reusable);
 }
+
+void __init memblock_memsize_detect_hole(void)
+{
+	phys_addr_t base, end;
+	phys_addr_t prev_end, hole_sz;
+	int idx;
+	struct memblock_region *rgn;
+	int memblock_cnt = (int)memblock.memory.cnt;
+
+	/* assume that the hole size is less than 1 GB */
+	for_each_memblock_type(idx, (&memblock.memory), rgn) {
+		prev_end = (idx == 0) ? round_down(rgn->base, SZ_1G) : end;
+		base = rgn->base;
+		end = rgn->base + rgn->size;
+
+		/* only for the last region, check a hole after the region */
+		if (idx + 1 == memblock_cnt) {
+			hole_sz = round_up(end, SZ_1G) - end;
+			if (hole_sz)
+				memblock_memsize_record(NULL, end, hole_sz,
+							true, false);
+		}
+
+		/* for each region, check a hole prior to the region */
+		hole_sz = base - prev_end;
+		if (!hole_sz)
+			continue;
+		if (hole_sz < SZ_1G) {
+			memblock_memsize_record(NULL, prev_end, hole_sz, true,
+						false);
+		} else {
+			phys_addr_t hole_sz1, hole_sz2;
+
+			hole_sz1 = round_up(prev_end, SZ_1G) - prev_end;
+			if (hole_sz1)
+				memblock_memsize_record(NULL, prev_end,
+							hole_sz1, true, false);
+			hole_sz2 = base % SZ_1G;
+			if (hole_sz2)
+				memblock_memsize_record(NULL, base - hole_sz2,
+							hole_sz2, true, false);
+		}
+	}
+}
 #endif /* MEMBLOCK_MEMSIZE */
 
 static void __init free_memmap(unsigned long start_pfn, unsigned long end_pfn)

@@ -503,6 +503,8 @@ void __init early_init_fdt_scan_reserved_mem(void)
 	if (!initial_boot_params)
 		return;
 
+	memblock_memsize_detect_hole();
+
 	fdt_scan_reserved_mem();
 	fdt_reserve_elfcorehdr();
 
