@@ -504,6 +504,7 @@ void __init early_init_fdt_scan_reserved_mem(void)
 		return;
 
 	memblock_memsize_detect_hole();
+	memblock_memsize_disable_tracking();
 
 	fdt_scan_reserved_mem();
 	fdt_reserve_elfcorehdr();
@@ -516,6 +517,7 @@ void __init early_init_fdt_scan_reserved_mem(void)
 		memblock_reserve(base, size);
 		memblock_memsize_record("memreserve", base, size, false, false);
 	}
+	memblock_memsize_enable_tracking();
 }
 
 /**
