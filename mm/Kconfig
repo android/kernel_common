@@ -506,22 +506,6 @@ config HAVE_GUP_FAST
 	depends on MMU
 	bool
 
-config MAX_MEMBLOCK_MEMSIZE
-	int "Maximum number of tracking regions"
-	depends on MEMBLOCK_MEMSIZE
-	default 100
-	range 0 200
-	help
-	  This number sets maximum number of tracking regions. If this is set to
-	  0, nothing will be saved.
-
-config MEMBLOCK_MEMSIZE
-	bool "memblock based reserved memory profiling"
-	default y
-	help
-	  This patch introduce a node, memblock/memsize, to see reserved memory
-	  easily.
-
 # Don't discard allocated memory used to track "memory" and "reserved" memblocks
 # after early boot, so it can still be used to test for validity of memory.
 # Also, memblocks are updated with memory hot(un)plug.
