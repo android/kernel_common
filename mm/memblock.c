@@ -2090,20 +2090,54 @@ static bool __init_memblock memsize_update_nomap_region(const char *name, phys_a
 	for (i = 0; i < memsize_rgn_count; i++)	{
 		rmem_rgn = &memsize_rgn[i];
 
+		/* skip either !nomap, !unknown, !overlap */
 		if (!rmem_rgn->nomap)
 			continue;
 		if (strcmp(rmem_rgn->name, "unknown"))
 			continue;
-		if (base < rmem_rgn->base)
+		if (base + size <= rmem_rgn->base)
 			continue;
-		if (base + size > rmem_rgn->base + rmem_rgn->size)
+		if (base >= rmem_rgn->base + rmem_rgn->size)
 			continue;
 
+		/* exactly same */
 		if (base == rmem_rgn->base && size == rmem_rgn->size) {
 			memsize_get_valid_name(rmem_rgn->name, name);
 			return true;
 		}
 
+		/* bigger */
+		if (base <= rmem_rgn->base &&
+				base + size >= rmem_rgn->base + rmem_rgn->size) {
+			memsize_get_valid_name(rmem_rgn->name, name);
+			rmem_rgn->base = base;
+			rmem_rgn->size = size;
+			return true;
+		}
+
+		/* intersect */
+		if (base < rmem_rgn->base ||
+				base + size > rmem_rgn->base + rmem_rgn->size) {
+			new_rgn = memsize_get_new_rgn();
+			if (!new_rgn)
+				return true;
+			new_rgn->base = base;
+			new_rgn->size = size;
+			new_rgn->nomap = nomap;
+			new_rgn->reusable = false;
+			memsize_get_valid_name(new_rgn->name, name);
+
+			if (base < rmem_rgn->base) {
+				rmem_rgn->size -= base + size - rmem_rgn->base;
+				rmem_rgn->base = base + size;
+			} else {
+				rmem_rgn->size -= rmem_rgn->base
+							+ rmem_rgn->size - base;
+			}
+			return true;
+		}
+
+		/* smaller */
 		new_rgn = memsize_get_new_rgn();
 		if (!new_rgn)
 			return true;
