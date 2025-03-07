@@ -1,2 +1,36 @@
 [abi_symbol_list]
-
+  I_BDEV
+  bdev_file_open_by_dev
+  bdev_file_open_by_path
+  bdev_fput
+  blkdev_issue_flush
+  file_bdev
+  file_ra_state_init
+  file_write_and_wait_range
+  fixed_size_llseek
+  generic_file_read_iter
+  generic_perform_write
+  gpiod_cansleep
+  gpio_device_find
+  gpio_device_get_chip
+  param_set_uint
+  proc_set_size
+  pstore_register
+  pstore_unregister
+  __traceiter_android_rvh_die_kernel_fault
+  __traceiter_android_rvh_do_el1_undef
+  __traceiter_android_rvh_do_sp_pc_abort
+  __traceiter_android_rvh_report_bug
+  __traceiter_android_vh_is_fpsimd_save
+  __traceiter_android_vh_logbuf
+  __traceiter_android_vh_logbuf_pr_cont
+  __traceiter_console
+  __tracepoint_android_rvh_die_kernel_fault
+  __tracepoint_android_rvh_do_el1_undef
+  __tracepoint_android_rvh_do_sp_pc_abort
+  __tracepoint_android_rvh_report_bug
+  __tracepoint_android_vh_is_fpsimd_save
+  __tracepoint_android_vh_logbuf
+  __tracepoint_android_vh_logbuf_pr_cont
+  __tracepoint_console
+  yield
