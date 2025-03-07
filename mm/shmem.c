@@ -1776,7 +1776,7 @@ static struct folio *shmem_alloc_folio(gfp_t gfp, int order,
 	struct folio *folio = NULL;
 
 	mpol = shmem_get_pgoff_policy(info, index, order, &ilx);
-	trace_android_rvh_shmem_get_folio(info, &folio);
+	trace_android_rvh_shmem_get_folio(info, &folio, order);
 	if (folio)
 		goto done;
 	folio = folio_alloc_mpol(gfp, order, mpol, ilx, numa_node_id());
