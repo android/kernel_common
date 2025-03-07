@@ -6858,7 +6858,9 @@ picked:
 			&& trace_sched_blocked_reason_enabled()) {
 			unsigned long blocked_func = 0;
 
+#ifdef CONFIG_STACKTRACE
 			stack_trace_save_tsk(prev, &blocked_func, 1, 0);
+#endif
 			trace_sched_blocked_reason(prev, (void *)blocked_func);
 		}
 
