@@ -1717,6 +1717,8 @@ void __init memblock_free_late(phys_addr_t base, phys_addr_t size)
 	cursor = PFN_UP(base);
 	end = PFN_DOWN(base + size);
 
+	memblock_memsize_mod_kernel_size(-1 * ((long)(end - cursor) << PAGE_SHIFT));
+
 	for (; cursor < end; cursor++) {
 		memblock_free_pages(pfn_to_page(cursor), cursor, 0);
 		totalram_pages_inc();
