@@ -2557,6 +2557,7 @@
   rdev_get_drvdata
   reboot_mode
   rebuild_sched_domains
+  reclaim_shmem_address_space
   refcount_dec_and_lock
   refcount_dec_and_mutex_lock
   refcount_dec_if_one
@@ -3288,6 +3289,9 @@
   __traceiter_android_rvh_setscheduler
   __traceiter_android_rvh_set_task_cpu
   __traceiter_android_rvh_set_user_nice
+  __traceiter_android_rvh_shmem_allowable_huge_orders
+  __traceiter_android_rvh_shmem_get_folio
+  __traceiter_android_rvh_shmem_suitable_orders
   __traceiter_android_rvh_show_max_freq
   __traceiter_android_rvh_tick_entry
   __traceiter_android_rvh_try_to_wake_up
@@ -3402,6 +3406,9 @@
   __tracepoint_android_rvh_setscheduler
   __tracepoint_android_rvh_set_task_cpu
   __tracepoint_android_rvh_set_user_nice
+  __tracepoint_android_rvh_shmem_allowable_huge_orders
+  __tracepoint_android_rvh_shmem_get_folio
+  __tracepoint_android_rvh_shmem_suitable_orders
   __tracepoint_android_rvh_show_max_freq
   __tracepoint_android_rvh_tick_entry
   __tracepoint_android_rvh_try_to_wake_up
