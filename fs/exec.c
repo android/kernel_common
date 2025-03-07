@@ -883,8 +883,8 @@ EXPORT_SYMBOL(transfer_args_to_stack);
  */
 static struct file *do_open_execat(int fd, struct filename *name, int flags)
 {
-	struct file *file;
 	int err;
+	struct file *file __free(fput) = NULL;
 	struct open_flags open_exec_flags = {
 		.open_flag = O_LARGEFILE | O_RDONLY | __FMODE_EXEC,
 		.acc_mode = MAY_EXEC,
@@ -909,18 +909,14 @@ static struct file *do_open_execat(int fd, struct filename *name, int flags)
 	 * an invariant that all non-regular files error out before we get here.
 	 */
 	if (WARN_ON_ONCE(!S_ISREG(file_inode(file)->i_mode)) ||
-	    path_noexec(&file->f_path)) {
-		fput(file);
+	    path_noexec(&file->f_path))
 		return ERR_PTR(-EACCES);
-	}
 
 	err = deny_write_access(file);
-	if (err) {
-		fput(file);
+	if (err)
 		return ERR_PTR(err);
-	}
 
-	return file;
+	return no_free_ptr(file);
 }
 
 /**
