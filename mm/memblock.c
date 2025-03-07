@@ -2069,6 +2069,73 @@ static void __init_memblock memsize_get_valid_name(char *valid_name, const char 
 	strscpy(valid_name, head, valid_size);
 }
 
+static inline struct memsize_rgn_struct * __init_memblock memsize_get_new_rgn(void)
+{
+	if (memsize_rgn_count == ARRAY_SIZE(memsize_rgn)) {
+		pr_err("not enough space on memsize_rgn\n");
+		return NULL;
+	}
+	return &memsize_rgn[memsize_rgn_count++];
+}
+
+static bool __init_memblock memsize_update_nomap_region(const char *name, phys_addr_t base,
+					phys_addr_t size, bool nomap)
+{
+	int i;
+	struct memsize_rgn_struct *rmem_rgn, *new_rgn;
+
+	if (!name)
+		return false;
+
+	for (i = 0; i < memsize_rgn_count; i++)	{
+		rmem_rgn = &memsize_rgn[i];
+
+		if (!rmem_rgn->nomap)
+			continue;
+		if (strcmp(rmem_rgn->name, "unknown"))
+			continue;
+		if (base < rmem_rgn->base)
+			continue;
+		if (base + size > rmem_rgn->base + rmem_rgn->size)
+			continue;
+
+		if (base == rmem_rgn->base && size == rmem_rgn->size) {
+			memsize_get_valid_name(rmem_rgn->name, name);
+			return true;
+		}
+
+		new_rgn = memsize_get_new_rgn();
+		if (!new_rgn)
+			return true;
+		new_rgn->base = base;
+		new_rgn->size = size;
+		new_rgn->nomap = nomap;
+		new_rgn->reusable = false;
+		memsize_get_valid_name(new_rgn->name, name);
+
+		if (base == rmem_rgn->base && size < rmem_rgn->size) {
+			rmem_rgn->base = base + size;
+			rmem_rgn->size -= size;
+		} else if (base + size == rmem_rgn->base + rmem_rgn->size) {
+			rmem_rgn->size -= size;
+		} else {
+			new_rgn = memsize_get_new_rgn();
+			if (!new_rgn)
+				return true;
+			new_rgn->base = base + size;
+			new_rgn->size = (rmem_rgn->base + rmem_rgn->size)
+					- (base + size);
+			new_rgn->nomap = nomap;
+			new_rgn->reusable = false;
+			strscpy(new_rgn->name, "unknown", sizeof(new_rgn->name));
+			rmem_rgn->size = base - rmem_rgn->base;
+		}
+		return true;
+	}
+
+	return false;
+}
+
 void __init_memblock memblock_memsize_record(const char *name, phys_addr_t base,
 			     phys_addr_t size, bool nomap, bool reusable)
 {
@@ -2079,7 +2146,14 @@ void __init_memblock memblock_memsize_record(const char *name, phys_addr_t base,
 		pr_err("not enough space on memsize_rgn\n");
 		return;
 	}
-	rgn = &memsize_rgn[memsize_rgn_count++];
+
+	if (memsize_update_nomap_region(name, base, size, nomap))
+		return;
+
+	rgn = memsize_get_new_rgn();
+	if (!rgn)
+		return;
+
 	rgn->base = base;
 	rgn->size = size;
 	rgn->nomap = nomap;
