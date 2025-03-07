@@ -175,6 +175,18 @@ static inline phys_addr_t memblock_cap_size(phys_addr_t base, phys_addr_t *size)
 	return *size = min(*size, PHYS_ADDR_MAX - base);
 }
 
+#ifdef CONFIG_MEMBLOCK_MEMSIZE
+static void memblock_memsize_record_add(struct memblock_type *type,
+			phys_addr_t base, phys_addr_t size);
+static void memblock_memsize_record_remove(struct memblock_type *type,
+			phys_addr_t base, phys_addr_t size);
+#else
+static inline void memblock_memsize_record_add(struct memblock_type *type,
+			phys_addr_t base, phys_addr_t size) { }
+static inline void memblock_memsize_record_remove(struct memblock_type *type,
+			phys_addr_t base, phys_addr_t size) { }
+#endif
+
 /*
  * Address comparison utilities
  */
@@ -591,6 +603,7 @@ static int __init_memblock memblock_add_range(struct memblock_type *type,
 	phys_addr_t end = base + memblock_cap_size(base, &size);
 	int idx, nr_new, start_rgn = -1, end_rgn;
 	struct memblock_region *rgn;
+	phys_addr_t new_size = 0;
 
 	if (!size)
 		return 0;
@@ -604,7 +617,8 @@ static int __init_memblock memblock_add_range(struct memblock_type *type,
 		memblock_set_region_node(&type->regions[0], nid);
 		type->total_size = size;
 		type->cnt = 1;
-		return 0;
+		new_size = size;
+		goto done;
 	}
 
 	/*
@@ -651,6 +665,7 @@ repeat:
 				memblock_insert_region(type, idx++, base,
 						       rbase - base, nid,
 						       flags);
+				new_size += rbase - base;
 			}
 		}
 		/* area below @rend is dealt with, forget about it */
@@ -666,6 +681,7 @@ repeat:
 			end_rgn = idx + 1;
 			memblock_insert_region(type, idx, base, end - base,
 					       nid, flags);
+			new_size += end - base;
 		}
 	}
 
@@ -684,8 +700,11 @@ repeat:
 		goto repeat;
 	} else {
 		memblock_merge_regions(type, start_rgn, end_rgn);
-		return 0;
 	}
+done:
+	if (new_size == size)
+		memblock_memsize_record_add(type, obase, size);
+	return 0;
 }
 
 /**
@@ -856,6 +875,7 @@ static int __init_memblock memblock_remove_range(struct memblock_type *type,
 
 	for (i = end_rgn - 1; i >= start_rgn; i--)
 		memblock_remove_region(type, i);
+	memblock_memsize_record_remove(type, base, size);
 	return 0;
 }
 
@@ -2049,6 +2069,7 @@ struct memsize_rgn_struct {
 
 static struct memsize_rgn_struct memsize_rgn[CONFIG_MAX_MEMBLOCK_MEMSIZE] __initdata_memblock;
 static int memsize_rgn_count __initdata_memblock;
+static const char *memblock_memsize_name __initdata_memblock;
 
 static void __init_memblock memsize_get_valid_name(char *valid_name, const char *name)
 {
@@ -2243,6 +2264,75 @@ void __init memblock_memsize_detect_hole(void)
 				memblock_memsize_record(NULL, base - hole_sz2,
 							hole_sz2, true, false);
 		}
+	}
+}
+
+/* assume that freeing region is NOT bigger than the previous region */
+static void __init_memblock memblock_memsize_free(phys_addr_t free_base,
+						  phys_addr_t free_size)
+{
+	int i;
+	struct memsize_rgn_struct *rgn;
+	phys_addr_t free_end, end;
+
+	free_end = free_base + free_size - 1;
+	memblock_dbg("%s %pa..%pa\n",
+		     __func__, &free_base, &free_end);
+
+	for (i = 0; i < memsize_rgn_count; i++) {
+		rgn = &memsize_rgn[i];
+
+		end = rgn->base + rgn->size;
+		if (free_base < rgn->base ||
+		    free_base >= end)
+			continue;
+
+		free_end = free_base + free_size;
+		if (free_base == rgn->base) {
+			rgn->size -= free_size;
+			if (rgn->size != 0)
+				rgn->base += free_size;
+		} else if (free_end == end) {
+			rgn->size -= free_size;
+		} else {
+			memblock_memsize_record(rgn->name, free_end,
+				end - free_end, rgn->nomap, rgn->reusable);
+			rgn->size = free_base - rgn->base;
+		}
+	}
+}
+
+void __init memblock_memsize_set_name(const char *name)
+{
+	memblock_memsize_name = name;
+}
+
+void __init memblock_memsize_unset_name(void)
+{
+	memblock_memsize_name = NULL;
+}
+
+static void __init_memblock memblock_memsize_record_add(struct memblock_type *type,
+				phys_addr_t base, phys_addr_t size)
+{
+	if (memblock_memsize_name) {
+		if (type == &memblock.reserved)
+			memblock_memsize_record(memblock_memsize_name,
+						base, size, false, false);
+		else if (type == &memblock.memory)
+			memblock_memsize_free(base, size);
+	}
+}
+
+static void __init_memblock memblock_memsize_record_remove(struct memblock_type *type,
+				phys_addr_t base, phys_addr_t size)
+{
+	if (memblock_memsize_name) {
+		if (type == &memblock.reserved)
+			memblock_memsize_free(base, size);
+		else if (type == &memblock.memory)
+			memblock_memsize_record(memblock_memsize_name,
+						base, size, true, false);
 	}
 }
 #endif /* MEMBLOCK_MEMSIZE */
