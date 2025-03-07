@@ -2635,7 +2635,7 @@ DEFINE_SHOW_ATTRIBUTE(memblock_debug);
 
 #ifdef CONFIG_MEMBLOCK_MEMSIZE
 /* assume that freeing region is NOT bigger than the previous region */
-static void __maybe_unused memblock_memsize_free(phys_addr_t free_base,
+static void memblock_memsize_free(phys_addr_t free_base,
 						  phys_addr_t free_size)
 {
 	int i;
@@ -2682,6 +2682,39 @@ static int memsize_rgn_cmp(const void *a, const void *b)
 	return 0;
 }
 
+/* assume that freed size is always 64 KB aligned */
+static inline void memblock_memsize_check_size(struct memsize_rgn_struct *rgn)
+{
+	phys_addr_t phy, end, freed = 0;
+	bool has_freed = false;
+	struct page *page;
+
+	if (rgn->reusable || rgn->nomap)
+		return;
+
+	/* check the first page of each 1 MB */
+	phy = rgn->base;
+	end = rgn->base + rgn->size;
+	while (phy < end) {
+		unsigned long pfn = __phys_to_pfn(phy);
+
+		if (!pfn_valid(pfn))
+			return;
+		page = pfn_to_page(pfn);
+		if (!has_freed && !PageReserved(page)) {
+			has_freed = true;
+			freed = phy;
+		} else if (has_freed && PageReserved(page)) {
+			has_freed = false;
+			memblock_memsize_free(freed, phy - freed);
+		}
+
+		if (has_freed && (phy + SZ_64K >= end))
+			memblock_memsize_free(freed, end - freed);
+		phy += SZ_64K;
+	}
+}
+
 static int memblock_memsize_show(struct seq_file *m, void *private)
 {
 	int i;
@@ -2695,6 +2728,7 @@ static int memblock_memsize_show(struct seq_file *m, void *private)
 		long size;
 
 		rgn = &memsize_rgn[i];
+		memblock_memsize_check_size(rgn);
 		base = rgn->base;
 		size = rgn->size;
 		end = base + size;
