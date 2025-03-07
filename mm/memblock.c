@@ -2775,7 +2775,8 @@ static int memblock_memsize_show(struct seq_file *m, void *private)
 {
 	int i;
 	struct memsize_rgn_struct *rgn;
-	unsigned long reserved = 0, reusable = 0;
+	unsigned long reserved = 0, reusable = 0, total;
+	unsigned long system = totalram_pages() << PAGE_SHIFT;
 
 	sort(memsize_rgn, memsize_rgn_count,
 	     sizeof(memsize_rgn[0]), memsize_rgn_cmp, NULL);
@@ -2801,13 +2802,24 @@ static int memblock_memsize_show(struct seq_file *m, void *private)
 			reserved += (unsigned long)rgn->size;
 	}
 
+	total = memsize_kinit + reserved + system;
+
 	seq_puts(m, "\n");
+	seq_printf(m, "Reserved    : %7lu KB\n",
+		   DIV_ROUND_UP(memsize_kinit + reserved, SZ_1K));
 	seq_printf(m, " .kernel    : %7lu KB\n",
 		   DIV_ROUND_UP(memsize_kinit, SZ_1K));
 	seq_printf(m, " .unusable  : %7lu KB\n",
 		   DIV_ROUND_UP(reserved, SZ_1K));
+	seq_printf(m, "System      : %7lu KB\n",
+		   DIV_ROUND_UP(system, SZ_1K));
+	seq_printf(m, " .common    : %7lu KB\n",
+		   DIV_ROUND_UP(system - reusable, SZ_1K));
 	seq_printf(m, " .reusable  : %7lu KB\n",
 		   DIV_ROUND_UP(reusable, SZ_1K));
+	seq_printf(m, "Total       : %7lu KB ( %5lu.%02lu MB )\n",
+		   DIV_ROUND_UP(total, SZ_1K),
+		   total >> 20, ((total % SZ_1M) * 100) >> 20);
 	return 0;
 }
 
