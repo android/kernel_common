@@ -25,8 +25,6 @@
 
 int __pkvm_finalize_shadow_vm(int shadow_vm_handle, int primary_vcpu_handle,
 			      gpa_t pvmfw_load_addr);
-struct pkvm_shadow_vm *get_shadow_vm(int handle);
-void put_shadow_vm(struct pkvm_shadow_vm *shadow_vm);
 void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
 			       struct list_head *node, bool coherency);
 void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,

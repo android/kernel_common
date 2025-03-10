@@ -99,24 +99,6 @@ unlock:
 	return ret;
 }
 
-struct pkvm_shadow_vm *get_shadow_vm(int handle)
-{
-	struct pkvm_vm *pkvm_vm;
-
-	pkvm_vm = get_pkvm_vm(handle);
-	if (!pkvm_vm)
-		return NULL;
-
-	return kvm_to_shadow(to_kvm(pkvm_vm));
-}
-
-void put_shadow_vm(struct pkvm_shadow_vm *shadow_vm)
-{
-	struct kvm *kvm = shadow_to_kvm(shadow_vm);
-
-	put_pkvm_vm(to_pkvm(kvm));
-}
-
 void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
 			       struct list_head *node, bool coherency)
 {
@@ -204,16 +186,19 @@ void pkvm_kick_vcpu(struct kvm_vcpu *vcpu)
 
 int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid)
 {
-	struct pkvm_shadow_vm *vm = get_shadow_vm(shadow_vm_handle);
+	struct pkvm_vm *pkvm_vm = get_pkvm_vm(shadow_vm_handle);
+	struct pkvm_shadow_vm *vm;
 	int ret = 0;
 
-	if (!vm)
+	if (!pkvm_vm)
 		return -EINVAL;
+
+	vm = kvm_to_shadow(to_kvm(pkvm_vm));
 
 	if (shadow_vm_is_protected(vm))
 		ret = pkvm_attach_ptdev(bdf, pasid, vm);
 
-	put_shadow_vm(vm);
+	put_pkvm_vm(pkvm_vm);
 
 	return ret;
 }

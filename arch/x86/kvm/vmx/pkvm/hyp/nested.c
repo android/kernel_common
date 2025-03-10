@@ -14,6 +14,7 @@
 #include "debug.h"
 #include "mem_protect.h"
 #include "memory.h"
+#include <pkvm/vmx/vmx.h>
 
 /*
  * Not support shadow vmcs & vmfunc;
@@ -1407,10 +1408,13 @@ void nested_flush_shadow_ept(struct kvm_vcpu *vcpu)
 
 void nested_invalidate_shadow_ept(int shadow_vm_handle, u64 start_gpa, u64 size)
 {
-	struct pkvm_shadow_vm *vm = get_shadow_vm(shadow_vm_handle);
+	struct pkvm_vm *pkvm_vm = get_pkvm_vm(shadow_vm_handle);
+	struct pkvm_shadow_vm *vm;
 
-	if (!vm)
+	if (!pkvm_vm)
 		return;
+
+	vm = kvm_to_shadow(to_kvm(pkvm_vm));
 
 	if (!start_gpa && !size)
 		/*
@@ -1422,7 +1426,7 @@ void nested_invalidate_shadow_ept(int shadow_vm_handle, u64 start_gpa, u64 size)
 		pkvm_invalidate_shadow_ept_with_range(&vm->sept_desc,
 						      start_gpa, size);
 
-	put_shadow_vm(vm);
+	put_pkvm_vm(pkvm_vm);
 }
 
 void pkvm_init_nest(void)
