@@ -48,6 +48,15 @@ static inline struct kvm *to_kvm(struct pkvm_vm *pkvm_vm)
 	return (struct kvm *)((unsigned long)pkvm_vm + sizeof(struct pkvm_vm));
 }
 
+/*
+ * Convert a linux host kernel direct mapping virtual address to pKVM mapping
+ * virtual address. Currently the two virtual address are the same.
+ */
+static inline void *kern_pkvm_va(void *va)
+{
+	return va;
+}
+
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3);
 

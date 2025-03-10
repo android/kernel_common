@@ -109,13 +109,26 @@ void kvm_enable_efer_bits(u64 mask)
 }
 EXPORT_SYMBOL_GPL(kvm_enable_efer_bits);
 
+static bool kvm_is_vm_type_supported(unsigned long type)
+{
+	return type < 32 && (kvm_caps.supported_vm_types & BIT(type));
+}
+
 int kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 {
 #ifdef __PKVM_HYP__
 	int r;
 
 	kvm_caps.max_guest_tsc_khz = tsc_khz;
-	kvm_caps.supported_vm_types = BIT(KVM_X86_DEFAULT_VM);
+	/*
+	 * FIXME: Is it possible to leverage KVM_X86_SW_PROTECTED_VM rather than
+	 * adding the new type KVM_X86_PKVM_PROTECTED_VM?
+	 */
+	kvm_caps.supported_vm_types = BIT(KVM_X86_DEFAULT_VM) |
+				      BIT(KVM_X86_PKVM_PROTECTED_VM);
+	if (IS_ENABLED(CONFIG_KVM_SW_PROTECTED_VM))
+		kvm_caps.supported_vm_types |= BIT(KVM_X86_SW_PROTECTED_VM);
+
 	kvm_caps.supported_mce_cap = MCG_CTL_P | MCG_SER_P;
 
 	if (boot_cpu_has(X86_FEATURE_XSAVE)) {
@@ -399,5 +412,117 @@ void kvm_arch_disable_virtualization_cpu(void)
 	kvm_x86_call(disable_virtualization_cpu)();
 #ifndef __PKVM_HYP__
 	drop_user_return_notifiers();
+#endif
+}
+
+int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
+{
+#ifdef __PKVM_HYP__
+	if (!kvm_is_vm_type_supported(type))
+		return -EINVAL;
+
+	kvm->arch.vm_type = type;
+	return kvm_x86_call(vm_init)(kvm);
+#else
+	int ret;
+	unsigned long flags;
+
+	if (!kvm_is_vm_type_supported(type))
+		return -EINVAL;
+
+	kvm->arch.vm_type = type;
+	kvm->arch.has_private_mem =
+		(type == KVM_X86_SW_PROTECTED_VM);
+	/* Decided by the vendor code for other VM types.  */
+	kvm->arch.pre_fault_allowed =
+		type == KVM_X86_DEFAULT_VM || type == KVM_X86_SW_PROTECTED_VM;
+
+	ret = kvm_page_track_init(kvm);
+	if (ret)
+		goto out;
+
+	kvm_mmu_init_vm(kvm);
+
+	ret = kvm_x86_call(vm_init)(kvm);
+	if (ret)
+		goto out_uninit_mmu;
+
+	INIT_HLIST_HEAD(&kvm->arch.mask_notifier_list);
+	atomic_set(&kvm->arch.noncoherent_dma_count, 0);
+
+	/* Reserve bit 0 of irq_sources_bitmap for userspace irq source */
+	set_bit(KVM_USERSPACE_IRQ_SOURCE_ID, &kvm->arch.irq_sources_bitmap);
+	/* Reserve bit 1 of irq_sources_bitmap for irqfd-resampler */
+	set_bit(KVM_IRQFD_RESAMPLE_IRQ_SOURCE_ID,
+		&kvm->arch.irq_sources_bitmap);
+
+	raw_spin_lock_init(&kvm->arch.tsc_write_lock);
+	mutex_init(&kvm->arch.apic_map_lock);
+	seqcount_raw_spinlock_init(&kvm->arch.pvclock_sc, &kvm->arch.tsc_write_lock);
+	kvm->arch.kvmclock_offset = -get_kvmclock_base_ns();
+
+	raw_spin_lock_irqsave(&kvm->arch.tsc_write_lock, flags);
+	pvclock_update_vm_gtod_copy(kvm);
+	raw_spin_unlock_irqrestore(&kvm->arch.tsc_write_lock, flags);
+
+	kvm->arch.default_tsc_khz = max_tsc_khz ? : tsc_khz;
+	kvm->arch.apic_bus_cycle_ns = APIC_BUS_CYCLE_NS_DEFAULT;
+	kvm->arch.guest_can_read_msr_platform_info = true;
+	kvm->arch.enable_pmu = enable_pmu;
+
+#if IS_ENABLED(CONFIG_HYPERV)
+	spin_lock_init(&kvm->arch.hv_root_tdp_lock);
+	kvm->arch.hv_root_tdp = INVALID_PAGE;
+#endif
+
+	INIT_DELAYED_WORK(&kvm->arch.kvmclock_update_work, kvmclock_update_fn);
+	INIT_DELAYED_WORK(&kvm->arch.kvmclock_sync_work, kvmclock_sync_fn);
+
+	kvm_apicv_init(kvm);
+	kvm_hv_init_vm(kvm);
+	kvm_xen_init_vm(kvm);
+
+	return 0;
+
+out_uninit_mmu:
+	kvm_mmu_uninit_vm(kvm);
+	kvm_page_track_cleanup(kvm);
+out:
+	return ret;
+#endif
+}
+
+void kvm_arch_destroy_vm(struct kvm *kvm)
+{
+#ifdef __PKVM_HYP__
+	kvm_x86_call(vm_destroy)(kvm);
+#else
+	if (current->mm == kvm->mm) {
+		/*
+		 * Free memory regions allocated on behalf of userspace,
+		 * unless the memory map has changed due to process exit
+		 * or fd copying.
+		 */
+		mutex_lock(&kvm->slots_lock);
+		__x86_set_memory_region(kvm, APIC_ACCESS_PAGE_PRIVATE_MEMSLOT,
+					0, 0);
+		__x86_set_memory_region(kvm, IDENTITY_PAGETABLE_PRIVATE_MEMSLOT,
+					0, 0);
+		__x86_set_memory_region(kvm, TSS_PRIVATE_MEMSLOT, 0, 0);
+		mutex_unlock(&kvm->slots_lock);
+	}
+	kvm_unload_vcpu_mmus(kvm);
+	kvm_x86_call(vm_destroy)(kvm);
+	kvm_free_msr_filter(srcu_dereference_check(kvm->arch.msr_filter, &kvm->srcu, 1));
+	kvm_pic_destroy(kvm);
+	kvm_ioapic_destroy(kvm);
+	kvm_destroy_vcpus(kvm);
+	kvfree(rcu_dereference_check(kvm->arch.apic_map, 1));
+	kfree(srcu_dereference_check(kvm->arch.pmu_event_filter, &kvm->srcu, 1));
+	kvm_mmu_uninit_vm(kvm);
+	kvm_page_track_cleanup(kvm);
+	kvm_xen_destroy_vm(kvm);
+	kvm_hv_destroy_vm(kvm);
+	static_call_cond(kvm_x86_vm_free)(kvm);
 #endif
 }

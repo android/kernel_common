@@ -53,6 +53,8 @@ typedef u32 pkvm_id;
 #define OWNER_ID_HOST	1UL
 #define OWNER_ID_INV	(~(u32)0UL)
 
+struct pkvm_pgtable;
+
 /*
  * __pkvm_host_donate_hyp() - Donate pages from host to hyp, then host cannot
  * access these donated pages.

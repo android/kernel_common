@@ -266,6 +266,8 @@ enum pkvm_fn {
 	__pkvm__enable_virtualization_cpu,
 	__pkvm__disable_virtualization_cpu,
 	__pkvm__check_processor_compatibility,
+	__pkvm__vm_init,
+	__pkvm__vm_destroy,
 };
 
 #endif
