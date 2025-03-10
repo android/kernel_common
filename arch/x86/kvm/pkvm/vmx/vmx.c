@@ -6927,7 +6927,11 @@ __init int vmx_hardware_setup(void)
 		vt_x86_ops.set_apic_access_page_addr = NULL;
 
 	if (!cpu_has_vmx_tpr_shadow())
+#ifdef __PKVM_HYP__
+		return -EINVAL;
+#else
 		vt_x86_ops.update_cr8_intercept = NULL;
+#endif
 
 #if IS_ENABLED(CONFIG_HYPERV) && !defined __PKVM_HYP__
 	if (ms_hyperv.nested_features & HV_X64_NESTED_GUEST_MAPPING_FLUSH
