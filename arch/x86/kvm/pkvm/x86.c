@@ -355,6 +355,110 @@ out_free_x86_emulator_cache:
 }
 EXPORT_SYMBOL_GPL(kvm_x86_vendor_init);
 
+int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
+{
+#ifdef __PKVM_HYP__
+	vcpu->arch.regs_avail = ~0;
+	vcpu->arch.regs_dirty = ~0;
+
+	return kvm_x86_call(vcpu_create)(vcpu);
+#else
+	struct page *page;
+	int r;
+
+	vcpu->arch.last_vmentry_cpu = -1;
+	vcpu->arch.regs_avail = ~0;
+	vcpu->arch.regs_dirty = ~0;
+
+	kvm_gpc_init(&vcpu->arch.pv_time, vcpu->kvm);
+
+	if (!irqchip_in_kernel(vcpu->kvm) || kvm_vcpu_is_reset_bsp(vcpu))
+		vcpu->arch.mp_state = KVM_MP_STATE_RUNNABLE;
+	else
+		vcpu->arch.mp_state = KVM_MP_STATE_UNINITIALIZED;
+
+	r = kvm_mmu_create(vcpu);
+	if (r < 0)
+		return r;
+
+	r = kvm_create_lapic(vcpu);
+	if (r < 0)
+		goto fail_mmu_destroy;
+
+	r = -ENOMEM;
+
+	page = alloc_page(GFP_KERNEL_ACCOUNT | __GFP_ZERO);
+	if (!page)
+		goto fail_free_lapic;
+	vcpu->arch.pio_data = page_address(page);
+
+	vcpu->arch.mce_banks = kcalloc(KVM_MAX_MCE_BANKS * 4, sizeof(u64),
+				       GFP_KERNEL_ACCOUNT);
+	vcpu->arch.mci_ctl2_banks = kcalloc(KVM_MAX_MCE_BANKS, sizeof(u64),
+					    GFP_KERNEL_ACCOUNT);
+	if (!vcpu->arch.mce_banks || !vcpu->arch.mci_ctl2_banks)
+		goto fail_free_mce_banks;
+	vcpu->arch.mcg_cap = KVM_MAX_MCE_BANKS;
+
+	if (!zalloc_cpumask_var(&vcpu->arch.wbinvd_dirty_mask,
+				GFP_KERNEL_ACCOUNT))
+		goto fail_free_mce_banks;
+
+	if (!alloc_emulate_ctxt(vcpu))
+		goto free_wbinvd_dirty_mask;
+
+	if (!fpu_alloc_guest_fpstate(&vcpu->arch.guest_fpu)) {
+		pr_err("failed to allocate vcpu's fpu\n");
+		goto free_emulate_ctxt;
+	}
+
+	vcpu->arch.maxphyaddr = cpuid_query_maxphyaddr(vcpu);
+	vcpu->arch.reserved_gpa_bits = kvm_vcpu_reserved_gpa_bits_raw(vcpu);
+
+	kvm_async_pf_hash_reset(vcpu);
+
+	vcpu->arch.perf_capabilities = kvm_caps.supported_perf_cap;
+	kvm_pmu_init(vcpu);
+
+	vcpu->arch.pending_external_vector = -1;
+	vcpu->arch.preempted_in_kernel = false;
+
+#if IS_ENABLED(CONFIG_HYPERV)
+	vcpu->arch.hv_root_tdp = INVALID_PAGE;
+#endif
+
+	r = kvm_x86_call(vcpu_create)(vcpu);
+	if (r)
+		goto free_guest_fpu;
+
+	vcpu->arch.arch_capabilities = kvm_get_arch_capabilities();
+	vcpu->arch.msr_platform_info = MSR_PLATFORM_INFO_CPUID_FAULT;
+	kvm_xen_init_vcpu(vcpu);
+	vcpu_load(vcpu);
+	kvm_set_tsc_khz(vcpu, vcpu->kvm->arch.default_tsc_khz);
+	kvm_vcpu_reset(vcpu, false);
+	kvm_init_mmu(vcpu);
+	vcpu_put(vcpu);
+	return 0;
+
+free_guest_fpu:
+	fpu_free_guest_fpstate(&vcpu->arch.guest_fpu);
+free_emulate_ctxt:
+	kmem_cache_free(x86_emulator_cache, vcpu->arch.emulate_ctxt);
+free_wbinvd_dirty_mask:
+	free_cpumask_var(vcpu->arch.wbinvd_dirty_mask);
+fail_free_mce_banks:
+	kfree(vcpu->arch.mce_banks);
+	kfree(vcpu->arch.mci_ctl2_banks);
+	free_page((unsigned long)vcpu->arch.pio_data);
+fail_free_lapic:
+	kvm_free_lapic(vcpu);
+fail_mmu_destroy:
+	kvm_mmu_destroy(vcpu);
+	return r;
+#endif
+}
+
 int kvm_arch_enable_virtualization_cpu(void)
 {
 #ifdef __PKVM_HYP__

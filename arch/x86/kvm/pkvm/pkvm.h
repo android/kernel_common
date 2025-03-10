@@ -60,6 +60,8 @@ struct pkvm_vm {
 	size_t size;
 
 	pkvm_spinlock_t lock;
+
+	struct pkvm_vcpu *vcpus[KVM_MAX_VCPUS];
 };
 
 struct pkvm_vm_ref {

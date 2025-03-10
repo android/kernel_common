@@ -155,15 +155,155 @@ undonate:
 	return ret;
 }
 
+static int attach_pkvm_vcpu_to_vm(struct pkvm_vcpu *pkvm_vcpu, struct pkvm_vm *pkvm_vm)
+{
+	struct kvm_vcpu *vcpu;
+	struct kvm *kvm;
+	int ret = 0;
+
+	kvm = to_kvm(pkvm_vm);
+
+	pkvm_spin_lock(&pkvm_vm->lock);
+
+	if (kvm->created_vcpus == KVM_MAX_VCPUS) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	pkvm_vcpu->vcpu_idx = kvm->created_vcpus;
+	pkvm_vcpu->pkvm_vm = pkvm_vm;
+
+	/* Setup necessary fields in kvm_vcpu */
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	vcpu->kvm = kvm;
+	vcpu->vcpu_id = pkvm_vcpu->shared_vcpu->vcpu_id;
+	/*
+	 * Set apic in vcpu->arch points to the apic in the shared vcpu
+	 * to make the pkvm hypervisor knows if lapic_in_kernel() is true or
+	 * not. The pkvm hypervisor should not use this as a normal memory.
+	 */
+	vcpu->arch.apic = pkvm_vcpu->shared_vcpu->arch.apic;
+	vcpu->arch.apic_base = pkvm_vcpu->shared_vcpu->arch.apic_base;
+
+	ret = kvm_arch_vcpu_create(vcpu);
+	if (ret)
+		goto out;
+
+	pkvm_vm->vcpus[pkvm_vcpu->vcpu_idx] = pkvm_vcpu;
+	kvm->created_vcpus++;
+out:
+	pkvm_spin_unlock(&pkvm_vm->lock);
+	return ret;
+}
+
+static void detach_pkvm_vcpu_from_vm(struct pkvm_vcpu *pkvm_vcpu, struct pkvm_vm *pkvm_vm)
+{
+	struct kvm *kvm;
+
+	kvm = to_kvm(pkvm_vm);
+
+	pkvm_spin_lock(&pkvm_vm->lock);
+
+	kvm_x86_call(vcpu_free)(to_kvm_vcpu(pkvm_vcpu));
+
+	pkvm_vm->vcpus[pkvm_vcpu->vcpu_idx] = NULL;
+
+	pkvm_spin_unlock(&pkvm_vm->lock);
+}
+
+static struct pkvm_vm *get_pkvm_vm(int handle)
+{
+	int idx = vm_handle_to_idx(handle);
+	struct pkvm_vm_ref *pkvm_vm_ref;
+
+	if (idx < 0 || idx >= MAX_PKVM_VMS)
+		return NULL;
+
+	pkvm_vm_ref = &pkvm_vms_ref[idx];
+	return atomic_inc_not_zero(&pkvm_vm_ref->refcount) ? pkvm_vm_ref->pkvm_vm : NULL;
+}
+
+static void put_pkvm_vm(struct pkvm_vm *pkvm_vm)
+{
+	int idx = vm_handle_to_idx(to_kvm(pkvm_vm)->arch.pkvm.shadow_vm_handle);
+	struct pkvm_vm_ref *pkvm_vm_ref;
+
+	if (idx < 0 || idx >= MAX_PKVM_VMS)
+		return;
+
+	pkvm_vm_ref = &pkvm_vms_ref[idx];
+	WARN_ON(atomic_dec_if_positive(&pkvm_vm_ref->refcount) <= 0);
+}
+
+static int pkvm_vcpu_create(struct kvm_vcpu *shared_vcpu, unsigned long gpa)
+{
+	struct pkvm_vcpu *pkvm_vcpu;
+	unsigned long pkvm_vcpu_pa;
+	struct pkvm_vm *pkvm_vm;
+	struct kvm *shared_kvm;
+	size_t pa_size;
+	int ret;
+
+	pkvm_vcpu_pa = host_gpa2hpa(gpa);
+	if (!PAGE_ALIGNED(pkvm_vcpu_pa))
+		return -EINVAL;
+
+	pa_size = PAGE_ALIGN(pkvm_vcpu_sz);
+	if (__pkvm_host_donate_hyp(pkvm_vcpu_pa, pa_size))
+		return -EINVAL;
+
+	pkvm_vcpu = pkvm_phys_to_virt(pkvm_vcpu_pa);
+	memset(pkvm_vcpu, 0, pa_size);
+
+	pkvm_vcpu->size = pa_size;
+	/*
+	 * TODO: Assume host is already share the kvm_vcpu structure
+	 * (represented by shared_vcpu) with pkvm. So just pin
+	 * shared_vcpu. Unpin shared_vcpu when destroying
+	 */
+	pkvm_vcpu->shared_vcpu = shared_vcpu;
+
+	shared_kvm = kern_pkvm_va(pkvm_vcpu->shared_vcpu->kvm);
+	pkvm_vm = get_pkvm_vm(shared_kvm->arch.pkvm.shadow_vm_handle);
+	if (!pkvm_vm) {
+		ret = -EBUSY;
+		goto undonate;
+	}
+
+	ret = attach_pkvm_vcpu_to_vm(pkvm_vcpu, pkvm_vm);
+	if (ret)
+		goto put_pkvm_vm;
+
+	put_pkvm_vm(pkvm_vm);
+
+	return pkvm_vcpu->vcpu_idx;
+
+put_pkvm_vm:
+	put_pkvm_vm(pkvm_vm);
+undonate:
+	__pkvm_hyp_donate_host(pkvm_vcpu_pa, pa_size);
+	return ret;
+}
+
 static void pkvm_vm_destroy(int handle)
 {
 	struct kvm_protected_vm *shared_pkvm;
 	struct pkvm_vm *pkvm_vm;
+	int i;
 
 	pkvm_vm = free_pkvm_vm_handle(handle);
 	if (!pkvm_vm)
 		return;
 	shared_pkvm = &pkvm_vm->shared_kvm->arch.pkvm;
+
+	for (i = 0; i < to_kvm(pkvm_vm)->created_vcpus; i++) {
+		struct pkvm_vcpu *pkvm_vcpu = pkvm_vm->vcpus[i];
+
+		detach_pkvm_vcpu_from_vm(pkvm_vcpu, pkvm_vm);
+		teardown_donated_memory(&shared_pkvm->teardown_mc,
+					(void *)pkvm_vcpu, pkvm_vcpu->size);
+		/* TODO: unpin shared kvm_vcpu */
+	}
 
 	kvm_arch_destroy_vm(to_kvm(pkvm_vm));
 	teardown_donated_memory(&shared_pkvm->teardown_mc,
@@ -193,6 +333,9 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 	case __pkvm__vm_destroy:
 		pkvm_vm_destroy((int)p1);
 		ret = 0;
+		break;
+	case __pkvm__vcpu_create:
+		ret = pkvm_vcpu_create((struct kvm_vcpu *)kern_pkvm_va((void *)p1), p2);
 		break;
 	default:
 		ret = -EINVAL;

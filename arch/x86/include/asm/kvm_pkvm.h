@@ -268,6 +268,7 @@ enum pkvm_fn {
 	__pkvm__check_processor_compatibility,
 	__pkvm__vm_init,
 	__pkvm__vm_destroy,
+	__pkvm__vcpu_create,
 };
 
 #endif
