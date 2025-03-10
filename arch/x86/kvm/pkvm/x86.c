@@ -279,6 +279,12 @@ static void kvm_vcpu_flush_tlb_all(struct kvm_vcpu *vcpu)
 	kvm_clear_request(KVM_REQ_TLB_FLUSH_CURRENT, vcpu);
 }
 
+static inline void kvm_vcpu_flush_tlb_current(struct kvm_vcpu *vcpu)
+{
+	++vcpu->stat.tlb_flush;
+	kvm_x86_call(flush_tlb_current)(vcpu);
+}
+
 static bool kvm_is_vm_type_supported(unsigned long type)
 {
 	return type < 32 && (kvm_caps.supported_vm_types & BIT(type));
@@ -881,6 +887,9 @@ void kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 		if (kvm_request_pending(vcpu)) {
 			if (kvm_check_request(KVM_REQ_TLB_FLUSH, vcpu))
 				kvm_vcpu_flush_tlb_all(vcpu);
+
+			if (kvm_check_request(KVM_REQ_TLB_FLUSH_CURRENT, vcpu))
+				kvm_vcpu_flush_tlb_current(vcpu);
 		}
 
 		/*
