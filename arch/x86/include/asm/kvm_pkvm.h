@@ -268,4 +268,8 @@ enum pkvm_fn {
 	__pkvm__vcpu_after_set_cpuid,
 };
 
+union pkvm_pv_param {
+	struct kvm_segment seg;
+} __aligned(PAGE_SIZE);
+
 #endif

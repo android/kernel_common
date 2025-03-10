@@ -30,6 +30,33 @@ static pkvm_spinlock_t pkvm_vms_lock = __PKVM_SPINLOCK_UNLOCKED;
 static struct pkvm_vm_ref pkvm_vms_ref[MAX_PKVM_VMS];
 struct pkvm_x86_ops pkvm_x86_ops __read_mostly;
 
+static DEFINE_PER_CPU(union pkvm_pv_param *, pv_param);
+
+#define this_pv_param(f)	(&this_cpu_read(pv_param)->f)
+
+static int pkvm_enable_virtualization_cpu(unsigned long pv_param_pa)
+{
+	int r = kvm_arch_enable_virtualization_cpu();
+
+	if (!r)
+		/*
+		 * TODO: Assume host is already share the pv_param structure
+		 * with pkvm. Pin the pv_param_pa so that it won't be re-used
+		 * as guest memory.
+		 */
+		this_cpu_write(pv_param, __pkvm_va(pv_param_pa));
+
+	return r;
+}
+
+static void pkvm_disable_virtualization_cpu(void)
+{
+	kvm_arch_disable_virtualization_cpu();
+
+	/* TODO: unpin the shared pv_param memory */
+	this_cpu_write(pv_param, NULL);
+}
+
 #define HANDLE_OFFSET 1
 
 static int idx_to_vm_handle(int idx)
@@ -568,10 +595,10 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 
 	switch (fn) {
 	case __pkvm__enable_virtualization_cpu:
-		ret = kvm_arch_enable_virtualization_cpu();
+		ret = pkvm_enable_virtualization_cpu(p1);
 		break;
 	case __pkvm__disable_virtualization_cpu:
-		kvm_arch_disable_virtualization_cpu();
+		pkvm_disable_virtualization_cpu();
 		break;
 	case __pkvm__check_processor_compatibility:
 		ret = kvm_x86_call(check_processor_compatibility)();
