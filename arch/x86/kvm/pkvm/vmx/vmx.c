@@ -742,8 +742,6 @@ void vmx_vcpu_load_vmcs(struct kvm_vcpu *vcpu, int cpu,
 		/*
 		 * Flush all EPTP/VPID contexts, the new pCPU may have stale
 		 * TLB entries from its previous association with the vCPU.
-		 *
-		 * TODO: Handle this request inside pkvm hypervisor.
 		 */
 		kvm_make_request(KVM_REQ_TLB_FLUSH, vcpu);
 
