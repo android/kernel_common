@@ -267,6 +267,7 @@ int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
 		to_shadow_vcpu_handle(vm_handle, pkvm_vcpu->vcpu_idx);
 	shadow_vcpu->vm = kvm_to_shadow(vcpu->kvm);
 
+	shadow_vcpu->vmcs02 = to_vmx(vcpu)->vmcs01.vmcs;
 	shadow_vcpu->vmcs12_pa = __pkvm_pa(to_vmx(vcpu)->vmcs01.vmcs);
 	add_shadow_vcpu_vmcs12_map(shadow_vcpu);
 

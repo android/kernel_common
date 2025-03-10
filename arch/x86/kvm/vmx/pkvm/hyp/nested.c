@@ -630,7 +630,6 @@ static void nested_release_vmcs12(struct kvm_vcpu *vcpu)
 	secondary_exec_controls_clearbit(vmx, SECONDARY_EXEC_SHADOW_VMCS);
 	vmcs_write64(VMCS_LINK_POINTER, INVALID_GPA);
 
-	write_gpa(vcpu, vmx->nested.current_vmptr, vmcs12, VMCS12_SIZE);
 	vmx->nested.dirty_vmcs12 = false;
 	vmx->nested.current_vmptr = INVALID_GPA;
 	hvcpu->current_shadow_vcpu = NULL;
@@ -789,7 +788,6 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 					vmcs02 = (struct vmcs *)shadow_vcpu->vmcs02;
 					vmcs12 = (struct vmcs12 *) shadow_vcpu->cached_vmcs12;
 
-					read_gpa(vcpu, vmptr, vmcs12, VMCS12_SIZE);
 					vmx->nested.dirty_vmcs12 = true;
 
 					WRITE_ONCE(shadow_vcpu->vcpu, vcpu);
@@ -867,7 +865,6 @@ int handle_vmclear(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	gpa_t vmptr;
-	u32 zero = 0;
 	int r;
 
 	if (check_vmx_permission(vcpu)) {
@@ -877,11 +874,26 @@ int handle_vmclear(struct kvm_vcpu *vcpu)
 		} else if (vmptr == vmx->nested.vmxon_ptr) {
 			nested_vmx_result(VMfailValid, VMXERR_VMCLEAR_VMXON_POINTER);
 		} else {
-			if (vmx->nested.current_vmptr == vmptr)
-				nested_release_vmcs12(vcpu);
+			struct shadow_vcpu_state *shadow_vcpu;
+			struct vmcs12 *vmcs12;
 
-			write_gpa(vcpu, vmptr + offsetof(struct vmcs12, launch_state),
-					&zero, sizeof(zero));
+			if (vmx->nested.current_vmptr == vmptr) {
+				struct pkvm_host_vcpu *pkvm_hvcpu = to_pkvm_hvcpu(vcpu);
+
+				shadow_vcpu = pkvm_hvcpu->current_shadow_vcpu;
+				vmcs12 = (struct vmcs12 *)shadow_vcpu->cached_vmcs12;
+				nested_release_vmcs12(vcpu);
+				vmcs12->launch_state = 0;
+			} else {
+				s64 handle = find_shadow_vcpu_handle_by_vmcs(vmptr);
+
+				shadow_vcpu = get_shadow_vcpu(handle);
+				if (shadow_vcpu) {
+					vmcs12 = (struct vmcs12 *)shadow_vcpu->cached_vmcs12;
+					vmcs12->launch_state = 0;
+					put_shadow_vcpu(shadow_vcpu);
+				}
+			}
 
 			nested_vmx_result(VMsucceed, 0);
 		}
