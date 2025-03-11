@@ -145,6 +145,7 @@
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_setscheduler_uclamp
   __traceiter_android_vh_sync_txn_recvd
+  __traceiter_android_vh_tune_scan_type
   __traceiter_android_vh_update_topology_flags_workfn
   __traceiter_clock_set_rate
   __traceiter_cpu_frequency_limits
@@ -217,6 +218,7 @@
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_setscheduler_uclamp
   __tracepoint_android_vh_sync_txn_recvd
+  __tracepoint_android_vh_tune_scan_type
   __tracepoint_android_vh_update_topology_flags_workfn
   __tracepoint_clock_set_rate
   __tracepoint_cpu_frequency_limits
