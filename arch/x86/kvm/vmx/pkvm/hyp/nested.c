@@ -566,7 +566,7 @@ static void prepare_vmcs01_guest_state(struct vcpu_vmx *vmx, struct vmcs12 *vmcs
 {
 	vmcs_writel(GUEST_CR0, vmcs12->host_cr0);
 	vmcs_writel(GUEST_CR3, vmcs12->host_cr3);
-	vmcs_writel(GUEST_CR4, vmcs12->host_cr4);
+	vmcs_writel(GUEST_CR4, vmcs12->host_cr4 | X86_CR4_VMXE);
 
 	vmcs_writel(GUEST_SYSENTER_ESP, vmcs12->host_ia32_sysenter_esp);
 	vmcs_writel(GUEST_SYSENTER_EIP, vmcs12->host_ia32_sysenter_eip);

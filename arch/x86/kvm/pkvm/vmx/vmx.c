@@ -10,6 +10,7 @@
 #include <vmx/nested.h>
 #include <vmx/sgx.h>
 #include "vmx.h"
+#include <pkvm/pkvm.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -149,6 +150,13 @@ noinline void invept_error(unsigned long ext, u64 eptp, gpa_t gpa)
 			ext, eptp, gpa);
 }
 
+DEFINE_PER_CPU(struct vmcs *, current_vmcs);
+/*
+ * We maintain a per-CPU linked-list of VMCS loaded on that CPU. This is needed
+ * when a CPU is brought down, and we need to VMCLEAR all VMCSs loaded on it.
+ */
+static DEFINE_PER_CPU(struct list_head, loaded_vmcss_on_cpu);
+
 static DECLARE_BITMAP(vmx_vpid_bitmap, VMX_NR_VPIDS);
 
 struct vmcs_config vmcs_config __ro_after_init;
@@ -202,6 +210,35 @@ static inline bool cpu_has_broken_vmx_preemption_timer(void)
 			return true;
 
 	return false;
+}
+
+static void __loaded_vmcs_clear(void *arg)
+{
+	struct loaded_vmcs *loaded_vmcs = arg;
+	int cpu = raw_smp_processor_id();
+
+	if (loaded_vmcs->cpu != cpu)
+		return; /* vcpu migration can race with cpu offline */
+	if (per_cpu(current_vmcs, cpu) == loaded_vmcs->vmcs)
+		per_cpu(current_vmcs, cpu) = NULL;
+
+	vmcs_clear(loaded_vmcs->vmcs);
+	if (loaded_vmcs->shadow_vmcs && loaded_vmcs->launched)
+		vmcs_clear(loaded_vmcs->shadow_vmcs);
+
+	list_del(&loaded_vmcs->loaded_vmcss_on_cpu_link);
+
+	/*
+	 * Ensure all writes to loaded_vmcs, including deleting it from its
+	 * current percpu list, complete before setting loaded_vmcs->cpu to
+	 * -1, otherwise a different cpu can see loaded_vmcs->cpu == -1 first
+	 * and add loaded_vmcs to its percpu list before it's deleted from this
+	 * cpu's list. Pairs with the smp_rmb() in vmx_vcpu_load_vmcs().
+	 */
+	smp_wmb();
+
+	loaded_vmcs->cpu = -1;
+	loaded_vmcs->launched = 0;
 }
 
 /*
@@ -457,6 +494,61 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf, struct vmx_capabilit
 	}
 
 	return ret;
+}
+
+int vmx_enable_virtualization_cpu(void)
+{
+#ifndef __PKVM_HYP__
+	int cpu = raw_smp_processor_id();
+	u64 phys_addr = __pa(per_cpu(vmxarea, cpu));
+	int r;
+
+	if (cr4_read_shadow() & X86_CR4_VMXE)
+		return -EBUSY;
+
+	/*
+	 * This can happen if we hot-added a CPU but failed to allocate
+	 * VP assist page for it.
+	 */
+	if (kvm_is_using_evmcs() && !hv_get_vp_assist_page(cpu))
+		return -EFAULT;
+
+	intel_pt_handle_vmx(1);
+
+	r = kvm_cpu_vmxon(phys_addr);
+	if (r) {
+		intel_pt_handle_vmx(0);
+		return r;
+	}
+#endif
+
+	return 0;
+}
+
+static void vmclear_local_loaded_vmcss(void)
+{
+	int cpu = raw_smp_processor_id();
+	struct loaded_vmcs *v, *n;
+
+	list_for_each_entry_safe(v, n, &per_cpu(loaded_vmcss_on_cpu, cpu),
+				 loaded_vmcss_on_cpu_link)
+		__loaded_vmcs_clear(v);
+}
+
+void vmx_disable_virtualization_cpu(void)
+{
+	vmclear_local_loaded_vmcss();
+
+#ifndef __PKVM_HYP__
+	vmclear_local_loaded_vmcss();
+
+	if (kvm_cpu_vmxoff())
+		kvm_spurious_fault();
+
+	hv_reset_evmcs();
+
+	intel_pt_handle_vmx(0);
+#endif
 }
 
 static __init int alloc_kvm_area(void)
@@ -853,6 +945,9 @@ __init int vmx_hardware_setup(void)
 #ifdef __PKVM_HYP__
 struct kvm_x86_ops vt_x86_ops __initdata = {
 	.name = KBUILD_MODNAME,
+
+	.enable_virtualization_cpu = vmx_enable_virtualization_cpu,
+	.disable_virtualization_cpu = vmx_disable_virtualization_cpu,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {
@@ -862,6 +957,8 @@ struct kvm_x86_init_ops vt_init_ops __initdata = {
 
 int setup_vmx(void)
 {
+	int cpu;
+
 	/*
 	 * FIXME: No pmu emulation in the pkvm hypervisor to simplify the POC.
 	 * Revisit later to see if it is possible to enable PMU support.
@@ -889,6 +986,9 @@ int setup_vmx(void)
 	 * hypervisor. Revisit later when PV method is fully functional.
 	 */
 	enable_ept_ad_bits = 0;
+
+	for_each_possible_cpu(cpu)
+		INIT_LIST_HEAD(&per_cpu(loaded_vmcss_on_cpu, cpu));
 
 	return kvm_x86_vendor_init(&vt_init_ops);
 }
