@@ -2804,6 +2804,27 @@ void vmx_flush_tlb_current(struct kvm_vcpu *vcpu)
 		vpid_sync_context(vmx_get_current_vpid(vcpu));
 }
 
+void vmx_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr)
+{
+	/*
+	 * vpid_sync_vcpu_addr() is a nop if vpid==0, see the comment in
+	 * vmx_flush_tlb_guest() for an explanation of why this is ok.
+	 */
+	vpid_sync_vcpu_addr(vmx_get_current_vpid(vcpu), addr);
+}
+
+void vmx_flush_tlb_guest(struct kvm_vcpu *vcpu)
+{
+	/*
+	 * vpid_sync_context() is a nop if vpid==0, e.g. if enable_vpid==0 or a
+	 * vpid couldn't be allocated for this vCPU.  VM-Enter and VM-Exit are
+	 * required to flush GVA->{G,H}PA mappings from the TLB if vpid is
+	 * disabled (VM-Enter with vpid enabled and vpid==0 is disallowed),
+	 * i.e. no explicit INVVPID is necessary.
+	 */
+	vpid_sync_context(vmx_get_current_vpid(vcpu));
+}
+
 void ept_save_pdptrs(struct kvm_vcpu *vcpu)
 {
 	struct kvm_mmu *mmu = vcpu->arch.walk_mmu;
@@ -6663,6 +6684,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 
 	.flush_tlb_all = vmx_flush_tlb_all,
 	.flush_tlb_current = vmx_flush_tlb_current,
+	.flush_tlb_gva = vmx_flush_tlb_gva,
+	.flush_tlb_guest = vmx_flush_tlb_guest,
 
 	.vcpu_pre_run = vmx_vcpu_pre_run,
 	.vcpu_run = vmx_vcpu_run,

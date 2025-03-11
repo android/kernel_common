@@ -281,6 +281,10 @@ enum pkvm_fn {
 	__pkvm__set_dr7,
 	__pkvm__get_rflags,
 	__pkvm__set_rflags,
+	__pkvm__flush_tlb_all,
+	__pkvm__flush_tlb_current,
+	__pkvm__flush_tlb_gva,
+	__pkvm__flush_tlb_guest,
 };
 
 union pkvm_pv_param {

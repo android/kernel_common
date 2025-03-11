@@ -675,6 +675,42 @@ static void pkvm_set_rflags(struct pkvm_vcpu *pkvm_vcpu, unsigned long val)
 	kvm_x86_call(set_rflags)(to_kvm_vcpu(pkvm_vcpu), val);
 }
 
+/*
+ * FIXME: For the 4 tlb flushing PV interfaces, revisit to see how to work with
+ * the PV EPT when the PV EPT is ready.
+ */
+static void pkvm_flush_tlb_all(struct pkvm_vcpu *pkvm_vcpu)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(flush_tlb_all)(to_kvm_vcpu(pkvm_vcpu));
+}
+
+static void pkvm_flush_tlb_current(struct pkvm_vcpu *pkvm_vcpu)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(flush_tlb_current)(to_kvm_vcpu(pkvm_vcpu));
+}
+
+static void pkvm_flush_tlb_gva(struct pkvm_vcpu *pkvm_vcpu, gva_t addr)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(flush_tlb_gva)(to_kvm_vcpu(pkvm_vcpu), addr);
+}
+
+static void pkvm_flush_tlb_guest(struct pkvm_vcpu *pkvm_vcpu)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(flush_tlb_guest)(to_kvm_vcpu(pkvm_vcpu));
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -750,6 +786,18 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__set_rflags:
 		pkvm_set_rflags(pkvm_vcpu, p2);
+		break;
+	case __pkvm__flush_tlb_all:
+		pkvm_flush_tlb_all(pkvm_vcpu);
+		break;
+	case __pkvm__flush_tlb_current:
+		pkvm_flush_tlb_current(pkvm_vcpu);
+		break;
+	case __pkvm__flush_tlb_gva:
+		pkvm_flush_tlb_gva(pkvm_vcpu, (gva_t)p2);
+		break;
+	case __pkvm__flush_tlb_guest:
+		pkvm_flush_tlb_guest(pkvm_vcpu);
 		break;
 	default:
 		ret = -EINVAL;

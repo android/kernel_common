@@ -724,6 +724,26 @@ static bool pkvm_get_if_flag(struct kvm_vcpu *vcpu)
 	return pkvm_get_rflags(vcpu) & X86_EFLAGS_IF;
 }
 
+static void pkvm_flush_tlb_all(struct kvm_vcpu *vcpu)
+{
+	kvm_call_pkvm(flush_tlb_all, vcpu);
+}
+
+static void pkvm_flush_tlb_current(struct kvm_vcpu *vcpu)
+{
+	kvm_call_pkvm(flush_tlb_current, vcpu);
+}
+
+static void pkvm_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr)
+{
+	kvm_call_pkvm(flush_tlb_gva, vcpu, addr);
+}
+
+static void pkvm_flush_tlb_guest(struct kvm_vcpu *vcpu)
+{
+	kvm_call_pkvm(flush_tlb_guest, vcpu);
+}
+
 void vmx_do_nmi_irqoff(void);
 
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
@@ -966,10 +986,10 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_rflags = pkvm_set_rflags,
 	.get_if_flag = pkvm_get_if_flag,
 
-	.flush_tlb_all = vmx_flush_tlb_all,
-	.flush_tlb_current = vmx_flush_tlb_current,
-	.flush_tlb_gva = vmx_flush_tlb_gva,
-	.flush_tlb_guest = vmx_flush_tlb_guest,
+	.flush_tlb_all = pkvm_flush_tlb_all,
+	.flush_tlb_current = pkvm_flush_tlb_current,
+	.flush_tlb_gva = pkvm_flush_tlb_gva,
+	.flush_tlb_guest = pkvm_flush_tlb_guest,
 
 	.vcpu_pre_run = vmx_vcpu_pre_run,
 	.vcpu_run = pkvm_vcpu_run,
