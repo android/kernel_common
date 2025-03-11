@@ -1641,6 +1641,7 @@ static struct folio *shmem_swapin_cluster(swp_entry_t swap, gfp_t gfp,
 	return folio;
 }
 
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 /*
  * Make sure huge_gfp is always more limited than limit_gfp.
  * Some of the flags set permissions, while others set limitations.
@@ -1665,7 +1666,6 @@ static gfp_t limit_gfp_mask(gfp_t huge_gfp, gfp_t limit_gfp)
 	return result;
 }
 
-#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 unsigned long shmem_allowable_huge_orders(struct inode *inode,
 				struct vm_area_struct *vma, pgoff_t index,
 				loff_t write_end, bool shmem_huge_force)
@@ -2363,7 +2363,9 @@ repeat:
 		goto unlock;
 	}
 
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
 alloced:
+#endif
 	alloced = true;
 	if (folio_test_large(folio) &&
 	    DIV_ROUND_UP(i_size_read(inode), PAGE_SIZE) <
