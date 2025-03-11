@@ -1491,6 +1491,29 @@ static __init int alloc_kvm_area(void)
 	return 0;
 }
 
+void vmx_flush_tlb_all(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	/*
+	 * INVEPT must be issued when EPT is enabled, irrespective of VPID, as
+	 * the CPU is not required to invalidate guest-physical mappings on
+	 * VM-Entry, even if VPID is disabled.  Guest-physical mappings are
+	 * associated with the root EPT structure and not any particular VPID
+	 * (INVVPID also isn't required to invalidate guest-physical mappings).
+	 */
+	if (enable_ept) {
+		ept_sync_global();
+	} else if (enable_vpid) {
+		if (cpu_has_vmx_invvpid_global()) {
+			vpid_sync_vcpu_global();
+		} else {
+			vpid_sync_vcpu_single(vmx->vpid);
+			vpid_sync_vcpu_single(vmx->nested.vpid02);
+		}
+	}
+}
+
 void ept_save_pdptrs(struct kvm_vcpu *vcpu)
 {
 	struct kvm_mmu *mmu = vcpu->arch.walk_mmu;
@@ -3647,6 +3670,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 
 	.cache_reg = vmx_cache_reg,
 	.get_rflags = vmx_get_rflags,
+
+	.flush_tlb_all = vmx_flush_tlb_all,
 
 	.vcpu_pre_run = vmx_vcpu_pre_run,
 	.vcpu_run = vmx_vcpu_run,
