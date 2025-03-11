@@ -294,3 +294,10 @@ void kvm_set_cpu_caps(void)
 	}
 }
 EXPORT_SYMBOL_GPL(kvm_set_cpu_caps);
+
+int kvm_emulate_cpuid(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_cpuid);

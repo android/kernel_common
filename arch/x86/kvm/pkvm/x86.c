@@ -157,6 +157,20 @@ void kvm_load_host_xsave_state(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(kvm_load_host_xsave_state);
 
+int kvm_emulate_xsetbv(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_xsetbv);
+
+int kvm_emulate_rdpmc(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_rdpmc);
+
 void kvm_enable_efer_bits(u64 mask)
 {
        efer_reserved_bits &= ~mask;
@@ -211,10 +225,59 @@ out:
 }
 EXPORT_SYMBOL_GPL(kvm_msr_allowed);
 
+int kvm_emulate_rdmsr(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_rdmsr);
+
+int kvm_emulate_wrmsr(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_wrmsr);
+
+int kvm_emulate_invd(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_invd);
+
+int kvm_handle_invalid_op(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_handle_invalid_op);
+
+int kvm_emulate_mwait(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_mwait);
+
+int kvm_emulate_monitor(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_monitor);
+
 static bool kvm_is_vm_type_supported(unsigned long type)
 {
 	return type < 32 && (kvm_caps.supported_vm_types & BIT(type));
 }
+
+int kvm_emulate_wbinvd(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_wbinvd);
 
 int kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 {
@@ -408,6 +471,20 @@ out_free_x86_emulator_cache:
 #endif
 }
 EXPORT_SYMBOL_GPL(kvm_x86_vendor_init);
+
+int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_hypercall);
+
+int kvm_emulate_halt(struct kvm_vcpu *vcpu)
+{
+	/* TODO */
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_emulate_halt);
 
 int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 {
