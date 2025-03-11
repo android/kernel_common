@@ -1,4 +1,11 @@
 [abi_symbol_list]
+  arch_vma_name
+  anon_vma_name
+  walk_page_range
+  vm_normal_page
+  pmd_clear_bad
+  __pmd_trans_huge_lock
+  __pte_offset_map_lock
   __traceiter_android_vh_add_lazyfree_bypass
   __tracepoint_android_vh_add_lazyfree_bypass
 
