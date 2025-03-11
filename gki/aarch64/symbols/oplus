@@ -251,6 +251,7 @@
   __traceiter_sched_waking
   __traceiter_task_rename
   __traceiter_android_vh_binder_alloc_new_buf_locked
+  __traceiter_android_vh_copy_process
   __tracepoint_android_vh_account_task_time
   __tracepoint_android_rvh_post_init_entity_util_avg
   __tracepoint_android_rvh_set_cpus_allowed_comm
@@ -343,6 +344,7 @@
   __tracepoint_sched_waking
   __tracepoint_task_rename
   __tracepoint_android_vh_binder_alloc_new_buf_locked
+  __tracepoint_android_vh_copy_process
   __trace_puts
   truncate_inode_pages
   try_to_del_timer_sync
