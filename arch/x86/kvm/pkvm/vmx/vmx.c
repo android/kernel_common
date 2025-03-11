@@ -1432,6 +1432,46 @@ void vmx_disable_intercept_for_msr(struct kvm_vcpu *vcpu, u32 msr, int type)
 		vmx_clear_msr_bitmap_write(msr_bitmap, msr);
 }
 
+static bool vmx_emulation_required_with_pending_exception(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	return vmx->emulation_required && !vmx->rmode.vm86_active &&
+	       (kvm_is_exception_pending(vcpu) || vcpu->arch.exception.injected);
+}
+
+int vmx_vcpu_pre_run(struct kvm_vcpu *vcpu)
+{
+	if (vmx_emulation_required_with_pending_exception(vcpu)) {
+#ifndef __PKVM_HYP__
+		kvm_prepare_emulation_failure_exit(vcpu);
+#endif
+		return 0;
+	}
+#ifdef __PKVM_HYP__
+	if (pkvm_is_protected_vcpu(vcpu)) {
+		struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
+
+		if (!READ_ONCE(shadow_vcpu->allowed_to_run))
+			return 0;
+
+		/*
+		 * Ensure that pvmfw_entry_pending and pvmfw_load_addr are read
+		 * after allowed_to_run, so they are read with up-to-date values.
+		 * Paired with __smp_wmb() in __pkvm_finalize_shadow_vm().
+		 */
+		__smp_rmb();
+
+		if (shadow_vcpu->pvmfw_entry_pending) {
+			kvm_rip_write(vcpu, shadow_vcpu->vm->pvmfw_load_addr);
+			shadow_vcpu->pvmfw_entry_pending = false;
+		}
+	}
+#endif
+
+	return 1;
+}
+
 /*
  * The exit handlers return 1 if the exit was handled fully and guest execution
  * may resume.  Otherwise they set the kvm_run parameter to indicate what needs
@@ -2771,6 +2811,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 
 	.cache_reg = vmx_cache_reg,
 
+	.vcpu_pre_run = vmx_vcpu_pre_run,
 	.vcpu_run = vmx_vcpu_run,
 };
 
