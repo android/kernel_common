@@ -139,6 +139,7 @@ extern unsigned long pkvm_sym(__page_base_offset);
 extern unsigned long pkvm_sym(__symbol_base_offset);
 extern struct pkvm_hyp *pkvm_sym(pkvm_hyp);
 extern unsigned long pkvm_sym(__x86_clflush_size);
+extern struct cpuinfo_x86 pkvm_sym(boot_cpu_data);
 
 extern bool pkvm_sym(pvmfw_present);
 extern phys_addr_t pkvm_sym(pvmfw_base);

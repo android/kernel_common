@@ -1403,6 +1403,11 @@ static int __init pkvm_firmware_rmem_clear(void)
 	return 0;
 }
 
+static void __init setup_pkvm_syms(void)
+{
+	memcpy(&pkvm_sym(boot_cpu_data), &boot_cpu_data, sizeof(struct cpuinfo_x86));
+}
+
 int __init vmx_pkvm_init(void)
 {
 	int ret = 0, cpu;
@@ -1437,6 +1442,8 @@ int __init vmx_pkvm_init(void)
 		ret = -ENOMEM;
 		goto out;
 	}
+
+	setup_pkvm_syms();
 
 	ret = pkvm_host_check_and_setup_vmx_cap(pkvm);
 	if (ret)
