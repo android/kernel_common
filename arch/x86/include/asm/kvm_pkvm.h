@@ -297,6 +297,7 @@ enum pkvm_fn {
 	__pkvm__get_nmi_mask,
 	__pkvm__set_nmi_mask,
 	__pkvm__enable_nmi_window,
+	__pkvm__enable_irq_window,
 };
 
 #define HOST_HANDLE_EXIT		0
