@@ -8674,6 +8674,9 @@ static int __init vmx_init(void)
 			x86_init_ops = &pkvm_host_init_ops;
 			enable_pmu = false;
 			nested = false;
+#ifdef CONFIG_X86_SGX_KVM
+			enable_sgx = false;
+#endif
 		} else {
 			enable_pkvm = false;
 		}

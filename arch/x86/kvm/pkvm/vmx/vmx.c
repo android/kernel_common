@@ -874,6 +874,14 @@ int setup_vmx(void)
 	/* No VMX emulation in the pkvm hypervisor */
 	nested = false;
 
+#ifdef CONFIG_X86_SGX_KVM
+	/*
+	 * FIXME: No SGX emulation in the pkvm hypervisor to simplify the POC.
+	 * Revisit later to see if it is possible to enable the SGX.
+	 */
+	enable_sgx = false;
+#endif
+
 	return kvm_x86_vendor_init(&vt_init_ops);
 }
 #endif
