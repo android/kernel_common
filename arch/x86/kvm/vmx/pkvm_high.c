@@ -7,6 +7,43 @@
 #include "pmu.h"
 #include "posted_intr.h"
 
+static int pkvm_get_feature_msr(u32 msr, u64 *data)
+{
+	switch (msr) {
+	case KVM_FIRST_EMULATED_VMX_MSR ... KVM_LAST_EMULATED_VMX_MSR:
+		return 1;
+	default:
+		return KVM_MSR_RET_UNSUPPORTED;
+	}
+}
+
+static void pkvm_update_emulated_instruction(struct kvm_vcpu *vcpu) {}
+
+static u64 pkvm_get_l2_tsc_offset(struct kvm_vcpu *vcpu)
+{
+	return 0;
+}
+
+static u64 pkvm_get_l2_tsc_multiplier(struct kvm_vcpu *vcpu)
+{
+	return kvm_caps.default_tsc_scaling_ratio;
+}
+
+static int pkvm_check_intercept(struct kvm_vcpu *vcpu,
+				struct x86_instruction_info *info,
+				enum x86_intercept_stage stage,
+				struct x86_exception *exception)
+{
+	return X86EMUL_UNHANDLEABLE;
+}
+
+static bool pkvm_apic_init_signal_blocked(struct kvm_vcpu *vcpu)
+{
+	return false;
+}
+
+static void pkvm_migrate_timers(struct kvm_vcpu *vcpu) {}
+
 #define VMX_REQUIRED_APICV_INHIBITS				\
 	(BIT(APICV_INHIBIT_REASON_DISABLED) |			\
 	 BIT(APICV_INHIBIT_REASON_ABSENT) |			\
@@ -15,6 +52,42 @@
 	 BIT(APICV_INHIBIT_REASON_PHYSICAL_ID_ALIASED) |	\
 	 BIT(APICV_INHIBIT_REASON_APIC_ID_MODIFIED) |		\
 	 BIT(APICV_INHIBIT_REASON_APIC_BASE_MODIFIED))
+
+static void pkvm_leave_nested(struct kvm_vcpu *vcpu) {}
+static bool pkvm_nested_is_exception_vmexit(struct kvm_vcpu *vcpu, u8 vector,
+					    u32 error_code)
+{
+	return false;
+}
+static int pkvm_check_nested_events(struct kvm_vcpu *vcpu) { return 0; }
+static bool pkvm_has_nested_events(struct kvm_vcpu *vcpu, bool for_injection) { return false; }
+static void pkvm_nested_triple_fault(struct kvm_vcpu *vcpu) {}
+static int pkvm_get_nested_state(struct kvm_vcpu *vcpu,
+				 struct kvm_nested_state __user *user_kvm_nested_state,
+				 u32 user_data_size)
+{
+	return -EINVAL;
+}
+static int pkvm_set_nested_state(struct kvm_vcpu *vcpu,
+				 struct kvm_nested_state __user *user_kvm_nested_state,
+				 struct kvm_nested_state *kvm_state)
+{
+	return -EINVAL;
+}
+static bool pkvm_get_nested_state_pages(struct kvm_vcpu *vcpu) { return true; }
+static int pkvm_nested_write_pml_buffer(struct kvm_vcpu *vcpu, gpa_t gpa) { return 0; }
+
+static struct kvm_x86_nested_ops pkvm_nested_ops = {
+	.leave_nested = pkvm_leave_nested,
+	.is_exception_vmexit = pkvm_nested_is_exception_vmexit,
+	.check_events = pkvm_check_nested_events,
+	.has_events = pkvm_has_nested_events,
+	.triple_fault = pkvm_nested_triple_fault,
+	.get_state = pkvm_get_nested_state,
+	.set_state = pkvm_set_nested_state,
+	.get_nested_state_pages = pkvm_get_nested_state_pages,
+	.write_log_dirty = pkvm_nested_write_pml_buffer,
+};
 
 struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.name = KBUILD_MODNAME,
@@ -44,7 +117,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.vcpu_put = vmx_vcpu_put,
 
 	.update_exception_bitmap = vmx_update_exception_bitmap,
-	.get_feature_msr = vmx_get_feature_msr,
+	.get_feature_msr = pkvm_get_feature_msr,
 	.get_msr = vmx_get_msr,
 	.set_msr = vmx_set_msr,
 	.get_segment_base = vmx_get_segment_base,
@@ -77,7 +150,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.vcpu_run = vmx_vcpu_run,
 	.handle_exit = vmx_handle_exit,
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
-	.update_emulated_instruction = vmx_update_emulated_instruction,
+	.update_emulated_instruction = pkvm_update_emulated_instruction,
 	.set_interrupt_shadow = vmx_set_interrupt_shadow,
 	.get_interrupt_shadow = vmx_get_interrupt_shadow,
 	.patch_hypercall = vmx_patch_hypercall,
@@ -116,20 +189,20 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 
 	.has_wbinvd_exit = cpu_has_vmx_wbinvd_exit,
 
-	.get_l2_tsc_offset = vmx_get_l2_tsc_offset,
-	.get_l2_tsc_multiplier = vmx_get_l2_tsc_multiplier,
+	.get_l2_tsc_offset = pkvm_get_l2_tsc_offset,
+	.get_l2_tsc_multiplier = pkvm_get_l2_tsc_multiplier,
 	.write_tsc_offset = vmx_write_tsc_offset,
 	.write_tsc_multiplier = vmx_write_tsc_multiplier,
 
 	.load_mmu_pgd = vmx_load_mmu_pgd,
 
-	.check_intercept = vmx_check_intercept,
+	.check_intercept = pkvm_check_intercept,
 	.handle_exit_irqoff = vmx_handle_exit_irqoff,
 
 	.cpu_dirty_log_size = PML_ENTITY_NUM,
 	.update_cpu_dirty_logging = vmx_update_cpu_dirty_logging,
 
-	.nested_ops = &vmx_nested_ops,
+	.nested_ops = &pkvm_nested_ops,
 
 	.pi_update_irte = vmx_pi_update_irte,
 	.pi_start_assignment = vmx_pi_start_assignment,
@@ -149,8 +222,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 #endif
 
 	.check_emulate_instruction = vmx_check_emulate_instruction,
-	.apic_init_signal_blocked = vmx_apic_init_signal_blocked,
-	.migrate_timers = vmx_migrate_timers,
+	.apic_init_signal_blocked = pkvm_apic_init_signal_blocked,
+	.migrate_timers = pkvm_migrate_timers,
 
 	.msr_filter_changed = vmx_msr_filter_changed,
 	.complete_emulated_msr = kvm_complete_insn_gp,

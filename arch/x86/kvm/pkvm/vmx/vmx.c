@@ -871,6 +871,9 @@ int setup_vmx(void)
 	 */
 	enable_pmu = false;
 
+	/* No VMX emulation in the pkvm hypervisor */
+	nested = false;
+
 	return kvm_x86_vendor_init(&vt_init_ops);
 }
 #endif
