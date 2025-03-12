@@ -775,7 +775,7 @@ static inline void vmx_segment_cache_clear(struct vcpu_vmx *vmx)
 }
 
 #ifdef CONFIG_PKVM_INTEL
-int __init pkvm_init(void);
+int __init vmx_pkvm_init(void);
 #endif
 
 #endif /* __KVM_X86_VMX_H */

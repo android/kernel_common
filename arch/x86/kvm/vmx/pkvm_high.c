@@ -161,7 +161,6 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 };
 
 struct kvm_x86_init_ops pkvm_host_init_ops __initdata = {
-	.pkvm_init = pkvm_init,
 	.hardware_setup = vmx_hardware_setup,
 	.handle_intel_pt_intr = NULL,
 

@@ -1403,7 +1403,7 @@ static int __init pkvm_firmware_rmem_clear(void)
 	return 0;
 }
 
-int __init pkvm_init(void)
+int __init vmx_pkvm_init(void)
 {
 	int ret = 0, cpu;
 
@@ -1482,5 +1482,6 @@ int __init pkvm_init(void)
 out:
 	pkvm_firmware_rmem_clear();
 	pkvm_sym(pkvm_hyp) = NULL;
+	/* TODO: Revisit if the memory resource may be reused here */
 	return ret;
 }

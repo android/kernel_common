@@ -8669,8 +8669,12 @@ static int __init vmx_init(void)
 
 #ifdef CONFIG_PKVM_INTEL
 	if (enable_pkvm) {
-		x86_ops = &pkvm_host_x86_ops;
-		x86_init_ops = &pkvm_host_init_ops;
+		if (!vmx_pkvm_init()) {
+			x86_ops = &pkvm_host_x86_ops;
+			x86_init_ops = &pkvm_host_init_ops;
+		} else {
+			enable_pkvm = false;
+		}
 	}
 #endif
 
