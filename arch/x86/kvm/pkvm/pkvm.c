@@ -1013,6 +1013,19 @@ static void pkvm_update_cr8_intercept(struct pkvm_vcpu *pkvm_vcpu, int tpr, int 
 	kvm_x86_call(update_cr8_intercept)(to_kvm_vcpu(pkvm_vcpu), tpr, irr);
 }
 
+static void pkvm_set_virtual_apic_mode(struct pkvm_vcpu *pkvm_vcpu, u64 apic_base)
+{
+	struct kvm_vcpu *vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	vcpu->arch.apic_base = apic_base;
+
+	kvm_x86_call(set_virtual_apic_mode)(vcpu);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1142,6 +1155,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__update_cr8_intercept:
 		pkvm_update_cr8_intercept(pkvm_vcpu, (int)p2, (int)p3);
+		break;
+	case __pkvm__set_virtual_apic_mode:
+		pkvm_set_virtual_apic_mode(pkvm_vcpu, (u64)p2);
 		break;
 	default:
 		ret = -EINVAL;
