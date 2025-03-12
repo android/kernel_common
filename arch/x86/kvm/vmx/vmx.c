@@ -8672,6 +8672,7 @@ static int __init vmx_init(void)
 		if (!vmx_pkvm_init()) {
 			x86_ops = &pkvm_host_x86_ops;
 			x86_init_ops = &pkvm_host_init_ops;
+			enable_pmu = false;
 		} else {
 			enable_pkvm = false;
 		}

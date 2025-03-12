@@ -862,6 +862,15 @@ struct kvm_x86_init_ops vt_init_ops __initdata = {
 
 int setup_vmx(void)
 {
+	/*
+	 * FIXME: No pmu emulation in the pkvm hypervisor to simplify the POC.
+	 * Revisit later to see if it is possible to enable PMU support.
+	 *
+	 * TODO: Add PMU isolation, to prevent the host from profiling the
+	 * guest.
+	 */
+	enable_pmu = false;
+
 	return kvm_x86_vendor_init(&vt_init_ops);
 }
 #endif
