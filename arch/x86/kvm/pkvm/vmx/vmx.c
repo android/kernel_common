@@ -985,7 +985,7 @@ int vmx_vcpu_create(struct kvm_vcpu *vcpu)
 
 	err = -ENOMEM;
 
-	vmx->vpid = allocate_vpid();
+	shared_vmx->vpid = vmx->vpid = allocate_vpid();
 
 	/*
 	 * If PML is turned on, failure on enabling PML just results in failure
@@ -1013,7 +1013,7 @@ int vmx_vcpu_create(struct kvm_vcpu *vcpu)
 	}
 
 	for (i = 0; i < kvm_nr_uret_msrs; ++i)
-		vmx->guest_uret_msrs[i].mask = -1ull;
+		shared_vmx->guest_uret_msrs[i].mask = vmx->guest_uret_msrs[i].mask = -1ull;
 	if (boot_cpu_has(X86_FEATURE_RTM)) {
 		/*
 		 * TSX_CTRL_CPUID_CLEAR is handled in the CPUID interception.
