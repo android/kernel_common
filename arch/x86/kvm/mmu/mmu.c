@@ -4730,6 +4730,17 @@ bool kvm_mmu_may_ignore_guest_pat(void)
 	return shadow_memtype_mask;
 }
 
+static inline int __kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+{
+#ifdef CONFIG_X86_64
+	if (tdp_mmu_enabled)
+		return kvm_tdp_mmu_page_fault(vcpu, fault);
+#endif
+
+	return direct_page_fault(vcpu, fault);
+}
+
+#if IS_ENABLED(CONFIG_PKVM_INTEL)
 int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 {
 	struct kvm_pinned_page *ppage = NULL;
@@ -4742,14 +4753,7 @@ int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 			return -ENOMEM;
 	}
 
-#ifdef CONFIG_X86_64
-	if (tdp_mmu_enabled)
-		r = kvm_tdp_mmu_page_fault(vcpu, fault);
-	else
-		r = direct_page_fault(vcpu, fault);
-#else
-	r = direct_page_fault(vcpu, fault);
-#endif
+	r = __kvm_tdp_page_fault(vcpu, fault);
 
 	if (ppage) {
 		if (r == RET_PF_FIXED && (page = kvm_pfn_to_refcounted_page(fault->pfn))) {
@@ -4765,6 +4769,12 @@ int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 
 	return r;
 }
+#else
+int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+{
+	return __kvm_tdp_page_fault(vcpu, fault);
+}
+#endif
 
 static int kvm_tdp_map_page(struct kvm_vcpu *vcpu, gpa_t gpa, u64 error_code,
 			    u8 *level)
