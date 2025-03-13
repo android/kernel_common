@@ -28,6 +28,8 @@ static void pkvm_disable_virtualization_cpu(void)
 	kvm_call_pkvm(disable_virtualization_cpu);
 }
 
+static void pkvm_emergency_disable_virtualization_cpu(void) { /* TODO */ }
+
 static int pkvm_get_feature_msr(u32 msr, u64 *data)
 {
 	switch (msr) {
@@ -138,7 +140,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 
 	.enable_virtualization_cpu = pkvm_enable_virtualization_cpu,
 	.disable_virtualization_cpu = pkvm_disable_virtualization_cpu,
-	.emergency_disable_virtualization_cpu = vmx_emergency_disable_virtualization_cpu,
+	.emergency_disable_virtualization_cpu = pkvm_emergency_disable_virtualization_cpu,
 
 	.has_emulated_msr = vmx_has_emulated_msr,
 
