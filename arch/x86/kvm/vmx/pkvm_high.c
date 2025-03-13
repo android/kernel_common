@@ -1176,6 +1176,8 @@ static bool pkvm_apic_init_signal_blocked(struct kvm_vcpu *vcpu)
 
 static void pkvm_migrate_timers(struct kvm_vcpu *vcpu) {}
 
+static void pkvm_msr_filter_changed(struct kvm_vcpu *vcpu) {}
+
 static int pkvm_complete_emulated_msr(struct kvm_vcpu *vcpu, int err)
 {
 	if (err)
@@ -1365,7 +1367,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.apic_init_signal_blocked = pkvm_apic_init_signal_blocked,
 	.migrate_timers = pkvm_migrate_timers,
 
-	.msr_filter_changed = vmx_msr_filter_changed,
+	.msr_filter_changed = pkvm_msr_filter_changed,
 	.complete_emulated_msr = pkvm_complete_emulated_msr,
 
 	.vcpu_deliver_sipi_vector = kvm_vcpu_deliver_sipi_vector,
