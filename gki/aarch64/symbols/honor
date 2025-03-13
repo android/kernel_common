@@ -30,3 +30,23 @@
   __tracepoint_android_vh_tcp_rcv_established_slow_path
   __traceiter_android_vh_tcp_rcv_rtt_update
   __tracepoint_android_vh_tcp_rcv_rtt_update
+  wb_wakeup
+  redirty_tail_locked
+  bdi_list
+  __traceiter_android_vh_inode_io_list_del
+  __tracepoint_android_vh_inode_io_list_del
+  __traceiter_android_vh_redirty_tail_locked
+  __tracepoint_android_vh_redirty_tail_locked
+  __traceiter_android_vh_queue_io
+  __tracepoint_android_vh_queue_io
+  __traceiter_android_vh_mark_inode_dirty
+  __tracepoint_android_vh_mark_inode_dirty
+  __traceiter_android_vh_wb_dirty_limits
+  __tracepoint_android_vh_wb_dirty_limits
+  __traceiter_android_vh_vfs_fsync_range
+  __tracepoint_android_vh_vfs_fsync_range
+  __traceiter_android_rvh_do_fcntl
+  __tracepoint_android_rvh_do_fcntl
+  __traceiter_android_vh_evict
+  __tracepoint_android_vh_evict
+
