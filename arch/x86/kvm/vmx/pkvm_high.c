@@ -2,6 +2,7 @@
 #include <linux/moduleparam.h>
 #include <asm/perf_event.h>
 #include <asm/kvm_pkvm.h>
+#include <asm/fred.h>
 #include <asm/pkvm.h>
 #include "pkvm.h"
 #include "pkvm_constants.h"
@@ -11,6 +12,8 @@
 #include "nested.h"
 #include "pmu.h"
 #include "posted_intr.h"
+#include <trace/events/ipi.h>
+#include "trace.h"
 
 static void pkvm_mc_free_fn(void *addr, void *unused)
 {
@@ -69,7 +72,6 @@ static int pkvm_alloc_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
 	loaded_vmcs->shadow_vmcs = NULL;
 	loaded_vmcs->hv_timer_soft_disabled = false;
 	loaded_vmcs->cpu = -1;
-	loaded_vmcs->launched = 0;
 
 	if (cpu_has_vmx_msr_bitmap()) {
 		loaded_vmcs->msr_bitmap = (unsigned long *)
@@ -98,7 +100,6 @@ static void __pkvm_vcpu_unload(void *arg)
 
 	vmx = to_vmx(vcpu);
 	vmx->loaded_vmcs->cpu = -1;
-	vmx->loaded_vmcs->launched = 0;
 }
 
 static void pkvm_vcpu_unload(struct kvm_vcpu *vcpu)
@@ -354,6 +355,81 @@ static int pkvm_get_feature_msr(u32 msr, u64 *data)
 	}
 }
 
+void vmx_do_nmi_irqoff(void);
+
+static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	/* Record the guest's net vcpu time for enforced NMI injections. */
+	if (unlikely(!enable_vnmi &&
+		     vmx->loaded_vmcs->soft_vnmi_blocked))
+		vmx->loaded_vmcs->entry_time = ktime_get();
+
+	trace_kvm_entry(vcpu, force_immediate_exit);
+
+	if (!enable_preemption_timer && force_immediate_exit)
+		smp_send_reschedule(vcpu->cpu);
+
+	kvm_wait_lapic_expire(vcpu);
+
+	guest_state_enter_irqoff();
+
+	/*
+	 * L1D Flush includes CPU buffer clear to mitigate MDS, but VERW
+	 * mitigation for MDS is done late in VMentry and is still
+	 * executed in spite of L1D Flush. This is because an extra VERW
+	 * should not matter much after the big hammer L1D Flush.
+	 */
+	if (static_branch_unlikely(&vmx_l1d_should_flush))
+		vmx_l1d_flush(vcpu);
+	else if (static_branch_unlikely(&mmio_stale_data_clear) &&
+		 kvm_arch_has_assigned_device(vcpu->kvm))
+		mds_clear_cpu_buffers();
+
+	vmx->exit_reason.full = 0xdead;
+
+	vcpu->arch.regs_avail &= ~VMX_REGS_LAZY_LOAD_SET;
+	kvm_call_pkvm(vcpu_run, vcpu, force_immediate_exit);
+	vcpu->arch.regs_dirty = 0;
+
+	if (unlikely(vmx->exit_reason.full == 0xdead)) {
+		vmx->fail = 1;
+		return EXIT_FASTPATH_NONE;
+	}
+
+	if ((u16)vmx->exit_reason.basic == EXIT_REASON_EXCEPTION_NMI &&
+	    is_nmi(vmx_get_intr_info(vcpu))) {
+		kvm_before_interrupt(vcpu, KVM_HANDLING_NMI);
+		if (cpu_feature_enabled(X86_FEATURE_FRED))
+			fred_entry_from_kvm(EVENT_TYPE_NMI, NMI_VECTOR);
+		else
+			vmx_do_nmi_irqoff();
+		kvm_after_interrupt(vcpu);
+	}
+
+	guest_state_exit_irqoff();
+
+	if (unlikely((u16)vmx->exit_reason.basic == EXIT_REASON_MCE_DURING_VMENTRY))
+		kvm_machine_check();
+
+	trace_kvm_exit(vcpu, KVM_ISA_VMX);
+
+	if (unlikely(vmx->exit_reason.failed_vmentry))
+		return EXIT_FASTPATH_NONE;
+
+	if (unlikely(!enable_vnmi &&
+		     vmx->loaded_vmcs->soft_vnmi_blocked))
+		vmx->loaded_vmcs->vnmi_blocked_time +=
+			ktime_to_ns(ktime_sub(ktime_get(),
+					      vmx->loaded_vmcs->entry_time));
+
+	/* TODO: move to pkvm hypervisor */
+	vmx_complete_interrupts(vmx);
+
+	return vmx_exit_handlers_fastpath(vcpu, force_immediate_exit);
+}
+
 static void pkvm_update_emulated_instruction(struct kvm_vcpu *vcpu) {}
 
 static u64 pkvm_get_l2_tsc_offset(struct kvm_vcpu *vcpu)
@@ -502,7 +578,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.flush_tlb_guest = vmx_flush_tlb_guest,
 
 	.vcpu_pre_run = vmx_vcpu_pre_run,
-	.vcpu_run = vmx_vcpu_run,
+	.vcpu_run = pkvm_vcpu_run,
 	.handle_exit = vmx_handle_exit,
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
 	.update_emulated_instruction = pkvm_update_emulated_instruction,
