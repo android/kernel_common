@@ -135,13 +135,14 @@ static bool inode_io_list_move_locked(struct inode *inode,
 	return false;
 }
 
-static void wb_wakeup(struct bdi_writeback *wb)
+void wb_wakeup(struct bdi_writeback *wb)
 {
 	spin_lock_irq(&wb->work_lock);
 	if (test_bit(WB_registered, &wb->state))
 		mod_delayed_work(bdi_wq, &wb->dwork, 0);
 	spin_unlock_irq(&wb->work_lock);
 }
+EXPORT_SYMBOL_GPL(wb_wakeup);
 
 /*
  * This function is used when the first inode for this wb is marked dirty. It
@@ -1345,7 +1346,7 @@ void sb_clear_inode_writeback(struct inode *inode)
  * the case then the inode must have been redirtied while it was being written
  * out and we don't reset its dirtied_when.
  */
-static void redirty_tail_locked(struct inode *inode, struct bdi_writeback *wb)
+void redirty_tail_locked(struct inode *inode, struct bdi_writeback *wb)
 {
 	struct list_head *target_list = &wb->b_dirty;
 	assert_spin_locked(&inode->i_lock);
@@ -1371,6 +1372,7 @@ static void redirty_tail_locked(struct inode *inode, struct bdi_writeback *wb)
 	}
 	inode_io_list_move_locked(inode, wb, target_list);
 }
+EXPORT_SYMBOL_GPL(redirty_tail_locked);
 
 static void redirty_tail(struct inode *inode, struct bdi_writeback *wb)
 {
