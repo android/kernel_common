@@ -120,6 +120,55 @@ static void pkvm_vcpu_unload(struct kvm_vcpu *vcpu)
 		smp_call_function_single(cpu, __pkvm_vcpu_unload, vcpu, 1);
 }
 
+static bool pkvm_segment_cache_test(struct vcpu_vmx *vmx, int seg, int field)
+{
+	u32 mask = 1 << (seg * SEG_FIELD_NR + field);
+
+	if (!kvm_register_is_available(&vmx->vcpu, VCPU_EXREG_SEGMENTS)) {
+		kvm_register_mark_available(&vmx->vcpu, VCPU_EXREG_SEGMENTS);
+		vmx->segment_cache.bitmask = 0;
+	}
+
+	return vmx->segment_cache.bitmask & mask;
+}
+
+static void pkvm_segment_cache_set(struct vcpu_vmx *vmx, int seg, int field)
+{
+	u32 mask = 1 << (seg * SEG_FIELD_NR + field);
+
+	if (!kvm_register_is_available(&vmx->vcpu, VCPU_EXREG_SEGMENTS)) {
+		kvm_register_mark_available(&vmx->vcpu, VCPU_EXREG_SEGMENTS);
+		vmx->segment_cache.bitmask = 0;
+	}
+
+	vmx->segment_cache.bitmask |= mask;
+}
+
+static void pkvm_cache_segment(struct vcpu_vmx *vmx, struct kvm_segment *var, int seg)
+{
+	struct kvm_save_segment *save = &vmx->segment_cache.seg[seg];
+
+	save->selector = var->selector;
+	pkvm_segment_cache_set(vmx, seg, SEG_FIELD_SEL);
+
+	save->base = var->base;
+	pkvm_segment_cache_set(vmx, seg, SEG_FIELD_BASE);
+
+	save->limit = var->limit;
+	pkvm_segment_cache_set(vmx, seg, SEG_FIELD_LIMIT);
+
+	save->ar = (var->unusable << 16) |
+		      (var->g << 15)	 |
+		      (var->db << 14)	 |
+		      (var->l << 13)	 |
+		      (var->avl << 12)	 |
+		      (var->present << 7)	 |
+		      (var->dpl << 5)	 |
+		      (var->s << 4)	 |
+		      var->type;
+	pkvm_segment_cache_set(vmx, seg, SEG_FIELD_AR);
+}
+
 static int pkvm_check_processor_compat(void)
 {
 	return kvm_call_pkvm(check_processor_compatibility);
@@ -371,26 +420,67 @@ static int pkvm_get_feature_msr(u32 msr, u64 *data)
 
 static u64 pkvm_get_segment_base(struct kvm_vcpu *vcpu, int seg)
 {
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	ulong *p;
+
 	if (vcpu->arch.guest_state_protected)
 		return 0;
 
-	return kvm_call_pkvm(get_segment_base, vcpu, seg);
+	p = &vmx->segment_cache.seg[seg].base;
+
+	if (!pkvm_segment_cache_test(vmx, seg, SEG_FIELD_BASE)) {
+		*p = kvm_call_pkvm(get_segment_base, vcpu, seg);
+		pkvm_segment_cache_set(vmx, seg, SEG_FIELD_BASE);
+	}
+
+	return *p;
 }
 
 static void pkvm_get_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
 {
-	struct kvm_segment *pkvm_var;
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct kvm_save_segment *segment;
+	u32 ar;
 
 	if (vcpu->arch.guest_state_protected) {
 		memset(var, 0, sizeof(*var));
 		return;
 	}
 
-	pkvm_var = get_this_pv_param(seg);
-	*pkvm_var = *var;
-	kvm_call_pkvm(get_segment, vcpu, pkvm_var, seg);
-	*var = *pkvm_var;
-	put_this_pv_param(pkvm_var);
+	if (!pkvm_segment_cache_test(vmx, seg, SEG_FIELD_SEL) ||
+	    !pkvm_segment_cache_test(vmx, seg, SEG_FIELD_BASE) ||
+	    !pkvm_segment_cache_test(vmx, seg, SEG_FIELD_LIMIT) ||
+	    !pkvm_segment_cache_test(vmx, seg, SEG_FIELD_AR)) {
+		struct kvm_segment *pkvm_var = get_this_pv_param(seg);
+
+		kvm_call_pkvm(get_segment, vcpu, pkvm_var, seg);
+
+		pkvm_cache_segment(vmx, pkvm_var, seg);
+
+		put_this_pv_param(pkvm_var);
+	}
+
+	segment = &vmx->segment_cache.seg[seg];
+	var->selector = segment->selector;
+	var->base = segment->base;
+	var->limit = segment->limit;
+	ar = segment->ar;
+	var->unusable = (ar >> 16) & 1;
+	var->type = ar & 15;
+	var->s = (ar >> 4) & 1;
+	var->dpl = (ar >> 5) & 3;
+	/*
+	 * Some userspaces do not preserve unusable property. Since usable
+	 * segment has to be present according to VMX spec we can use present
+	 * property to amend userspace bug by making unusable segment always
+	 * nonpresent. vmx_segment_access_rights() already marks nonpresent
+	 * segment as unusable.
+	 */
+	var->present = !var->unusable;
+	var->avl = (ar >> 12) & 1;
+	var->l = (ar >> 13) & 1;
+	var->db = (ar >> 14) & 1;
+	var->g = (ar >> 15) & 1;
 }
 
 static void pkvm_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
