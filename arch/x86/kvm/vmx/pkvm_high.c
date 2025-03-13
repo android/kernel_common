@@ -11,6 +11,11 @@
 #include "pmu.h"
 #include "posted_intr.h"
 
+static int pkvm_check_processor_compat(void)
+{
+	return kvm_call_pkvm(check_processor_compatibility);
+}
+
 static int pkvm_enable_virtualization_cpu(void)
 {
 	int r = kvm_call_pkvm(enable_virtualization_cpu);
@@ -134,7 +139,7 @@ static struct kvm_x86_nested_ops pkvm_nested_ops = {
 struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.name = KBUILD_MODNAME,
 
-	.check_processor_compatibility = vmx_check_processor_compat,
+	.check_processor_compatibility = pkvm_check_processor_compat,
 
 	.hardware_unsetup = vmx_hardware_unsetup,
 

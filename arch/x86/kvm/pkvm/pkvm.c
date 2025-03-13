@@ -26,6 +26,9 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 	case __pkvm__disable_virtualization_cpu:
 		kvm_arch_disable_virtualization_cpu();
 		break;
+	case __pkvm__check_processor_compatibility:
+		ret = kvm_x86_call(check_processor_compatibility)();
+		break;
 	default:
 		ret = -EINVAL;
 		break;

@@ -496,6 +496,25 @@ static int setup_vmcs_config(struct vmcs_config *vmcs_conf, struct vmx_capabilit
 	return ret;
 }
 
+int vmx_check_processor_compat(void)
+{
+	int cpu = raw_smp_processor_id();
+	struct vmcs_config vmcs_conf;
+	struct vmx_capability vmx_cap;
+
+	if (setup_vmcs_config(&vmcs_conf, &vmx_cap) < 0) {
+		pr_err("Failed to setup VMCS config on CPU %d\n", cpu);
+		return -EIO;
+	}
+
+	if (memcmp(&vmcs_config, &vmcs_conf, sizeof(struct vmcs_config))) {
+		pr_err("Inconsistent VMCS config on CPU %d\n", cpu);
+		return -EIO;
+	}
+
+	return 0;
+}
+
 int vmx_enable_virtualization_cpu(void)
 {
 #ifdef __PKVM_HYP__
@@ -972,6 +991,8 @@ __init int vmx_hardware_setup(void)
 #ifdef __PKVM_HYP__
 struct kvm_x86_ops vt_x86_ops __initdata = {
 	.name = KBUILD_MODNAME,
+
+	.check_processor_compatibility = vmx_check_processor_compat,
 
 	.enable_virtualization_cpu = vmx_enable_virtualization_cpu,
 	.disable_virtualization_cpu = vmx_disable_virtualization_cpu,

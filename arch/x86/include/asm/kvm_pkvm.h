@@ -265,6 +265,7 @@ static inline int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_ca
 enum pkvm_fn {
 	__pkvm__enable_virtualization_cpu,
 	__pkvm__disable_virtualization_cpu,
+	__pkvm__check_processor_compatibility,
 };
 
 #endif
