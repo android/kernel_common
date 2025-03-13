@@ -1132,6 +1132,11 @@ static void pkvm_write_tsc_multiplier(struct kvm_vcpu *vcpu)
 	kvm_call_pkvm(write_tsc_multiplier, vcpu, vcpu->arch.tsc_scaling_ratio);
 }
 
+static void pkvm_load_mmu_pgd(struct kvm_vcpu *vcpu, hpa_t root_hpa, int root_level)
+{
+	kvm_call_pkvm(load_mmu_pgd, vcpu, root_hpa, root_level);
+}
+
 static int pkvm_check_intercept(struct kvm_vcpu *vcpu,
 				struct x86_instruction_info *info,
 				enum x86_intercept_stage stage,
@@ -1324,7 +1329,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.write_tsc_offset = pkvm_write_tsc_offset,
 	.write_tsc_multiplier = pkvm_write_tsc_multiplier,
 
-	.load_mmu_pgd = vmx_load_mmu_pgd,
+	.load_mmu_pgd = pkvm_load_mmu_pgd,
 
 	.check_intercept = pkvm_check_intercept,
 	.handle_exit_irqoff = vmx_handle_exit_irqoff,
