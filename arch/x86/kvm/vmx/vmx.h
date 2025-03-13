@@ -809,4 +809,10 @@ static inline void vmx_segment_cache_clear(struct vcpu_vmx *vmx)
 int __init vmx_pkvm_init(void);
 #endif
 
+/*
+ * FIXME: Should be removed when it is not required by the pkvm_vcpu_put
+ * function.
+ */
+void vmx_prepare_switch_to_host(struct vcpu_vmx *vmx);
+
 #endif /* __KVM_X86_VMX_H */

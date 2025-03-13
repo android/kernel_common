@@ -1373,7 +1373,7 @@ void vmx_prepare_switch_to_guest(struct kvm_vcpu *vcpu)
 	vmx->guest_state_loaded = true;
 }
 
-static void vmx_prepare_switch_to_host(struct vcpu_vmx *vmx)
+void vmx_prepare_switch_to_host(struct vcpu_vmx *vmx)
 {
 	struct vmcs_host_state *host_state;
 

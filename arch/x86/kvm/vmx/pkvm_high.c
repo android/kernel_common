@@ -89,6 +89,26 @@ out_vmcs:
 	return -ENOMEM;
 }
 
+static void __pkvm_vcpu_unload(void *arg)
+{
+	struct kvm_vcpu *vcpu = arg;
+	struct vcpu_vmx *vmx;
+
+	kvm_call_pkvm(vcpu_put, vcpu);
+
+	vmx = to_vmx(vcpu);
+	vmx->loaded_vmcs->cpu = -1;
+	vmx->loaded_vmcs->launched = 0;
+}
+
+static void pkvm_vcpu_unload(struct kvm_vcpu *vcpu)
+{
+	int cpu = to_vmx(vcpu)->loaded_vmcs->cpu;
+
+	if (cpu != -1)
+		smp_call_function_single(cpu, __pkvm_vcpu_unload, vcpu, 1);
+}
+
 static int pkvm_check_processor_compat(void)
 {
 	return kvm_call_pkvm(check_processor_compatibility);
@@ -156,16 +176,11 @@ static void pkvm_vm_destroy(struct kvm *kvm)
 	int ret;
 
 	/*
-	 * Make sure vmcs is cleared before doing vm_destroy. The reason is that
-	 * currently the pkvm emulation method will release pkvm_vm reference
-	 * counter when host sends the vmclear. To make sure all the pkvm_vm
-	 * reference counter is released before doing vm_destroy, needs to do
-	 * vmcs_clear for each vcpu.
-	 *
-	 * TODO: Revisit this when the PV method is fully functional.
+	 * Make sure each vcpu is unloaded in the pkvm hypervisor before destroy
+	 * VM.
 	 */
 	kvm_for_each_vcpu(i, vcpu, kvm)
-		loaded_vmcs_clear(to_vmx(vcpu)->loaded_vmcs);
+		pkvm_vcpu_unload(vcpu);
 
 	ret = kvm_call_pkvm(vm_destroy, pkvm->pkvm_vm_handle);
 	if (ret)
@@ -215,6 +230,7 @@ static int pkvm_vcpu_create(struct kvm_vcpu *vcpu)
 		goto free_pml;
 
 	vmx->loaded_vmcs = &vmx->vmcs01;
+	vmx->loaded_vmcs->cpu = -1;
 
 	if (cpu_need_virtualize_apic_accesses(vcpu)) {
 		ret = kvm_alloc_apic_access_page(vcpu->kvm);
@@ -271,6 +287,61 @@ static void pkvm_vcpu_free(struct kvm_vcpu *vcpu)
 		free_pml_buffer(vmx);
 	pkvm_free_loaded_vmcs(vmx->loaded_vmcs);
 	free_ve_info(vmx);
+}
+
+static void pkvm_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	bool already_loaded;
+
+	already_loaded = vmx->loaded_vmcs->cpu == cpu;
+	if (!already_loaded)
+		pkvm_vcpu_unload(vcpu);
+
+	kvm_call_pkvm(vcpu_load, vcpu, cpu);
+
+	/*
+	 * FIXME: Currently the host VMM still uses VMLAUNCH/VMRESUME
+	 * instruction to run vcpu, which will trap to the pkvm hypervisor to
+	 * emulate. Once the emulation is done, the host VMM state will be
+	 * restored from VMCS12 before returning back to the host VMM. To make
+	 * sure VMCS12 having the right state of the host VMM, set below VMCS
+	 * fields in the host VMM. This can be removed once the vcpu run is
+	 * changed to the PV method.
+	 */
+	if (!already_loaded) {
+		void *gdt = get_current_gdt_ro();
+
+		/*
+		 * Linux uses per-cpu TSS and GDT, so set these when switching
+		 * processors.  See 22.2.4.
+		 */
+		vmcs_writel(HOST_TR_BASE,
+			    (unsigned long)&get_cpu_entry_area(cpu)->tss.x86_tss);
+		vmcs_writel(HOST_GDTR_BASE, (unsigned long)gdt);   /* 22.2.4 */
+
+		if (IS_ENABLED(CONFIG_IA32_EMULATION) || IS_ENABLED(CONFIG_X86_32)) {
+			/* 22.2.3 */
+			vmcs_writel(HOST_IA32_SYSENTER_ESP,
+				    (unsigned long)(cpu_entry_stack(cpu) + 1));
+		}
+
+		vmx->loaded_vmcs->cpu = cpu;
+	}
+
+	vmx_vcpu_pi_load(vcpu, cpu);
+}
+
+static void pkvm_vcpu_put(struct kvm_vcpu *vcpu)
+{
+	vmx_vcpu_pi_put(vcpu);
+
+	/*
+	 * FIXME: Doing this in the host VMM as the vmx_prepare_switch_to_guest
+	 * is done by the host VMM. They will be moved to the pkvm hypervisor
+	 * together.
+	 */
+	vmx_prepare_switch_to_host(to_vmx(vcpu));
 }
 
 static int pkvm_get_feature_msr(u32 msr, u64 *data)
@@ -397,8 +468,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.vcpu_reset = vmx_vcpu_reset,
 
 	.prepare_switch_to_guest = vmx_prepare_switch_to_guest,
-	.vcpu_load = vmx_vcpu_load,
-	.vcpu_put = vmx_vcpu_put,
+	.vcpu_load = pkvm_vcpu_load,
+	.vcpu_put = pkvm_vcpu_put,
 
 	.update_exception_bitmap = vmx_update_exception_bitmap,
 	.get_feature_msr = pkvm_get_feature_msr,
