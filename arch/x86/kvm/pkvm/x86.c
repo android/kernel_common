@@ -1054,12 +1054,14 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			return 1;
 		}
 		break;
+#endif
 	case MSR_IA32_CR_PAT:
 		if (!kvm_pat_valid(data))
 			return 1;
 
 		vcpu->arch.pat = data;
 		break;
+#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MTRRphysBase_MSR(0) ... MSR_MTRRfix4K_F8000:
 	case MSR_MTRRdefType:
 		return kvm_mtrr_set_msr(vcpu, msr, data);
@@ -1419,9 +1421,11 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		msr_info->data = kvm_scale_tsc(rdtsc(), ratio) + offset;
 		break;
 	}
+#endif
 	case MSR_IA32_CR_PAT:
 		msr_info->data = vcpu->arch.pat;
 		break;
+#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_MTRRcap:
 	case MTRRphysBase_MSR(0) ... MSR_MTRRfix4K_F8000:
 	case MSR_MTRRdefType:
@@ -2193,6 +2197,8 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	vcpu->arch.last_vmentry_cpu = -1;
 	vcpu->arch.regs_avail = ~0;
 	vcpu->arch.regs_dirty = ~0;
+
+	vcpu->arch.pat = MSR_IA32_CR_PAT_DEFAULT;
 
 	return kvm_x86_call(vcpu_create)(vcpu);
 #else
