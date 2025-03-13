@@ -1090,3 +1090,26 @@ void pkvm_setup_virtual_ept(struct kvm_vcpu *vcpu, u64 veptp)
 	if (invalidate)
 		pkvm_invalidate_shadow_ept(&vm->sept_desc);
 }
+
+void pkvm_invalidate_guest_ept(int shadow_vm_handle, u64 start_gpa, u64 size)
+{
+	struct pkvm_vm *pkvm_vm = get_pkvm_vm(shadow_vm_handle);
+	struct pkvm_shadow_vm *vm;
+
+	if (!pkvm_vm)
+		return;
+
+	vm = kvm_to_shadow(to_kvm(pkvm_vm));
+
+	if (!start_gpa && !size)
+		/*
+		 * With start_gpa = 0 & size = 0, do invalidation
+		 * for the entire shadow EPT
+		 */
+		pkvm_invalidate_shadow_ept(&vm->sept_desc);
+	else
+		pkvm_invalidate_shadow_ept_with_range(&vm->sept_desc,
+						      start_gpa, size);
+
+	put_pkvm_vm(pkvm_vm);
+}

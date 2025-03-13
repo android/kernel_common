@@ -68,5 +68,6 @@ extern struct pkvm_pgtable_ops ept_ops;
 
 int pkvm_handle_guest_ept_violation(struct kvm_vcpu *vcpu, u64 gpa);
 void pkvm_setup_virtual_ept(struct kvm_vcpu *vcpu, u64 veptp);
+void pkvm_invalidate_guest_ept(int shadow_handle, u64 start_gpa, u64 size);
 
 #endif

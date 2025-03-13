@@ -19,7 +19,6 @@
 #include "mmu.h"
 #include "ept.h"
 #include "vmx.h"
-#include "nested.h"
 #include "debug.h"
 #include "iommu.h"
 #include "iommu_internal.h"
@@ -371,8 +370,6 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 	ret = create_iommu();
 	if (ret)
 		goto out;
-
-	pkvm_init_nest();
 
 	ret = pkvm_shadow_ept_pool_init(shadow_ept_base,
 					pkvm_shadow_ept_pgtable_pages(PKVM_MAX_NORMAL_VM_NUM +

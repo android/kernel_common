@@ -21,10 +21,6 @@ struct pkvm_hyp *pkvm_hyp;
 #define to_shadow_vm_handle(vcpu_handle)	((s64)(vcpu_handle) >> SHADOW_VM_HANDLE_SHIFT)
 #define to_shadow_vcpu_idx(vcpu_handle)		((s64)(vcpu_handle) & SHADOW_VCPU_INDEX_MASK)
 
-#define SHADOW_VCPU_HASH_BITS		10
-DEFINE_HASHTABLE(shadow_vcpu_table, SHADOW_VCPU_HASH_BITS);
-static pkvm_spinlock_t shadow_vcpu_table_lock = __PKVM_SPINLOCK_UNLOCKED;
-
 int __pkvm_finalize_shadow_vm(int shadow_vm_handle, int primary_vcpu_handle,
 			      gpa_t pvmfw_load_addr)
 {
@@ -120,57 +116,6 @@ void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,
 	pkvm_shadow_sl_iommu_pgt_update_coherency(&vm->pgstate_pgt,
 						  !vm->noncoherent_ptdev);
 	pkvm_spin_unlock(&vm->lock);
-}
-
-static void add_shadow_vcpu_vmcs12_map(struct shadow_vcpu_state *vcpu)
-{
-	pkvm_spin_lock(&shadow_vcpu_table_lock);
-	hash_add(shadow_vcpu_table, &vcpu->hnode, vcpu->vmcs12_pa);
-	pkvm_spin_unlock(&shadow_vcpu_table_lock);
-}
-
-static void remove_shadow_vcpu_vmcs12_map(struct shadow_vcpu_state *vcpu)
-{
-	pkvm_spin_lock(&shadow_vcpu_table_lock);
-	hash_del(&vcpu->hnode);
-	pkvm_spin_unlock(&shadow_vcpu_table_lock);
-}
-
-s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa)
-{
-	struct shadow_vcpu_state *shadow_vcpu;
-	s64 handle = -1;
-
-	pkvm_spin_lock(&shadow_vcpu_table_lock);
-	hash_for_each_possible(shadow_vcpu_table, shadow_vcpu, hnode, vmcs12_pa) {
-		if (shadow_vcpu->vmcs12_pa == vmcs12_pa) {
-			handle = shadow_vcpu->shadow_vcpu_handle;
-			break;
-		}
-	}
-	pkvm_spin_unlock(&shadow_vcpu_table_lock);
-
-	return handle;
-}
-
-struct shadow_vcpu_state *get_shadow_vcpu(s64 shadow_vcpu_handle)
-{
-	int vm_handle = to_shadow_vm_handle(shadow_vcpu_handle);
-	int vcpu_handle = to_shadow_vcpu_idx(shadow_vcpu_handle);
-	struct pkvm_vcpu *pkvm_vcpu;
-
-	pkvm_vcpu = get_pkvm_vcpu(vm_handle, vcpu_handle);
-	if (!pkvm_vcpu)
-		return NULL;
-
-	return kvm_vcpu_to_shadow(to_kvm_vcpu(pkvm_vcpu));
-}
-
-void put_shadow_vcpu(struct shadow_vcpu_state *shadow_vcpu)
-{
-	struct kvm_vcpu *vcpu = shadow_to_kvm_vcpu(shadow_vcpu);
-
-	put_pkvm_vcpu(to_pkvm_vcpu(vcpu));
 }
 
 void pkvm_kick_vcpu(struct kvm_vcpu *vcpu)
@@ -269,10 +214,6 @@ int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
 		to_shadow_vcpu_handle(vm_handle, pkvm_vcpu->vcpu_idx);
 	shadow_vcpu->vm = kvm_to_shadow(vcpu->kvm);
 
-	shadow_vcpu->vmcs02 = to_vmx(vcpu)->vmcs01.vmcs;
-	shadow_vcpu->vmcs12_pa = __pkvm_pa(to_vmx(vcpu)->vmcs01.vmcs);
-	add_shadow_vcpu_vmcs12_map(shadow_vcpu);
-
 	sept_desc = &shadow_vcpu->vm->sept_desc;
 	vcpu->arch.root_mmu.root_role.level = sept_desc->sept.level;
 	vcpu->arch.root_mmu.root.hpa = sept_desc->sept.root_pa;
@@ -288,7 +229,6 @@ void pkvm_teardown_shadow_vcpu(struct kvm_vcpu *vcpu)
 {
 	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
 
-	remove_shadow_vcpu_vmcs12_map(shadow_vcpu);
 	shadow_vcpu->vm = NULL;
 	shadow_vcpu->shadow_vcpu_handle = 0;
 }

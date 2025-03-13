@@ -5,7 +5,6 @@
 
 #include <pkvm.h>
 #include "cpu.h"
-#include "nested.h"
 #include "lapic.h"
 #include "debug.h"
 #include "vmsr.h"
@@ -15,9 +14,7 @@
 #define INTERCEPT_WRITE			(1U << 1U)
 #define INTERCEPT_READ_WRITE		(INTERCEPT_READ | INTERCEPT_WRITE)
 
-static unsigned int emulated_ro_guest_msrs[] = {
-	LIST_OF_VMX_MSRS,
-};
+static unsigned int emulated_ro_guest_msrs[] = {};
 
 static unsigned int emulated_wo_guest_msrs[] = {
 	MSR_IA32_APICBASE,
@@ -61,16 +58,7 @@ int handle_read_msr(struct kvm_vcpu *vcpu)
 	unsigned long msr = vcpu->arch.regs[VCPU_REGS_RCX];
 	int ret = 0;
 	u32 low = 0, high = 0;
-	u64 val;
 
-	/* For non-supported MSRs, return low=high=0 by default */
-	if (is_vmx_msr(msr)) {
-		ret = read_vmx_msr(vcpu, msr, &val);
-		if (!ret) {
-			low = (u32)val;
-			high = (u32)(val >> 32);
-		}
-	}
 	pkvm_dbg("%s: CPU%d Value of msr 0x%lx: low=0x%x, high=0x%x\n", __func__, vcpu->cpu, msr, low, high);
 
 	vcpu->arch.regs[VCPU_REGS_RAX] = low;

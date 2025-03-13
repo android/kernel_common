@@ -29,15 +29,11 @@ void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
 			       struct list_head *node, bool coherency);
 void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,
 				 struct list_head *node, bool coherency);
-struct shadow_vcpu_state *get_shadow_vcpu(s64 shadow_vcpu_handle);
-void put_shadow_vcpu(struct shadow_vcpu_state *shadow_vcpu);
-s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa);
 void pkvm_kick_vcpu(struct kvm_vcpu *vcpu);
 int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid);
 int pkvm_load_pvmfw_pages(struct pkvm_shadow_vm *vm, u64 gpa, u64 phys, u64 size);
 
 #define PKVM_REQ_TLB_FLUSH_HOST_EPT			KVM_ARCH_REQ(0)
-#define PKVM_REQ_TLB_FLUSH_SHADOW_EPT			KVM_ARCH_REQ(1)
 
 extern struct pkvm_hyp *pkvm_hyp;
 

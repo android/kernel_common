@@ -40,8 +40,6 @@ struct pkvm_host_vcpu {
 	struct pkvm_pcpu *pcpu;
 	struct vmcs *vmxarea;
 
-	void *current_shadow_vcpu;
-
 	bool pending_nmi;
 	u8 *io_bitmap;
 };

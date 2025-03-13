@@ -49,26 +49,13 @@ struct shadow_vcpu_state {
 
 	struct pkvm_shadow_vm *vm;
 
-	struct hlist_node hnode;
-	unsigned long vmcs12_pa;
-	bool vmcs02_inited;
-
 	/* represents for the virtual EPT configured by kvm-high */
 	struct pkvm_pgtable vept;
-
-	struct vmcs *vmcs02;
-	u8 cached_vmcs12[VMCS12_SIZE] __aligned(PAGE_SIZE);
 
 	struct pkvm_ve_info ve_info __aligned(PAGE_SIZE);
 
 	bool allowed_to_run;
 	bool pvmfw_entry_pending;
-
-	/* The last cpu this vmcs02 runs with */
-	int last_cpu;
-
-	/* point to the kvm_vcpu associated with this shadow_vcpu */
-	struct kvm_vcpu *vcpu;
 } __aligned(PAGE_SIZE);
 
 /*
