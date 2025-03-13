@@ -450,7 +450,6 @@ static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt,
 				 unsigned long size)
 {
 	struct pkvm_shadow_vm *shadow_vm = sept_to_shadow_vm(pgt);
-	struct shadow_vcpu_state *shadow_vcpu;
 	struct pkvm_vcpu *pkvm_vcpu;
 	struct kvm_vcpu *vcpu;
 	struct kvm *kvm;
@@ -467,18 +466,10 @@ static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt,
 		if (!pkvm_vcpu)
 			continue;
 
-		shadow_vcpu = kvm_vcpu_to_shadow(to_kvm_vcpu(pkvm_vcpu));
-		/*
-		 * If this shadow_vcpu is not loaded then there is vcpu
-		 * pointer for it, so can skip this remote tlb flushing.
-		 */
-		vcpu = READ_ONCE(shadow_vcpu->vcpu);
-		if (!vcpu)
-			goto next;
-
-		kvm_make_request(PKVM_REQ_TLB_FLUSH_SHADOW_EPT, vcpu);
+		vcpu = to_kvm_vcpu(pkvm_vcpu);
+		kvm_make_request(KVM_REQ_TLB_FLUSH_CURRENT, vcpu);
 		pkvm_kick_vcpu(vcpu);
-next:
+
 		put_pkvm_vcpu(pkvm_vcpu);
 	}
 }
