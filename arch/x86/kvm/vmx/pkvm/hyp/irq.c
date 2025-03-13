@@ -22,6 +22,7 @@ void handle_nmi(void)
 	struct pkvm_host_vcpu *hvcpu =
 		pkvm_hyp->host_vm.host_vcpus[cpu_id];
 	struct vcpu_vmx *vmx = &hvcpu->vmx;
+	u64 cur_vmcs_pa;
 
 	if (!hvcpu || !vmx)
 		return;
@@ -31,6 +32,9 @@ void handle_nmi(void)
 			__func__, cpu_id);
 		return;
 	}
+
+	/* Save the current active VMCS physical address */
+	cur_vmcs_pa = vmcs_store();
 
 	/* load host vcpu vmcs for sure */
 	vmcs_load(vmx->loaded_vmcs->vmcs);
@@ -55,8 +59,7 @@ void handle_nmi(void)
 	 */
 	vmx_enable_irq_window(vmx);
 
-	/* switch if the current one is not host vcpu vmcs */
-	if (hvcpu->current_vmcs &&
-			(hvcpu->current_vmcs != vmx->loaded_vmcs->vmcs))
-		vmcs_load(hvcpu->current_vmcs);
+	/* Switch if the current one is not host vcpu vmcs */
+	if (cur_vmcs_pa != __pkvm_pa(vmx->loaded_vmcs->vmcs))
+		vmcs_load(__pkvm_va(cur_vmcs_pa));
 }

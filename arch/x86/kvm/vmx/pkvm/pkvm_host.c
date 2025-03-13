@@ -602,7 +602,6 @@ static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *hvcpu, int cpu)
 
 	vmx->loaded_vmcs = &vmx->vmcs01;
 	vmcs_load(vmx->loaded_vmcs->vmcs);
-	hvcpu->current_vmcs = vmx->loaded_vmcs->vmcs;
 
 	init_guest_state_area(hvcpu, cpu);
 	init_host_state_area(hvcpu, cpu);

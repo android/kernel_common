@@ -39,7 +39,6 @@ struct pkvm_host_vcpu {
 	struct vcpu_vmx vmx;
 	struct pkvm_pcpu *pcpu;
 	struct vmcs *vmxarea;
-	struct vmcs *current_vmcs;
 
 	void *current_shadow_vcpu;
 

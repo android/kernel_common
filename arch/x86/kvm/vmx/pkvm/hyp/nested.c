@@ -620,13 +620,13 @@ static void nested_release_vmcs12(struct kvm_vcpu *vcpu)
 	/* cur_shadow_vcpu must be valid here */
 	vmcs02 = (struct vmcs *)cur_shadow_vcpu->vmcs02;
 	vmcs12 = (struct vmcs12 *)cur_shadow_vcpu->cached_vmcs12;
-	vmcs_load_track(vmx, vmcs02);
+	vmcs_load(vmcs02);
 
-	vmcs_clear_track(vmx, vmcs02);
+	vmcs_clear(vmcs02);
 	clear_shadow_indicator(vmcs02);
 
 	/*disable shadowing*/
-	vmcs_load_track(vmx, vmx->loaded_vmcs->vmcs);
+	vmcs_load(vmx->loaded_vmcs->vmcs);
 	secondary_exec_controls_clearbit(vmx, SECONDARY_EXEC_SHADOW_VMCS);
 	vmcs_write64(VMCS_LINK_POINTER, INVALID_GPA);
 
@@ -674,9 +674,9 @@ static void nested_vmx_run(struct kvm_vcpu *vcpu, bool launch)
 		save_vmcs01_fields_for_emulation(vmx);
 
 		/* switch to vmcs02 */
-		vmcs_clear_track(vmx, vmcs02);
+		vmcs_clear(vmcs02);
 		clear_shadow_indicator(vmcs02);
-		vmcs_load_track(vmx, vmcs02);
+		vmcs_load(vmcs02);
 
 		sync_vmcs12_dirty_fields_to_vmcs02(vmx, vmcs12);
 
@@ -794,7 +794,7 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 					if (!shadow_vcpu->vmcs02_inited) {
 						memset(vmcs02, 0, vmx_basic_vmcs_size(pkvm_hyp->vmcs_config.basic));
 						vmcs02->hdr.revision_id = vmx_basic_vmcs_revision_id(pkvm_hyp->vmcs_config.basic);
-						vmcs_load_track(vmx, vmcs02);
+						vmcs_load(vmcs02);
 						pkvm_init_host_state_area(hvcpu->pcpu, vcpu->cpu);
 						vmcs_writel(HOST_RIP, (unsigned long)__pkvm_vmexit_entry);
 						/*
@@ -826,7 +826,7 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 						shadow_vcpu->last_cpu = vcpu->cpu;
 						shadow_vcpu->vmcs02_inited = true;
 					} else {
-						vmcs_load_track(vmx, vmcs02);
+						vmcs_load(vmcs02);
 						if (shadow_vcpu->last_cpu != vcpu->cpu) {
 							pkvm_init_host_state_area(hvcpu->pcpu, vcpu->cpu);
 							shadow_vcpu->last_cpu = vcpu->cpu;
@@ -836,11 +836,11 @@ int handle_vmptrld(struct kvm_vcpu *vcpu)
 					hvcpu->current_shadow_vcpu = shadow_vcpu;
 
 					sync_vmcs12_dirty_fields_to_vmcs02(vmx, vmcs12);
-					vmcs_clear_track(vmx, vmcs02);
+					vmcs_clear(vmcs02);
 					set_shadow_indicator(vmcs02);
 
 					/* enable shadowing */
-					vmcs_load_track(vmx, vmx->loaded_vmcs->vmcs);
+					vmcs_load(vmx->loaded_vmcs->vmcs);
 					vmcs_write64(VMREAD_BITMAP, __pkvm_pa_symbol(vmx_vmread_bitmap));
 					vmcs_write64(VMWRITE_BITMAP, __pkvm_pa_symbol(vmx_vmwrite_bitmap));
 					secondary_exec_controls_setbit(vmx, SECONDARY_EXEC_SHADOW_VMCS);
@@ -1388,9 +1388,9 @@ int nested_vmexit(struct kvm_vcpu *vcpu, bool *skip_instruction)
 		vmcs12->launch_state = 1;
 
 	/* switch to vmcs01 */
-	vmcs_clear_track(vmx, vmcs02);
+	vmcs_clear(vmcs02);
 	set_shadow_indicator(vmcs02);
-	vmcs_load_track(vmx, vmx->loaded_vmcs->vmcs);
+	vmcs_load(vmx->loaded_vmcs->vmcs);
 
 	prepare_vmcs01_guest_state(vmx, vmcs12);
 
