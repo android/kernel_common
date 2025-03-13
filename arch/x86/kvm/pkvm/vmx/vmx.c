@@ -7792,6 +7792,9 @@ static void share_protected_vcpu_state(struct kvm_vcpu *vcpu,
 	case EXIT_REASON_MSR_READ:
 		shared_vcpu->arch.regs[VCPU_REGS_RCX] = kvm_rcx_read(vcpu);
 		break;
+	case EXIT_REASON_EPT_VIOLATION:
+		to_vmx(shared_vcpu)->exit_gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+		break;
 	default:
 		break;
 	}
@@ -7833,7 +7836,8 @@ static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 		if (pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu) &&
 		    !vmx->exit_reason.failed_vmentry &&
 		    !vmx->fail &&
-		    vmx->exit_reason.basic == EXIT_REASON_EPT_MISCONFIG)
+		    (vmx->exit_reason.basic == EXIT_REASON_EPT_MISCONFIG ||
+		     vmx->exit_reason.basic == EXIT_REASON_EPT_VIOLATION))
 			shared_vmx->exit_gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
 	}
 

@@ -374,7 +374,7 @@ static int handle_ept_violation(struct kvm_vcpu *vcpu)
 
 	exit_qualification = vmx_get_exit_qual(vcpu);
 
-	gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+	gpa = to_vmx(vcpu)->exit_gpa;
 	trace_kvm_page_fault(vcpu, gpa, exit_qualification);
 
 	/* Is it a read fault? */
