@@ -37,6 +37,25 @@ static int pkvm_check_intercept(struct kvm_vcpu *vcpu,
 	return X86EMUL_UNHANDLEABLE;
 }
 
+#ifdef CONFIG_KVM_SMM
+static int pkvm_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
+{
+	return false;
+}
+
+static int pkvm_enter_smm(struct kvm_vcpu *vcpu, union kvm_smram *smram)
+{
+	return -EINVAL;
+}
+
+static int pkvm_leave_smm(struct kvm_vcpu *vcpu, const union kvm_smram *smram)
+{
+	return -EINVAL;
+}
+
+static void pkvm_enable_smi_window(struct kvm_vcpu *vcpu) {}
+#endif
+
 static bool pkvm_apic_init_signal_blocked(struct kvm_vcpu *vcpu)
 {
 	return false;
@@ -215,10 +234,10 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.setup_mce = vmx_setup_mce,
 
 #ifdef CONFIG_KVM_SMM
-	.smi_allowed = vmx_smi_allowed,
-	.enter_smm = vmx_enter_smm,
-	.leave_smm = vmx_leave_smm,
-	.enable_smi_window = vmx_enable_smi_window,
+	.smi_allowed = pkvm_smi_allowed,
+	.enter_smm = pkvm_enter_smm,
+	.leave_smm = pkvm_leave_smm,
+	.enable_smi_window = pkvm_enable_smi_window,
 #endif
 
 	.check_emulate_instruction = vmx_check_emulate_instruction,
