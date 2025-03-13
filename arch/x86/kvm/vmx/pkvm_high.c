@@ -185,6 +185,7 @@ static bool pkvm_hyp_emulated_msr(u32 msr)
 	case MSR_IA32_FEAT_CTL:
 	case MSR_IA32_SGXLEPUBKEYHASH0 ... MSR_IA32_SGXLEPUBKEYHASH3:
 	case MSR_IA32_XSS:
+	case MSR_IA32_MISC_ENABLE:
 		return true;
 	default:
 		break;
