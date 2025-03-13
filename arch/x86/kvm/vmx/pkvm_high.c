@@ -1,11 +1,32 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/moduleparam.h>
+#include <asm/perf_event.h>
+#include <asm/kvm_pkvm.h>
+#include <asm/pkvm.h>
+#include "pkvm.h"
 
 #include "x86_ops.h"
 #include "vmx.h"
 #include "nested.h"
 #include "pmu.h"
 #include "posted_intr.h"
+
+static int pkvm_enable_virtualization_cpu(void)
+{
+	int r = kvm_call_pkvm(enable_virtualization_cpu);
+
+	if (r)
+		return r;
+
+	intel_pt_handle_vmx(1);
+	return 0;
+}
+
+static void pkvm_disable_virtualization_cpu(void)
+{
+	intel_pt_handle_vmx(0);
+	kvm_call_pkvm(disable_virtualization_cpu);
+}
 
 static int pkvm_get_feature_msr(u32 msr, u64 *data)
 {
@@ -115,8 +136,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 
 	.hardware_unsetup = vmx_hardware_unsetup,
 
-	.enable_virtualization_cpu = vmx_enable_virtualization_cpu,
-	.disable_virtualization_cpu = vmx_disable_virtualization_cpu,
+	.enable_virtualization_cpu = pkvm_enable_virtualization_cpu,
+	.disable_virtualization_cpu = pkvm_disable_virtualization_cpu,
 	.emergency_disable_virtualization_cpu = vmx_emergency_disable_virtualization_cpu,
 
 	.has_emulated_msr = vmx_has_emulated_msr,
