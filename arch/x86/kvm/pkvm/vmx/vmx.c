@@ -17,6 +17,7 @@
 #include <vmx/pkvm/hyp/mem_protect.h>
 #include <vmx/pkvm/hyp/nested.h>
 #include <vmx/pkvm/hyp/ept.h>
+#include <vmx/hyperv.h>
 #include <pkvm.h>
 
 #ifdef __PKVM_HYP__
@@ -656,6 +657,173 @@ static void pt_guest_exit(struct vcpu_vmx *vmx)
 	 */
 	if (vmx->pt_desc.host.ctl)
 		wrmsrl(MSR_IA32_RTIT_CTL, vmx->pt_desc.host.ctl);
+}
+
+void vmx_set_host_fs_gs(struct vmcs_host_state *host, u16 fs_sel, u16 gs_sel,
+			unsigned long fs_base, unsigned long gs_base)
+{
+	if (unlikely(fs_sel != host->fs_sel)) {
+		if (!(fs_sel & 7))
+			vmcs_write16(HOST_FS_SELECTOR, fs_sel);
+		else
+			vmcs_write16(HOST_FS_SELECTOR, 0);
+		host->fs_sel = fs_sel;
+	}
+	if (unlikely(gs_sel != host->gs_sel)) {
+		if (!(gs_sel & 7))
+			vmcs_write16(HOST_GS_SELECTOR, gs_sel);
+		else
+			vmcs_write16(HOST_GS_SELECTOR, 0);
+		host->gs_sel = gs_sel;
+	}
+	if (unlikely(fs_base != host->fs_base)) {
+		vmcs_writel(HOST_FS_BASE, fs_base);
+		host->fs_base = fs_base;
+	}
+	if (unlikely(gs_base != host->gs_base)) {
+		vmcs_writel(HOST_GS_BASE, gs_base);
+		host->gs_base = gs_base;
+	}
+}
+
+void vmx_prepare_switch_to_guest(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct vmcs_host_state *host_state;
+	unsigned long fs_base, gs_base;
+	u16 fs_sel, gs_sel;
+#ifndef __PKVM_HYP__ /* TODO: set uret MSR */
+	int i;
+
+	/*
+	 * Note that guest MSRs to be saved/restored can also be changed
+	 * when guest state is loaded. This happens when guest transitions
+	 * to/from long-mode by setting MSR_EFER.LMA.
+	 */
+	if (!vmx->guest_uret_msrs_loaded) {
+		vmx->guest_uret_msrs_loaded = true;
+		for (i = 0; i < kvm_nr_uret_msrs; ++i) {
+			if (!vmx->guest_uret_msrs[i].load_into_hardware)
+				continue;
+
+			kvm_set_user_return_msr(i,
+						vmx->guest_uret_msrs[i].data,
+						vmx->guest_uret_msrs[i].mask);
+		}
+	}
+#endif
+
+	if (vmx->nested.need_vmcs12_to_shadow_sync)
+		nested_sync_vmcs12_to_shadow(vcpu);
+
+	if (vmx->guest_state_loaded)
+		return;
+
+	host_state = &vmx->loaded_vmcs->host_state;
+
+	/*
+	 * Set host fs and gs selectors.  Unfortunately, 22.2.3 does not
+	 * allow segment selectors with cpl > 0 or ti == 1.
+	 */
+	host_state->ldt_sel = kvm_read_ldt();
+
+#ifdef __PKVM_HYP__
+
+#ifdef CONFIG_X86_64
+	savesegment(ds, host_state->ds_sel);
+	savesegment(es, host_state->es_sel);
+	savesegment(fs, fs_sel);
+	savesegment(gs, gs_sel);
+	fs_base = read_msr(MSR_FS_BASE);
+	gs_base = read_msr(MSR_GS_BASE);
+	vmx->msr_host_kernel_gs_base = read_msr(MSR_KERNEL_GS_BASE);
+	wrmsrl(MSR_KERNEL_GS_BASE, vmx->msr_guest_kernel_gs_base);
+#else
+	/* TODO */
+	WARN_ON_ONCE(1);
+#endif
+#else
+
+#ifdef CONFIG_X86_64
+	savesegment(ds, host_state->ds_sel);
+	savesegment(es, host_state->es_sel);
+
+	gs_base = cpu_kernelmode_gs_base(raw_smp_processor_id());
+	if (likely(is_64bit_mm(current->mm))) {
+		current_save_fsgs();
+		fs_sel = current->thread.fsindex;
+		gs_sel = current->thread.gsindex;
+		fs_base = current->thread.fsbase;
+		vmx->msr_host_kernel_gs_base = current->thread.gsbase;
+	} else {
+		savesegment(fs, fs_sel);
+		savesegment(gs, gs_sel);
+		fs_base = read_msr(MSR_FS_BASE);
+		vmx->msr_host_kernel_gs_base = read_msr(MSR_KERNEL_GS_BASE);
+	}
+#else
+	savesegment(fs, fs_sel);
+	savesegment(gs, gs_sel);
+	fs_base = segment_base(fs_sel);
+	gs_base = segment_base(gs_sel);
+#endif
+#endif
+	vmx_set_host_fs_gs(host_state, fs_sel, gs_sel, fs_base, gs_base);
+	vmx->guest_state_loaded = true;
+}
+
+void vmx_prepare_switch_to_host(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct vmcs_host_state *host_state;
+
+	if (!vmx->guest_state_loaded)
+		return;
+
+	host_state = &vmx->loaded_vmcs->host_state;
+
+	++vmx->vcpu.stat.host_state_reload;
+
+#ifdef CONFIG_X86_64
+	rdmsrl(MSR_KERNEL_GS_BASE, vmx->msr_guest_kernel_gs_base);
+#endif
+
+#ifdef __PKVM_HYP__
+#ifdef CONFIG_X86_64
+	if (unlikely(host_state->ds_sel | host_state->es_sel)) {
+		loadsegment(ds, host_state->ds_sel);
+		loadsegment(es, host_state->es_sel);
+	}
+	wrmsrl(MSR_KERNEL_GS_BASE, vmx->msr_host_kernel_gs_base);
+#endif
+#else
+	if (host_state->ldt_sel || (host_state->gs_sel & 7)) {
+		kvm_load_ldt(host_state->ldt_sel);
+#ifdef CONFIG_X86_64
+		load_gs_index(host_state->gs_sel);
+#else
+		loadsegment(gs, host_state->gs_sel);
+#endif
+	}
+	if (host_state->fs_sel & 7)
+		loadsegment(fs, host_state->fs_sel);
+#ifdef CONFIG_X86_64
+	if (unlikely(host_state->ds_sel | host_state->es_sel)) {
+		loadsegment(ds, host_state->ds_sel);
+		loadsegment(es, host_state->es_sel);
+	}
+#endif
+	invalidate_tss_limit();
+#ifdef CONFIG_X86_64
+	wrmsrl(MSR_KERNEL_GS_BASE, vmx->msr_host_kernel_gs_base);
+#endif
+	load_fixmap_gdt(raw_smp_processor_id());
+#endif
+
+	vmx->guest_state_loaded = false;
+#ifndef __PKVM_HYP__
+	vmx->guest_uret_msrs_loaded = false;
+#endif
 }
 
 static void shrink_ple_window(struct kvm_vcpu *vcpu)
@@ -3813,6 +3981,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.vcpu_create = vmx_vcpu_create,
 	.vcpu_free = vmx_vcpu_free,
 
+	.prepare_switch_to_guest = vmx_prepare_switch_to_guest,
+	.prepare_switch_to_host = vmx_prepare_switch_to_host,
 	.vcpu_load = vmx_vcpu_load,
 	.vcpu_put = vmx_vcpu_put,
 

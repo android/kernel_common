@@ -924,6 +924,8 @@ fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit
 
 	/* TODO: Restore the host VMM fpu and save the guest fpu */
 
+	/* TODO: restore uret msrs */
+
 	return exit_fastpath;
 }
 #endif
