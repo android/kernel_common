@@ -1341,6 +1341,84 @@ unlock:
 	return ret;
 }
 
+int __pkvm_guest_share_hyp_page(struct pkvm_hyp_vcpu *vcpu, u64 ipa, u64 *hyp_va)
+{
+	int ret;
+	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
+	kvm_pte_t pte;
+	u64 phys;
+	enum kvm_pgtable_prot prot;
+	void *virt;
+	u64 nr_pages = 1;
+
+	hyp_lock_component();
+	guest_lock_component(vm);
+
+	ret = __guest_request_page_transition(ipa, &pte, &nr_pages, vcpu, PKVM_PAGE_OWNED);
+	if (ret)
+		goto unlock;
+
+	phys = kvm_pte_to_phys(pte);
+
+	virt = __hyp_va(phys);
+	if (IS_ENABLED(CONFIG_NVHE_EL2_DEBUG)) {
+		ret = __hyp_check_page_state_range((u64)virt, PAGE_SIZE, PKVM_NOPAGE);
+		if (ret)
+			goto unlock;
+	}
+
+	prot = pkvm_mkstate(PAGE_HYP, PKVM_PAGE_SHARED_BORROWED);
+	ret = pkvm_create_mappings_locked(virt, virt + PAGE_SIZE, prot);
+	if (ret) {
+		/*
+		 * Repaint the return code as we need to distinguish between the
+		 * no memory from the guest which is recoverable and no memory
+		 * from the hypervisor.
+		 */
+		if (ret == -ENOMEM)
+			ret = -EBUSY;
+		goto unlock;
+	}
+
+	WARN_ON(__guest_initiate_page_transition(ipa, pte, nr_pages, vcpu, PKVM_PAGE_SHARED_OWNED));
+	*hyp_va = (u64)virt;
+unlock:
+	guest_unlock_component(vm);
+	hyp_unlock_component();
+
+	return ret;
+}
+
+int __pkvm_guest_unshare_hyp_page(struct pkvm_hyp_vcpu *vcpu, u64 ipa)
+{
+	int ret;
+	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
+	kvm_pte_t pte;
+	u64 phys, virt, nr_pages = 1;
+
+	hyp_lock_component();
+	guest_lock_component(vm);
+
+	ret = __guest_request_page_transition(ipa, &pte, &nr_pages, vcpu, PKVM_PAGE_SHARED_OWNED);
+	if (ret)
+		goto unlock;
+
+	phys = kvm_pte_to_phys(pte);
+
+	virt = (u64)__hyp_va(phys);
+	ret = __hyp_check_page_state_range(virt, PAGE_SIZE, PKVM_PAGE_SHARED_BORROWED);
+	if (ret)
+		goto unlock;
+
+	WARN_ON(kvm_pgtable_hyp_unmap(&pkvm_pgtable, virt, PAGE_SIZE) != PAGE_SIZE);
+	WARN_ON(__guest_initiate_page_transition(ipa, pte, nr_pages, vcpu, PKVM_PAGE_OWNED));
+unlock:
+	guest_unlock_component(vm);
+	hyp_unlock_component();
+
+	return ret;
+}
+
 int __pkvm_guest_unshare_host(struct pkvm_hyp_vcpu *vcpu, u64 ipa, u64 nr_pages,
 			      u64 *nr_unshared)
 {
