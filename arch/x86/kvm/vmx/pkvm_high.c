@@ -167,6 +167,7 @@ static void pkvm_cache_segment(struct vcpu_vmx *vmx, struct kvm_segment *var, in
 static bool pkvm_hyp_emulated_msr(u32 msr)
 {
 	switch (msr) {
+	case MSR_EFER:
 #ifdef CONFIG_X86_64
 	case MSR_FS_BASE:
 	case MSR_GS_BASE:

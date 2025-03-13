@@ -1009,6 +1009,72 @@ int kvm_emulate_rdpmc(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_rdpmc);
 
+static bool __kvm_valid_efer(struct kvm_vcpu *vcpu, u64 efer)
+{
+	if (efer & EFER_AUTOIBRS && !guest_cpuid_has(vcpu, X86_FEATURE_AUTOIBRS))
+		return false;
+
+	if (efer & EFER_FFXSR && !guest_cpuid_has(vcpu, X86_FEATURE_FXSR_OPT))
+		return false;
+
+	if (efer & EFER_SVME && !guest_cpuid_has(vcpu, X86_FEATURE_SVM))
+		return false;
+
+	if (efer & (EFER_LME | EFER_LMA) &&
+	    !guest_cpuid_has(vcpu, X86_FEATURE_LM))
+		return false;
+
+	if (efer & EFER_NX && !guest_cpuid_has(vcpu, X86_FEATURE_NX))
+		return false;
+
+	return true;
+
+}
+
+static int set_efer(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+{
+	u64 old_efer = vcpu->arch.efer;
+	u64 efer = msr_info->data;
+	int r;
+
+	if (efer & efer_reserved_bits)
+		return 1;
+
+	if (!msr_info->host_initiated) {
+		if (!__kvm_valid_efer(vcpu, efer))
+			return 1;
+
+		if (is_paging(vcpu) &&
+		    (vcpu->arch.efer & EFER_LME) != (efer & EFER_LME))
+			return 1;
+	}
+
+	efer &= ~EFER_LMA;
+	efer |= vcpu->arch.efer & EFER_LMA;
+
+	r = kvm_x86_call(set_efer)(vcpu, efer);
+	if (r) {
+		WARN_ON(r > 0);
+		return r;
+	}
+
+	if ((efer ^ old_efer) & KVM_MMU_EFER_ROLE_BITS)
+#ifdef __PKVM_HYP__
+		/* TODO: Revisit when the PV EPT implementation is ready. */
+		pkvm_make_req_to_host(HOST_RESET_MMU, vcpu);
+#else
+		kvm_mmu_reset_context(vcpu);
+#endif
+
+#ifndef __PKVM_HYP__
+	if (!static_cpu_has(X86_FEATURE_XSAVES) &&
+	    (efer & EFER_SVME))
+		kvm_hv_xsaves_xsavec_maybe_warn(vcpu);
+#endif
+
+	return 0;
+}
+
 void kvm_enable_efer_bits(u64 mask)
 {
        efer_reserved_bits &= ~mask;
@@ -1425,8 +1491,10 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 
 		wrmsrl(MSR_IA32_FLUSH_CMD, L1D_FLUSH);
 		break;
+#endif
 	case MSR_EFER:
 		return set_efer(vcpu, msr_info);
+#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_K7_HWCR:
 		data &= ~(u64)0x40;	/* ignore flush filter disable */
 		data &= ~(u64)0x100;	/* ignore ignne emulation enable */
@@ -1874,9 +1942,11 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		/* CPU multiplier */
 		msr_info->data |= (((uint64_t)4ULL) << 40);
 		break;
+#endif
 	case MSR_EFER:
 		msr_info->data = vcpu->arch.efer;
 		break;
+#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_KVM_WALL_CLOCK:
 		if (!guest_pv_has(vcpu, KVM_FEATURE_CLOCKSOURCE))
 			return 1;
