@@ -1440,6 +1440,20 @@ static int pkvm_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
 	return ret;
 }
 
+static int pkvm_skip_emulated_instruction(struct kvm_vcpu *vcpu)
+{
+	if (vcpu->arch.guest_state_protected)
+		return 1;
+
+	if (!kvm_emulate_instruction(vcpu, EMULTYPE_SKIP))
+		return 0;
+
+	/* skipping an emulated instruction also counts */
+	kvm_call_pkvm(set_interrupt_shadow, vcpu, 0);
+
+	return 1;
+}
+
 static void pkvm_update_emulated_instruction(struct kvm_vcpu *vcpu) {}
 
 static void pkvm_set_interrupt_shadow(struct kvm_vcpu *vcpu, int mask)
@@ -1879,7 +1893,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.vcpu_pre_run = vmx_vcpu_pre_run,
 	.vcpu_run = pkvm_vcpu_run,
 	.handle_exit = pkvm_handle_exit,
-	.skip_emulated_instruction = vmx_skip_emulated_instruction,
+	.skip_emulated_instruction = pkvm_skip_emulated_instruction,
 	.update_emulated_instruction = pkvm_update_emulated_instruction,
 	.set_interrupt_shadow = pkvm_set_interrupt_shadow,
 	.get_interrupt_shadow = pkvm_get_interrupt_shadow,

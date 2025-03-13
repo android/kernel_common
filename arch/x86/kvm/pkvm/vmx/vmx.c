@@ -5103,6 +5103,7 @@ static int kvm_pkvm_hypercall(struct kvm_vcpu *vcpu)
 	case PKVM_GHC_IOREAD:
 	case PKVM_GHC_IOWRITE:
 		/* Hypercall for MMIO accessing should be forwared to the host */
+		kvm_skip_emulated_instruction(vcpu);
 		return 0;
 	default:
 		/* The other hypercalls are not supported */
