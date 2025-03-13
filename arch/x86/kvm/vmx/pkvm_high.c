@@ -169,6 +169,34 @@ static void pkvm_cache_segment(struct vcpu_vmx *vmx, struct kvm_segment *var, in
 	pkvm_segment_cache_set(vmx, seg, SEG_FIELD_AR);
 }
 
+static bool pkvm_hyp_emulated_msr(u32 msr)
+{
+	switch (msr) {
+#ifdef CONFIG_X86_64
+	case MSR_FS_BASE:
+	case MSR_GS_BASE:
+	case MSR_KERNEL_GS_BASE:
+#endif
+	case MSR_IA32_SYSENTER_CS:
+	case MSR_IA32_SYSENTER_EIP:
+	case MSR_IA32_SYSENTER_ESP:
+	case MSR_IA32_DEBUGCTLMSR:
+	case MSR_IA32_BNDCFGS:
+	case MSR_IA32_UMWAIT_CONTROL:
+	case MSR_IA32_SPEC_CTRL:
+	case MSR_IA32_TSX_CTRL:
+	case MSR_IA32_MCG_EXT_CTL:
+	case MSR_IA32_FEAT_CTL:
+	case MSR_IA32_SGXLEPUBKEYHASH0 ... MSR_IA32_SGXLEPUBKEYHASH3:
+	case MSR_IA32_XSS:
+		return true;
+	default:
+		break;
+	}
+
+	return false;
+}
+
 static int pkvm_check_processor_compat(void)
 {
 	return kvm_call_pkvm(check_processor_compatibility);
@@ -209,6 +237,26 @@ static void pkvm_disable_virtualization_cpu(void)
 }
 
 static void pkvm_emergency_disable_virtualization_cpu(void) { /* TODO */ }
+
+static bool pkvm_has_emulated_msr(struct kvm *kvm, u32 index)
+{
+	switch (index) {
+	case MSR_IA32_SMBASE:
+		/* The guest SMM mode is not supported. */
+	case KVM_FIRST_EMULATED_VMX_MSR ... KVM_LAST_EMULATED_VMX_MSR:
+		/* The guest VMX feature is not supported */
+	case MSR_AMD64_VIRT_SPEC_CTRL:
+	case MSR_AMD64_TSC_RATIO:
+		/* This is AMD only.  */
+		return false;
+	default:
+		/*
+		 * The MSR not emulated by the pkvm hypervisor can be emualted
+		 * by the host.
+		 */
+		return !pkvm_hyp_emulated_msr(index);
+	}
+}
 
 static int pkvm_vm_init(struct kvm *kvm)
 {
@@ -416,6 +464,51 @@ static int pkvm_get_feature_msr(u32 msr, u64 *data)
 	default:
 		return KVM_MSR_RET_UNSUPPORTED;
 	}
+}
+
+static int pkvm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+{
+	/* Use PV interface to get the MSR emulated by the pkvm hypervisor */
+	if (pkvm_hyp_emulated_msr(msr_info->index)) {
+		if (!vcpu->arch.guest_state_protected) {
+			struct msr_data *msr = get_this_pv_param(msr);
+			int ret;
+
+			*msr = *msr_info;
+			ret = kvm_call_pkvm(get_msr, vcpu, msr);
+			msr_info->data = msr->data;
+			put_this_pv_param(msr);
+
+			return ret;
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	/* Otherwise handle by the host VMM itself */
+	return kvm_get_msr_common(vcpu, msr_info);
+}
+
+static int pkvm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+{
+	/* Use PV interface to set the MSR emulated by the pkvm hypervisor */
+	if (pkvm_hyp_emulated_msr(msr_info->index)) {
+		if (!vcpu->arch.guest_state_protected) {
+			struct msr_data *msr = get_this_pv_param(msr);
+			int ret;
+
+			*msr = *msr_info;
+			ret = kvm_call_pkvm(set_msr, vcpu, msr);
+			put_this_pv_param(msr);
+
+			return ret;
+		} else {
+			return -EINVAL;
+		}
+	}
+
+	/* Otherwise handle by the host VMM itself */
+	return kvm_set_msr_common(vcpu, msr_info);
 }
 
 static u64 pkvm_get_segment_base(struct kvm_vcpu *vcpu, int seg)
@@ -728,7 +821,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.disable_virtualization_cpu = pkvm_disable_virtualization_cpu,
 	.emergency_disable_virtualization_cpu = pkvm_emergency_disable_virtualization_cpu,
 
-	.has_emulated_msr = vmx_has_emulated_msr,
+	.has_emulated_msr = pkvm_has_emulated_msr,
 
 	.vm_size = sizeof(struct kvm_vmx),
 	.vm_init = pkvm_vm_init,
@@ -745,8 +838,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 
 	.update_exception_bitmap = vmx_update_exception_bitmap,
 	.get_feature_msr = pkvm_get_feature_msr,
-	.get_msr = vmx_get_msr,
-	.set_msr = vmx_set_msr,
+	.get_msr = pkvm_get_msr,
+	.set_msr = pkvm_set_msr,
 	.get_segment_base = pkvm_get_segment_base,
 	.get_segment = pkvm_get_segment,
 	.set_segment = pkvm_set_segment,
