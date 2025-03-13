@@ -402,6 +402,33 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 
 static void pkvm_update_emulated_instruction(struct kvm_vcpu *vcpu) {}
 
+static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
+{
+	struct kvm_cpuid_entry2 *e2 = vcpu->arch.cpuid_entries;
+	int nent = vcpu->arch.cpuid_nent;
+	unsigned long unused_pa;
+	void *entries;
+	size_t size;
+
+	if (vcpu->arch.guest_state_protected || !e2 || !nent)
+		return;
+
+	size = sizeof(struct kvm_cpuid_entry2) * nent;
+	entries = alloc_pages_exact(size, GFP_KERNEL_ACCOUNT);
+	if (!entries) {
+		kvm_err("Failed to allocate cpuid pages for pkvm vcpu\n");
+		return;
+	}
+
+	memcpy(entries, (void *)e2, size);
+
+	unused_pa = kvm_call_pkvm(vcpu_after_set_cpuid, vcpu, __pa(entries));
+	if (VALID_PAGE(unused_pa)) {
+		entries = __va(unused_pa);
+		free_pages_exact(entries, size);
+	}
+}
+
 static u64 pkvm_get_l2_tsc_offset(struct kvm_vcpu *vcpu)
 {
 	return 0;
@@ -586,7 +613,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 
 	.get_exit_info = vmx_get_exit_info,
 
-	.vcpu_after_set_cpuid = vmx_vcpu_after_set_cpuid,
+	.vcpu_after_set_cpuid = pkvm_vcpu_after_set_cpuid,
 
 	.has_wbinvd_exit = cpu_has_vmx_wbinvd_exit,
 
