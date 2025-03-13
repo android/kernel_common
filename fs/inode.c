@@ -24,6 +24,9 @@
 #include <trace/events/writeback.h>
 #include "internal.h"
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/fs.h>
+
 /*
  * Inode locking rules:
  *
@@ -707,6 +710,7 @@ static void evict(struct inode *inode)
 	if (!list_empty(&inode->i_io_list))
 		inode_io_list_del(inode);
 
+	trace_android_vh_evict(inode);
 	inode_sb_list_del(inode);
 
 	spin_lock(&inode->i_lock);

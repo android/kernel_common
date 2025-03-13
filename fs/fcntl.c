@@ -32,6 +32,7 @@
 #include <linux/poll.h>
 #include <asm/siginfo.h>
 #include <linux/uaccess.h>
+#include <trace/hooks/fs.h>
 
 #include "internal.h"
 
@@ -551,6 +552,7 @@ static long do_fcntl(int fd, unsigned int cmd, unsigned long arg,
 		err = fcntl_set_rw_hint(filp, cmd, arg);
 		break;
 	default:
+		trace_android_rvh_do_fcntl(filp, cmd, arg, &err);
 		break;
 	}
 	return err;
