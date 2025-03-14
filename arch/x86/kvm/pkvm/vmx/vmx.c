@@ -3029,6 +3029,17 @@ void vmx_get_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
 	var->g = (ar >> 15) & 1;
 }
 
+u64 vmx_get_segment_base(struct kvm_vcpu *vcpu, int seg)
+{
+	struct kvm_segment s;
+
+	if (to_vmx(vcpu)->rmode.vm86_active) {
+		vmx_get_segment(vcpu, &s, seg);
+		return s.base;
+	}
+	return vmx_read_guest_seg_base(to_vmx(vcpu), seg);
+}
+
 int vmx_get_cpl(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -3093,6 +3104,13 @@ void __vmx_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
 		var->type |= 0x1; /* Accessed */
 
 	vmcs_write32(sf->ar_bytes, vmx_segment_access_rights(var));
+}
+
+void vmx_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
+{
+	__vmx_set_segment(vcpu, var, seg);
+
+	to_vmx(vcpu)->emulation_required = vmx_emulation_required(vcpu);
 }
 
 static bool rmode_segment_valid(struct kvm_vcpu *vcpu, int seg)
@@ -6604,6 +6622,9 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.update_exception_bitmap = vmx_update_exception_bitmap,
 	.get_msr = vmx_get_msr,
 	.set_msr = vmx_set_msr,
+	.get_segment_base = vmx_get_segment_base,
+	.get_segment = vmx_get_segment,
+	.set_segment = vmx_set_segment,
 	.set_cr0 = vmx_set_cr0,
 	.set_cr4 = vmx_set_cr4,
 	.set_efer = vmx_set_efer,
