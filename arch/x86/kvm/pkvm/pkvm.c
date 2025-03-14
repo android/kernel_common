@@ -348,6 +348,70 @@ void put_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
 	put_pkvm_vm(pkvm_vcpu->pkvm_vm);
 }
 
+static struct pkvm_vcpu *get_pkvm_vcpu_via_shared(struct kvm_vcpu *shared_vcpu)
+{
+	struct pkvm_vcpu *pkvm_vcpu;
+	struct kvm *shared_kvm;
+
+	/*
+	 * FIXME: Any check neeeds to be performed before accessing
+	 * the shared_vcpu?
+	 */
+	shared_kvm = kern_pkvm_va(shared_vcpu->kvm);
+	pkvm_vcpu = get_pkvm_vcpu(shared_kvm->arch.pkvm.pkvm_vm_handle,
+				  shared_vcpu->arch.pkvm_vcpu_handle);
+	if (!pkvm_vcpu)
+		return NULL;
+
+	if (pkvm_vcpu->shared_vcpu == shared_vcpu)
+		return pkvm_vcpu;
+
+	put_pkvm_vcpu(pkvm_vcpu);
+	return NULL;
+}
+
+static struct pkvm_vcpu *load_pkvm_vcpu(struct kvm_vcpu *shared_vcpu)
+{
+	struct pkvm_vcpu *pkvm_vcpu = get_pkvm_vcpu_via_shared(shared_vcpu);
+
+	if (!pkvm_vcpu)
+		return NULL;
+
+	pkvm_x86_call(switch_to_guest_vcpu)(to_kvm_vcpu(pkvm_vcpu));
+
+	return pkvm_vcpu;
+}
+
+static void unload_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
+{
+	if (!pkvm_vcpu)
+		return;
+
+	pkvm_x86_call(switch_to_host_vcpu)(this_cpu_read(host_vcpu));
+
+	put_pkvm_vcpu(pkvm_vcpu);
+}
+
+static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
+					       struct kvm_vcpu *shared_vcpu,
+					       unsigned long p2, unsigned  long p3)
+{
+	struct pkvm_vcpu *pkvm_vcpu;
+	unsigned long ret = 0;
+
+	pkvm_vcpu = load_pkvm_vcpu(shared_vcpu);
+
+	switch (fn) {
+	default:
+		ret = -EINVAL;
+		break;
+	}
+
+	unload_pkvm_vcpu(pkvm_vcpu);
+
+	return ret;
+}
+
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3)
 {
@@ -374,7 +438,8 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 		ret = pkvm_vcpu_create((struct kvm_vcpu *)kern_pkvm_va((void *)p1), p2);
 		break;
 	default:
-		ret = -EINVAL;
+		ret = pkvm_vcpu_handle_kvm_call(fn, (struct kvm_vcpu *)kern_pkvm_va((void *)p1),
+						p2, p3);
 		break;
 	}
 
