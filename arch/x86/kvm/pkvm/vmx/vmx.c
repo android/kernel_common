@@ -248,6 +248,30 @@ static DEFINE_SPINLOCK(vmx_vpid_lock);
 struct vmcs_config vmcs_config __ro_after_init;
 struct vmx_capability vmx_capability __ro_after_init;
 
+#define VMX_SEGMENT_FIELD(seg)					\
+	[VCPU_SREG_##seg] = {                                   \
+		.selector = GUEST_##seg##_SELECTOR,		\
+		.base = GUEST_##seg##_BASE,		   	\
+		.limit = GUEST_##seg##_LIMIT,		   	\
+		.ar_bytes = GUEST_##seg##_AR_BYTES,	   	\
+	}
+
+static const struct kvm_vmx_segment_field {
+	unsigned selector;
+	unsigned base;
+	unsigned limit;
+	unsigned ar_bytes;
+} kvm_vmx_segment_fields[] = {
+	VMX_SEGMENT_FIELD(CS),
+	VMX_SEGMENT_FIELD(DS),
+	VMX_SEGMENT_FIELD(ES),
+	VMX_SEGMENT_FIELD(FS),
+	VMX_SEGMENT_FIELD(GS),
+	VMX_SEGMENT_FIELD(SS),
+	VMX_SEGMENT_FIELD(TR),
+	VMX_SEGMENT_FIELD(LDTR),
+};
+
 static unsigned long host_idt_base;
 
 /*
@@ -381,6 +405,30 @@ void loaded_vmcs_clear(struct loaded_vmcs *loaded_vmcs)
 			 __loaded_vmcs_clear, loaded_vmcs, 1);
 }
 #endif
+
+static bool vmx_segment_cache_test_set(struct vcpu_vmx *vmx, unsigned seg,
+				       unsigned field)
+{
+	bool ret;
+	u32 mask = 1 << (seg * SEG_FIELD_NR + field);
+
+	if (!kvm_register_is_available(&vmx->vcpu, VCPU_EXREG_SEGMENTS)) {
+		kvm_register_mark_available(&vmx->vcpu, VCPU_EXREG_SEGMENTS);
+		vmx->segment_cache.bitmask = 0;
+	}
+	ret = vmx->segment_cache.bitmask & mask;
+	vmx->segment_cache.bitmask |= mask;
+	return ret;
+}
+
+static u32 vmx_read_guest_seg_ar(struct vcpu_vmx *vmx, unsigned seg)
+{
+	u32 *p = &vmx->segment_cache.seg[seg].ar;
+
+	if (!vmx_segment_cache_test_set(vmx, seg, SEG_FIELD_AR))
+		*p = vmcs_read32(kvm_vmx_segment_fields[seg].ar_bytes);
+	return *p;
+}
 
 /*
  * Check if MSR is intercepted for currently loaded MSR bitmap.
@@ -1456,6 +1504,18 @@ void ept_save_pdptrs(struct kvm_vcpu *vcpu)
 	mmu->pdptrs[3] = vmcs_read64(GUEST_PDPTR3);
 
 	kvm_register_mark_available(vcpu, VCPU_EXREG_PDPTR);
+}
+
+int vmx_get_cpl(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	if (unlikely(vmx->rmode.vm86_active))
+		return 0;
+	else {
+		int ar = vmx_read_guest_seg_ar(vmx, VCPU_SREG_SS);
+		return VMX_AR_DPL(ar);
+	}
 }
 
 int allocate_vpid(void)
