@@ -78,6 +78,11 @@ module_param_named(preemption_timer, enable_preemption_timer, bool, S_IRUGO);
 extern bool __read_mostly allow_smaller_maxphyaddr;
 module_param(allow_smaller_maxphyaddr, bool, S_IRUGO);
 
+#define KVM_VM_CR0_ALWAYS_OFF (X86_CR0_NW | X86_CR0_CD)
+#define KVM_VM_CR0_ALWAYS_ON_UNRESTRICTED_GUEST X86_CR0_NE
+#define KVM_VM_CR0_ALWAYS_ON				\
+	(KVM_VM_CR0_ALWAYS_ON_UNRESTRICTED_GUEST | X86_CR0_PG | X86_CR0_PE)
+
 #define KVM_VM_CR4_ALWAYS_ON_UNRESTRICTED_GUEST X86_CR4_VMXE
 #define KVM_PMODE_VM_CR4_ALWAYS_ON (X86_CR4_PAE | X86_CR4_VMXE)
 #define KVM_RMODE_VM_CR4_ALWAYS_ON (X86_CR4_VME | X86_CR4_PAE | X86_CR4_VMXE)
@@ -195,6 +200,8 @@ static void vmx_update_fb_clear_dis(struct kvm_vcpu *vcpu, struct vcpu_vmx *vmx)
 	    (vcpu->arch.arch_capabilities & ARCH_CAP_SBDR_SSDP_NO)))
 		vmx->disable_fb_clear = false;
 }
+
+static u32 vmx_segment_access_rights(struct kvm_segment *var);
 
 void vmx_vmexit(void);
 
@@ -2565,6 +2572,143 @@ static __init int alloc_kvm_area(void)
 	return 0;
 }
 
+static void fix_pmode_seg(struct kvm_vcpu *vcpu, int seg,
+		struct kvm_segment *save)
+{
+	if (!emulate_invalid_guest_state) {
+		/*
+		 * CS and SS RPL should be equal during guest entry according
+		 * to VMX spec, but in reality it is not always so. Since vcpu
+		 * is in the middle of the transition from real mode to
+		 * protected mode it is safe to assume that RPL 0 is a good
+		 * default value.
+		 */
+		if (seg == VCPU_SREG_CS || seg == VCPU_SREG_SS)
+			save->selector &= ~SEGMENT_RPL_MASK;
+		save->dpl = save->selector & SEGMENT_RPL_MASK;
+		save->s = 1;
+	}
+	__vmx_set_segment(vcpu, save, seg);
+}
+
+static void enter_pmode(struct kvm_vcpu *vcpu)
+{
+	unsigned long flags;
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	/*
+	 * Update real mode segment cache. It may be not up-to-date if segment
+	 * register was written while vcpu was in a guest mode.
+	 */
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_ES], VCPU_SREG_ES);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_DS], VCPU_SREG_DS);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_FS], VCPU_SREG_FS);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_GS], VCPU_SREG_GS);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_SS], VCPU_SREG_SS);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_CS], VCPU_SREG_CS);
+
+	vmx->rmode.vm86_active = 0;
+
+	__vmx_set_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_TR], VCPU_SREG_TR);
+
+	flags = vmcs_readl(GUEST_RFLAGS);
+	flags &= RMODE_GUEST_OWNED_EFLAGS_BITS;
+	flags |= vmx->rmode.save_rflags & ~RMODE_GUEST_OWNED_EFLAGS_BITS;
+	vmcs_writel(GUEST_RFLAGS, flags);
+
+	vmcs_writel(GUEST_CR4, (vmcs_readl(GUEST_CR4) & ~X86_CR4_VME) |
+			(vmcs_readl(CR4_READ_SHADOW) & X86_CR4_VME));
+
+	vmx_update_exception_bitmap(vcpu);
+
+	fix_pmode_seg(vcpu, VCPU_SREG_CS, &vmx->rmode.segs[VCPU_SREG_CS]);
+	fix_pmode_seg(vcpu, VCPU_SREG_SS, &vmx->rmode.segs[VCPU_SREG_SS]);
+	fix_pmode_seg(vcpu, VCPU_SREG_ES, &vmx->rmode.segs[VCPU_SREG_ES]);
+	fix_pmode_seg(vcpu, VCPU_SREG_DS, &vmx->rmode.segs[VCPU_SREG_DS]);
+	fix_pmode_seg(vcpu, VCPU_SREG_FS, &vmx->rmode.segs[VCPU_SREG_FS]);
+	fix_pmode_seg(vcpu, VCPU_SREG_GS, &vmx->rmode.segs[VCPU_SREG_GS]);
+}
+
+static void fix_rmode_seg(int seg, struct kvm_segment *save)
+{
+	const struct kvm_vmx_segment_field *sf = &kvm_vmx_segment_fields[seg];
+	struct kvm_segment var = *save;
+
+	var.dpl = 0x3;
+	if (seg == VCPU_SREG_CS)
+		var.type = 0x3;
+
+	if (!emulate_invalid_guest_state) {
+		var.selector = var.base >> 4;
+		var.base = var.base & 0xffff0;
+		var.limit = 0xffff;
+		var.g = 0;
+		var.db = 0;
+		var.present = 1;
+		var.s = 1;
+		var.l = 0;
+		var.unusable = 0;
+		var.type = 0x3;
+		var.avl = 0;
+		if (save->base & 0xf)
+			pr_warn_once("segment base is not paragraph aligned "
+				     "when entering protected mode (seg=%d)", seg);
+	}
+
+	vmcs_write16(sf->selector, var.selector);
+	vmcs_writel(sf->base, var.base);
+	vmcs_write32(sf->limit, var.limit);
+	vmcs_write32(sf->ar_bytes, vmx_segment_access_rights(&var));
+}
+
+static void enter_rmode(struct kvm_vcpu *vcpu)
+{
+	unsigned long flags;
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct kvm_vmx *kvm_vmx = to_kvm_vmx(vcpu->kvm);
+
+	/*
+	 * KVM should never use VM86 to virtualize Real Mode when L2 is active,
+	 * as using VM86 is unnecessary if unrestricted guest is enabled, and
+	 * if unrestricted guest is disabled, VM-Enter (from L1) with CR0.PG=0
+	 * should VM-Fail and KVM should reject userspace attempts to stuff
+	 * CR0.PG=0 when L2 is active.
+	 */
+	WARN_ON_ONCE(is_guest_mode(vcpu));
+
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_TR], VCPU_SREG_TR);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_ES], VCPU_SREG_ES);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_DS], VCPU_SREG_DS);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_FS], VCPU_SREG_FS);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_GS], VCPU_SREG_GS);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_SS], VCPU_SREG_SS);
+	vmx_get_segment(vcpu, &vmx->rmode.segs[VCPU_SREG_CS], VCPU_SREG_CS);
+
+	vmx->rmode.vm86_active = 1;
+
+	vmx_segment_cache_clear(vmx);
+
+	vmcs_writel(GUEST_TR_BASE, kvm_vmx->tss_addr);
+	vmcs_write32(GUEST_TR_LIMIT, RMODE_TSS_SIZE - 1);
+	vmcs_write32(GUEST_TR_AR_BYTES, 0x008b);
+
+	flags = vmcs_readl(GUEST_RFLAGS);
+	vmx->rmode.save_rflags = flags;
+
+	flags |= X86_EFLAGS_IOPL | X86_EFLAGS_VM;
+
+	vmcs_writel(GUEST_RFLAGS, flags);
+	vmcs_writel(GUEST_CR4, vmcs_readl(GUEST_CR4) | X86_CR4_VME);
+	vmx_update_exception_bitmap(vcpu);
+
+	fix_rmode_seg(VCPU_SREG_SS, &vmx->rmode.segs[VCPU_SREG_SS]);
+	fix_rmode_seg(VCPU_SREG_CS, &vmx->rmode.segs[VCPU_SREG_CS]);
+	fix_rmode_seg(VCPU_SREG_ES, &vmx->rmode.segs[VCPU_SREG_ES]);
+	fix_rmode_seg(VCPU_SREG_DS, &vmx->rmode.segs[VCPU_SREG_DS]);
+	fix_rmode_seg(VCPU_SREG_GS, &vmx->rmode.segs[VCPU_SREG_GS]);
+	fix_rmode_seg(VCPU_SREG_FS, &vmx->rmode.segs[VCPU_SREG_FS]);
+}
+
 int vmx_set_efer(struct kvm_vcpu *vcpu, u64 efer)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -2587,6 +2731,32 @@ int vmx_set_efer(struct kvm_vcpu *vcpu, u64 efer)
 	vmx_setup_uret_msrs(vmx);
 	return 0;
 }
+
+#ifdef CONFIG_X86_64
+
+static void enter_lmode(struct kvm_vcpu *vcpu)
+{
+	u32 guest_tr_ar;
+
+	vmx_segment_cache_clear(to_vmx(vcpu));
+
+	guest_tr_ar = vmcs_read32(GUEST_TR_AR_BYTES);
+	if ((guest_tr_ar & VMX_AR_TYPE_MASK) != VMX_AR_TYPE_BUSY_64_TSS) {
+		pr_debug_ratelimited("%s: tss fixup for long mode. \n",
+				     __func__);
+		vmcs_write32(GUEST_TR_AR_BYTES,
+			     (guest_tr_ar & ~VMX_AR_TYPE_MASK)
+			     | VMX_AR_TYPE_BUSY_64_TSS);
+	}
+	vmx_set_efer(vcpu, vcpu->arch.efer | EFER_LMA);
+}
+
+static void exit_lmode(struct kvm_vcpu *vcpu)
+{
+	vmx_set_efer(vcpu, vcpu->arch.efer & ~EFER_LMA);
+}
+
+#endif
 
 void vmx_flush_tlb_all(struct kvm_vcpu *vcpu)
 {
@@ -2647,6 +2817,98 @@ void ept_save_pdptrs(struct kvm_vcpu *vcpu)
 	mmu->pdptrs[3] = vmcs_read64(GUEST_PDPTR3);
 
 	kvm_register_mark_available(vcpu, VCPU_EXREG_PDPTR);
+}
+
+#define CR3_EXITING_BITS (CPU_BASED_CR3_LOAD_EXITING | \
+			  CPU_BASED_CR3_STORE_EXITING)
+
+void vmx_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	unsigned long hw_cr0, old_cr0_pg;
+	u32 tmp;
+
+	old_cr0_pg = kvm_read_cr0_bits(vcpu, X86_CR0_PG);
+
+	hw_cr0 = (cr0 & ~KVM_VM_CR0_ALWAYS_OFF);
+	if (enable_unrestricted_guest)
+		hw_cr0 |= KVM_VM_CR0_ALWAYS_ON_UNRESTRICTED_GUEST;
+	else {
+		hw_cr0 |= KVM_VM_CR0_ALWAYS_ON;
+		if (!enable_ept)
+			hw_cr0 |= X86_CR0_WP;
+
+		if (vmx->rmode.vm86_active && (cr0 & X86_CR0_PE))
+			enter_pmode(vcpu);
+
+		if (!vmx->rmode.vm86_active && !(cr0 & X86_CR0_PE))
+			enter_rmode(vcpu);
+	}
+
+	vmcs_writel(CR0_READ_SHADOW, cr0);
+	vmcs_writel(GUEST_CR0, hw_cr0);
+	vcpu->arch.cr0 = cr0;
+	kvm_register_mark_available(vcpu, VCPU_EXREG_CR0);
+
+#ifdef CONFIG_X86_64
+	if (vcpu->arch.efer & EFER_LME) {
+		if (!old_cr0_pg && (cr0 & X86_CR0_PG))
+			enter_lmode(vcpu);
+		else if (old_cr0_pg && !(cr0 & X86_CR0_PG))
+			exit_lmode(vcpu);
+	}
+#endif
+
+	if (enable_ept && !enable_unrestricted_guest) {
+		/*
+		 * Ensure KVM has an up-to-date snapshot of the guest's CR3.  If
+		 * the below code _enables_ CR3 exiting, vmx_cache_reg() will
+		 * (correctly) stop reading vmcs.GUEST_CR3 because it thinks
+		 * KVM's CR3 is installed.
+		 */
+		if (!kvm_register_is_available(vcpu, VCPU_EXREG_CR3))
+			vmx_cache_reg(vcpu, VCPU_EXREG_CR3);
+
+		/*
+		 * When running with EPT but not unrestricted guest, KVM must
+		 * intercept CR3 accesses when paging is _disabled_.  This is
+		 * necessary because restricted guests can't actually run with
+		 * paging disabled, and so KVM stuffs its own CR3 in order to
+		 * run the guest when identity mapped page tables.
+		 *
+		 * Do _NOT_ check the old CR0.PG, e.g. to optimize away the
+		 * update, it may be stale with respect to CR3 interception,
+		 * e.g. after nested VM-Enter.
+		 *
+		 * Lastly, honor L1's desires, i.e. intercept CR3 loads and/or
+		 * stores to forward them to L1, even if KVM does not need to
+		 * intercept them to preserve its identity mapped page tables.
+		 */
+		if (!(cr0 & X86_CR0_PG)) {
+			exec_controls_setbit(vmx, CR3_EXITING_BITS);
+		} else if (!is_guest_mode(vcpu)) {
+			exec_controls_clearbit(vmx, CR3_EXITING_BITS);
+		} else {
+			tmp = exec_controls_get(vmx);
+			tmp &= ~CR3_EXITING_BITS;
+			tmp |= get_vmcs12(vcpu)->cpu_based_vm_exec_control & CR3_EXITING_BITS;
+			exec_controls_set(vmx, tmp);
+		}
+
+		/* Note, vmx_set_cr4() consumes the new vcpu->arch.cr0. */
+		if ((old_cr0_pg ^ cr0) & X86_CR0_PG)
+			vmx_set_cr4(vcpu, kvm_read_cr4(vcpu));
+
+		/*
+		 * When !CR0_PG -> CR0_PG, vcpu->arch.cr3 becomes active, but
+		 * GUEST_CR3 is still vmx->ept_identity_map_addr if EPT + !URG.
+		 */
+		if (!(old_cr0_pg & X86_CR0_PG) && (cr0 & X86_CR0_PG))
+			kvm_register_mark_dirty(vcpu, VCPU_EXREG_CR3);
+	}
+
+	/* depends on vcpu->arch.cr0 to be set to a new value */
+	vmx->emulation_required = vmx_emulation_required(vcpu);
 }
 
 u64 construct_eptp(struct kvm_vcpu *vcpu, hpa_t root_hpa, int root_level)
@@ -2794,6 +3056,43 @@ static u32 vmx_segment_access_rights(struct kvm_segment *var)
 	ar |= (var->unusable || !var->present) << 16;
 
 	return ar;
+}
+
+void __vmx_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	const struct kvm_vmx_segment_field *sf = &kvm_vmx_segment_fields[seg];
+
+	vmx_segment_cache_clear(vmx);
+
+	if (vmx->rmode.vm86_active && seg != VCPU_SREG_LDTR) {
+		vmx->rmode.segs[seg] = *var;
+		if (seg == VCPU_SREG_TR)
+			vmcs_write16(sf->selector, var->selector);
+		else if (var->s)
+			fix_rmode_seg(seg, &vmx->rmode.segs[seg]);
+		return;
+	}
+
+	vmcs_writel(sf->base, var->base);
+	vmcs_write32(sf->limit, var->limit);
+	vmcs_write16(sf->selector, var->selector);
+
+	/*
+	 *   Fix the "Accessed" bit in AR field of segment registers for older
+	 * qemu binaries.
+	 *   IA32 arch specifies that at the time of processor reset the
+	 * "Accessed" bit in the AR field of segment registers is 1. And qemu
+	 * is setting it to 0 in the userland code. This causes invalid guest
+	 * state vmexit when "unrestricted guest" mode is turned on.
+	 *    Fix for this setup issue in cpu_reset is being pushed in the qemu
+	 * tree. Newer qemu binaries with that qemu fix would not need this
+	 * kvm hack.
+	 */
+	if (is_unrestricted_guest(vcpu) && (seg != VCPU_SREG_LDTR))
+		var->type |= 0x1; /* Accessed */
+
+	vmcs_write32(sf->ar_bytes, vmx_segment_access_rights(var));
 }
 
 static bool rmode_segment_valid(struct kvm_vcpu *vcpu, int seg)
@@ -6306,6 +6605,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.update_exception_bitmap = vmx_update_exception_bitmap,
 	.get_msr = vmx_get_msr,
 	.set_msr = vmx_set_msr,
+	.set_cr0 = vmx_set_cr0,
 	.set_cr4 = vmx_set_cr4,
 	.set_efer = vmx_set_efer,
 	.set_dr7 = vmx_set_dr7,
