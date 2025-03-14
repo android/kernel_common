@@ -33,4 +33,5 @@ void pkvm_sync_emulated_fields_vmcs12to02(struct kvm_vcpu *guest_vcpu);
 void pkvm_sync_emulated_fields_vmcs02to12(struct kvm_vcpu *guest_vcpu);
 void pkvm_nested_load_vmcs(struct kvm_vcpu *guest_vcpu);
 void pkvm_nested_release_vmcs(struct kvm_vcpu *guest_vcpu);
+void pkvm_update_host_rip(struct kvm_vcpu *vcpu);
 #endif

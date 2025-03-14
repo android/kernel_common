@@ -1594,3 +1594,9 @@ void pkvm_nested_release_vmcs(struct kvm_vcpu *guest_vcpu)
 	vmcs12 = (struct vmcs12 *)shadow_vcpu->cached_vmcs12;
 	vmcs12->launch_state = 0;
 }
+
+void vmx_vmexit(void);
+void pkvm_update_host_rip(struct kvm_vcpu *vcpu)
+{
+	vmcs_writel(HOST_RIP, (unsigned long)vmx_vmexit);
+}
