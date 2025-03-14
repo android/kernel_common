@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
-#include <x86.h>
+#include "x86.h"
+#include <asm/debugreg.h>
 #include <asm/fpu/xcr.h>
 #include <cpuid.h>
 
@@ -411,6 +412,7 @@ EXPORT_SYMBOL_GPL(kvm_x86_vendor_init);
 int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 {
 #ifdef __PKVM_HYP__
+	vcpu->arch.last_vmentry_cpu = -1;
 	vcpu->arch.regs_avail = ~0;
 	vcpu->arch.regs_dirty = ~0;
 
@@ -731,3 +733,42 @@ void kvm_arch_destroy_vm(struct kvm *kvm)
 	static_call_cond(kvm_x86_vm_free)(kvm);
 #endif
 }
+
+#ifdef __PKVM_HYP__
+void kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
+{
+	fastpath_t exit_fastpath;
+
+	if (kvm_x86_call(vcpu_pre_run)(vcpu) <= 0)
+		return;
+
+	vcpu->arch.last_vmentry_cpu = vcpu->cpu;
+
+	/* TODO: Save the host VMM fpu and load the guest fpu */
+
+	vcpu->arch.host_debugctl = get_debugctlmsr();
+
+	for (;;) {
+		/*
+		 * Make sure vcpu->mode is changed to IN_GUEST_MODE before
+		 * running to mark this vcpu should be kicked for any new
+		 * vcpu request.
+		 */
+		smp_store_mb(vcpu->mode, IN_GUEST_MODE);
+
+		exit_fastpath = kvm_x86_call(vcpu_run)(vcpu, force_immediate_exit);
+
+		/*
+		 * Make sure vcpu->mode is changed to OUTSIDE_GUEST_MODE after
+		 * vmexit to mark this vcpu no need to be kicked for any new
+		 * vcpu request.
+		 */
+		smp_store_mb(vcpu->mode, OUTSIDE_GUEST_MODE);
+
+		if (likely(exit_fastpath != EXIT_FASTPATH_REENTER_GUEST))
+			break;
+	}
+
+	/* TODO: Restore the host VMM fpu and save the guest fpu */
+}
+#endif

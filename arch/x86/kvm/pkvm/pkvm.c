@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <asm/processor.h>
 #include <asm/kvm_pkvm.h>
+#include "x86.h"
 #include "pkvm.h"
 #include <asm/pkvm_spinlock.h>
 //FIXME: clean up the header files
@@ -463,6 +464,14 @@ static void pkvm_vcpu_put(struct pkvm_vcpu *pkvm_vcpu)
 	set_pkvm_vcpu_free(pkvm_vcpu);
 }
 
+static void pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immediate_exit)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_vcpu_enter_guest(to_kvm_vcpu(pkvm_vcpu), force_immediate_exit);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -478,6 +487,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__vcpu_put:
 		pkvm_vcpu_put(pkvm_vcpu);
+		break;
+	case __pkvm__vcpu_run:
+		pkvm_vcpu_run(pkvm_vcpu, (bool)p2);
 		break;
 	default:
 		ret = -EINVAL;
