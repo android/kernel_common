@@ -408,6 +408,18 @@ static void set_pkvm_vcpu_inuse(struct pkvm_vcpu *pkvm_vcpu)
 	vcpu->cpu = cpu;
 }
 
+static void set_pkvm_vcpu_free(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+	if (vcpu->cpu != raw_smp_processor_id())
+		/* Not inuse in this CPU */
+		return;
+
+	vcpu->cpu = -1;
+	put_pkvm_vm(pkvm_vcpu->pkvm_vm);
+}
+
 static void pkvm_vcpu_load(struct pkvm_vcpu *pkvm_vcpu, int cpu)
 {
 	struct kvm_vcpu *vcpu;
@@ -432,6 +444,24 @@ static void pkvm_vcpu_load(struct pkvm_vcpu *pkvm_vcpu, int cpu)
 	set_pkvm_vcpu_inuse(pkvm_vcpu);
 }
 
+static void pkvm_vcpu_put(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+	/* Only the CPU which has loaded this vcpu can do a put */
+	if (WARN_ON_ONCE(vcpu->cpu != raw_smp_processor_id()))
+		return;
+
+	kvm_x86_call(vcpu_put)(vcpu);
+
+	set_pkvm_vcpu_free(pkvm_vcpu);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -444,6 +474,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 	switch (fn) {
 	case __pkvm__vcpu_load:
 		pkvm_vcpu_load(pkvm_vcpu, (int)p2);
+		break;
+	case __pkvm__vcpu_put:
+		pkvm_vcpu_put(pkvm_vcpu);
 		break;
 	default:
 		ret = -EINVAL;
