@@ -6,6 +6,7 @@
 #include <linux/user-return-notifier.h>
 #include <trace.h>
 #include <uapi/asm/debugreg.h>
+#include <smm.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -33,6 +34,8 @@ u64 __read_mostly efer_reserved_bits = ~((u64)(EFER_SCE | EFER_LME | EFER_LMA));
 #else
 static u64 __read_mostly efer_reserved_bits = ~((u64)EFER_SCE);
 #endif
+
+static void __kvm_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags);
 
 struct kvm_x86_ops kvm_x86_ops __read_mostly;
 
@@ -244,6 +247,38 @@ noinstr void kvm_spurious_fault(void)
 }
 EXPORT_SYMBOL_GPL(kvm_spurious_fault);
 
+#define EXCPT_FAULT		0
+#define EXCPT_TRAP		1
+#define EXCPT_ABORT		2
+#define EXCPT_INTERRUPT		3
+#define EXCPT_DB		4
+
+static int exception_type(int vector)
+{
+	unsigned int mask;
+
+	if (WARN_ON(vector > 31 || vector == NMI_VECTOR))
+		return EXCPT_INTERRUPT;
+
+	mask = 1 << vector;
+
+	/*
+	 * #DBs can be trap-like or fault-like, the caller must check other CPU
+	 * state, e.g. DR6, to determine whether a #DB is a trap or fault.
+	 */
+	if (mask & (1 << DB_VECTOR))
+		return EXCPT_DB;
+
+	if (mask & ((1 << BP_VECTOR) | (1 << OF_VECTOR)))
+		return EXCPT_TRAP;
+
+	if (mask & ((1 << DF_VECTOR) | (1 << MC_VECTOR)))
+		return EXCPT_ABORT;
+
+	/* Reserved exceptions will result in fault */
+	return EXCPT_FAULT;
+}
+
 void kvm_deliver_exception_payload(struct kvm_vcpu *vcpu,
 				   struct kvm_queued_exception *ex)
 {
@@ -378,6 +413,21 @@ int kvm_emulate_xsetbv(struct kvm_vcpu *vcpu)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_xsetbv);
+
+void kvm_update_dr7(struct kvm_vcpu *vcpu)
+{
+	unsigned long dr7;
+
+	if (vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP)
+		dr7 = vcpu->arch.guest_debug_dr7;
+	else
+		dr7 = vcpu->arch.dr7;
+	kvm_x86_call(set_dr7)(vcpu, dr7);
+	vcpu->arch.switch_db_regs &= ~KVM_DEBUGREG_BP_ENABLED;
+	if (dr7 & DR7_BP_EN_MASK)
+		vcpu->arch.switch_db_regs |= KVM_DEBUGREG_BP_ENABLED;
+}
+EXPORT_SYMBOL_GPL(kvm_update_dr7);
 
 int kvm_emulate_rdpmc(struct kvm_vcpu *vcpu)
 {
@@ -971,6 +1021,293 @@ int kvm_emulate_hypercall(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_hypercall);
 
+int kvm_check_nested_events(struct kvm_vcpu *vcpu)
+{
+#ifdef __PKVM_HYP__
+	return 0;
+#else
+	if (kvm_test_request(KVM_REQ_TRIPLE_FAULT, vcpu)) {
+		kvm_x86_ops.nested_ops->triple_fault(vcpu);
+		return 1;
+	}
+
+	return kvm_x86_ops.nested_ops->check_events(vcpu);
+#endif
+}
+
+static void kvm_inject_exception(struct kvm_vcpu *vcpu)
+{
+	/*
+	 * Suppress the error code if the vCPU is in Real Mode, as Real Mode
+	 * exceptions don't report error codes.  The presence of an error code
+	 * is carried with the exception and only stripped when the exception
+	 * is injected as intercepted #PF VM-Exits for AMD's Paged Real Mode do
+	 * report an error code despite the CPU being in Real Mode.
+	 */
+	vcpu->arch.exception.has_error_code &= is_protmode(vcpu);
+
+	trace_kvm_inj_exception(vcpu->arch.exception.vector,
+				vcpu->arch.exception.has_error_code,
+				vcpu->arch.exception.error_code,
+				vcpu->arch.exception.injected);
+
+	kvm_x86_call(inject_exception)(vcpu);
+}
+
+/*
+ * Check for any event (interrupt or exception) that is ready to be injected,
+ * and if there is at least one event, inject the event with the highest
+ * priority.  This handles both "pending" events, i.e. events that have never
+ * been injected into the guest, and "injected" events, i.e. events that were
+ * injected as part of a previous VM-Enter, but weren't successfully delivered
+ * and need to be re-injected.
+ *
+ * Note, this is not guaranteed to be invoked on a guest instruction boundary,
+ * i.e. doesn't guarantee that there's an event window in the guest.  KVM must
+ * be able to inject exceptions in the "middle" of an instruction, and so must
+ * also be able to re-inject NMIs and IRQs in the middle of an instruction.
+ * I.e. for exceptions and re-injected events, NOT invoking this on instruction
+ * boundaries is necessary and correct.
+ *
+ * For simplicity, KVM uses a single path to inject all events (except events
+ * that are injected directly from L1 to L2) and doesn't explicitly track
+ * instruction boundaries for asynchronous events.  However, because VM-Exits
+ * that can occur during instruction execution typically result in KVM skipping
+ * the instruction or injecting an exception, e.g. instruction and exception
+ * intercepts, and because pending exceptions have higher priority than pending
+ * interrupts, KVM still honors instruction boundaries in most scenarios.
+ *
+ * But, if a VM-Exit occurs during instruction execution, and KVM does NOT skip
+ * the instruction or inject an exception, then KVM can incorrecty inject a new
+ * asynchronous event if the event became pending after the CPU fetched the
+ * instruction (in the guest).  E.g. if a page fault (#PF, #NPF, EPT violation)
+ * occurs and is resolved by KVM, a coincident NMI, SMI, IRQ, etc... can be
+ * injected on the restarted instruction instead of being deferred until the
+ * instruction completes.
+ *
+ * In practice, this virtualization hole is unlikely to be observed by the
+ * guest, and even less likely to cause functional problems.  To detect the
+ * hole, the guest would have to trigger an event on a side effect of an early
+ * phase of instruction execution, e.g. on the instruction fetch from memory.
+ * And for it to be a functional problem, the guest would need to depend on the
+ * ordering between that side effect, the instruction completing, _and_ the
+ * delivery of the asynchronous event.
+ */
+static int kvm_check_and_inject_events(struct kvm_vcpu *vcpu,
+				       bool *req_immediate_exit)
+{
+	bool can_inject;
+	int r;
+
+	/*
+	 * Process nested events first, as nested VM-Exit supersedes event
+	 * re-injection.  If there's an event queued for re-injection, it will
+	 * be saved into the appropriate vmc{b,s}12 fields on nested VM-Exit.
+	 */
+	if (is_guest_mode(vcpu))
+		r = kvm_check_nested_events(vcpu);
+	else
+		r = 0;
+
+	/*
+	 * Re-inject exceptions and events *especially* if immediate entry+exit
+	 * to/from L2 is needed, as any event that has already been injected
+	 * into L2 needs to complete its lifecycle before injecting a new event.
+	 *
+	 * Don't re-inject an NMI or interrupt if there is a pending exception.
+	 * This collision arises if an exception occurred while vectoring the
+	 * injected event, KVM intercepted said exception, and KVM ultimately
+	 * determined the fault belongs to the guest and queues the exception
+	 * for injection back into the guest.
+	 *
+	 * "Injected" interrupts can also collide with pending exceptions if
+	 * userspace ignores the "ready for injection" flag and blindly queues
+	 * an interrupt.  In that case, prioritizing the exception is correct,
+	 * as the exception "occurred" before the exit to userspace.  Trap-like
+	 * exceptions, e.g. most #DBs, have higher priority than interrupts.
+	 * And while fault-like exceptions, e.g. #GP and #PF, are the lowest
+	 * priority, they're only generated (pended) during instruction
+	 * execution, and interrupts are recognized at instruction boundaries.
+	 * Thus a pending fault-like exception means the fault occurred on the
+	 * *previous* instruction and must be serviced prior to recognizing any
+	 * new events in order to fully complete the previous instruction.
+	 */
+	if (vcpu->arch.exception.injected)
+		kvm_inject_exception(vcpu);
+	else if (kvm_is_exception_pending(vcpu))
+		; /* see above */
+	else if (vcpu->arch.nmi_injected)
+		kvm_x86_call(inject_nmi)(vcpu);
+	else if (vcpu->arch.interrupt.injected)
+		kvm_x86_call(inject_irq)(vcpu, true);
+
+	/*
+	 * Exceptions that morph to VM-Exits are handled above, and pending
+	 * exceptions on top of injected exceptions that do not VM-Exit should
+	 * either morph to #DF or, sadly, override the injected exception.
+	 */
+	WARN_ON_ONCE(vcpu->arch.exception.injected &&
+		     vcpu->arch.exception.pending);
+
+	/*
+	 * Bail if immediate entry+exit to/from the guest is needed to complete
+	 * nested VM-Enter or event re-injection so that a different pending
+	 * event can be serviced (or if KVM needs to exit to userspace).
+	 *
+	 * Otherwise, continue processing events even if VM-Exit occurred.  The
+	 * VM-Exit will have cleared exceptions that were meant for L2, but
+	 * there may now be events that can be injected into L1.
+	 */
+	if (r < 0)
+		goto out;
+
+	/*
+	 * A pending exception VM-Exit should either result in nested VM-Exit
+	 * or force an immediate re-entry and exit to/from L2, and exception
+	 * VM-Exits cannot be injected (flag should _never_ be set).
+	 */
+	WARN_ON_ONCE(vcpu->arch.exception_vmexit.injected ||
+		     vcpu->arch.exception_vmexit.pending);
+
+	/*
+	 * New events, other than exceptions, cannot be injected if KVM needs
+	 * to re-inject a previous event.  See above comments on re-injecting
+	 * for why pending exceptions get priority.
+	 */
+	can_inject = !kvm_event_needs_reinjection(vcpu);
+
+	if (vcpu->arch.exception.pending) {
+		/*
+		 * Fault-class exceptions, except #DBs, set RF=1 in the RFLAGS
+		 * value pushed on the stack.  Trap-like exception and all #DBs
+		 * leave RF as-is (KVM follows Intel's behavior in this regard;
+		 * AMD states that code breakpoint #DBs excplitly clear RF=0).
+		 *
+		 * Note, most versions of Intel's SDM and AMD's APM incorrectly
+		 * describe the behavior of General Detect #DBs, which are
+		 * fault-like.  They do _not_ set RF, a la code breakpoints.
+		 */
+		if (exception_type(vcpu->arch.exception.vector) == EXCPT_FAULT)
+			__kvm_set_rflags(vcpu, kvm_get_rflags(vcpu) |
+					     X86_EFLAGS_RF);
+
+		if (vcpu->arch.exception.vector == DB_VECTOR) {
+			kvm_deliver_exception_payload(vcpu, &vcpu->arch.exception);
+			if (vcpu->arch.dr7 & DR7_GD) {
+				vcpu->arch.dr7 &= ~DR7_GD;
+				kvm_update_dr7(vcpu);
+			}
+		}
+
+		kvm_inject_exception(vcpu);
+
+		vcpu->arch.exception.pending = false;
+		vcpu->arch.exception.injected = true;
+
+		can_inject = false;
+	}
+
+	/* Don't inject interrupts if the user asked to avoid doing so */
+	if (vcpu->guest_debug & KVM_GUESTDBG_BLOCKIRQ)
+		return 0;
+
+	/*
+	 * The host will use the PV interfaces to check and inject the
+	 * smi/nmi/interrupt, and the pkvm hypervisor just needs to check if
+	 * needs to re-inject which is done at the beginning.
+	 */
+#ifndef __PKVM_HYP__
+	/*
+	 * Finally, inject interrupt events.  If an event cannot be injected
+	 * due to architectural conditions (e.g. IF=0) a window-open exit
+	 * will re-request KVM_REQ_EVENT.  Sometimes however an event is pending
+	 * and can architecturally be injected, but we cannot do it right now:
+	 * an interrupt could have arrived just now and we have to inject it
+	 * as a vmexit, or there could already an event in the queue, which is
+	 * indicated by can_inject.  In that case we request an immediate exit
+	 * in order to make progress and get back here for another iteration.
+	 * The kvm_x86_ops hooks communicate this by returning -EBUSY.
+	 */
+#ifdef CONFIG_KVM_SMM
+	if (vcpu->arch.smi_pending) {
+		r = can_inject ? kvm_x86_call(smi_allowed)(vcpu, true) :
+				 -EBUSY;
+		if (r < 0)
+			goto out;
+		if (r) {
+			vcpu->arch.smi_pending = false;
+			++vcpu->arch.smi_count;
+			enter_smm(vcpu);
+			can_inject = false;
+		} else
+			kvm_x86_call(enable_smi_window)(vcpu);
+	}
+#endif
+
+	if (vcpu->arch.nmi_pending) {
+		r = can_inject ? kvm_x86_call(nmi_allowed)(vcpu, true) :
+				 -EBUSY;
+		if (r < 0)
+			goto out;
+		if (r) {
+			--vcpu->arch.nmi_pending;
+			vcpu->arch.nmi_injected = true;
+			kvm_x86_call(inject_nmi)(vcpu);
+			can_inject = false;
+			WARN_ON(kvm_x86_call(nmi_allowed)(vcpu, true) < 0);
+		}
+		if (vcpu->arch.nmi_pending)
+			kvm_x86_call(enable_nmi_window)(vcpu);
+	}
+
+	if (kvm_cpu_has_injectable_intr(vcpu)) {
+		r = can_inject ? kvm_x86_call(interrupt_allowed)(vcpu, true) :
+				 -EBUSY;
+		if (r < 0)
+			goto out;
+		if (r) {
+			int irq = kvm_cpu_get_interrupt(vcpu);
+
+			if (!WARN_ON_ONCE(irq == -1)) {
+				kvm_queue_interrupt(vcpu, irq, false);
+				kvm_x86_call(inject_irq)(vcpu, false);
+				WARN_ON(kvm_x86_call(interrupt_allowed)(vcpu, true) < 0);
+			}
+		}
+		if (kvm_cpu_has_injectable_intr(vcpu))
+			kvm_x86_call(enable_irq_window)(vcpu);
+	}
+#endif
+
+	if (is_guest_mode(vcpu) &&
+	    kvm_x86_ops.nested_ops->has_events &&
+	    kvm_x86_ops.nested_ops->has_events(vcpu, true))
+		*req_immediate_exit = true;
+
+	/*
+	 * KVM must never queue a new exception while injecting an event; KVM
+	 * is done emulating and should only propagate the to-be-injected event
+	 * to the VMCS/VMCB.  Queueing a new exception can put the vCPU into an
+	 * infinite loop as KVM will bail from VM-Enter to inject the pending
+	 * exception and start the cycle all over.
+	 *
+	 * Exempt triple faults as they have special handling and won't put the
+	 * vCPU into an infinite loop.  Triple fault can be queued when running
+	 * VMX without unrestricted guest, as that requires KVM to emulate Real
+	 * Mode events (see kvm_inject_realmode_interrupt()).
+	 */
+	WARN_ON_ONCE(vcpu->arch.exception.pending ||
+		     vcpu->arch.exception_vmexit.pending);
+	return 0;
+
+out:
+	if (r == -EBUSY) {
+		*req_immediate_exit = true;
+		r = 0;
+	}
+	return r;
+}
+
 int kvm_emulate_halt(struct kvm_vcpu *vcpu)
 {
 	/* TODO */
@@ -1305,6 +1642,29 @@ void kvm_arch_destroy_vm(struct kvm *kvm)
 #endif
 }
 
+unsigned long kvm_get_rflags(struct kvm_vcpu *vcpu)
+{
+	unsigned long rflags;
+
+	rflags = kvm_x86_call(get_rflags)(vcpu);
+#ifndef __PKVM_HYP__ /* No guest_debug support in the pkvm hypervisor */
+	if (vcpu->guest_debug & KVM_GUESTDBG_SINGLESTEP)
+		rflags &= ~X86_EFLAGS_TF;
+#endif
+	return rflags;
+}
+EXPORT_SYMBOL_GPL(kvm_get_rflags);
+
+static void __kvm_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags)
+{
+#ifndef __PKVM_HYP__ /* No guest_debug support in the pkvm hypervisor */
+	if (vcpu->guest_debug & KVM_GUESTDBG_SINGLESTEP &&
+	    kvm_is_linear_rip(vcpu, vcpu->arch.singlestep_rip))
+		rflags |= X86_EFLAGS_TF;
+#endif
+	kvm_x86_call(set_rflags)(vcpu, rflags);
+}
+
 int kvm_spec_ctrl_test_value(u64 value)
 {
 	/*
@@ -1366,12 +1726,17 @@ fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit
 	vcpu->arch.host_debugctl = get_debugctlmsr();
 
 	for (;;) {
+		bool req_immediate_exit = false;
+
 		if (kvm_request_pending(vcpu)) {
 			if (kvm_check_request(KVM_REQ_TLB_FLUSH, vcpu))
 				kvm_vcpu_flush_tlb_all(vcpu);
 
 			if (kvm_check_request(KVM_REQ_TLB_FLUSH_CURRENT, vcpu))
 				kvm_vcpu_flush_tlb_current(vcpu);
+
+			if (kvm_check_request(KVM_REQ_EVENT, vcpu))
+				kvm_check_and_inject_events(vcpu, &req_immediate_exit);
 		}
 
 		kvm_x86_call(prepare_switch_to_guest)(vcpu);
@@ -1383,7 +1748,12 @@ fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit
 		 */
 		smp_store_mb(vcpu->mode, IN_GUEST_MODE);
 
-		exit_fastpath = kvm_x86_call(vcpu_run)(vcpu, force_immediate_exit);
+		if (req_immediate_exit)
+			kvm_make_request(KVM_REQ_EVENT, vcpu);
+		else
+			req_immediate_exit = force_immediate_exit;
+
+		exit_fastpath = kvm_x86_call(vcpu_run)(vcpu, req_immediate_exit);
 
 		/*
 		 * Make sure vcpu->mode is changed to OUTSIDE_GUEST_MODE after
