@@ -5,15 +5,18 @@
 #include <vmx/vmx_ops.h>
 #include <asm/cpuid.h>
 #include <asm/msr.h>
+#include <asm/debugreg.h>
 #include <vmx/vmx.h>
 #include <vmx/x86_ops.h>
 #include <vmx/nested.h>
 #include <vmx/sgx.h>
 #include "vmx.h"
+#include <trace.h>
 #include <pkvm/pkvm.h>
 #include <vmx/pkvm/hyp/pkvm_hyp.h>
 #include <vmx/pkvm/hyp/mem_protect.h>
 #include <vmx/pkvm/hyp/nested.h>
+#include <pkvm.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -334,6 +337,159 @@ static void __loaded_vmcs_clear(void *arg)
 
 	loaded_vmcs->cpu = -1;
 	loaded_vmcs->launched = 0;
+}
+
+#ifndef __PKVM_HYP__
+void loaded_vmcs_clear(struct loaded_vmcs *loaded_vmcs)
+{
+	int cpu = loaded_vmcs->cpu;
+
+	if (cpu != -1)
+		smp_call_function_single(cpu,
+			 __loaded_vmcs_clear, loaded_vmcs, 1);
+}
+#endif
+
+static void shrink_ple_window(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	unsigned int old = vmx->ple_window;
+
+	vmx->ple_window = __shrink_ple_window(old, ple_window,
+					      ple_window_shrink,
+					      ple_window);
+
+	if (vmx->ple_window != old) {
+		vmx->ple_window_dirty = true;
+		trace_kvm_ple_window_update(vcpu->vcpu_id,
+					    vmx->ple_window, old);
+	}
+}
+
+#ifdef __PKVM_HYP__
+static unsigned long get_pkvm_tss(int cpu)
+{
+#ifdef CONFIG_PKVM_INTEL_DEBUG
+	return (unsigned long)&get_cpu_entry_area(cpu)->tss.x86_tss;
+#else
+	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(per_cpu(host_vcpu, cpu));
+
+	return (unsigned long)&hvcpu->pcpu->tss;
+#endif
+}
+#endif
+
+void vmx_vcpu_load_vmcs(struct kvm_vcpu *vcpu, int cpu,
+			struct loaded_vmcs *buddy)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	bool already_loaded = vmx->loaded_vmcs->cpu == cpu;
+	struct vmcs *prev;
+
+	if (!already_loaded) {
+#ifdef __PKVM_HYP__
+		/*
+		 * pkvm doesn't support smp call thus doesn't support clear vmcs
+		 * on a remote CPU. Suppose this vmcs is already cleared by
+		 * vmx_vcpu_put, otherwise it cannot be loaded on this CPU.
+		 */
+		if (WARN_ON_ONCE(vmx->loaded_vmcs->cpu != -1))
+			return;
+#else
+		loaded_vmcs_clear(vmx->loaded_vmcs);
+#endif
+		local_irq_disable();
+
+		/*
+		 * Ensure loaded_vmcs->cpu is read before adding loaded_vmcs to
+		 * this cpu's percpu list, otherwise it may not yet be deleted
+		 * from its previous cpu's percpu list.  Pairs with the
+		 * smb_wmb() in __loaded_vmcs_clear().
+		 */
+		smp_rmb();
+
+		list_add(&vmx->loaded_vmcs->loaded_vmcss_on_cpu_link,
+			 &per_cpu(loaded_vmcss_on_cpu, cpu));
+		local_irq_enable();
+	}
+
+	prev = per_cpu(current_vmcs, cpu);
+	if (prev != vmx->loaded_vmcs->vmcs) {
+		per_cpu(current_vmcs, cpu) = vmx->loaded_vmcs->vmcs;
+		vmcs_load(vmx->loaded_vmcs->vmcs);
+		/*
+		 * No indirect branch prediction barrier needed when switching
+		 * the active VMCS within a vCPU, unless IBRS is advertised to
+		 * the vCPU.  To minimize the number of IBPBs executed, KVM
+		 * performs IBPB on nested VM-Exit (a single nested transition
+		 * may switch the active VMCS multiple times).
+		 */
+		if (!buddy || WARN_ON_ONCE(buddy->vmcs != prev))
+			indirect_branch_prediction_barrier();
+	}
+
+	if (!already_loaded) {
+#ifdef __PKVM_HYP__
+		struct desc_ptr gdt;
+		/*
+		 * Flush all EPTP/VPID contexts, the new pCPU may have stale
+		 * TLB entries from its previous association with the vCPU.
+		 *
+		 * TODO: Handle this request inside pkvm hypervisor.
+		 */
+		kvm_make_request(KVM_REQ_TLB_FLUSH, vcpu);
+
+		vmcs_writel(HOST_TR_BASE, get_pkvm_tss(cpu));
+
+		native_store_gdt(&gdt);
+		vmcs_writel(HOST_GDTR_BASE, gdt.address);
+
+		if (IS_ENABLED(CONFIG_IA32_EMULATION) || IS_ENABLED(CONFIG_X86_32)) {
+			unsigned long msr = __rdmsr(MSR_IA32_SYSENTER_ESP);
+
+			vmcs_writel(HOST_IA32_SYSENTER_ESP, msr);
+		}
+#else
+		void *gdt = get_current_gdt_ro();
+
+		/*
+		 * Flush all EPTP/VPID contexts, the new pCPU may have stale
+		 * TLB entries from its previous association with the vCPU.
+		 */
+		kvm_make_request(KVM_REQ_TLB_FLUSH, vcpu);
+
+		/*
+		 * Linux uses per-cpu TSS and GDT, so set these when switching
+		 * processors.  See 22.2.4.
+		 */
+		vmcs_writel(HOST_TR_BASE,
+			    (unsigned long)&get_cpu_entry_area(cpu)->tss.x86_tss);
+		vmcs_writel(HOST_GDTR_BASE, (unsigned long)gdt);   /* 22.2.4 */
+
+		if (IS_ENABLED(CONFIG_IA32_EMULATION) || IS_ENABLED(CONFIG_X86_32)) {
+			/* 22.2.3 */
+			vmcs_writel(HOST_IA32_SYSENTER_ESP,
+				    (unsigned long)(cpu_entry_stack(cpu) + 1));
+		}
+#endif
+		vmx->loaded_vmcs->cpu = cpu;
+	}
+}
+
+/*
+ * Switches to specified vcpu, until a matching vcpu_put(), but assumes
+ * vcpu mutex is already taken.
+ */
+void vmx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
+{
+	if (vcpu->scheduled_out && !kvm_pause_in_guest(vcpu->kvm))
+		shrink_ple_window(vcpu);
+
+	vmx_vcpu_load_vmcs(vcpu, cpu, NULL);
+
+#ifndef __PKVM_HYP__
+	vmx_vcpu_pi_load(vcpu, cpu);
+#endif
 }
 
 /*
@@ -1642,6 +1798,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 
 	.vcpu_create = vmx_vcpu_create,
 	.vcpu_free = vmx_vcpu_free,
+
+	.vcpu_load = vmx_vcpu_load,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {
