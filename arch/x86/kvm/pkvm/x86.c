@@ -4,6 +4,7 @@
 #include <asm/fpu/xcr.h>
 #include <cpuid.h>
 #include <linux/user-return-notifier.h>
+#include <trace.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -33,6 +34,9 @@ static u64 __read_mostly efer_reserved_bits = ~((u64)EFER_SCE);
 #endif
 
 struct kvm_x86_ops kvm_x86_ops __read_mostly;
+
+static bool __read_mostly ignore_msrs = 0;
+module_param(ignore_msrs, bool, 0644);
 
 bool __read_mostly report_ignored_msrs = true;
 module_param(report_ignored_msrs, bool, 0644);
@@ -80,6 +84,70 @@ EXPORT_SYMBOL_GPL(allow_smaller_maxphyaddr);
 
 bool __read_mostly enable_apicv = true;
 EXPORT_SYMBOL_GPL(enable_apicv);
+
+static bool kvm_is_advertised_msr(u32 msr_index)
+{
+#ifndef __PKVM_HYP__ /* FIXME: Is it necessary for the pkvm hypervisor to check these? */
+	unsigned int i;
+
+	for (i = 0; i < num_msrs_to_save; i++) {
+		if (msrs_to_save[i] == msr_index)
+			return true;
+	}
+
+	for (i = 0; i < num_emulated_msrs; i++) {
+		if (emulated_msrs[i] == msr_index)
+			return true;
+	}
+#endif
+
+	return false;
+}
+
+typedef int (*msr_access_t)(struct kvm_vcpu *vcpu, u32 index, u64 *data,
+			    bool host_initiated);
+
+static __always_inline int kvm_do_msr_access(struct kvm_vcpu *vcpu, u32 msr,
+					     u64 *data, bool host_initiated,
+					     enum kvm_msr_access rw,
+					     msr_access_t msr_access_fn)
+{
+	const char *op = rw == MSR_TYPE_W ? "wrmsr" : "rdmsr";
+	int ret;
+
+	BUILD_BUG_ON(rw != MSR_TYPE_R && rw != MSR_TYPE_W);
+
+	/*
+	 * Zero the data on read failures to avoid leaking stack data to the
+	 * guest and/or userspace, e.g. if the failure is ignored below.
+	 */
+	ret = msr_access_fn(vcpu, msr, data, host_initiated);
+	if (ret && rw == MSR_TYPE_R)
+		*data = 0;
+
+	if (ret != KVM_MSR_RET_UNSUPPORTED)
+		return ret;
+
+	/*
+	 * Userspace is allowed to read MSRs, and write '0' to MSRs, that KVM
+	 * advertises to userspace, even if an MSR isn't fully supported.
+	 * Simply check that @data is '0', which covers both the write '0' case
+	 * and all reads (in which case @data is zeroed on failure; see above).
+	 */
+	if (host_initiated && !*data && kvm_is_advertised_msr(msr))
+		return 0;
+
+	if (!ignore_msrs) {
+		kvm_debug_ratelimited("unhandled %s: 0x%x data 0x%llx\n",
+				      op, msr, *data);
+		return ret;
+	}
+
+	if (report_ignored_msrs)
+		kvm_pr_unimpl("ignored %s: 0x%x data 0x%llx\n", op, msr, *data);
+
+	return 0;
+}
 
 static int kvm_probe_user_return_msr(u32 msr)
 {
@@ -319,17 +387,226 @@ out:
 }
 EXPORT_SYMBOL_GPL(kvm_msr_allowed);
 
+/*
+ * Write @data into the MSR specified by @index.  Select MSR specific fault
+ * checks are bypassed if @host_initiated is %true.
+ * Returns 0 on success, non-0 otherwise.
+ * Assumes vcpu_load() was already called.
+ */
+static int __kvm_set_msr(struct kvm_vcpu *vcpu, u32 index, u64 data,
+			 bool host_initiated)
+{
+	struct msr_data msr;
+
+	switch (index) {
+	case MSR_FS_BASE:
+	case MSR_GS_BASE:
+	case MSR_KERNEL_GS_BASE:
+	case MSR_CSTAR:
+	case MSR_LSTAR:
+		if (is_noncanonical_address(data, vcpu))
+			return 1;
+		break;
+	case MSR_IA32_SYSENTER_EIP:
+	case MSR_IA32_SYSENTER_ESP:
+		/*
+		 * IA32_SYSENTER_ESP and IA32_SYSENTER_EIP cause #GP if
+		 * non-canonical address is written on Intel but not on
+		 * AMD (which ignores the top 32-bits, because it does
+		 * not implement 64-bit SYSENTER).
+		 *
+		 * 64-bit code should hence be able to write a non-canonical
+		 * value on AMD.  Making the address canonical ensures that
+		 * vmentry does not fail on Intel after writing a non-canonical
+		 * value, and that something deterministic happens if the guest
+		 * invokes 64-bit SYSENTER.
+		 */
+		data = __canonical_address(data, vcpu_virt_addr_bits(vcpu));
+		break;
+	case MSR_TSC_AUX:
+		if (!kvm_is_supported_user_return_msr(MSR_TSC_AUX))
+			return 1;
+
+		if (!host_initiated &&
+		    !guest_cpuid_has(vcpu, X86_FEATURE_RDTSCP) &&
+		    !guest_cpuid_has(vcpu, X86_FEATURE_RDPID))
+			return 1;
+
+		/*
+		 * Per Intel's SDM, bits 63:32 are reserved, but AMD's APM has
+		 * incomplete and conflicting architectural behavior.  Current
+		 * AMD CPUs completely ignore bits 63:32, i.e. they aren't
+		 * reserved and always read as zeros.  Enforce Intel's reserved
+		 * bits check if the guest CPU is Intel compatible, otherwise
+		 * clear the bits.  This ensures cross-vendor migration will
+		 * provide consistent behavior for the guest.
+		 */
+		if (guest_cpuid_is_intel_compatible(vcpu) && (data >> 32) != 0)
+			return 1;
+
+		data = (u32)data;
+		break;
+	}
+
+	msr.data = data;
+	msr.index = index;
+	msr.host_initiated = host_initiated;
+
+	return kvm_x86_call(set_msr)(vcpu, &msr);
+}
+
+static int _kvm_set_msr(struct kvm_vcpu *vcpu, u32 index, u64 *data,
+			bool host_initiated)
+{
+	return __kvm_set_msr(vcpu, index, *data, host_initiated);
+}
+
+static int kvm_set_msr_ignored_check(struct kvm_vcpu *vcpu,
+				     u32 index, u64 data, bool host_initiated)
+{
+	return kvm_do_msr_access(vcpu, index, &data, host_initiated, MSR_TYPE_W,
+				 _kvm_set_msr);
+}
+
+/*
+ * Read the MSR specified by @index into @data.  Select MSR specific fault
+ * checks are bypassed if @host_initiated is %true.
+ * Returns 0 on success, non-0 otherwise.
+ * Assumes vcpu_load() was already called.
+ */
+int __kvm_get_msr(struct kvm_vcpu *vcpu, u32 index, u64 *data,
+		  bool host_initiated)
+{
+	struct msr_data msr;
+	int ret;
+
+	switch (index) {
+	case MSR_TSC_AUX:
+		if (!kvm_is_supported_user_return_msr(MSR_TSC_AUX))
+			return 1;
+
+		if (!host_initiated &&
+		    !guest_cpuid_has(vcpu, X86_FEATURE_RDTSCP) &&
+		    !guest_cpuid_has(vcpu, X86_FEATURE_RDPID))
+			return 1;
+		break;
+	}
+
+	msr.index = index;
+	msr.host_initiated = host_initiated;
+
+	ret = kvm_x86_call(get_msr)(vcpu, &msr);
+	if (!ret)
+		*data = msr.data;
+	return ret;
+}
+
+static int kvm_get_msr_ignored_check(struct kvm_vcpu *vcpu,
+				     u32 index, u64 *data, bool host_initiated)
+{
+	return kvm_do_msr_access(vcpu, index, data, host_initiated, MSR_TYPE_R,
+				 __kvm_get_msr);
+}
+
+int kvm_get_msr_with_filter(struct kvm_vcpu *vcpu, u32 index, u64 *data)
+{
+	if (!kvm_msr_allowed(vcpu, index, KVM_MSR_FILTER_READ))
+		return KVM_MSR_RET_FILTERED;
+	return kvm_get_msr_ignored_check(vcpu, index, data, false);
+}
+EXPORT_SYMBOL_GPL(kvm_get_msr_with_filter);
+
+int kvm_set_msr_with_filter(struct kvm_vcpu *vcpu, u32 index, u64 data)
+{
+	if (!kvm_msr_allowed(vcpu, index, KVM_MSR_FILTER_WRITE))
+		return KVM_MSR_RET_FILTERED;
+	return kvm_set_msr_ignored_check(vcpu, index, data, false);
+}
+EXPORT_SYMBOL_GPL(kvm_set_msr_with_filter);
+
 int kvm_emulate_rdmsr(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	u32 ecx = kvm_rcx_read(vcpu);
+	u64 data;
+	int r;
+
+	r = kvm_get_msr_with_filter(vcpu, ecx, &data);
+
+	if (!r) {
+		trace_kvm_msr_read(ecx, data);
+
+		kvm_rax_write(vcpu, data & -1u);
+		kvm_rdx_write(vcpu, (data >> 32) & -1u);
+	} else {
+#ifdef __PKVM_HYP__
+		/*
+		 * The pkvm hypervisor handles the failed rdmsr emulation.
+		 * If rdmsr emulation is unsupported, forward to the host VMM.
+		 * TODO: Any other rdmsr emulation policy?
+		 */
+		if (r != 1)
+			return 0;
+		/*
+		 * FIXME: For the case r == 1, it means rdmsr emulation is
+		 * failed and needs to inject #GP to the guest VM, which
+		 * currently is not supported by the pkvm hypervisor. Switch to
+		 * the host VMM to handle this. Once the #GP injection is
+		 * supported, this should be handled in the pkvm hypervisor.
+		 */
+		return 0;
+#else
+		/* MSR read failed? See if we should ask user space */
+		if (kvm_msr_user_space(vcpu, ecx, KVM_EXIT_X86_RDMSR, 0,
+				       complete_fast_rdmsr, r))
+			return 0;
+		trace_kvm_msr_read_ex(ecx);
+#endif
+	}
+
+	return kvm_x86_call(complete_emulated_msr)(vcpu, r);
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_rdmsr);
 
 int kvm_emulate_wrmsr(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	u32 ecx = kvm_rcx_read(vcpu);
+	u64 data = kvm_read_edx_eax(vcpu);
+	int r;
+
+	r = kvm_set_msr_with_filter(vcpu, ecx, data);
+
+	if (!r) {
+		trace_kvm_msr_write(ecx, data);
+	} else {
+#ifdef __PKVM_HYP__
+		/*
+		 * The pkvm hypervisor handles the failed wrmsr emulation.
+		 * If wrmsr emulation is unsupported, forward to the host VMM.
+		 * TODO: Any other wrmsr emulation policy?
+		 */
+		if (r != 1)
+			return 0;
+		/*
+		 * FIXME: For the case r == 1, it means wrmsr emulation is
+		 * failed and needs to inject #GP to the guest VM, which
+		 * currently is not supported by the pkvm hypervisor. Switch to
+		 * the host VMM to handle this. Once the #GP injection is
+		 * supported, this should be handled in the pkvm hypervisor.
+		 */
+		return 0;
+#else
+		/* MSR write failed? See if we should ask user space */
+		if (kvm_msr_user_space(vcpu, ecx, KVM_EXIT_X86_WRMSR, data,
+				       complete_fast_msr_access, r))
+			return 0;
+		/* Signal all other negative errors to userspace */
+		if (r < 0)
+			return r;
+		trace_kvm_msr_write_ex(ecx, data);
+#endif
+	}
+
+	return kvm_x86_call(complete_emulated_msr)(vcpu, r);
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_wrmsr);
 
