@@ -599,6 +599,28 @@ static void pkvm_set_cr4(struct pkvm_vcpu *pkvm_vcpu, unsigned long cr4)
 	kvm_x86_call(set_cr4)(to_kvm_vcpu(pkvm_vcpu), cr4);
 }
 
+static int pkvm_set_msr(struct pkvm_vcpu *pkvm_vcpu, struct msr_data *msr)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return -EINVAL;
+
+	if (WARN_ON_ONCE(msr != this_pv_param(msr)))
+		return -EINVAL;
+
+	return kvm_x86_call(set_msr)(to_kvm_vcpu(pkvm_vcpu), msr);
+}
+
+static int pkvm_get_msr(struct pkvm_vcpu *pkvm_vcpu, struct msr_data *msr)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return -EINVAL;
+
+	if (WARN_ON_ONCE(msr != this_pv_param(msr)))
+		return -EINVAL;
+
+	return kvm_x86_call(get_msr)(to_kvm_vcpu(pkvm_vcpu), msr);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -640,6 +662,12 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__set_cr4:
 		pkvm_set_cr4(pkvm_vcpu, (unsigned long)p2);
+		break;
+	case __pkvm__set_msr:
+		ret = pkvm_set_msr(pkvm_vcpu, (struct msr_data *)kern_pkvm_va((void *)p2));
+		break;
+	case __pkvm__get_msr:
+		ret = pkvm_get_msr(pkvm_vcpu, (struct msr_data *)kern_pkvm_va((void *)p2));
 		break;
 	default:
 		ret = -EINVAL;

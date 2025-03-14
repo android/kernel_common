@@ -271,10 +271,13 @@ enum pkvm_fn {
 	__pkvm__set_segment,
 	__pkvm__set_cr0,
 	__pkvm__set_cr4,
+	__pkvm__set_msr,
+	__pkvm__get_msr,
 };
 
 union pkvm_pv_param {
 	struct kvm_segment seg;
+	struct msr_data msr;
 } __aligned(PAGE_SIZE);
 
 #endif
