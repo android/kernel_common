@@ -2561,6 +2561,29 @@ static __init int alloc_kvm_area(void)
 	return 0;
 }
 
+int vmx_set_efer(struct kvm_vcpu *vcpu, u64 efer)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	/* Nothing to do if hardware doesn't support EFER. */
+	if (!vmx_find_uret_msr(vmx, MSR_EFER))
+		return 0;
+
+	vcpu->arch.efer = efer;
+#ifdef CONFIG_X86_64
+	if (efer & EFER_LMA)
+		vm_entry_controls_setbit(vmx, VM_ENTRY_IA32E_MODE);
+	else
+		vm_entry_controls_clearbit(vmx, VM_ENTRY_IA32E_MODE);
+#else
+	if (KVM_BUG_ON(efer & EFER_LMA, vcpu->kvm))
+		return 1;
+#endif
+
+	vmx_setup_uret_msrs(vmx);
+	return 0;
+}
+
 void vmx_flush_tlb_all(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -6211,6 +6234,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.update_exception_bitmap = vmx_update_exception_bitmap,
 	.get_msr = vmx_get_msr,
 	.set_msr = vmx_set_msr,
+	.set_efer = vmx_set_efer,
 	.set_dr7 = vmx_set_dr7,
 	.cache_reg = vmx_cache_reg,
 	.get_rflags = vmx_get_rflags,
