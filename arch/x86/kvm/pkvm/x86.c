@@ -175,6 +175,30 @@ noinstr void kvm_spurious_fault(void)
 }
 EXPORT_SYMBOL_GPL(kvm_spurious_fault);
 
+static void kvm_multiple_exception(struct kvm_vcpu *vcpu,
+		unsigned nr, bool has_error, u32 error_code,
+		bool has_payload, unsigned long payload, bool reinject)
+{
+	/* TODO */
+}
+
+int kvm_complete_insn_gp(struct kvm_vcpu *vcpu, int err)
+{
+	if (err)
+		kvm_inject_gp(vcpu, 0);
+	else
+		return kvm_skip_emulated_instruction(vcpu);
+
+	return 1;
+}
+EXPORT_SYMBOL_GPL(kvm_complete_insn_gp);
+
+void kvm_queue_exception_e(struct kvm_vcpu *vcpu, unsigned nr, u32 error_code)
+{
+	kvm_multiple_exception(vcpu, nr, true, error_code, false, 0, false);
+}
+EXPORT_SYMBOL_GPL(kvm_queue_exception_e);
+
 void kvm_load_guest_xsave_state(struct kvm_vcpu *vcpu)
 {
 #ifndef __PKVM_HYP__

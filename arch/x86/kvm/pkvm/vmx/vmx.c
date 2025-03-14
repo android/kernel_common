@@ -4662,6 +4662,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.vcpu_run = vmx_vcpu_run,
 	.handle_exit = vmx_handle_exit,
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
+
+	.complete_emulated_msr = kvm_complete_insn_gp,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {
