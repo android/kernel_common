@@ -452,6 +452,12 @@ static void kvm_multiple_exception(struct kvm_vcpu *vcpu,
 	}
 }
 
+void kvm_requeue_exception(struct kvm_vcpu *vcpu, unsigned nr)
+{
+	kvm_multiple_exception(vcpu, nr, false, 0, false, 0, true);
+}
+EXPORT_SYMBOL_GPL(kvm_requeue_exception);
+
 int kvm_complete_insn_gp(struct kvm_vcpu *vcpu, int err)
 {
 	if (err)
@@ -468,6 +474,12 @@ void kvm_queue_exception_e(struct kvm_vcpu *vcpu, unsigned nr, u32 error_code)
 	kvm_multiple_exception(vcpu, nr, true, error_code, false, 0, false);
 }
 EXPORT_SYMBOL_GPL(kvm_queue_exception_e);
+
+void kvm_requeue_exception_e(struct kvm_vcpu *vcpu, unsigned nr, u32 error_code)
+{
+	kvm_multiple_exception(vcpu, nr, true, error_code, false, 0, true);
+}
+EXPORT_SYMBOL_GPL(kvm_requeue_exception_e);
 
 void kvm_load_guest_xsave_state(struct kvm_vcpu *vcpu)
 {

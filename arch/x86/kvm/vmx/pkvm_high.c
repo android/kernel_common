@@ -391,9 +391,6 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 			ktime_to_ns(ktime_sub(ktime_get(),
 					      vmx->loaded_vmcs->entry_time));
 
-	/* TODO: move to pkvm hypervisor */
-	vmx_complete_interrupts(vmx);
-
 	if (exit_fastpath == EXIT_FASTPATH_EXIT_HANDLED)
 		return exit_fastpath;
 

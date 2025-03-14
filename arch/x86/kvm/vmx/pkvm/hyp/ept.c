@@ -1063,10 +1063,5 @@ int pkvm_handle_guest_ept_violation(struct kvm_vcpu *vcpu, u64 gpa)
 		break;
 	}
 
-	if (handled && (vmcs_read32(IDT_VECTORING_INFO_FIELD) &
-			VECTORING_INFO_VALID_MASK))
-		/* pending interrupt, back to kvm-high to inject */
-		handled = 0;
-
 	return handled;
 }
