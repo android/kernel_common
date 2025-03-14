@@ -282,6 +282,35 @@ int kvm_emulate_wbinvd(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_wbinvd);
 
+int kvm_skip_emulated_instruction(struct kvm_vcpu *vcpu)
+{
+#ifndef __PKVM_HYP__
+	unsigned long rflags = kvm_x86_call(get_rflags)(vcpu);
+#endif
+	int r;
+
+	r = kvm_x86_call(skip_emulated_instruction)(vcpu);
+	if (unlikely(!r))
+		return 0;
+
+#ifndef __PKVM_HYP__ /* No PMU and guest_debug support in the pkvm hypervisor */
+	kvm_pmu_trigger_event(vcpu, kvm_pmu_eventsel.INSTRUCTIONS_RETIRED);
+
+	/*
+	 * rflags is the old, "raw" value of the flags.  The new value has
+	 * not been saved yet.
+	 *
+	 * This is correct even for TF set by the guest, because "the
+	 * processor will not generate this exception after the instruction
+	 * that sets the TF flag".
+	 */
+	if (unlikely(rflags & X86_EFLAGS_TF))
+		r = kvm_vcpu_do_singlestep(vcpu);
+#endif
+	return r;
+}
+EXPORT_SYMBOL_GPL(kvm_skip_emulated_instruction);
+
 int kvm_emulate_instruction(struct kvm_vcpu *vcpu, int emulation_type)
 {
 #ifdef __PKVM_HYP__
