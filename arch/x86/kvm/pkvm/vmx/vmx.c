@@ -3639,6 +3639,37 @@ static void vmx_switch_to_guest_vcpu(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	int cpu = raw_smp_processor_id();
+	struct vcpu_vmx *shared_vmx;
+
+	shared_vmx = to_vmx(to_pkvm_vcpu(vcpu)->shared_vcpu);
+	/*
+	 * Currently the PV method is not fully functional and the VMX working
+	 * model is in a mixed way. Some meta data and the guest registers in
+	 * the kvm_vcpu structure are used by both side so should to keep them
+	 * in sync between the host and the pkvm hypervisor as a temporary
+	 * hack.
+	 */
+	memcpy(&vmx->vmcs01.controls_shadow, &shared_vmx->vmcs01.controls_shadow,
+	       sizeof(struct vmcs_controls_shadow));
+
+	memcpy(&vmx->guest_uret_msrs, &shared_vmx->guest_uret_msrs,
+	       sizeof(struct vmx_uret_msr) * MAX_NR_USER_RETURN_MSRS);
+
+	vmx->hv_deadline_tsc = shared_vmx->hv_deadline_tsc;
+	vmx->msr_ia32_feature_control_valid_bits =
+			shared_vmx->msr_ia32_feature_control_valid_bits;
+
+	vmx->vcpu.arch.regs_dirty |= shared_vmx->vcpu.arch.regs_dirty;
+	memcpy(vmx->vcpu.arch.regs, shared_vmx->vcpu.arch.regs,
+	       sizeof(unsigned long) * NR_VCPU_REGS);
+	vmx->rflags = shared_vmx->rflags;
+	vmx->vcpu.arch.cr0 = shared_vmx->vcpu.arch.cr0;
+	vmx->vcpu.arch.cr2 = shared_vmx->vcpu.arch.cr2;
+	vmx->vcpu.arch.cr3 = shared_vmx->vcpu.arch.cr3;
+	vmx->vcpu.arch.cr4 = shared_vmx->vcpu.arch.cr4;
+	vmx->vcpu.arch.efer = shared_vmx->vcpu.arch.efer;
+	vmx->vcpu.arch.pat = shared_vmx->vcpu.arch.pat;
+	vmx->vcpu.arch.xcr0 = shared_vmx->vcpu.arch.xcr0;
 
 	/* Guest vcpu is not loaded, no need to switch */
 	if (vmx->loaded_vmcs->cpu == -1)
@@ -3663,6 +3694,45 @@ static void vmx_switch_to_host_vcpu(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	int cpu = raw_smp_processor_id();
+	struct vcpu_vmx *shared_vmx;
+
+	shared_vmx = to_vmx(to_pkvm_vcpu(vcpu)->shared_vcpu);
+	/* Similar to data sync in the vmx_switch_to_guest_vcpu */
+	memcpy(&shared_vmx->vmcs01.controls_shadow, &vmx->vmcs01.controls_shadow,
+	       sizeof(struct vmcs_controls_shadow));
+
+	memcpy(&shared_vmx->guest_uret_msrs, &vmx->guest_uret_msrs,
+	       sizeof(struct vmx_uret_msr) * MAX_NR_USER_RETURN_MSRS);
+
+	shared_vmx->hv_deadline_tsc = vmx->hv_deadline_tsc;
+	shared_vmx->msr_ia32_feature_control_valid_bits =
+			vmx->msr_ia32_feature_control_valid_bits;
+
+	shared_vmx->vcpu.arch.regs_dirty |= vmx->vcpu.arch.regs_dirty;
+	memcpy(shared_vmx->vcpu.arch.regs, vmx->vcpu.arch.regs,
+	       sizeof(unsigned long) * NR_VCPU_REGS);
+	shared_vmx->vcpu.arch.regs[VCPU_REGS_RIP] = kvm_rip_read(vcpu);
+	shared_vmx->vcpu.arch.regs[VCPU_REGS_RSP] = kvm_rsp_read(vcpu);
+	shared_vmx->rflags = vmx_get_rflags(vcpu);
+	shared_vmx->vcpu.arch.cr0 = kvm_read_cr0(vcpu);
+	shared_vmx->vcpu.arch.cr2 = vmx->vcpu.arch.cr2;
+	shared_vmx->vcpu.arch.cr3 = kvm_read_cr3(vcpu);
+	shared_vmx->vcpu.arch.cr4 = kvm_read_cr4(vcpu);
+	shared_vmx->vcpu.arch.regs_avail |= (1 << VCPU_REGS_RIP) |
+					    (1 << VCPU_REGS_RSP) |
+					    (1 << VCPU_EXREG_RFLAGS) |
+					    (1 << VCPU_EXREG_CR0) |
+					    (1 << VCPU_EXREG_CR3) |
+					    (1 << VCPU_EXREG_CR4);
+	shared_vmx->vcpu.arch.efer = vmx->vcpu.arch.efer;
+	shared_vmx->vcpu.arch.pat = vmx->vcpu.arch.pat;
+	shared_vmx->vcpu.arch.xcr0 = vmx->vcpu.arch.xcr0;
+
+	shared_vmx->fail = vmx->fail;
+	shared_vmx->exit_reason.full = vmx->exit_reason.full;
+	shared_vmx->idt_vectoring_info = vmx->idt_vectoring_info;
+	vmx_get_intr_info(&shared_vmx->vcpu);
+	vmx_get_exit_qual(&shared_vmx->vcpu);
 
 	if (vmx->loaded_vmcs->cpu == cpu) {
 		vmcs_load(vmx->loaded_vmcs->vmcs);
