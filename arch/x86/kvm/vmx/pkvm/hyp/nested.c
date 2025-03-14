@@ -1502,3 +1502,79 @@ void pkvm_sync_emulated_fields_vmcs02to12(struct kvm_vcpu *guest_vcpu)
 		vmcs12_write_any(vmcs12, field.encoding, field.offset, val);
 	}
 }
+
+void pkvm_nested_load_vmcs(struct kvm_vcpu *guest_vcpu)
+{
+	unsigned long vmptr = __pkvm_pa(to_vmx(guest_vcpu)->loaded_vmcs->vmcs);
+	struct kvm_vcpu *vcpu = this_cpu_read(host_vcpu);
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct shadow_vcpu_state *shadow_vcpu;
+	int cpu = raw_smp_processor_id();
+	struct pkvm_host_vcpu *hvcpu;
+	struct vmcs12 *vmcs12;
+	struct vmcs *vmcs02;
+	s64 handle;
+
+	if (vmx->nested.current_vmptr == vmptr)
+		return;
+
+	nested_release_vmcs12(vcpu);
+
+	handle = find_shadow_vcpu_handle_by_vmcs(vmptr);
+	shadow_vcpu = get_shadow_vcpu(handle);
+	if (!shadow_vcpu)
+		return;
+
+	vmcs02 = (struct vmcs *)shadow_vcpu->vmcs02;
+	vmcs12 = (struct vmcs12 *)shadow_vcpu->cached_vmcs12;
+	hvcpu = to_pkvm_hvcpu(vcpu);
+
+	vmcs_load(vmcs02);
+	if (!shadow_vcpu->vmcs02_inited) {
+		pkvm_init_host_state_area(hvcpu->pcpu, cpu);
+		vmcs_writel(HOST_RIP, (unsigned long)__pkvm_vmexit_entry);
+		/*
+		 * EPTP is mantained by pKVM and configured with
+		 * shadow EPTP from its corresponding shadow VM.
+		 * As shadow EPTP is not changed at runtime, set
+		 * it to EPTP when the first time this vmcs02 is
+		 * loading.
+		 */
+		vmcs_write64(EPT_POINTER,
+			     shadow_vcpu->vm->sept_desc.shadow_eptp);
+		/*
+		 * Flush the shadow eptp in case there are stale
+		 * entries which are not flushed when destroying
+		 * this shadow EPTP at last time.
+		 */
+		pkvm_flush_shadow_ept(&shadow_vcpu->vm->sept_desc);
+
+		shadow_vcpu->vmcs02_inited = true;
+	} else if (shadow_vcpu->last_cpu != cpu) {
+		pkvm_init_host_state_area(hvcpu->pcpu, cpu);
+	}
+
+	/*
+	 * Save the HOST_RSP in host_state. This will be used by the PV-based
+	 * vcpu_run to update the HOST_RSP before entering the guest.
+	 */
+	to_vmx(guest_vcpu)->loaded_vmcs->host_state.rsp = vmcs_readl(HOST_RSP);
+
+	vmx->nested.dirty_vmcs12 = true;
+	pkvm_sync_emulated_fields_vmcs12to02(guest_vcpu);
+
+	vmcs_clear(vmcs02);
+	set_shadow_indicator(vmcs02);
+
+	/* enable shadowing */
+	vmcs_load(vmx->loaded_vmcs->vmcs);
+	vmcs_write64(VMREAD_BITMAP, __pkvm_pa_symbol(vmx_vmread_bitmap));
+	vmcs_write64(VMWRITE_BITMAP, __pkvm_pa_symbol(vmx_vmwrite_bitmap));
+	secondary_exec_controls_setbit(vmx, SECONDARY_EXEC_SHADOW_VMCS);
+	vmcs_write64(VMCS_LINK_POINTER, __pkvm_pa(vmcs02));
+
+	shadow_vcpu->last_cpu = cpu;
+	WRITE_ONCE(shadow_vcpu->vcpu, vcpu);
+	hvcpu->current_shadow_vcpu = shadow_vcpu;
+	vmx->nested.current_vmptr = vmptr;
+}

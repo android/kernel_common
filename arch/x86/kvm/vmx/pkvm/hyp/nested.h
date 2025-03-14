@@ -31,4 +31,5 @@ int read_vmx_msr(struct kvm_vcpu *vcpu, unsigned long msr, u64 *val);
 
 void pkvm_sync_emulated_fields_vmcs12to02(struct kvm_vcpu *guest_vcpu);
 void pkvm_sync_emulated_fields_vmcs02to12(struct kvm_vcpu *guest_vcpu);
+void pkvm_nested_load_vmcs(struct kvm_vcpu *guest_vcpu);
 #endif

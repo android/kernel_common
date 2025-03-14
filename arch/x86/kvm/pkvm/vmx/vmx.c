@@ -490,6 +490,14 @@ void vmx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 #ifndef __PKVM_HYP__
 	vmx_vcpu_pi_load(vcpu, cpu);
 #endif
+
+#ifdef __PKVM_HYP__
+	/*
+	 * As the VMX emulate-based method is still in use, load the vmcs
+	 * following the nested way.
+	 */
+	pkvm_nested_load_vmcs(vcpu);
+#endif
 }
 
 /*
