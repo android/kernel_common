@@ -3434,7 +3434,7 @@ static int kvm_pkvm_hypercall(struct kvm_vcpu *vcpu)
 	int ret = -KVM_EPERM;
 
 	if (cpl) {
-		/* TODO: inject #GP */
+		kvm_inject_gp(vcpu, 0);
 		return 1;
 	}
 
