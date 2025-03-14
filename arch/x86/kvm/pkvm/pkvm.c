@@ -177,6 +177,8 @@ static int attach_pkvm_vcpu_to_vm(struct pkvm_vcpu *pkvm_vcpu, struct pkvm_vm *p
 
 	/* Setup necessary fields in kvm_vcpu */
 	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	/* Set cpu to -1 to indicate it is not loaded on any CPU */
+	vcpu->cpu = -1;
 	vcpu->kvm = kvm;
 	vcpu->vcpu_id = pkvm_vcpu->shared_vcpu->vcpu_id;
 	/*
@@ -393,6 +395,43 @@ static void unload_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
 	put_pkvm_vcpu(pkvm_vcpu);
 }
 
+static void set_pkvm_vcpu_inuse(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
+	int cpu = raw_smp_processor_id();
+
+	if (vcpu->cpu != -1)
+		/* Already inuse */
+		return;
+
+	get_pkvm_vm(vcpu->kvm->arch.pkvm.pkvm_vm_handle);
+	vcpu->cpu = cpu;
+}
+
+static void pkvm_vcpu_load(struct pkvm_vcpu *pkvm_vcpu, int cpu)
+{
+	struct kvm_vcpu *vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	if (WARN_ON_ONCE(cpu != raw_smp_processor_id()))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+	/*
+	 * Loading vcpu on a new CPU without putting it from the previous one
+	 * is not supported.
+	 */
+	if (WARN_ON_ONCE(vcpu->cpu != -1 && vcpu->cpu != cpu))
+		return;
+
+	kvm_x86_call(vcpu_load)(vcpu, cpu);
+
+	set_pkvm_vcpu_inuse(pkvm_vcpu);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -403,6 +442,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 	pkvm_vcpu = load_pkvm_vcpu(shared_vcpu);
 
 	switch (fn) {
+	case __pkvm__vcpu_load:
+		pkvm_vcpu_load(pkvm_vcpu, (int)p2);
+		break;
 	default:
 		ret = -EINVAL;
 		break;

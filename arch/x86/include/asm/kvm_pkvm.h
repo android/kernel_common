@@ -261,6 +261,7 @@ enum pkvm_fn {
 	__pkvm__vm_init,
 	__pkvm__vm_destroy,
 	__pkvm__vcpu_create,
+	__pkvm__vcpu_load,
 };
 
 #endif
