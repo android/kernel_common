@@ -1714,6 +1714,57 @@ static int handle_invlpg(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+#ifdef __PKVM_HYP__
+static int kvm_pkvm_hypercall(struct kvm_vcpu *vcpu)
+{
+	u64 nr, a0, a1, a2, a3;
+	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
+	struct pkvm_pgtable *pgstate_pgt = &shadow_vcpu->vm->pgstate_pgt;
+	int cpl = vmx_get_cpl(vcpu);
+	int ret = -KVM_EPERM;
+
+	if (cpl) {
+		/* TODO: inject #GP */
+		return 1;
+	}
+
+	nr = kvm_rax_read(vcpu);
+	a0 = kvm_rbx_read(vcpu);
+	a1 = kvm_rcx_read(vcpu);
+	a2 = kvm_rdx_read(vcpu);
+	a3 = kvm_rsi_read(vcpu);
+
+	switch (nr) {
+	case PKVM_GHC_SHARE_MEM:
+		ret = __pkvm_guest_share_host(pgstate_pgt, a0, a1);
+		break;
+	case PKVM_GHC_UNSHARE_MEM:
+		ret = __pkvm_guest_unshare_host(pgstate_pgt, a0, a1);
+		break;
+	case PKVM_GHC_IOREAD:
+	case PKVM_GHC_IOWRITE:
+		/* Hypercall for MMIO accessing should be forwared to the host */
+		return 0;
+	default:
+		/* The other hypercalls are not supported */
+		break;
+	}
+
+	kvm_rax_write(vcpu, ret);
+
+	return kvm_skip_emulated_instruction(vcpu);
+}
+#endif
+
+static int handle_vmcall(struct kvm_vcpu *vcpu)
+{
+#ifdef __PKVM_HYP__
+	if (pkvm_is_protected_vcpu(vcpu))
+		return kvm_pkvm_hypercall(vcpu);
+#endif
+	return kvm_emulate_hypercall(vcpu);
+}
+
 static int handle_apic_access(struct kvm_vcpu *vcpu)
 {
 	/* TODO */
@@ -1977,7 +2028,7 @@ static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[EXIT_REASON_INVD]		      = kvm_emulate_invd,
 	[EXIT_REASON_INVLPG]		      = handle_invlpg,
 	[EXIT_REASON_RDPMC]                   = kvm_emulate_rdpmc,
-	[EXIT_REASON_VMCALL]                  = kvm_emulate_hypercall,
+	[EXIT_REASON_VMCALL]                  = handle_vmcall,
 	[EXIT_REASON_VMCLEAR]		      = handle_vmx_instruction,
 	[EXIT_REASON_VMLAUNCH]		      = handle_vmx_instruction,
 	[EXIT_REASON_VMPTRLD]		      = handle_vmx_instruction,
