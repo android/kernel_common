@@ -1562,21 +1562,6 @@ static bool kvm_vma_mte_allowed(struct vm_area_struct *vma)
 	return vma->vm_flags & VM_MTE_ALLOWED;
 }
 
-static int pkvm_host_donate_guest(struct kvm *kvm, u64 pfn, u64 gfn, u64 nr_pages)
-{
-	int ret = kvm_call_hyp_nvhe(__pkvm_host_donate_guest, pfn, gfn, nr_pages);
-
-	/*
-	 * Getting -EPERM at this point implies that the pfn has already been
-	 * mapped. This should only ever happen when two vCPUs faulted on the
-	 * same page, and the current one lost the race to do the mapping...
-	 *
-	 * ...or if we've tried to map a region containing an already mapped
-	 * entry.
-	 */
-	return (ret == -EPERM) ? -EAGAIN : ret;
-}
-
 static struct kvm_pinned_page *find_ppage(struct kvm *kvm, u64 ipa)
 {
 	return kvm_pinned_pages_iter_first(&kvm->arch.pkvm.pinned_pages,
@@ -1593,151 +1578,328 @@ static int insert_ppage(struct kvm *kvm, struct kvm_pinned_page *ppage)
 	return 0;
 }
 
-static int pkvm_mem_abort_device(struct kvm *kvm, u64 pfn, u64 gfn)
+static long __pkvm_align_memslot(struct kvm *kvm, struct kvm_memory_slot *memslot,
+				 gfn_t gfn, size_t size)
 {
-	return kvm_call_hyp_nvhe(__pkvm_host_map_guest_mmio, pfn, gfn);
-}
+	gfn_t memslot_end, gfn_end;
+	unsigned long hva;
+	bool writable;
 
-static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t *fault_ipa,
-			  struct kvm_memory_slot *memslot, size_t *size)
-{
-	unsigned int flags = FOLL_HWPOISON | FOLL_LONGTERM | FOLL_WRITE;
-	struct kvm_hyp_memcache *hyp_memcache = &vcpu->arch.stage2_mc;
-	unsigned long pmd_offset, page_size;
-	struct mm_struct *mm = current->mm;
-	struct kvm_pinned_page *ppage;
-	struct kvm *kvm = vcpu->kvm;
-	struct kvm_s2_mmu *mmu =  &kvm->arch.mmu;
-	struct page *page;
-	gfn_t gfn = *fault_ipa >> PAGE_SHIFT;
-	unsigned long hva = gfn_to_hva_memslot_prot(memslot, gfn, NULL);
-	u64 pfn;
-	int ret;
+	size = PAGE_ALIGN(size);
 
-	if (WARN_ON(!kvm->arch.pkvm.enabled))
+	hva = gfn_to_hva_memslot_prot(memslot, gfn, &writable);
+	if (kvm_is_error_hva(hva) || (kvm->arch.pkvm.enabled && !writable))
 		return -EINVAL;
 
-	ret = topup_hyp_memcache_account(kvm, hyp_memcache, kvm_mmu_cache_min_pages(mmu), 0);
-	if (ret)
-		return -ENOMEM;
+	memslot_end = memslot->base_gfn + memslot->npages;
+	gfn_end = min(gfn + (size >> PAGE_SHIFT), memslot_end);
 
-	ppage = kmalloc(sizeof(*ppage), GFP_KERNEL_ACCOUNT);
-	if (!ppage)
+	return gfn_end - gfn;
+}
+
+static int __pkvm_pin_user_pages(struct kvm *kvm, struct kvm_memory_slot *memslot,
+				 u64 gfn, u64 nr_pages, struct page ***__pages)
+{
+	unsigned long hva = gfn_to_hva_memslot_prot(memslot, gfn, NULL);
+	unsigned int flags = FOLL_HWPOISON | FOLL_LONGTERM | FOLL_WRITE;
+	struct mm_struct *mm = current->mm;
+	struct page **pages;
+	long ret;
+	int p;
+
+	pages = kmalloc_array(nr_pages, sizeof(*pages), GFP_KERNEL);
+	if (!pages)
 		return -ENOMEM;
 
 	mmap_read_lock(mm);
-	ret = pin_user_pages(hva, 1, flags, &page);
+	ret = pin_user_pages(hva, nr_pages, flags, pages);
 	mmap_read_unlock(mm);
 
 	if (ret == -EHWPOISON) {
 		kvm_send_hwpoison_signal(hva, PAGE_SHIFT);
-		ret = 0;
-		goto free_ppage;
+		goto err_free_pages;
 	} else if (ret == -EFAULT) {
-		/*
-		 * pKVM relies on pinning the page then getting the pfn from there to map it,
-		 * However, to avoid adding overhead on the hot path with checking pfn first,
-		 * device check is done on the fail path for pin_user_pages, inside -EFAULT
-		 * case, that possible is because the VMA for the device mapping is VM_IO,
-		 * which fails in check_vma_flags() with -EFAULT
-		 */
-		bool device;
+		/* Will try MMIO map */
+		ret = -EREMOTEIO;
+		goto err_free_pages;
+	} else if (ret < 0) {
+		ret = -EFAULT;
+		goto err_free_pages;
+	} else if (ret != nr_pages) {
+		nr_pages = ret;
+		ret = -EFAULT;
+		goto err_unpin_pages;
+	}
 
-		pfn = __gfn_to_pfn_memslot(memslot, gfn, false, false, NULL,
-					   kvm_is_write_fault(vcpu), NULL, NULL);
+	/*
+	 * We really can't deal with page-cache pages returned by GUP
+	 * because (a) we may trigger writeback of a page for which we
+	 * no longer have access and (b) page_mkclean() won't find the
+	 * stage-2 mapping in the rmap so we can get out-of-whack with
+	 * the filesystem when marking the page dirty during unpinning
+	 * (see cc5095747edf ("ext4: don't BUG if someone dirty pages
+	 * without asking ext4 first")).
+	 *
+	 * Ideally we'd just restrict ourselves to anonymous pages, but
+	 * we also want to allow memfd (i.e. shmem) pages, so check for
+	 * pages backed by swap in the knowledge that the GUP pin will
+	 * prevent try_to_unmap() from succeeding.
+	 */
+	for (p = 0; p < nr_pages; p++) {
+		if (!folio_test_swapbacked(page_folio(pages[p]))) {
+			ret = -EIO;
+			goto err_unpin_pages;
+		}
+	}
+
+	*__pages = pages;
+	return 0;
+
+err_unpin_pages:
+	unpin_user_pages(pages, nr_pages);
+err_free_pages:
+	kfree(pages);
+	return ret;
+}
+
+/*
+ * pKVM relies on pinning the page then getting the pfn from there to map it,
+ * However, to avoid adding overhead on the hot path with checking pfn first,
+ * device check is done on the fail path for pin_user_pages, inside -EFAULT
+ * case, that is possible because the VMA for the device mapping is VM_IO,
+ * which fails in check_vma_flags() with -EFAULT
+ */
+static int __pkvm_mem_abort_device(struct kvm_vcpu *vcpu, struct kvm_memory_slot *memslot,
+				   gfn_t gfn, u64 nr_pages)
+{
+	while (nr_pages--) {
+		kvm_pfn_t pfn = __gfn_to_pfn_memslot(memslot, gfn, false, false, NULL,
+						     kvm_is_write_fault(vcpu), NULL, NULL);
 		if (is_error_noslot_pfn(pfn))
-			goto free_ppage;
-		device = kvm_is_device_pfn(pfn);
-		if (device) {
-			ret = pkvm_mem_abort_device(kvm, pfn, gfn);
+			return -EFAULT;
+
+		if (kvm_is_device_pfn(pfn)) {
+			int ret = kvm_call_hyp_nvhe(__pkvm_host_map_guest_mmio, pfn, gfn);
+
 			if (ret == -EEXIST)
 				ret = 0; /* We might have raced with another vCPU. */
-			else if (!ret && size)
-				*size = PAGE_SIZE;
 		} else {
 			/* Release pin from __gfn_to_pfn_memslot(). */
 			kvm_release_pfn_clean(pfn);
+			return -EFAULT;
 		}
 
-		goto free_ppage;
-	} else if (ret != 1) {
-		ret = -EFAULT;
-		goto free_ppage;
-	} else if (!folio_test_swapbacked(page_folio(page))) {
-		/*
-		 * We really can't deal with page-cache pages returned by GUP
-		 * because (a) we may trigger writeback of a page for which we
-		 * no longer have access and (b) page_mkclean() won't find the
-		 * stage-2 mapping in the rmap so we can get out-of-whack with
-		 * the filesystem when marking the page dirty during unpinning
-		 * (see cc5095747edf ("ext4: don't BUG if someone dirty pages
-		 * without asking ext4 first")).
-		 *
-		 * Ideally we'd just restrict ourselves to anonymous pages, but
-		 * we also want to allow memfd (i.e. shmem) pages, so check for
-		 * pages backed by swap in the knowledge that the GUP pin will
-		 * prevent try_to_unmap() from succeeding.
-		 */
-		ret = -EIO;
-		goto unpin;
+		gfn++;
 	}
-
-	pfn = page_to_pfn(page);
-	pmd_offset = *fault_ipa & (PMD_SIZE - 1);
-	page_size = transparent_hugepage_adjust(kvm, memslot,
-						hva, &pfn,
-						fault_ipa);
-	page = pfn_to_page(pfn);
-
-retry:
-	if (size)
-		*size = page_size;
-
-	ret = account_locked_vm(mm, page_size >> PAGE_SHIFT, true);
-	if (ret)
-		goto unpin;
-
-	write_lock(&kvm->mmu_lock);
-	/*
-	 * If we already have a mapping in the middle of the THP, we have no
-	 * other choice than enforcing PAGE_SIZE for pkvm_host_donate_guest() to
-	 * succeed.
-	 */
-	if (page_size > PAGE_SIZE &&
-	    find_ppage(kvm, *fault_ipa)) {
-		write_unlock(&kvm->mmu_lock);
-		*fault_ipa += pmd_offset;
-		pfn += pmd_offset >> PAGE_SHIFT;
-		page = pfn_to_page(pfn);
-		account_locked_vm(mm, page_size >> PAGE_SHIFT, false);
-		page_size = PAGE_SIZE;
-		goto retry;
-	}
-
-	ret = pkvm_host_donate_guest(kvm, pfn, *fault_ipa >> PAGE_SHIFT, page_size >> PAGE_SHIFT);
-	if (ret) {
-		if (ret == -EAGAIN)
-			ret = 0;
-
-		goto dec_account;
-	}
-
-	ppage->page = page;
-	ppage->ipa = *fault_ipa;
-	ppage->order = get_order(page_size);
-	ppage->pins = 1 << ppage->order;
-	WARN_ON(insert_ppage(kvm, ppage));
-	write_unlock(&kvm->mmu_lock);
 
 	return 0;
+}
 
-dec_account:
+/*
+ * Create a list of kvm_pinned_page based on the array of pages from
+ * __pkvm_pin_pages in preparation for EL2 mapping.
+ *
+ * On success, this function no unpinning is necessary. On error the entire original pages array
+ * must be unpinned.
+ */
+static int
+__pkvm_pages_to_ppages(struct kvm *kvm, struct kvm_memory_slot *memslot, gfn_t gfn,
+		       long *__nr_pages, struct page **pages, struct list_head *ppages)
+{
+	struct list_head ppage_prealloc = LIST_HEAD_INIT(ppage_prealloc);
+	long nr_ppages = 0, nr_pages = *__nr_pages;
+	struct kvm_pinned_page *ppage, *tmp;
+	int p, ret = 0;
+
+	/* Pre-allocate kvm_pinned_page before acquiring the mmu_lock */
+	for (p = 0; p < nr_pages; p++) {
+		ppage = kmalloc(sizeof(*ppage), GFP_KERNEL_ACCOUNT);
+		if (!ppage) {
+			ret = -ENOMEM;
+			goto err;
+		}
+		list_add(&ppage->list_node, &ppage_prealloc);
+	}
+
+	p = 0;
+	read_lock(&kvm->mmu_lock);
+	while (p < nr_pages) {
+		phys_addr_t ipa = gfn << PAGE_SHIFT;
+		struct page *page = pages[p];
+		long page_size, skip;
+		unsigned long hva;
+		u64 pfn;
+
+		ppage = kvm_pinned_pages_iter_first(&kvm->arch.pkvm.pinned_pages,
+						    ipa, ipa + PAGE_SIZE - 1);
+		if (ppage) {
+			unpin_user_pages(&page, 1);
+			goto next;
+		}
+
+		pfn = page_to_pfn(page);
+		hva = gfn_to_hva_memslot_prot(memslot, gfn, NULL);
+		page_size = transparent_hugepage_adjust(kvm, memslot, hva, &pfn, &ipa);
+
+		/* Pop a ppage from the pre-allocated list */
+		ppage = list_first_entry(&ppage_prealloc, struct kvm_pinned_page, list_node);
+		list_del_init(&ppage->list_node);
+
+		ppage->page = pfn_to_page(pfn);
+		ppage->ipa = ipa;
+		ppage->order = get_order(page_size);
+		ppage->pins = 1 << ppage->order;
+		list_add_tail(&ppage->list_node, ppages);
+		nr_ppages += ppage->pins;
+
+next:
+		/* Number of pages to skip (covered by a THP) */
+		skip = ppage->order ? ALIGN(gfn + 1, 1 << ppage->order) - gfn - 1 : 0;
+		if (skip) {
+			long nr_pins = min_t(long, skip, nr_pages - p - 1);
+
+			if (nr_pins >= 1)
+				unpin_user_pages(&pages[p + 1], nr_pins);
+		}
+
+		p += skip + 1;
+		gfn += skip + 1;
+	}
+	read_unlock(&kvm->mmu_lock);
+
+	*__nr_pages = nr_ppages;
+
+err:
+	/* Free unused pre-allocated kvm_pinned_page */
+	list_for_each_entry_safe(ppage, tmp, &ppage_prealloc, list_node) {
+		list_del(&ppage->list_node);
+		kfree(ppage);
+	}
+
+	return ret;
+}
+
+static int __pkvm_topup_stage2_memcache(struct kvm_vcpu *vcpu, struct list_head *ppages)
+{
+	struct kvm_hyp_memcache *hyp_memcache = &vcpu->arch.stage2_mc;
+	struct kvm_s2_mmu *mmu = &vcpu->kvm->arch.mmu;
+	struct kvm_pinned_page *first, *last;
+	unsigned long nr_stage2_pages;
+	size_t size;
+
+	last = list_last_entry(ppages, struct kvm_pinned_page, list_node);
+	first = list_first_entry(ppages, struct kvm_pinned_page, list_node);
+	size = ALIGN(last->ipa + (PAGE_SIZE << last->order), PMD_SIZE) -
+	       ALIGN_DOWN(first->ipa, PMD_SIZE);
+
+	/*
+	 * (size n blocks) * (pages to install a stage-2 translation)
+	 *
+	 * Does not take into account possible (but unlikely) discontinuities in
+	 * the ppages list.
+	 */
+	nr_stage2_pages = (size >> PAGE_SHIFT) / PTRS_PER_PTE;
+	nr_stage2_pages *= kvm_mmu_cache_min_pages(mmu);
+
+	return topup_hyp_memcache_account(vcpu->kvm, hyp_memcache, nr_stage2_pages, 0);
+}
+
+static int __pkvm_host_donate_guest(struct kvm *kvm, struct list_head *ppages)
+{
+	struct kvm_pinned_page *ppage, *tmp;
+	int ret = -EINVAL; /* Empty list */
+
+	write_lock(&kvm->mmu_lock);
+	list_for_each_entry_safe(ppage, tmp, ppages, list_node) {
+		u64 pfn = page_to_pfn(ppage->page);
+		gfn_t gfn = ppage->ipa >> PAGE_SHIFT;
+
+		ret = kvm_call_hyp_nvhe(__pkvm_host_donate_guest, pfn, gfn,
+					1 << ppage->order);
+		/*
+		 * Getting -EPERM at this point implies that the pfn has already been
+		 * mapped. This should only ever happen when two vCPUs faulted on the
+		 * same page, and the current one lost the race to do the mapping...
+		 *
+		 * ...or if we've tried to map a region containing an already mapped
+		 * entry.
+		 */
+		if (ret == -EPERM) {
+			ret = 0;
+		       continue;
+		} else if (ret) {
+			break;
+		}
+
+		list_del(&ppage->list_node);
+		ppage->node.rb_right = ppage->node.rb_left = NULL;
+		WARN_ON(insert_ppage(kvm, ppage));
+
+	}
 	write_unlock(&kvm->mmu_lock);
-	account_locked_vm(mm, page_size >> PAGE_SHIFT, false);
-unpin:
-	unpin_user_pages(&page, 1);
-free_ppage:
-	kfree(ppage);
+
+	return ret;
+}
+
+static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa, size_t size,
+			  struct kvm_memory_slot *memslot)
+{
+	gfn_t gfn = fault_ipa >> PAGE_SHIFT;
+	struct kvm_pinned_page *ppage, *tmp;
+	struct mm_struct *mm = current->mm;
+	struct kvm *kvm = vcpu->kvm;
+	bool account_dec = false;
+	struct page **pages;
+	LIST_HEAD(ppages);
+	long ret, nr_pages;
+
+	if (WARN_ON(!kvm->arch.pkvm.enabled))
+		return -EINVAL;
+
+	nr_pages = __pkvm_align_memslot(kvm, memslot, gfn, size);
+	if (nr_pages < 0)
+		return nr_pages;
+
+	ret = __pkvm_pin_user_pages(kvm, memslot, gfn, nr_pages, &pages);
+	if (ret == -EHWPOISON)
+		return 0;
+	else if (ret == -EREMOTEIO)
+		return __pkvm_mem_abort_device(vcpu, memslot, gfn, nr_pages);
+	else if (ret)
+		return ret;
+
+	ret = __pkvm_pages_to_ppages(kvm, memslot, gfn, &nr_pages, pages, &ppages);
+	if (ret) {
+		unpin_user_pages(pages, nr_pages);
+		goto free_pages;
+	} else if (list_empty(&ppages)) {
+		ret = 0;
+		goto free_pages;
+	}
+
+	ret = __pkvm_topup_stage2_memcache(vcpu, &ppages);
+	if (ret)
+		goto free_ppages;
+
+	ret = account_locked_vm(mm, nr_pages, true);
+	if (ret)
+		goto free_ppages;
+	account_dec = true;
+
+	ret = __pkvm_host_donate_guest(kvm, &ppages);
+
+free_ppages:
+	/* Pages left in the list haven't been mapped */
+	list_for_each_entry_safe(ppage, tmp, &ppages, list_node) {
+		list_del(&ppage->list_node);
+		unpin_user_pages(&ppage->page, 1);
+		if (account_dec)
+			account_locked_vm(mm, 1 << ppage->order, false);
+		kfree(ppage);
+	}
+
+free_pages:
+	kfree(pages);
 
 	return ret;
 }
@@ -1745,11 +1907,10 @@ free_ppage:
 int pkvm_mem_abort_range(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa, size_t size)
 {
 	phys_addr_t ipa_end = fault_ipa + size - 1;
-	struct kvm_pinned_page *ppage;
-	unsigned long page_size;
-	int err = 0, idx;
+	struct kvm_memory_slot *memslot;
+	int idx, err = 0;
 
-	if (!PAGE_ALIGNED(size) || !PAGE_ALIGNED(fault_ipa))
+	if (!PAGE_ALIGNED(size | fault_ipa))
 		return -EINVAL;
 
 	if (ipa_end >= BIT_ULL(get_kvm_ipa_limit()) ||
@@ -1758,45 +1919,8 @@ int pkvm_mem_abort_range(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa, size_t si
 		return -EINVAL;
 
 	idx = srcu_read_lock(&vcpu->kvm->srcu);
-
-	read_lock(&vcpu->kvm->mmu_lock);
-	ppage = kvm_pinned_pages_iter_first(&vcpu->kvm->arch.pkvm.pinned_pages,
-					    fault_ipa, ipa_end);
-	while (fault_ipa < ipa_end) {
-		if (ppage && ppage->ipa == fault_ipa) {
-			page_size = PAGE_SIZE << ppage->order;
-			ppage = kvm_pinned_pages_iter_next(ppage, fault_ipa, ipa_end);
-		} else {
-			gfn_t gfn = gpa_to_gfn(fault_ipa);
-			struct kvm_memory_slot *memslot;
-			unsigned long hva;
-			bool writable;
-
-			memslot = gfn_to_memslot(vcpu->kvm, gfn);
-			hva = gfn_to_hva_memslot_prot(memslot, gfn, &writable);
-			if (kvm_is_error_hva(hva) || !writable) {
-				err = -EINVAL;
-				goto end;
-			}
-
-			read_unlock(&vcpu->kvm->mmu_lock);
-			err = pkvm_mem_abort(vcpu, &fault_ipa, memslot, &page_size);
-			read_lock(&vcpu->kvm->mmu_lock);
-			if (err)
-				goto end;
-
-			/*
-			 * We had to release the mmu_lock so let's update the
-			 * reference.
-			 */
-			ppage = kvm_pinned_pages_iter_first(&vcpu->kvm->arch.pkvm.pinned_pages,
-							    fault_ipa + page_size, ipa_end);
-		}
-
-		fault_ipa += page_size;
-	}
-end:
-	read_unlock(&vcpu->kvm->mmu_lock);
+	memslot = gfn_to_memslot(vcpu->kvm, fault_ipa >> PAGE_SHIFT);
+	err = pkvm_mem_abort(vcpu, fault_ipa, size, memslot);
 	srcu_read_unlock(&vcpu->kvm->srcu, idx);
 
 	return err;
@@ -2280,7 +2404,7 @@ int kvm_handle_guest_abort(struct kvm_vcpu *vcpu)
 	}
 
 	if (kvm_vm_is_protected(vcpu->kvm))
-		ret = pkvm_mem_abort(vcpu, &fault_ipa, memslot, NULL);
+		ret = pkvm_mem_abort(vcpu, fault_ipa, PAGE_SIZE, memslot);
 	else
 		ret = user_mem_abort(vcpu, fault_ipa, nested, memslot,
 				     esr_fsc_is_permission_fault(esr));

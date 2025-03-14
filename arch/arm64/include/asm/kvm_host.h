@@ -271,7 +271,10 @@ struct kvm_smccc_features {
 };
 
 struct kvm_pinned_page {
-	struct rb_node		node;
+	union {
+		struct rb_node	 	node;
+		struct list_head 	list_node;
+	};
 	struct page		*page;
 	u64			ipa;
 	u64			__subtree_last;
