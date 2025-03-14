@@ -317,6 +317,12 @@ static void __kvm_update_cpuid_runtime(struct kvm_vcpu *vcpu, struct kvm_cpuid_e
 	}
 }
 
+void kvm_update_cpuid_runtime(struct kvm_vcpu *vcpu)
+{
+	__kvm_update_cpuid_runtime(vcpu, vcpu->arch.cpuid_entries, vcpu->arch.cpuid_nent);
+}
+EXPORT_SYMBOL_GPL(kvm_update_cpuid_runtime);
+
 static bool kvm_cpuid_has_hyperv(struct kvm_cpuid_entry2 *entries, int nent)
 {
 #if defined(CONFIG_KVM_HYPERV) && !defined(__PKVM_HYP__)
