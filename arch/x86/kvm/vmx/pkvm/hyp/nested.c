@@ -1446,3 +1446,59 @@ void pkvm_init_nest(void)
 	init_vmcs_shadow_fields();
 	init_emulated_vmcs_fields();
 }
+
+void pkvm_sync_emulated_fields_vmcs12to02(struct kvm_vcpu *guest_vcpu)
+{
+	struct vcpu_vmx *hvcpu_vmx = to_vmx(this_cpu_read(host_vcpu));
+	struct shadow_vcpu_state *shadow_vcpu;
+	struct shadow_vmcs_field field;
+	struct vmcs12 *vmcs12;
+	unsigned long val;
+	int i;
+
+	shadow_vcpu = kvm_vcpu_to_shadow(guest_vcpu);
+	vmcs12 = (struct vmcs12 *)shadow_vcpu->cached_vmcs12;
+
+	if (hvcpu_vmx->nested.dirty_vmcs12) {
+		for (i = 0; i < max_emulated_fields; i++) {
+			field = emulated_fields[i];
+			if (field.encoding == EPT_POINTER)
+				/*
+				 * EPTP is configured as shadow EPTP when the first
+				 * time the vmcs02 is loaded. As shadow EPTP is not
+				 * changed at the runtime, also cannot use the virtual
+				 * EPT from KVM high, no need to sync to vmcs02 again.
+				 */
+				continue;
+			val = vmcs12_read_any(vmcs12, field.encoding, field.offset);
+			__vmcs_writel(field.encoding, val);
+		}
+		hvcpu_vmx->nested.dirty_vmcs12 = false;
+	}
+}
+
+void pkvm_sync_emulated_fields_vmcs02to12(struct kvm_vcpu *guest_vcpu)
+{
+	struct shadow_vcpu_state *shadow_vcpu;
+	struct shadow_vmcs_field field;
+	struct vmcs12 *vmcs12;
+	unsigned long val;
+	int i;
+
+	shadow_vcpu = kvm_vcpu_to_shadow(guest_vcpu);
+	vmcs12 = (struct vmcs12 *)shadow_vcpu->cached_vmcs12;
+
+	for (i = 0; i < max_emulated_fields; i++) {
+		field = emulated_fields[i];
+		if (field.encoding == EPT_POINTER)
+			/*
+			 * EPTP is configured as shadow EPTP when the first
+			 * time the vmcs02 is loaded. As shadow EPTP is not
+			 * changed at the runtime, also cannot use the virtual
+			 * EPT from KVM high, no need to sync to vmcs02 again.
+			 */
+			continue;
+		val = __vmcs_readl(field.encoding);
+		vmcs12_write_any(vmcs12, field.encoding, field.offset, val);
+	}
+}

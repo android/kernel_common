@@ -387,7 +387,7 @@ static void unload_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
 	if (!pkvm_vcpu)
 		return;
 
-	pkvm_x86_call(switch_to_host_vcpu)(this_cpu_read(host_vcpu));
+	pkvm_x86_call(switch_to_host_vcpu)(to_kvm_vcpu(pkvm_vcpu));
 
 	put_pkvm_vcpu(pkvm_vcpu);
 }
