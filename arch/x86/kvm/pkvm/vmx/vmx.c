@@ -3401,6 +3401,11 @@ static int handle_dr(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+void vmx_set_dr7(struct kvm_vcpu *vcpu, unsigned long val)
+{
+	vmcs_writel(GUEST_DR7, val);
+}
+
 static int handle_tpr_below_threshold(struct kvm_vcpu *vcpu)
 {
 	/* TODO */
@@ -5681,6 +5686,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.update_exception_bitmap = vmx_update_exception_bitmap,
 	.get_msr = vmx_get_msr,
 	.set_msr = vmx_set_msr,
+	.set_dr7 = vmx_set_dr7,
 	.cache_reg = vmx_cache_reg,
 	.get_rflags = vmx_get_rflags,
 	.set_rflags = vmx_set_rflags,
