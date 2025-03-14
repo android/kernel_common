@@ -1804,12 +1804,78 @@ static int __pkvm_topup_stage2_memcache(struct kvm_vcpu *vcpu, struct list_head 
 	return topup_hyp_memcache_account(vcpu->kvm, hyp_memcache, nr_stage2_pages, 0);
 }
 
-static int __pkvm_host_donate_guest(struct kvm *kvm, struct list_head *ppages)
+static int __pkvm_host_donate_guest_sglist(struct kvm_vcpu *vcpu, struct list_head *ppages)
+{
+	struct kvm *kvm = vcpu->kvm;
+	int ret;
+
+	lockdep_assert_held_write(&kvm->mmu_lock);
+
+	do {
+		struct kvm_hyp_pinned_page *hyp_ppage = NULL;
+		struct kvm_pinned_page *tmp, *ppage;
+		int p, nr_ppages = 0;
+
+		list_for_each_entry(ppage, ppages, list_node) {
+			u64 pfn = page_to_pfn(ppage->page);
+			gfn_t gfn = ppage->ipa >> PAGE_SHIFT;
+
+			hyp_ppage = next_kvm_hyp_pinned_page(vcpu->arch.hyp_reqs, hyp_ppage, false);
+			if (!hyp_ppage)
+				break;
+
+			hyp_ppage->pfn = pfn;
+			hyp_ppage->gfn = gfn;
+			hyp_ppage->order = ppage->order;
+			nr_ppages++;
+
+			/* Limit the time spent at EL2 */
+			if (nr_ppages >= 32)
+				break;
+		}
+
+		if (hyp_ppage) {
+			hyp_ppage = next_kvm_hyp_pinned_page(vcpu->arch.hyp_reqs, hyp_ppage, false);
+			if (hyp_ppage)
+				hyp_ppage->order = ~((u8)0);
+		}
+
+		ret = kvm_call_hyp_nvhe(__pkvm_host_donate_guest_sglist);
+		/* See __pkvm_host_donate_guest() -EPERM comment */
+		if (ret == -EPERM) {
+			ret = 0;
+			break;
+		} else if (ret) {
+			break;
+		}
+
+		p = 0;
+		list_for_each_entry_safe(ppage, tmp, ppages, list_node) {
+			if (p++ >= nr_ppages)
+				break;
+
+			list_del(&ppage->list_node);
+			ppage->node.rb_right = ppage->node.rb_left = NULL;
+			WARN_ON(insert_ppage(kvm, ppage));
+		}
+	} while (!list_empty(ppages));
+
+	return ret;
+}
+
+static int __pkvm_host_donate_guest(struct kvm_vcpu *vcpu, struct list_head *ppages)
 {
 	struct kvm_pinned_page *ppage, *tmp;
+	struct kvm *kvm = vcpu->kvm;
 	int ret = -EINVAL; /* Empty list */
 
 	write_lock(&kvm->mmu_lock);
+
+	if (ppages->next != ppages->prev && kvm->arch.pkvm.enabled) {
+		ret = __pkvm_host_donate_guest_sglist(vcpu, ppages);
+		goto unlock;
+	}
+
 	list_for_each_entry_safe(ppage, tmp, ppages, list_node) {
 		u64 pfn = page_to_pfn(ppage->page);
 		gfn_t gfn = ppage->ipa >> PAGE_SHIFT;
@@ -1836,6 +1902,8 @@ static int __pkvm_host_donate_guest(struct kvm *kvm, struct list_head *ppages)
 		WARN_ON(insert_ppage(kvm, ppage));
 
 	}
+
+unlock:
 	write_unlock(&kvm->mmu_lock);
 
 	return ret;
@@ -1886,7 +1954,7 @@ static int pkvm_mem_abort(struct kvm_vcpu *vcpu, phys_addr_t fault_ipa, size_t s
 		goto free_ppages;
 	account_dec = true;
 
-	ret = __pkvm_host_donate_guest(kvm, &ppages);
+	ret = __pkvm_host_donate_guest(vcpu, &ppages);
 
 free_ppages:
 	/* Pages left in the list haven't been mapped */
