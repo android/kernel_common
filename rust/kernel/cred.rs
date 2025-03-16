@@ -55,6 +55,7 @@ impl Credential {
     }
 
     /// Returns a raw pointer to the inner credential.
+    #[inline]
     pub fn as_ptr(&self) -> *const bindings::cred {
         self.0.get()
     }
