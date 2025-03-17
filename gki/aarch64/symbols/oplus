@@ -194,6 +194,7 @@
   __traceiter_android_vh_dup_task_struct
   __traceiter_android_vh_exit_signal
   __traceiter_android_vh_free_oem_binder_struct
+  __traceiter_android_vh_free_unref_page_bypass
   __traceiter_android_vh_freq_qos_add_request
   __traceiter_android_vh_freq_qos_remove_request
   __traceiter_android_vh_freq_qos_update_request
@@ -205,6 +206,7 @@
   __traceiter_android_vh_futex_wake_up_q_finish
   __traceiter_android_vh_get_page_wmark
   __traceiter_android_vh_irqtime_account_process_tick
+  __traceiter_android_vh_kvmalloc_node_use_vmalloc
   __traceiter_android_vh_look_around
   __traceiter_android_vh_look_around_migrate_folio
   __traceiter_android_vh_map_util_freq
@@ -225,6 +227,7 @@
   __traceiter_android_vh_record_rtmutex_lock_starttime
   __traceiter_android_vh_record_rwsem_lock_starttime
   __traceiter_android_vh_reweight_entity
+  __traceiter_android_vh_rmqueue_bulk_bypass
   __traceiter_android_vh_rtmutex_wait_start
   __traceiter_android_vh_rwsem_can_spin_on_owner
   __traceiter_android_vh_rwsem_downgrade_wake_finish
@@ -232,11 +235,13 @@
   __traceiter_android_vh_rwsem_opt_spin_start
   __traceiter_android_vh_sched_move_task
   __traceiter_android_vh_sched_setaffinity_early
+  __traceiter_android_vh_should_alloc_pages_retry
   __traceiter_android_vh_si_mem_available_adjust
   __traceiter_android_vh_si_meminfo_adjust
   __traceiter_android_vh_sync_txn_recvd
   __traceiter_android_vh_test_clear_look_around_ref
   __traceiter_android_vh_tune_swappiness
+  __traceiter_android_vh_unreserve_highatomic_bypass
   __traceiter_block_bio_queue
   __traceiter_block_getrq
   __traceiter_block_rq_complete
@@ -287,6 +292,7 @@
   __tracepoint_android_vh_dup_task_struct
   __tracepoint_android_vh_exit_signal
   __tracepoint_android_vh_free_oem_binder_struct
+  __tracepoint_android_vh_free_unref_page_bypass
   __tracepoint_android_vh_freq_qos_add_request
   __tracepoint_android_vh_freq_qos_remove_request
   __tracepoint_android_vh_freq_qos_update_request
@@ -298,6 +304,7 @@
   __tracepoint_android_vh_futex_wake_up_q_finish
   __tracepoint_android_vh_get_page_wmark
   __tracepoint_android_vh_irqtime_account_process_tick
+  __tracepoint_android_vh_kvmalloc_node_use_vmalloc
   __tracepoint_android_vh_look_around
   __tracepoint_android_vh_look_around_migrate_folio
   __tracepoint_android_vh_map_util_freq
@@ -318,6 +325,7 @@
   __tracepoint_android_vh_record_rtmutex_lock_starttime
   __tracepoint_android_vh_record_rwsem_lock_starttime
   __tracepoint_android_vh_reweight_entity
+  __tracepoint_android_vh_rmqueue_bulk_bypass
   __tracepoint_android_vh_rtmutex_wait_start
   __tracepoint_android_vh_rwsem_can_spin_on_owner
   __tracepoint_android_vh_rwsem_downgrade_wake_finish
@@ -325,11 +333,13 @@
   __tracepoint_android_vh_rwsem_opt_spin_start
   __tracepoint_android_vh_sched_move_task
   __tracepoint_android_vh_sched_setaffinity_early
+  __tracepoint_android_vh_should_alloc_pages_retry
   __tracepoint_android_vh_si_mem_available_adjust
   __tracepoint_android_vh_si_meminfo_adjust
   __tracepoint_android_vh_sync_txn_recvd
   __tracepoint_android_vh_test_clear_look_around_ref
   __tracepoint_android_vh_tune_swappiness
+  __tracepoint_android_vh_unreserve_highatomic_bypass
   __tracepoint_block_bio_queue
   __tracepoint_block_getrq
   __tracepoint_block_rq_complete
