@@ -518,6 +518,14 @@ static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu, unsi
 	return ret;
 }
 
+static void pkvm_reset_vcpu(struct pkvm_vcpu *pkvm_vcpu, bool init_event)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_vcpu_reset(to_kvm_vcpu(pkvm_vcpu), init_event);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -539,6 +547,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__vcpu_after_set_cpuid:
 		ret = pkvm_vcpu_after_set_cpuid(pkvm_vcpu, p2);
+		break;
+	case __pkvm__vcpu_reset:
+		pkvm_reset_vcpu(pkvm_vcpu, (bool)p2);
 		break;
 	default:
 		ret = -EINVAL;

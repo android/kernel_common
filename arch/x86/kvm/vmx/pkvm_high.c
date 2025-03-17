@@ -290,6 +290,24 @@ static void pkvm_vcpu_free(struct kvm_vcpu *vcpu)
 	free_ve_info(vmx);
 }
 
+static void pkvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
+{
+	if (!vcpu->arch.guest_state_protected)
+		kvm_call_pkvm(vcpu_reset, vcpu, init_event);
+
+	/*
+	 * The CR0/CR4 guest-owned/rsvd bits are controlled by the pkvm
+	 * hypervisor. The host VMM can assume all the bits in CR0/CR4 are owned
+	 * by the guest.
+	 */
+	vcpu->arch.cr0_guest_owned_bits = ~0;
+	vcpu->arch.cr4_guest_owned_bits = ~0;
+	vcpu->arch.cr4_guest_rsvd_bits = 0;
+
+	kvm_set_cr8(vcpu, 0);
+	kvm_make_request(KVM_REQ_APIC_PAGE_RELOAD, vcpu);
+}
+
 static void pkvm_prepare_switch_to_guest(struct kvm_vcpu *vcpu) {}
 
 static void pkvm_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
@@ -535,7 +553,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.vcpu_precreate = vmx_vcpu_precreate,
 	.vcpu_create = pkvm_vcpu_create,
 	.vcpu_free = pkvm_vcpu_free,
-	.vcpu_reset = vmx_vcpu_reset,
+	.vcpu_reset = pkvm_vcpu_reset,
 
 	.prepare_switch_to_guest = pkvm_prepare_switch_to_guest,
 	.vcpu_load = pkvm_vcpu_load,
