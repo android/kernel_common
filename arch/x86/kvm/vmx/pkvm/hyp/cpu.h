@@ -36,14 +36,4 @@ do {                                            	\
 
 #define pkvm_wrmsrl(msr, val)   pkvm_msr_write(msr, val)
 
-#ifdef CONFIG_PKVM_INTEL_DEBUG
-extern unsigned long get_pcpu_id(void);
-#else
-/* this function shall only be used during pkvm runtime */
-static inline unsigned long get_pcpu_id(void)
-{
-	return pkvm_msr_read(MSR_GS_BASE);
-}
-#endif
-
 #endif

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <linux/printk.h>
 #include <linux/dynamic_debug.h>
-#include <linux/smp.h>
 #include <linux/pid.h>
 #include <asm/cpu_entry_area.h>
 #include "debug.h"
@@ -102,9 +101,4 @@ int pkvm_debug_sym(_printk)(const char *fmt, ...)
 noinstr struct cpu_entry_area *pkvm_debug_sym(get_cpu_entry_area)(int cpu)
 {
 	return get_cpu_entry_area(cpu);
-}
-
-unsigned long pkvm_debug_sym(get_pcpu_id)(void)
-{
-	return raw_smp_processor_id();
 }

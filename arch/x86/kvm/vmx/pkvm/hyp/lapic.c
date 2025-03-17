@@ -202,7 +202,7 @@ int pkvm_x2apic_msr_write(struct kvm_vcpu *vcpu, u32 msr, u64 val)
 void pkvm_lapic_send_init(struct pkvm_pcpu *dst_pcpu)
 {
 	u32 icrlow = APIC_INT_ASSERT | APIC_DM_INIT;
-	int cpu_id = get_pcpu_id();
+	int cpu_id = smp_processor_id();
 	struct pkvm_pcpu *pcpu = pkvm_hyp->pcpus[cpu_id];
 	struct pkvm_lapic *dst_lapic = dst_pcpu->lapic;
 

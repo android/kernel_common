@@ -18,7 +18,7 @@ void handle_noop(void)
 
 void handle_nmi(void)
 {
-	int cpu_id = get_pcpu_id();
+	int cpu_id = smp_processor_id();
 	struct pkvm_host_vcpu *hvcpu =
 		pkvm_hyp->host_vm.host_vcpus[cpu_id];
 	struct vcpu_vmx *vmx = &hvcpu->vmx;
