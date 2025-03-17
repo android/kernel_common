@@ -8,6 +8,7 @@
 #include <pmu.h>
 #include <hyperv.h>
 #include <xen.h>
+#include <trace.h>
 
 /*
  * Unlike "struct cpuinfo_x86.x86_capability", kvm_cpu_caps doesn't need to be
@@ -792,31 +793,164 @@ struct kvm_cpuid_entry2 *kvm_find_cpuid_entry(struct kvm_vcpu *vcpu,
 }
 EXPORT_SYMBOL_GPL(kvm_find_cpuid_entry);
 
+/*
+ * Intel CPUID semantics treats any query for an out-of-range leaf as if the
+ * highest basic leaf (i.e. CPUID.0H:EAX) were requested.  AMD CPUID semantics
+ * returns all zeroes for any undefined leaf, whether or not the leaf is in
+ * range.  Centaur/VIA follows Intel semantics.
+ *
+ * A leaf is considered out-of-range if its function is higher than the maximum
+ * supported leaf of its associated class or if its associated class does not
+ * exist.
+ *
+ * There are three primary classes to be considered, with their respective
+ * ranges described as "<base> - <top>[,<base2> - <top2>] inclusive.  A primary
+ * class exists if a guest CPUID entry for its <base> leaf exists.  For a given
+ * class, CPUID.<base>.EAX contains the max supported leaf for the class.
+ *
+ *  - Basic:      0x00000000 - 0x3fffffff, 0x50000000 - 0x7fffffff
+ *  - Hypervisor: 0x40000000 - 0x4fffffff
+ *  - Extended:   0x80000000 - 0xbfffffff
+ *  - Centaur:    0xc0000000 - 0xcfffffff
+ *
+ * The Hypervisor class is further subdivided into sub-classes that each act as
+ * their own independent class associated with a 0x100 byte range.  E.g. if Qemu
+ * is advertising support for both HyperV and KVM, the resulting Hypervisor
+ * CPUID sub-classes are:
+ *
+ *  - HyperV:     0x40000000 - 0x400000ff
+ *  - KVM:        0x40000100 - 0x400001ff
+ */
+static struct kvm_cpuid_entry2 *
+get_out_of_range_cpuid_entry(struct kvm_vcpu *vcpu, u32 *fn_ptr, u32 index)
+{
+	struct kvm_cpuid_entry2 *basic, *class;
+	u32 function = *fn_ptr;
+
+	basic = kvm_find_cpuid_entry(vcpu, 0);
+	if (!basic)
+		return NULL;
+
+	if (is_guest_vendor_amd(basic->ebx, basic->ecx, basic->edx) ||
+	    is_guest_vendor_hygon(basic->ebx, basic->ecx, basic->edx))
+		return NULL;
+
+	if (function >= 0x40000000 && function <= 0x4fffffff)
+		class = kvm_find_cpuid_entry(vcpu, function & 0xffffff00);
+	else if (function >= 0xc0000000)
+		class = kvm_find_cpuid_entry(vcpu, 0xc0000000);
+	else
+		class = kvm_find_cpuid_entry(vcpu, function & 0x80000000);
+
+	if (class && function <= class->eax)
+		return NULL;
+
+	/*
+	 * Leaf specific adjustments are also applied when redirecting to the
+	 * max basic entry, e.g. if the max basic leaf is 0xb but there is no
+	 * entry for CPUID.0xb.index (see below), then the output value for EDX
+	 * needs to be pulled from CPUID.0xb.1.
+	 */
+	*fn_ptr = basic->eax;
+
+	/*
+	 * The class does not exist or the requested function is out of range;
+	 * the effective CPUID entry is the max basic leaf.  Note, the index of
+	 * the original requested leaf is observed!
+	 */
+	return kvm_find_cpuid_entry_index(vcpu, basic->eax, index);
+}
+
+bool kvm_cpuid(struct kvm_vcpu *vcpu, u32 *eax, u32 *ebx,
+	       u32 *ecx, u32 *edx, bool exact_only)
+{
+	u32 orig_function = *eax, function = *eax, index = *ecx;
+	struct kvm_cpuid_entry2 *entry;
+	bool exact, used_max_basic = false;
+
+	entry = kvm_find_cpuid_entry_index(vcpu, function, index);
+	exact = !!entry;
+
+	if (!entry && !exact_only) {
+		entry = get_out_of_range_cpuid_entry(vcpu, &function, index);
+		used_max_basic = !!entry;
+	}
+
+	if (entry) {
+		*eax = entry->eax;
+		*ebx = entry->ebx;
+		*ecx = entry->ecx;
+		*edx = entry->edx;
+		if (function == 7 && index == 0) {
+			u64 data;
+		        if (!__kvm_get_msr(vcpu, MSR_IA32_TSX_CTRL, &data, true) &&
+			    (data & TSX_CTRL_CPUID_CLEAR))
+				*ebx &= ~(F(RTM) | F(HLE));
+		} else if (function == 0x80000007) {
+#ifndef __PKVM_HYP__
+			if (kvm_hv_invtsc_suppressed(vcpu))
+				*edx &= ~SF(CONSTANT_TSC);
+#endif
+		}
+#ifdef __PKVM_HYP__
+		/*
+		 * TODO:
+		 * Overriding the KVM_CPUID_SIGNATURE leaf with
+		 * "PKVMPKVMPKVM" is to make the guest aware that it is running
+		 * with the protection from the pkvm hypervisor so it has to
+		 * enable some enlightenment.
+		 *
+		 * To achieve this, is there any better solution rather than
+		 * changing the KVM_CPUID_SIGNATURE leaf? Probably other leaf
+		 * like 0x21 which is used by TDX guest?
+		 */
+		if ((function == KVM_CPUID_SIGNATURE) &&
+		     pkvm_is_protected_vcpu(vcpu)) {
+			const u32 *sigptr = (const u32 *)"PKVMPKVMPKVM";
+
+			*ebx = sigptr[0];
+			*ecx = sigptr[1];
+			*edx = sigptr[2];
+		}
+#endif
+	} else {
+		*eax = *ebx = *ecx = *edx = 0;
+		/*
+		 * When leaf 0BH or 1FH is defined, CL is pass-through
+		 * and EDX is always the x2APIC ID, even for undefined
+		 * subleaves. Index 1 will exist iff the leaf is
+		 * implemented, so we pass through CL iff leaf 1
+		 * exists. EDX can be copied from any existing index.
+		 */
+		if (function == 0xb || function == 0x1f) {
+			entry = kvm_find_cpuid_entry_index(vcpu, function, 1);
+			if (entry) {
+				*ecx = index & 0xff;
+				*edx = entry->edx;
+			}
+		}
+	}
+	trace_kvm_cpuid(orig_function, index, *eax, *ebx, *ecx, *edx, exact,
+			used_max_basic);
+	return exact;
+}
+EXPORT_SYMBOL_GPL(kvm_cpuid);
+
 int kvm_emulate_cpuid(struct kvm_vcpu *vcpu)
 {
-#ifdef __PKVM_HYP__
-	/*
-	 * TODO:
-	 * Overriding the KVM_CPUID_SIGNATURE leaf with
-	 * "PKVMPKVMPKVM" is to make the guest aware that it is running
-	 * with the protection from the pkvm hypervisor so it has to
-	 * enable some enlightenment.
-	 *
-	 * To achieve this, is there any better solution rather than
-	 * changing the KVM_CPUID_SIGNATURE leaf? Probably other leaf
-	 * like 0x21 which is used by TDX guest?
-	 */
-	if ((kvm_rax_read(vcpu) == KVM_CPUID_SIGNATURE) && pkvm_is_protected_vcpu(vcpu)) {
-		const u32 *sigptr = (const u32 *)"PKVMPKVMPKVM";
+	u32 eax, ebx, ecx, edx;
 
-		vcpu->arch.regs[VCPU_REGS_RBX] = sigptr[0];
-		vcpu->arch.regs[VCPU_REGS_RCX] = sigptr[1];
-		vcpu->arch.regs[VCPU_REGS_RDX] = sigptr[2];
+	if (cpuid_fault_enabled(vcpu) && !kvm_require_cpl(vcpu, 0))
+		return 1;
 
-		return kvm_skip_emulated_instruction(vcpu);
-	}
-#endif
-	/* TODO */
-	return 0;
+	eax = kvm_rax_read(vcpu);
+	ecx = kvm_rcx_read(vcpu);
+	kvm_cpuid(vcpu, &eax, &ebx, &ecx, &edx, false);
+
+	kvm_rax_write(vcpu, eax);
+	kvm_rbx_write(vcpu, ebx);
+	kvm_rcx_write(vcpu, ecx);
+	kvm_rdx_write(vcpu, edx);
+	return kvm_skip_emulated_instruction(vcpu);
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_cpuid);
