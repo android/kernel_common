@@ -197,15 +197,19 @@ static void tell_host(struct virtio_balloon *vb, struct virtqueue *vq)
 }
 
 static int virtballoon_free_page_report(struct page_reporting_dev_info *pr_dev_info,
-				   struct scatterlist *sg, unsigned int nents)
+				   struct scatterlist *sgl, unsigned int nents)
 {
 	struct virtio_balloon *vb =
 		container_of(pr_dev_info, struct virtio_balloon, pr_dev_info);
 	struct virtqueue *vq = vb->reporting_vq;
 	unsigned int unused, err;
+	struct scatterlist *sg;
+
+	for (sg = sgl; sg != NULL; sg = sg_next(sg))
+		page_relinquish(sg_page(sg), sg->length >> PAGE_SHIFT);
 
 	/* We should always be able to add these buffers to an empty queue. */
-	err = virtqueue_add_inbuf(vq, sg, nents, vb, GFP_NOWAIT | __GFP_NOWARN);
+	err = virtqueue_add_inbuf(vq, sgl, nents, vb, GFP_NOWAIT | __GFP_NOWARN);
 
 	/*
 	 * In the extremely unlikely case that something has occurred and we
@@ -263,6 +267,7 @@ static unsigned int fill_balloon(struct virtio_balloon *vb, size_t num)
 		}
 
 		balloon_page_push(&pages, page);
+		page_relinquish(page, 1);
 	}
 
 	mutex_lock(&vb->balloon_lock);
