@@ -334,6 +334,7 @@ void vmx_do_nmi_irqoff(void);
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	fastpath_t exit_fastpath;
 
 	/* Record the guest's net vcpu time for enforced NMI injections. */
 	if (unlikely(!enable_vnmi &&
@@ -364,7 +365,7 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 	vmx->exit_reason.full = 0xdead;
 
 	vcpu->arch.regs_avail &= ~VMX_REGS_LAZY_LOAD_SET;
-	kvm_call_pkvm(vcpu_run, vcpu, force_immediate_exit);
+	exit_fastpath = kvm_call_pkvm(vcpu_run, vcpu, force_immediate_exit);
 	vcpu->arch.regs_dirty = 0;
 
 	if (unlikely(vmx->exit_reason.full == 0xdead)) {
@@ -400,6 +401,9 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 
 	/* TODO: move to pkvm hypervisor */
 	vmx_complete_interrupts(vmx);
+
+	if (exit_fastpath == EXIT_FASTPATH_EXIT_HANDLED)
+		return exit_fastpath;
 
 	return vmx_exit_handlers_fastpath(vcpu, force_immediate_exit);
 }

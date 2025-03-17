@@ -464,12 +464,12 @@ static void pkvm_vcpu_put(struct pkvm_vcpu *pkvm_vcpu)
 	set_pkvm_vcpu_free(pkvm_vcpu);
 }
 
-static void pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immediate_exit)
+static fastpath_t pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immediate_exit)
 {
 	if (WARN_ON_ONCE(!pkvm_vcpu))
-		return;
+		return EXIT_FASTPATH_NONE;
 
-	kvm_vcpu_enter_guest(to_kvm_vcpu(pkvm_vcpu), force_immediate_exit);
+	return kvm_vcpu_enter_guest(to_kvm_vcpu(pkvm_vcpu), force_immediate_exit);
 }
 
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
@@ -489,7 +489,7 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		pkvm_vcpu_put(pkvm_vcpu);
 		break;
 	case __pkvm__vcpu_run:
-		pkvm_vcpu_run(pkvm_vcpu, (bool)p2);
+		ret = pkvm_vcpu_run(pkvm_vcpu, (bool)p2);
 		break;
 	default:
 		ret = -EINVAL;
