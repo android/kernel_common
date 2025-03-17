@@ -3113,6 +3113,30 @@ void vmx_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
 	to_vmx(vcpu)->emulation_required = vmx_emulation_required(vcpu);
 }
 
+void vmx_get_idt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
+{
+	dt->size = vmcs_read32(GUEST_IDTR_LIMIT);
+	dt->address = vmcs_readl(GUEST_IDTR_BASE);
+}
+
+void vmx_set_idt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
+{
+	vmcs_write32(GUEST_IDTR_LIMIT, dt->size);
+	vmcs_writel(GUEST_IDTR_BASE, dt->address);
+}
+
+void vmx_get_gdt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
+{
+	dt->size = vmcs_read32(GUEST_GDTR_LIMIT);
+	dt->address = vmcs_readl(GUEST_GDTR_BASE);
+}
+
+void vmx_set_gdt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
+{
+	vmcs_write32(GUEST_GDTR_LIMIT, dt->size);
+	vmcs_writel(GUEST_GDTR_BASE, dt->address);
+}
+
 static bool rmode_segment_valid(struct kvm_vcpu *vcpu, int seg)
 {
 	struct kvm_segment var;
@@ -6628,6 +6652,10 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.set_cr0 = vmx_set_cr0,
 	.set_cr4 = vmx_set_cr4,
 	.set_efer = vmx_set_efer,
+	.get_idt = vmx_get_idt,
+	.set_idt = vmx_set_idt,
+	.get_gdt = vmx_get_gdt,
+	.set_gdt = vmx_set_gdt,
 	.set_dr7 = vmx_set_dr7,
 	.cache_reg = vmx_cache_reg,
 	.get_rflags = vmx_get_rflags,

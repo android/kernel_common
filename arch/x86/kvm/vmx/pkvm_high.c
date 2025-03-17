@@ -635,6 +635,58 @@ static int pkvm_set_efer(struct kvm_vcpu *vcpu, u64 efer)
 	return ret;
 }
 
+static void pkvm_access_idt_gdt(struct kvm_vcpu *vcpu, struct desc_ptr *dt,
+				bool set, bool idt)
+{
+	struct desc_ptr *desc;
+
+	if (vcpu->arch.guest_state_protected) {
+		if (!set)
+			memset(dt, 0, sizeof(*dt));
+		return;
+	}
+
+	desc = get_this_pv_param(desc);
+
+	if (set) {
+		desc->size = dt->size;
+		desc->address = dt->address;
+		if (idt)
+			kvm_call_pkvm(set_idt, vcpu, desc);
+		else
+			kvm_call_pkvm(set_gdt, vcpu, desc);
+	} else {
+		if (idt)
+			kvm_call_pkvm(get_idt, vcpu, desc);
+		else
+			kvm_call_pkvm(get_gdt, vcpu, desc);
+		dt->size = desc->size;
+		dt->address = desc->address;
+	}
+
+	put_this_pv_param(desc);
+}
+
+static void pkvm_get_idt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
+{
+	pkvm_access_idt_gdt(vcpu, dt, false, true);
+}
+
+static void pkvm_set_idt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
+{
+	pkvm_access_idt_gdt(vcpu, dt, true, true);
+}
+
+static void pkvm_get_gdt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
+{
+	pkvm_access_idt_gdt(vcpu, dt, false, false);
+}
+
+static void pkvm_set_gdt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
+{
+	pkvm_access_idt_gdt(vcpu, dt, true, false);
+}
+
 void vmx_do_nmi_irqoff(void);
 
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
@@ -866,10 +918,10 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.is_valid_cr4 = pkvm_is_valid_cr4,
 	.set_cr4 = pkvm_set_cr4,
 	.set_efer = pkvm_set_efer,
-	.get_idt = vmx_get_idt,
-	.set_idt = vmx_set_idt,
-	.get_gdt = vmx_get_gdt,
-	.set_gdt = vmx_set_gdt,
+	.get_idt = pkvm_get_idt,
+	.set_idt = pkvm_set_idt,
+	.get_gdt = pkvm_get_gdt,
+	.set_gdt = pkvm_set_gdt,
 	.set_dr7 = vmx_set_dr7,
 	.sync_dirty_debug_regs = vmx_sync_dirty_debug_regs,
 	.cache_reg = vmx_cache_reg,

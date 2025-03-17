@@ -629,6 +629,28 @@ static int pkvm_set_efer(struct pkvm_vcpu *pkvm_vcpu, u64 efer)
 	return kvm_x86_call(set_efer)(to_kvm_vcpu(pkvm_vcpu), efer);
 }
 
+static void pkvm_access_idt_gdt(struct pkvm_vcpu *pkvm_vcpu, struct desc_ptr *desc,
+				bool set, bool idt)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	if (WARN_ON_ONCE(desc != this_pv_param(desc)))
+		return;
+
+	if (idt) {
+		if (set)
+			kvm_x86_call(set_idt)(to_kvm_vcpu(pkvm_vcpu), desc);
+		else
+			kvm_x86_call(get_idt)(to_kvm_vcpu(pkvm_vcpu), desc);
+	} else {
+		if (set)
+			kvm_x86_call(set_gdt)(to_kvm_vcpu(pkvm_vcpu), desc);
+		else
+			kvm_x86_call(get_gdt)(to_kvm_vcpu(pkvm_vcpu), desc);
+	}
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -679,6 +701,22 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__set_efer:
 		ret = pkvm_set_efer(pkvm_vcpu, (u64)p2);
+		break;
+	case __pkvm__get_idt:
+		pkvm_access_idt_gdt(pkvm_vcpu, (struct desc_ptr *)kern_pkvm_va((void *)p2),
+				    false, true);
+		break;
+	case __pkvm__set_idt:
+		pkvm_access_idt_gdt(pkvm_vcpu, (struct desc_ptr *)kern_pkvm_va((void *)p2),
+				    true, true);
+		break;
+	case __pkvm__get_gdt:
+		pkvm_access_idt_gdt(pkvm_vcpu, (struct desc_ptr *)kern_pkvm_va((void *)p2),
+				    false, false);
+		break;
+	case __pkvm__set_gdt:
+		pkvm_access_idt_gdt(pkvm_vcpu, (struct desc_ptr *)kern_pkvm_va((void *)p2),
+				    true, false);
 		break;
 	default:
 		ret = -EINVAL;
