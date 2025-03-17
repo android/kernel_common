@@ -819,6 +819,22 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 
 static void pkvm_update_emulated_instruction(struct kvm_vcpu *vcpu) {}
 
+static void pkvm_set_interrupt_shadow(struct kvm_vcpu *vcpu, int mask)
+{
+	if (vcpu->arch.guest_state_protected)
+		return;
+
+	kvm_call_pkvm(set_interrupt_shadow, vcpu, mask);
+}
+
+static u32 pkvm_get_interrupt_shadow(struct kvm_vcpu *vcpu)
+{
+	if (vcpu->arch.guest_state_protected)
+		return 0;
+
+	return kvm_call_pkvm(get_interrupt_shadow, vcpu);
+}
+
 static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid_entry2 *e2 = vcpu->arch.cpuid_entries;
@@ -996,8 +1012,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.handle_exit = vmx_handle_exit,
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
 	.update_emulated_instruction = pkvm_update_emulated_instruction,
-	.set_interrupt_shadow = vmx_set_interrupt_shadow,
-	.get_interrupt_shadow = vmx_get_interrupt_shadow,
+	.set_interrupt_shadow = pkvm_set_interrupt_shadow,
+	.get_interrupt_shadow = pkvm_get_interrupt_shadow,
 	.patch_hypercall = vmx_patch_hypercall,
 	.inject_irq = vmx_inject_irq,
 	.inject_nmi = vmx_inject_nmi,

@@ -711,6 +711,22 @@ static void pkvm_flush_tlb_guest(struct pkvm_vcpu *pkvm_vcpu)
 	kvm_x86_call(flush_tlb_guest)(to_kvm_vcpu(pkvm_vcpu));
 }
 
+static void pkvm_set_interrupt_shadow(struct pkvm_vcpu *pkvm_vcpu, int mask)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(set_interrupt_shadow)(to_kvm_vcpu(pkvm_vcpu), mask);
+}
+
+static u32 pkvm_get_interrupt_shadow(struct pkvm_vcpu *pkvm_vcpu)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return 0;
+
+	return kvm_x86_call(get_interrupt_shadow)(to_kvm_vcpu(pkvm_vcpu));
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -798,6 +814,12 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__flush_tlb_guest:
 		pkvm_flush_tlb_guest(pkvm_vcpu);
+		break;
+	case __pkvm__set_interrupt_shadow:
+		pkvm_set_interrupt_shadow(pkvm_vcpu, (int)p2);
+		break;
+	case __pkvm__get_interrupt_shadow:
+		ret = pkvm_get_interrupt_shadow(pkvm_vcpu);
 		break;
 	default:
 		ret = -EINVAL;

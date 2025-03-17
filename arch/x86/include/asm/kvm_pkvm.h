@@ -285,6 +285,8 @@ enum pkvm_fn {
 	__pkvm__flush_tlb_current,
 	__pkvm__flush_tlb_gva,
 	__pkvm__flush_tlb_guest,
+	__pkvm__set_interrupt_shadow,
+	__pkvm__get_interrupt_shadow,
 };
 
 union pkvm_pv_param {
