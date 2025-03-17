@@ -3,6 +3,7 @@
 #include <asm/kvm_pkvm.h>
 #include "x86.h"
 #include "pkvm.h"
+#include "cpuid.h"
 #include <asm/pkvm_spinlock.h>
 //FIXME: clean up the header files
 #include <vmx/pkvm/hyp/mem_protect.h>
@@ -304,8 +305,13 @@ static void pkvm_vm_destroy(int handle)
 
 	for (i = 0; i < to_kvm(pkvm_vm)->created_vcpus; i++) {
 		struct pkvm_vcpu *pkvm_vcpu = pkvm_vm->vcpus[i];
+		struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
 
 		detach_pkvm_vcpu_from_vm(pkvm_vcpu, pkvm_vm);
+		teardown_donated_memory(&shared_pkvm->teardown_mc,
+					(void *)vcpu->arch.cpuid_entries,
+					sizeof(struct kvm_cpuid_entry2) *
+					vcpu->arch.cpuid_nent);
 		teardown_donated_memory(&shared_pkvm->teardown_mc,
 					(void *)pkvm_vcpu, pkvm_vcpu->size);
 		/* TODO: unpin shared kvm_vcpu */
@@ -472,6 +478,46 @@ static fastpath_t pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immediat
 	return kvm_vcpu_enter_guest(to_kvm_vcpu(pkvm_vcpu), force_immediate_exit);
 }
 
+static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu, unsigned long new_pa)
+{
+	struct kvm_cpuid_entry2 *new, *old;
+	unsigned long ret = new_pa;
+	struct kvm_vcpu *vcpu;
+	int nent;
+	u64 size;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return ret;
+
+	nent = pkvm_vcpu->shared_vcpu->arch.cpuid_nent;
+	size = PAGE_ALIGN(sizeof(struct kvm_cpuid_entry2) * nent);
+	if (__pkvm_host_donate_hyp(new_pa, size))
+		return ret;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	old = vcpu->arch.cpuid_entries;
+	new = __pkvm_va(new_pa);
+
+	if (kvm_set_cpuid(vcpu, new, nent) || vcpu->arch.cpuid_entries != new) {
+		/* New physical page is not consumed */
+		__pkvm_hyp_donate_host(new_pa, size);
+	} else if (vcpu->arch.cpuid_entries == new) {
+		/* New physical page is consumed */
+		if (old) {
+			memset(old, 0, size);
+			/* Let the host VMM to free the old physical pages */
+			ret = __pkvm_pa(old);
+			/* Before that, undonate the old physical pages */
+			__pkvm_hyp_donate_host(ret, size);
+		} else {
+			/* No physical page for the host VMM to free */
+			ret = INVALID_PAGE;
+		}
+	}
+
+	return ret;
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -490,6 +536,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__vcpu_run:
 		ret = pkvm_vcpu_run(pkvm_vcpu, (bool)p2);
+		break;
+	case __pkvm__vcpu_after_set_cpuid:
+		ret = pkvm_vcpu_after_set_cpuid(pkvm_vcpu, p2);
 		break;
 	default:
 		ret = -EINVAL;

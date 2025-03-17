@@ -264,6 +264,7 @@ enum pkvm_fn {
 	__pkvm__vcpu_load,
 	__pkvm__vcpu_put,
 	__pkvm__vcpu_run,
+	__pkvm__vcpu_after_set_cpuid,
 };
 
 #endif
