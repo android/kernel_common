@@ -553,6 +553,36 @@ static void pkvm_reset_vcpu(struct pkvm_vcpu *pkvm_vcpu, bool init_event)
 	kvm_vcpu_reset(to_kvm_vcpu(pkvm_vcpu), init_event);
 }
 
+static u64 pkvm_get_segment_base(struct pkvm_vcpu *pkvm_vcpu, int seg)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return 0;
+
+	return kvm_x86_call(get_segment_base)(to_kvm_vcpu(pkvm_vcpu), seg);
+}
+
+static void pkvm_get_segment(struct pkvm_vcpu *pkvm_vcpu, struct kvm_segment *var, int seg)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	if (WARN_ON_ONCE(var != this_pv_param(seg)))
+		return;
+
+	kvm_x86_call(get_segment)(to_kvm_vcpu(pkvm_vcpu), var, seg);
+}
+
+static void pkvm_set_segment(struct pkvm_vcpu *pkvm_vcpu, struct kvm_segment *var, int seg)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	if (WARN_ON_ONCE(var != this_pv_param(seg)))
+		return;
+
+	kvm_x86_call(set_segment)(to_kvm_vcpu(pkvm_vcpu), var, seg);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -577,6 +607,17 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__vcpu_reset:
 		pkvm_reset_vcpu(pkvm_vcpu, (bool)p2);
+		break;
+	case __pkvm__get_segment_base:
+		ret = pkvm_get_segment_base(pkvm_vcpu, (int)p2);
+		break;
+	case __pkvm__get_segment:
+		pkvm_get_segment(pkvm_vcpu, (struct kvm_segment *)kern_pkvm_va((void *)p2),
+				 (int)p3);
+		break;
+	case __pkvm__set_segment:
+		pkvm_set_segment(pkvm_vcpu, (struct kvm_segment *)kern_pkvm_va((void *)p2),
+				 (int)p3);
 		break;
 	default:
 		ret = -EINVAL;

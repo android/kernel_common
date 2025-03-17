@@ -266,6 +266,9 @@ enum pkvm_fn {
 	__pkvm__vcpu_put,
 	__pkvm__vcpu_run,
 	__pkvm__vcpu_after_set_cpuid,
+	__pkvm__get_segment_base,
+	__pkvm__get_segment,
+	__pkvm__set_segment,
 };
 
 union pkvm_pv_param {

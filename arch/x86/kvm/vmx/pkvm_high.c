@@ -369,6 +369,43 @@ static int pkvm_get_feature_msr(u32 msr, u64 *data)
 	}
 }
 
+static u64 pkvm_get_segment_base(struct kvm_vcpu *vcpu, int seg)
+{
+	if (vcpu->arch.guest_state_protected)
+		return 0;
+
+	return kvm_call_pkvm(get_segment_base, vcpu, seg);
+}
+
+static void pkvm_get_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
+{
+	struct kvm_segment *pkvm_var;
+
+	if (vcpu->arch.guest_state_protected) {
+		memset(var, 0, sizeof(*var));
+		return;
+	}
+
+	pkvm_var = get_this_pv_param(seg);
+	*pkvm_var = *var;
+	kvm_call_pkvm(get_segment, vcpu, pkvm_var, seg);
+	*var = *pkvm_var;
+	put_this_pv_param(pkvm_var);
+}
+
+static void pkvm_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
+{
+	struct kvm_segment *pkvm_var;
+
+	if (vcpu->arch.guest_state_protected)
+		return;
+
+	pkvm_var = get_this_pv_param(seg);
+	*pkvm_var = *var;
+	kvm_call_pkvm(set_segment, vcpu, pkvm_var, seg);
+	put_this_pv_param(pkvm_var);
+}
+
 void vmx_do_nmi_irqoff(void);
 
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
@@ -590,9 +627,9 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.get_feature_msr = pkvm_get_feature_msr,
 	.get_msr = vmx_get_msr,
 	.set_msr = vmx_set_msr,
-	.get_segment_base = vmx_get_segment_base,
-	.get_segment = vmx_get_segment,
-	.set_segment = vmx_set_segment,
+	.get_segment_base = pkvm_get_segment_base,
+	.get_segment = pkvm_get_segment,
+	.set_segment = pkvm_set_segment,
 	.get_cpl = vmx_get_cpl,
 	.get_cs_db_l_bits = vmx_get_cs_db_l_bits,
 	.is_valid_cr0 = vmx_is_valid_cr0,
