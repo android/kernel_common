@@ -18,6 +18,7 @@ enum nvmx_vmentry_status {
 };
 
 #ifdef __PKVM_HYP__
+static inline void vmx_leave_nested(struct kvm_vcpu *vcpu) {}
 static inline void nested_vmx_setup_ctls_msrs(struct vmcs_config *vmcs_conf, u32 ept_caps) {}
 static inline void nested_vmx_hardware_unsetup(void) {}
 static inline __init int nested_vmx_hardware_setup(int (*exit_handlers[])(struct kvm_vcpu *))

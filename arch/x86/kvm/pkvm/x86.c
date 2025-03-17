@@ -34,6 +34,12 @@ static u64 __read_mostly efer_reserved_bits = ~((u64)EFER_SCE);
 
 struct kvm_x86_ops kvm_x86_ops __read_mostly;
 
+bool __read_mostly report_ignored_msrs = true;
+module_param(report_ignored_msrs, bool, 0644);
+EXPORT_SYMBOL_GPL(report_ignored_msrs);
+
+bool __read_mostly enable_vmware_backdoor;
+
 /* Enable/disable PMU virtualization */
 bool __read_mostly enable_pmu = true;
 EXPORT_SYMBOL_GPL(enable_pmu);
@@ -131,6 +137,34 @@ static void kvm_user_return_msr_cpu_online(void)
 		msrs->values[i].curr = value;
 	}
 }
+
+int kvm_set_user_return_msr(unsigned slot, u64 value, u64 mask)
+{
+#ifdef __PKVM_HYP__
+	struct kvm_user_return_msrs *msrs = this_cpu_ptr(&user_return_msrs);
+#else
+	struct kvm_user_return_msrs *msrs = this_cpu_ptr(user_return_msrs);
+#endif
+	int err;
+
+	value = (value & mask) | (msrs->values[slot].host & ~mask);
+	if (value == msrs->values[slot].curr)
+		return 0;
+	err = wrmsrl_safe(kvm_uret_msrs_list[slot], value);
+	if (err)
+		return 1;
+
+	msrs->values[slot].curr = value;
+#ifndef __PKVM_HYP__
+	if (!msrs->registered) {
+		msrs->urn.on_user_return = kvm_on_user_return;
+		user_return_notifier_register(&msrs->urn);
+		msrs->registered = true;
+	}
+#endif
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_set_user_return_msr);
 
 noinstr void kvm_spurious_fault(void)
 {
@@ -317,6 +351,20 @@ static inline void kvm_vcpu_flush_tlb_current(struct kvm_vcpu *vcpu)
 	++vcpu->stat.tlb_flush;
 	kvm_x86_call(flush_tlb_current)(vcpu);
 }
+
+int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+{
+	/* TODO: set msr common */
+	return KVM_MSR_RET_UNSUPPORTED;
+}
+EXPORT_SYMBOL_GPL(kvm_set_msr_common);
+
+int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
+{
+	/* TODO: get msr common */
+	return KVM_MSR_RET_UNSUPPORTED;
+}
+EXPORT_SYMBOL_GPL(kvm_get_msr_common);
 
 static bool kvm_is_vm_type_supported(unsigned long type)
 {
@@ -902,6 +950,36 @@ void kvm_arch_destroy_vm(struct kvm *kvm)
 	static_call_cond(kvm_x86_vm_free)(kvm);
 #endif
 }
+
+int kvm_spec_ctrl_test_value(u64 value)
+{
+	/*
+	 * test that setting IA32_SPEC_CTRL to given value
+	 * is allowed by the host processor
+	 */
+
+	u64 saved_value;
+	unsigned long flags;
+	int ret = 0;
+
+	local_irq_save(flags);
+
+	/*
+	 * TODO: the pkvm hypervisor doesn't have exception handlers thus cannot
+	 * tell if the RDMSR/WRMSR has error or not.
+	 */
+	if (rdmsrl_safe(MSR_IA32_SPEC_CTRL, &saved_value))
+		ret = 1;
+	else if (wrmsrl_safe(MSR_IA32_SPEC_CTRL, value))
+		ret = 1;
+	else
+		wrmsrl(MSR_IA32_SPEC_CTRL, saved_value);
+
+	local_irq_restore(flags);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(kvm_spec_ctrl_test_value);
 
 #ifdef __PKVM_HYP__
 fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
