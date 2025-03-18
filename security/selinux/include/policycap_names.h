@@ -17,6 +17,9 @@ const char *const selinux_policycap_names[__POLICYDB_CAP_MAX] = {
 	"genfs_seclabel_symlinks",
 	"ioctl_skip_cloexec",
 	"userspace_initial_context",
+	"netlink_xperm",
+	"netif_wildcard",
+	"genfs_seclabel_wildcard",
 };
 /* clang-format on */
 
