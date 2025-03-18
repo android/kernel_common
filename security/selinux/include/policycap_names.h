@@ -14,6 +14,10 @@ const char *const selinux_policycap_names[__POLICYDB_CAP_MAX] = {
 	"nnp_nosuid_transition",
 	"genfs_seclabel_symlinks",
 	"ioctl_skip_cloexec",
+	"userspace_initial_context",
+	"netlink_xperm",
+	"netif_wildcard",
+	"genfs_seclabel_wildcard",
 };
 
 #endif /* _SELINUX_POLICYCAP_NAMES_H_ */
