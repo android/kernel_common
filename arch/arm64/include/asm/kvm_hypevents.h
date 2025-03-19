@@ -165,4 +165,15 @@ HYP_EVENT(iommu_idmap,
 	),
 	HE_PRINTK("from=0x%llx to=0x%llx prot=0x%x", __entry->from, __entry->to, __entry->prot)
 );
+
+HYP_EVENT(iommu_idmap_complete,
+	HE_PROTO(bool map),
+	HE_STRUCT(
+		he_field(bool, map)
+	),
+	HE_ASSIGN(
+		__entry->map = map;
+	),
+	HE_PRINTK("map=%d", __entry->map)
+);
 #endif /* __ARM64_KVM_HYPEVENTS_H_ */
