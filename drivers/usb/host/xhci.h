@@ -695,8 +695,6 @@ struct xhci_virt_ep {
 	int			next_frame_id;
 	/* Use new Isoch TRB layout needed for extended TBC support */
 	bool			use_extended_tbc;
-	/* set if this endpoint is controlled via sideband access*/
-	struct xhci_sideband	*sideband;
 };
 
 enum xhci_overhead_type {
@@ -759,8 +757,6 @@ struct xhci_virt_device {
 	u16				current_mel;
 	/* Used for the debugfs interfaces. */
 	void				*debugfs_private;
-	/* set if this endpoint is controlled via sideband access*/
-	struct xhci_sideband	*sideband;
 };
 
 /*
