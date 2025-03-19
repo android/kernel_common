@@ -148,16 +148,6 @@ find_format(struct list_head *fmt_list_head, snd_pcm_format_t format,
 	return found;
 }
 
-const struct audioformat *
-snd_usb_find_format(struct list_head *fmt_list_head, snd_pcm_format_t format,
-		    unsigned int rate, unsigned int channels, bool strict_match,
-		    struct snd_usb_substream *subs)
-{
-	return find_format(fmt_list_head, format, rate, channels, strict_match,
-			subs);
-}
-EXPORT_SYMBOL_GPL(snd_usb_find_format);
-
 static const struct audioformat *
 find_substream_format(struct snd_usb_substream *subs,
 		      const struct snd_pcm_hw_params *params)
@@ -166,14 +156,6 @@ find_substream_format(struct snd_usb_substream *subs,
 			   params_rate(params), params_channels(params),
 			   true, subs);
 }
-
-const struct audioformat *
-snd_usb_find_substream_format(struct snd_usb_substream *subs,
-			      const struct snd_pcm_hw_params *params)
-{
-	return find_substream_format(subs, params);
-}
-EXPORT_SYMBOL_GPL(snd_usb_find_substream_format);
 
 bool snd_usb_pcm_has_fixed_rate(struct snd_usb_substream *subs)
 {
@@ -479,9 +461,20 @@ static void close_endpoints(struct snd_usb_audio *chip,
 	}
 }
 
-int snd_usb_hw_params(struct snd_usb_substream *subs,
-		      struct snd_pcm_hw_params *hw_params)
+/*
+ * hw_params callback
+ *
+ * allocate a buffer and set the given audio format.
+ *
+ * so far we use a physically linear buffer although packetize transfer
+ * doesn't need a continuous area.
+ * if sg buffer is supported on the later version of alsa, we'll follow
+ * that.
+ */
+static int snd_usb_hw_params(struct snd_pcm_substream *substream,
+			     struct snd_pcm_hw_params *hw_params)
 {
+	struct snd_usb_substream *subs = substream->runtime->private_data;
 	struct snd_usb_audio *chip = subs->stream->chip;
 	const struct audioformat *fmt;
 	const struct audioformat *sync_fmt;
@@ -506,7 +499,7 @@ int snd_usb_hw_params(struct snd_usb_substream *subs,
 	if (fmt->implicit_fb) {
 		sync_fmt = snd_usb_find_implicit_fb_sync_format(chip, fmt,
 								hw_params,
-								!subs->direction,
+								!substream->stream,
 								&sync_fixed_rate);
 		if (!sync_fmt) {
 			usb_audio_dbg(chip,
@@ -586,28 +579,15 @@ int snd_usb_hw_params(struct snd_usb_substream *subs,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(snd_usb_hw_params);
 
 /*
- * hw_params callback
+ * hw_free callback
  *
- * allocate a buffer and set the given audio format.
- *
- * so far we use a physically linear buffer although packetize transfer
- * doesn't need a continuous area.
- * if sg buffer is supported on the later version of alsa, we'll follow
- * that.
+ * reset the audio format and release the buffer
  */
-static int snd_usb_pcm_hw_params(struct snd_pcm_substream *substream,
-				 struct snd_pcm_hw_params *hw_params)
+static int snd_usb_hw_free(struct snd_pcm_substream *substream)
 {
 	struct snd_usb_substream *subs = substream->runtime->private_data;
-
-	return snd_usb_hw_params(subs, hw_params);
-}
-
-int snd_usb_hw_free(struct snd_usb_substream *subs)
-{
 	struct snd_usb_audio *chip = subs->stream->chip;
 
 	snd_media_stop_pipeline(subs);
@@ -622,19 +602,6 @@ int snd_usb_hw_free(struct snd_usb_substream *subs)
 	}
 
 	return 0;
-}
-EXPORT_SYMBOL_GPL(snd_usb_hw_free);
-
-/*
- * hw_free callback
- *
- * reset the audio format and release the buffer
- */
-static int snd_usb_pcm_hw_free(struct snd_pcm_substream *substream)
-{
-	struct snd_usb_substream *subs = substream->runtime->private_data;
-
-	return snd_usb_hw_free(subs);
 }
 
 /* free-wheeling mode? (e.g. dmix) */
@@ -1779,8 +1746,8 @@ static int snd_usb_substream_capture_trigger(struct snd_pcm_substream *substream
 static const struct snd_pcm_ops snd_usb_playback_ops = {
 	.open =		snd_usb_pcm_open,
 	.close =	snd_usb_pcm_close,
-	.hw_params =	snd_usb_pcm_hw_params,
-	.hw_free =	snd_usb_pcm_hw_free,
+	.hw_params =	snd_usb_hw_params,
+	.hw_free =	snd_usb_hw_free,
 	.prepare =	snd_usb_pcm_prepare,
 	.trigger =	snd_usb_substream_playback_trigger,
 	.sync_stop =	snd_usb_pcm_sync_stop,
@@ -1791,8 +1758,8 @@ static const struct snd_pcm_ops snd_usb_playback_ops = {
 static const struct snd_pcm_ops snd_usb_capture_ops = {
 	.open =		snd_usb_pcm_open,
 	.close =	snd_usb_pcm_close,
-	.hw_params =	snd_usb_pcm_hw_params,
-	.hw_free =	snd_usb_pcm_hw_free,
+	.hw_params =	snd_usb_hw_params,
+	.hw_free =	snd_usb_hw_free,
 	.prepare =	snd_usb_pcm_prepare,
 	.trigger =	snd_usb_substream_capture_trigger,
 	.sync_stop =	snd_usb_pcm_sync_stop,
