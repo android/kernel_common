@@ -9,11 +9,10 @@ if test $# -ne 1 -a $# -ne 2; then
 fi
 
 KERNELRELEASE=$1
-KBUILD_MIXED_TREE=$2
 
 : ${DEPMOD:=depmod}
 
-if ! test -r ${KBUILD_MIXED_TREE}System.map ; then
+if ! test -r "${objtree}/System.map" ; then
 	echo "Warning: modules_install: missing 'System.map' file. Skipping depmod." >&2
 	exit 0
 fi
@@ -26,7 +25,7 @@ if [ -z $(command -v $DEPMOD) ]; then
 	exit 0
 fi
 
-set -- -ae -F ${KBUILD_MIXED_TREE}System.map
+set -- -ae -F "${objtree}/System.map"
 if test -n "$INSTALL_MOD_PATH"; then
 	set -- "$@" -b "$INSTALL_MOD_PATH"
 fi
