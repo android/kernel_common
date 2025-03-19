@@ -1436,7 +1436,6 @@
   mctrl_gpio_get_outputs
   mctrl_gpio_init
   mctrl_gpio_set
-  mem_alloc_profiling_key
   __memcat_p
   memchr
   memcmp
