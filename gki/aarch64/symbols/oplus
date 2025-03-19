@@ -28,6 +28,7 @@
   dget_parent
   d_invalidate
   down_write_killable
+  arm64_mismatched_32bit_el0
   d_rehash
   drm_crtc_vblank_waitqueue
   d_set_d_op
