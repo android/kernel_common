@@ -683,6 +683,7 @@ unsigned long shrink_slab(gfp_t gfp_mask, int nid, struct mem_cgroup *memcg,
 	cond_resched();
 	return freed;
 }
+EXPORT_SYMBOL_GPL(shrink_slab);
 
 struct shrinker *shrinker_alloc(unsigned int flags, const char *fmt, ...)
 {
