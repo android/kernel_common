@@ -1404,9 +1404,6 @@
 # required by exynos-usb-audio-offloading.ko
   snd_ctl_add
   snd_ctl_new1
-  snd_usb_autoresume
-  snd_usb_autosuspend
-  snd_usb_register_platform_ops
   usb_altnum_to_altsetting
   usb_choose_configuration
   usb_ifnum_to_if
