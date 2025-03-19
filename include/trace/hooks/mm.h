@@ -305,6 +305,11 @@ DECLARE_HOOK(android_vh_zs_shrinker_adjust,
 DECLARE_HOOK(android_vh_zs_shrinker_bypass,
 	TP_PROTO(bool *bypass),
 	TP_ARGS(bypass));
+DECLARE_HOOK(android_vh_drain_all_pages_bypass,
+	TP_PROTO(gfp_t gfp_mask, unsigned int order, unsigned long alloc_flags,
+		int migratetype, unsigned long did_some_progress,
+		bool *bypass),
+	TP_ARGS(gfp_mask, order, alloc_flags, migratetype, did_some_progress, bypass));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
