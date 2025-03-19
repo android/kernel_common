@@ -1947,6 +1947,7 @@ static inline void setup_vmalloc_vm(struct vm_struct *vm,
 	vm->size = va_size(va);
 	vm->caller = caller;
 	va->vm = vm;
+	trace_android_vh_save_vmalloc_stack(flags, vm);
 }
 
 /*
@@ -5033,6 +5034,7 @@ static int vmalloc_info_show(struct seq_file *m, void *p)
 				seq_puts(m, " vpages");
 
 			show_numa_info(m, v);
+			trace_android_vh_show_stack_hash(m, v);
 			seq_putc(m, '\n');
 		}
 		spin_unlock(&vn->busy.lock);
