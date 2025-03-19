@@ -177,6 +177,9 @@ DECLARE_HOOK(android_vh_process_madvise,
 DECLARE_HOOK(android_vh_count_workingset_refault,
 	TP_PROTO(struct folio *folio),
 	TP_ARGS(folio));
+DECLARE_HOOK(android_vh_ra_tuning_max_page,
+	TP_PROTO(struct readahead_control *ractl, unsigned long *max_page),
+	TP_ARGS(ractl, max_page));
 DECLARE_HOOK(android_vh_calc_alloc_flags,
 	TP_PROTO(gfp_t gfp_mask, unsigned int *alloc_flags,
 		bool *bypass),
