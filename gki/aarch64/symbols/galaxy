@@ -27,6 +27,8 @@
   proc_set_size
   pstore_register
   pstore_unregister
+  scsi_device_quiesce
+  scsi_device_resume
   swp_swapcount
   __traceiter_android_rvh_die_kernel_fault
   __traceiter_android_rvh_do_el1_undef
