@@ -260,27 +260,6 @@ Consider building @@//common:kernel_aarch64 with:
     visibility = ["//visibility:public"],
 )
 
-common_kernel(
-    name = "kernel_aarch64_interceptor",
-    outs = DEFAULT_GKI_OUTS,
-    arch = "arm64",
-    ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
-    ddk_module_headers = [":all_headers_aarch64"],
-    defconfig = "arch/arm64/configs/gki_defconfig",
-    enable_interceptor = True,
-    extra_dist = [
-        ":test_mappings_zip",
-        ":tests_zip_arm64",
-    ],
-    gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
-    kcflags = COMMON_KCFLAGS,
-    make_goals = _GKI_AARCH64_MAKE_GOALS,
-    makefile = ":Makefile",
-    module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
-    system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
-    visibility = ["//visibility:public"],
-)
-
 fail_rule(
     name = "kernel_x86_64_debug",
     message = """\
