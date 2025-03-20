@@ -31,6 +31,7 @@
 #include <linux/usb/tcpm.h>
 #include <linux/usb/typec_altmode.h>
 
+#include <trace/hooks/typec.h>
 #include <uapi/linux/sched/types.h>
 
 #define FOREACH_STATE(S)			\
@@ -645,6 +646,7 @@ static void _tcpm_log(struct tcpm_port *port, const char *fmt, va_list args)
 	char tmpbuffer[LOG_BUFFER_ENTRY_SIZE];
 	u64 ts_nsec = local_clock();
 	unsigned long rem_nsec;
+	bool bypass_log = false;
 
 	mutex_lock(&port->logbuffer_lock);
 	if (!port->logbuffer[port->logbuffer_head]) {
@@ -657,6 +659,9 @@ static void _tcpm_log(struct tcpm_port *port, const char *fmt, va_list args)
 	}
 
 	vsnprintf(tmpbuffer, sizeof(tmpbuffer), fmt, args);
+	trace_android_vh_typec_tcpm_log(tmpbuffer, &bypass_log);
+	if (bypass_log)
+		goto abort;
 
 	if (tcpm_log_full(port)) {
 		port->logbuffer_head = max(port->logbuffer_head - 1, 0);
@@ -2544,6 +2549,8 @@ static void tcpm_pd_data_request(struct tcpm_port *port,
 
 		tcpm_register_source_caps(port);
 
+		trace_android_vh_typec_store_partner_src_caps(&port->nr_source_caps,
+							      &port->source_caps);
 		/*
 		 * Adjust revision in subsequent message headers, as required,
 		 * to comply with 6.2.1.1.5 of the USB PD 3.0 spec. We don't
@@ -4148,7 +4155,7 @@ static void run_state_machine(struct tcpm_port *port)
 			port->caps_count = 0;
 			port->pd_capable = true;
 			tcpm_set_state_cond(port, SRC_SEND_CAPABILITIES_TIMEOUT,
-					    PD_T_SEND_SOURCE_CAP);
+					    PD_T_SENDER_RESPONSE);
 		}
 		break;
 	case SRC_SEND_CAPABILITIES_TIMEOUT:
@@ -5567,9 +5574,38 @@ static void tcpm_pd_event_handler(struct kthread_work *work)
 		}
 		if (events & TCPM_CC_EVENT) {
 			enum typec_cc_status cc1, cc2;
+			bool modified = false;
 
 			if (port->tcpc->get_cc(port->tcpc, &cc1, &cc2) == 0)
 				_tcpm_cc_change(port, cc1, cc2);
+
+			trace_android_vh_typec_tcpm_modify_src_caps(&port->nr_src_pdo,
+								    &port->src_pdo, &modified);
+			if (modified) {
+				int ret;
+
+				switch (port->state) {
+				case SRC_UNATTACHED:
+				case SRC_ATTACH_WAIT:
+				case SRC_TRYWAIT:
+					tcpm_set_cc(port, tcpm_rp_cc(port));
+					break;
+				case SRC_SEND_CAPABILITIES:
+				case SRC_SEND_CAPABILITIES_TIMEOUT:
+				case SRC_NEGOTIATE_CAPABILITIES:
+				case SRC_READY:
+				case SRC_WAIT_NEW_CAPABILITIES:
+					port->caps_count = 0;
+					port->upcoming_state = SRC_SEND_CAPABILITIES;
+					ret = tcpm_ams_start(port, POWER_NEGOTIATION);
+					if (ret == -EAGAIN)
+						port->upcoming_state = INVALID_STATE;
+					break;
+				default:
+					break;
+				}
+			}
+
 		}
 		if (events & TCPM_FRS_EVENT) {
 			if (port->state == SNK_READY) {

@@ -20,7 +20,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&touchscreen_pins>;
 
-		interrupt-parent = <&pio>;
 		interrupts-extended = <&pio 155 IRQ_TYPE_LEVEL_LOW>;
 
 		post-power-on-delay-ms = <70>;

@@ -2587,6 +2587,7 @@
   skb_dequeue
   skb_dequeue_tail
   skb_ensure_writable
+  __skb_ext_del
   __skb_ext_put
   __skb_get_hash
   __skb_gso_segment

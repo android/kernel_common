@@ -169,6 +169,7 @@
   cdev_device_add
   cdev_device_del
   cdev_init
+  cec_get_edid_phys_addr
   cgroup_taskset_first
   cgroup_taskset_next
   __check_object_size
@@ -248,6 +249,7 @@
   configfs_register_subsystem
   configfs_unregister_group
   configfs_unregister_subsystem
+  config_group_find_item
   config_group_init
   config_group_init_type_name
   config_item_set_name
@@ -388,6 +390,7 @@
   default_wake_function
   delayed_work_timer_fn
   del_gendisk
+  dentry_open
   desc_to_gpio
   destroy_workqueue
   dev_add_pack
@@ -448,6 +451,7 @@
   device_for_each_child_reverse
   device_get_child_node_count
   device_get_match_data
+  device_get_named_child_node
   device_get_next_child_node
   device_get_phy_mode
   device_initialize
@@ -1011,6 +1015,7 @@
   flush_delayed_work
   flush_work
   __flush_workqueue
+  __folio_lock
   __folio_put
   folio_wait_bit
   follow_pfn
@@ -1046,6 +1051,7 @@
   fsg_common_set_inquiry_string
   fsg_common_set_sysfs
   fsg_config_from_params
+  full_name_hash
   fwnode_device_is_available
   fwnode_get_named_child_node
   fwnode_get_next_available_child_node
@@ -1173,6 +1179,11 @@
   handle_sysrq
   hashlen_string
   have_governor_per_policy
+  hci_alloc_dev_priv
+  hci_free_dev
+  hci_recv_frame
+  hci_register_dev
+  hci_unregister_dev
   hex2bin
   hex_asc
   hex_asc_upper
@@ -1861,6 +1872,7 @@
   of_irq_get_byname
   of_irq_parse_one
   of_irq_to_resource_table
+  of_machine_compatible_match
   of_match_device
   of_match_node
   __of_mdiobus_register
@@ -2235,6 +2247,10 @@
   __pskb_pull_tail
   pskb_put
   ___pskb_trim
+  ptp_clock_event
+  ptp_clock_index
+  ptp_clock_register
+  ptp_clock_unregister
   ptp_find_pin
   ptp_schedule_worker
   put_cmsg
@@ -2306,6 +2322,7 @@
   rdev_get_drvdata
   rdev_get_id
   rdev_get_regmap
+  rebuild_sched_domains
   recalc_sigpending
   refcount_dec_and_mutex_lock
   refcount_dec_if_one
@@ -3346,6 +3363,7 @@
   usb_enable_lpm
   usb_ep_alloc_request
   usb_ep_autoconfig
+  usb_ep_autoconfig_ss
   usb_ep_dequeue
   usb_ep_disable
   usb_ep_enable
@@ -3358,10 +3376,13 @@
   usb_free_all_descriptors
   usb_free_coherent
   usb_free_urb
+  usb_function_activate
+  usb_function_deactivate
   usb_function_register
   usb_function_unregister
   usb_gadget_connect
   usb_gadget_disconnect
+  usb_gadget_frame_number
   usb_gadget_giveback_request
   usb_gadget_map_request
   usb_gadget_register_driver_owner
@@ -3440,6 +3461,7 @@
   usleep_range_state
   uuid_null
   uuid_parse
+  uvc_format_by_guid
   __v4l2_async_nf_add_fwnode
   __v4l2_async_nf_add_fwnode_remote
   v4l2_async_nf_cleanup
@@ -3471,6 +3493,7 @@
   __v4l2_device_register_subdev_nodes
   v4l2_device_unregister
   v4l2_device_unregister_subdev
+  v4l2_enum_dv_timings_cap
   v4l2_event_queue
   v4l2_event_queue_fh
   v4l2_event_subdev_unsubscribe
@@ -3482,6 +3505,8 @@
   v4l2_fh_init
   v4l2_fh_is_singular
   v4l2_fh_open
+  v4l2_fh_release
+  v4l2_find_dv_timings_cap
   __v4l2_find_nearest_size
   v4l2_format_info
   v4l2_fwnode_endpoint_parse
@@ -3521,12 +3546,17 @@
   v4l2_m2m_streamoff
   v4l2_m2m_try_schedule
   v4l2_m2m_unregister_media_controller
+  v4l2_match_dv_timings
   v4l2_pipeline_link_notify
+  v4l2_print_dv_timings
+  v4l2_simplify_fraction
+  v4l2_src_change_event_subdev_subscribe
   v4l2_src_change_event_subscribe
   v4l2_subdev_call_wrappers
   v4l2_subdev_init
   v4l2_subdev_link_validate
   v4l2_subdev_link_validate_default
+  v4l2_valid_dv_timings
   v4l_bound_align_image
   vb2_buffer_done
   vb2_common_vm_ops

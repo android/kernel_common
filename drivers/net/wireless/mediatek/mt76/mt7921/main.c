@@ -546,7 +546,7 @@ static int mt7921_set_key(struct ieee80211_hw *hw, enum set_key_cmd cmd,
 		 * reassociating. But we should trigger the deletion process
 		 * to avoid using incorrect cipher after disconnection,
 		 */
-		if (vif->cfg.assoc)
+		if (vif->type != NL80211_IFTYPE_STATION || vif->cfg.assoc)
 			goto out;
 	}
 

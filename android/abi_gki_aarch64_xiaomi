@@ -68,6 +68,7 @@
   scsi_device_lookup
   scsi_host_lookup
   scsi_device_lookup
+  scsi_device_set_state
   blk_mq_quiesce_tagset
   blk_mq_unquiesce_tagset
   memblock_free
@@ -516,3 +517,9 @@ __traceiter_android_vh_gzvm_handle_demand_page_pre
 __traceiter_android_vh_gzvm_handle_demand_page_post
 __tracepoint_android_vh_gzvm_handle_demand_page_pre
 __tracepoint_android_vh_gzvm_handle_demand_page_post
+
+# required by launch_boost driver
+__traceiter_android_vh_filemap_read
+__tracepoint_android_vh_filemap_read
+__traceiter_android_vh_filemap_map_pages_range
+__tracepoint_android_vh_filemap_map_pages_range
