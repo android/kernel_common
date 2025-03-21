@@ -5263,6 +5263,22 @@ int vmx_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
 	return ret;
 }
 
+void vmx_update_cr8_intercept(struct kvm_vcpu *vcpu, int tpr, int irr)
+{
+	struct vmcs12 *vmcs12 = get_vmcs12(vcpu);
+	int tpr_threshold;
+
+	if (is_guest_mode(vcpu) &&
+		nested_cpu_has(vmcs12, CPU_BASED_TPR_SHADOW))
+		return;
+
+	tpr_threshold = (irr == -1 || tpr < irr) ? 0 : irr;
+	if (is_guest_mode(vcpu))
+		to_vmx(vcpu)->nested.l1_tpr_threshold = tpr_threshold;
+	else
+		vmcs_write32(TPR_THRESHOLD, tpr_threshold);
+}
+
 static void vmx_recover_nmi_blocking(struct vcpu_vmx *vmx)
 {
 	u32 exit_intr_info;
@@ -6823,6 +6839,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.set_nmi_mask = vmx_set_nmi_mask,
 	.enable_nmi_window = vmx_enable_nmi_window,
 	.enable_irq_window = vmx_enable_irq_window,
+	.update_cr8_intercept = vmx_update_cr8_intercept,
 
 	.complete_emulated_msr = kvm_complete_insn_gp,
 

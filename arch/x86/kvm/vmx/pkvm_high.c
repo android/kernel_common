@@ -920,6 +920,11 @@ static void pkvm_enable_irq_window(struct kvm_vcpu *vcpu)
 	kvm_call_pkvm(enable_irq_window, vcpu);
 }
 
+static void pkvm_update_cr8_intercept(struct kvm_vcpu *vcpu, int tpr, int irr)
+{
+	kvm_call_pkvm(update_cr8_intercept, vcpu, tpr, irr);
+}
+
 static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid_entry2 *e2 = vcpu->arch.cpuid_entries;
@@ -1118,7 +1123,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_nmi_mask = pkvm_set_nmi_mask,
 	.enable_nmi_window = pkvm_enable_nmi_window,
 	.enable_irq_window = pkvm_enable_irq_window,
-	.update_cr8_intercept = vmx_update_cr8_intercept,
+	.update_cr8_intercept = pkvm_update_cr8_intercept,
 
 	.x2apic_icr_is_split = false,
 	.set_virtual_apic_mode = vmx_set_virtual_apic_mode,

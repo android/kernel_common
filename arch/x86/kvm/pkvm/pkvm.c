@@ -1005,6 +1005,14 @@ static void pkvm_enable_irq_window(struct pkvm_vcpu *pkvm_vcpu)
 	kvm_x86_call(enable_irq_window)(to_kvm_vcpu(pkvm_vcpu));
 }
 
+static void pkvm_update_cr8_intercept(struct pkvm_vcpu *pkvm_vcpu, int tpr, int irr)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(update_cr8_intercept)(to_kvm_vcpu(pkvm_vcpu), tpr, irr);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1131,6 +1139,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__enable_irq_window:
 		pkvm_enable_irq_window(pkvm_vcpu);
+		break;
+	case __pkvm__update_cr8_intercept:
+		pkvm_update_cr8_intercept(pkvm_vcpu, (int)p2, (int)p3);
 		break;
 	default:
 		ret = -EINVAL;
