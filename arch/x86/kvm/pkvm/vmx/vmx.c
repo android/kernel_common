@@ -18,6 +18,7 @@
 #include <vmx/pkvm/hyp/nested.h>
 #include <vmx/pkvm/hyp/ept.h>
 #include <vmx/hyperv.h>
+#include <kvm_onhyperv.h>
 #include <pkvm.h>
 
 #ifdef __PKVM_HYP__
@@ -2851,6 +2852,21 @@ void vmx_flush_tlb_guest(struct kvm_vcpu *vcpu)
 	vpid_sync_context(vmx_get_current_vpid(vcpu));
 }
 
+void vmx_ept_load_pdptrs(struct kvm_vcpu *vcpu)
+{
+	struct kvm_mmu *mmu = vcpu->arch.walk_mmu;
+
+	if (!kvm_register_is_dirty(vcpu, VCPU_EXREG_PDPTR))
+		return;
+
+	if (is_pae_paging(vcpu)) {
+		vmcs_write64(GUEST_PDPTR0, mmu->pdptrs[0]);
+		vmcs_write64(GUEST_PDPTR1, mmu->pdptrs[1]);
+		vmcs_write64(GUEST_PDPTR2, mmu->pdptrs[2]);
+		vmcs_write64(GUEST_PDPTR3, mmu->pdptrs[3]);
+	}
+}
+
 void ept_save_pdptrs(struct kvm_vcpu *vcpu)
 {
 	struct kvm_mmu *mmu = vcpu->arch.walk_mmu;
@@ -2978,6 +2994,35 @@ u64 construct_eptp(struct kvm_vcpu *vcpu, hpa_t root_hpa, int root_level)
 	eptp |= root_hpa;
 
 	return eptp;
+}
+
+void vmx_load_mmu_pgd(struct kvm_vcpu *vcpu, hpa_t root_hpa, int root_level)
+{
+	struct kvm *kvm = vcpu->kvm;
+	bool update_guest_cr3 = true;
+	unsigned long guest_cr3;
+	u64 eptp;
+
+	if (enable_ept) {
+		eptp = construct_eptp(vcpu, root_hpa, root_level);
+		vmcs_write64(EPT_POINTER, eptp);
+
+		hv_track_root_tdp(vcpu, root_hpa);
+
+		if (!enable_unrestricted_guest && !is_paging(vcpu))
+			guest_cr3 = to_kvm_vmx(kvm)->ept_identity_map_addr;
+		else if (kvm_register_is_dirty(vcpu, VCPU_EXREG_CR3))
+			guest_cr3 = vcpu->arch.cr3;
+		else /* vmcs.GUEST_CR3 is already up-to-date. */
+			update_guest_cr3 = false;
+		vmx_ept_load_pdptrs(vcpu);
+	} else {
+		guest_cr3 = root_hpa | kvm_get_active_pcid(vcpu) |
+			    kvm_get_active_cr3_lam_bits(vcpu);
+	}
+
+	if (update_guest_cr3)
+		vmcs_writel(GUEST_CR3, guest_cr3);
 }
 
 void vmx_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
@@ -7099,6 +7144,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 
 	.write_tsc_offset = vmx_write_tsc_offset,
 	.write_tsc_multiplier = vmx_write_tsc_multiplier,
+
+	.load_mmu_pgd = vmx_load_mmu_pgd,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {
