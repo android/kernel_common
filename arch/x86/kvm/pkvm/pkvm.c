@@ -518,6 +518,38 @@ static void pkvm_vcpu_update_state_from_host(struct pkvm_vcpu *pkvm_vcpu)
 		/* Update the npVM's GPRs from the host */
 		memcpy(vcpu->arch.regs, shared_vcpu->arch.regs,
 		       NR_VCPU_REGS * sizeof(*vcpu->arch.regs));
+	} else if (unlikely(!kvm_vcpu_has_run(vcpu))) {
+		/*
+		 * FIXME: Allows the host to set the pVM's vcpu state for the
+		 * initial booting if the vcpu has not started running. This
+		 * is to satisfy the current crosvm implementation. But the
+		 * initial vcpu state set by the host is un-trusted. Once the
+		 * crosvm will not do so and the pkvm hypervisor set the initial
+		 * pVM's vcpu state, this should be removed.
+		 *
+		 * For Multiboot-compatible bootloader, the boot information is
+		 * stored in the RAX/RDX.
+		 */
+		kvm_rax_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RAX]);
+		kvm_rdx_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RDX]);
+		/*
+		 * For ELF/kernel bzImage, configures the bootstrap VCPU for the
+		 * Linux/x86 boot protocol in RSP/RSI.
+		 * <https://www.kernel.org/doc/html/latest/arch/x86/boot.html>
+		 */
+		if (kvm_register_is_dirty(shared_vcpu, VCPU_REGS_RSP))
+			kvm_rsp_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RSP]);
+		kvm_rsi_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RSI]);
+		/* Pass the guest boot entry address in RIP */
+		if (kvm_register_is_dirty(shared_vcpu, VCPU_REGS_RIP))
+			kvm_rip_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RIP]);
+		/*
+		 * FIXME: Pass pVM payload entry address to pVM firmware by RDI.
+		 * According to the comment in the crosvm x86_64/src/lib.rs,
+		 * this is just for development purpose. Probably this update
+		 * will not be needed eventually.
+		 */
+		kvm_rdi_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RDI]);
 	}
 }
 
