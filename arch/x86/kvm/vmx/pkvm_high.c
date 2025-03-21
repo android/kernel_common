@@ -195,6 +195,405 @@ static bool pkvm_hyp_emulated_msr(u32 msr)
 	return false;
 }
 
+static fastpath_t pkvm_exit_handlers_fastpath(struct kvm_vcpu *vcpu)
+{
+	switch (to_vmx(vcpu)->exit_reason.basic) {
+	case EXIT_REASON_MSR_WRITE:
+		return handle_fastpath_set_msr_irqoff(vcpu);
+	default:
+		return EXIT_FASTPATH_NONE;
+	}
+}
+
+static int handle_exception_nmi(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct kvm_run *kvm_run = vcpu->run;
+	u32 intr_info, ex_no, error_code;
+	u32 vect_info;
+
+	vect_info = vmx->idt_vectoring_info;
+	intr_info = vmx_get_intr_info(vcpu);
+
+	/*
+	 * Machine checks are handled by handle_exception_irqoff(), or by
+	 * pkvm_vcpu_run() if a #MC occurs on VM-Entry.  NMIs are handled by
+	 * pkvm_vcpu_run().
+	 */
+	if (is_machine_check(intr_info) || is_nmi(intr_info))
+		return 1;
+
+	if (pkvm_is_protected_vcpu(vcpu))
+		return 1;
+
+	if (is_invalid_opcode(intr_info))
+		return handle_ud(vcpu);
+
+	error_code = 0;
+	if (intr_info & INTR_INFO_DELIVER_CODE_MASK)
+		error_code = vmx->error_code;
+
+	/*
+	 * The #PF with PFEC.RSVD = 1 indicates the guest is accessing
+	 * MMIO, it is better to report an internal error.
+	 * See the comments in __pkvm_handle_exit.
+	 */
+	if ((vect_info & VECTORING_INFO_VALID_MASK) &&
+	    !(is_page_fault(intr_info) && !(error_code & PFERR_RSVD_MASK))) {
+		vcpu->run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+		vcpu->run->internal.suberror = KVM_INTERNAL_ERROR_SIMUL_EX;
+		vcpu->run->internal.ndata = 4;
+		vcpu->run->internal.data[0] = vect_info;
+		vcpu->run->internal.data[1] = intr_info;
+		vcpu->run->internal.data[2] = error_code;
+		vcpu->run->internal.data[3] = vcpu->arch.last_vmentry_cpu;
+		return 0;
+	}
+
+	ex_no = intr_info & INTR_INFO_VECTOR_MASK;
+	switch (ex_no) {
+	case AC_VECTOR:
+		if (vmx_guest_inject_ac(vcpu)) {
+			kvm_queue_exception_e(vcpu, AC_VECTOR, error_code);
+			return 1;
+		}
+
+		/*
+		 * Handle split lock. Depending on detection mode this will
+		 * either warn and disable split lock detection for this
+		 * task or force SIGBUS on it.
+		 */
+		if (handle_guest_split_lock(kvm_rip_read(vcpu)))
+			return 1;
+		fallthrough;
+	default:
+		pr_warn("pkvm_high: Unsupported exception_nmi: intr_info 0x%x\n", intr_info);
+		kvm_run->exit_reason = KVM_EXIT_EXCEPTION;
+		kvm_run->ex.exception = ex_no;
+		kvm_run->ex.error_code = error_code;
+		break;
+	}
+
+	return 0;
+}
+
+static __always_inline int handle_external_interrupt(struct kvm_vcpu *vcpu)
+{
+	++vcpu->stat.irq_exits;
+	return 1;
+}
+
+static int handle_triple_fault(struct kvm_vcpu *vcpu)
+{
+	vcpu->run->exit_reason = KVM_EXIT_SHUTDOWN;
+	vcpu->mmio_needed = 0;
+	return 0;
+}
+
+static int handle_nmi_window(struct kvm_vcpu *vcpu)
+{
+	if (KVM_BUG_ON(!enable_vnmi, vcpu->kvm))
+		return -EIO;
+
+	exec_controls_clearbit(to_vmx(vcpu), CPU_BASED_NMI_WINDOW_EXITING);
+	++vcpu->stat.nmi_window_exits;
+	kvm_make_request(KVM_REQ_EVENT, vcpu);
+
+	return 1;
+}
+
+static int handle_io(struct kvm_vcpu *vcpu)
+{
+	unsigned long exit_qualification;
+	int size, in, string;
+	unsigned int port;
+
+	exit_qualification = vmx_get_exit_qual(vcpu);
+	string = (exit_qualification & 16) != 0;
+
+	++vcpu->stat.io_exits;
+
+	if (string)
+		return kvm_emulate_instruction(vcpu, 0);
+
+	port = exit_qualification >> 16;
+	size = (exit_qualification & 7) + 1;
+	in = (exit_qualification & 8) != 0;
+
+	return kvm_fast_pio(vcpu, size, port, in);
+}
+
+static int handle_tpr_below_threshold(struct kvm_vcpu *vcpu)
+{
+	kvm_apic_update_ppr(vcpu);
+	return 1;
+}
+
+static int handle_interrupt_window(struct kvm_vcpu *vcpu)
+{
+	exec_controls_clearbit(to_vmx(vcpu), CPU_BASED_INTR_WINDOW_EXITING);
+
+	kvm_make_request(KVM_REQ_EVENT, vcpu);
+
+	++vcpu->stat.irq_window_exits;
+	return 1;
+}
+
+static int handle_apic_eoi_induced(struct kvm_vcpu *vcpu)
+{
+	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+	int vector = exit_qualification & 0xff;
+
+	/* EOI-induced VM exit is trap-like and thus no need to adjust IP */
+	kvm_apic_set_eoi_accelerated(vcpu, vector);
+	return 1;
+}
+
+static int handle_apic_write(struct kvm_vcpu *vcpu)
+{
+	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+
+	/*
+	 * APIC-write VM-Exit is trap-like, KVM doesn't need to advance RIP and
+	 * hardware has done any necessary aliasing, offset adjustments, etc...
+	 * for the access.  I.e. the correct value has already been  written to
+	 * the vAPIC page for the correct 16-byte chunk.  KVM needs only to
+	 * retrieve the register value and emulate the access.
+	 */
+	u32 offset = exit_qualification & 0xff0;
+
+	kvm_apic_write_nodecode(vcpu, offset);
+	return 1;
+}
+
+static int handle_machine_check(struct kvm_vcpu *vcpu)
+{
+	/* handled by pkvm_vcpu_run() */
+	return 1;
+}
+
+static int handle_ept_violation(struct kvm_vcpu *vcpu)
+{
+	unsigned long exit_qualification;
+	gpa_t gpa;
+	u64 error_code;
+
+	exit_qualification = vmx_get_exit_qual(vcpu);
+
+	gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+	trace_kvm_page_fault(vcpu, gpa, exit_qualification);
+
+	/* Is it a read fault? */
+	error_code = (exit_qualification & EPT_VIOLATION_ACC_READ)
+		     ? PFERR_USER_MASK : 0;
+	/* Is it a write fault? */
+	error_code |= (exit_qualification & EPT_VIOLATION_ACC_WRITE)
+		      ? PFERR_WRITE_MASK : 0;
+	/* Is it a fetch fault? */
+	error_code |= (exit_qualification & EPT_VIOLATION_ACC_INSTR)
+		      ? PFERR_FETCH_MASK : 0;
+	/* ept page table entry is present? */
+	error_code |= (exit_qualification & EPT_VIOLATION_RWX_MASK)
+		      ? PFERR_PRESENT_MASK : 0;
+
+	error_code |= (exit_qualification & EPT_VIOLATION_GVA_TRANSLATED) != 0 ?
+	       PFERR_GUEST_FINAL_MASK : PFERR_GUEST_PAGE_MASK;
+
+	return kvm_mmu_page_fault(vcpu, gpa, error_code, NULL, 0);
+}
+
+static int handle_ept_misconfig(struct kvm_vcpu *vcpu)
+{
+	gpa_t gpa;
+
+	if (vmx_check_emulate_instruction(vcpu, EMULTYPE_PF, NULL, 0))
+		return 1;
+
+	gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+	if (!kvm_io_bus_write(vcpu, KVM_FAST_MMIO_BUS, gpa, 0, NULL)) {
+		trace_kvm_fast_mmio(gpa);
+		return kvm_skip_emulated_instruction(vcpu);
+	}
+
+	return kvm_mmu_page_fault(vcpu, gpa, PFERR_RSVD_MASK, NULL, 0);
+}
+
+/*
+ * Indicate a busy-waiting vcpu in spinlock. We do not enable the PAUSE
+ * exiting, so only get here on cpu with PAUSE-Loop-Exiting.
+ */
+static int handle_pause(struct kvm_vcpu *vcpu)
+{
+	/*
+	 * Intel sdm vol3 ch-25.1.3 says: The "PAUSE-loop exiting"
+	 * VM-execution control is ignored if CPL > 0. OTOH, KVM
+	 * never set PAUSE_EXITING and just set PLE if supported,
+	 * so the vcpu must be CPL=0 if it gets a PAUSE exit.
+	 */
+	kvm_vcpu_on_spin(vcpu, true);
+	return kvm_skip_emulated_instruction(vcpu);
+}
+
+static int handle_bus_lock_vmexit(struct kvm_vcpu *vcpu)
+{
+	/*
+	 * Hardware may or may not set the BUS_LOCK_DETECTED flag on BUS_LOCK
+	 * VM-Exits. Unconditionally set the flag here and leave the handling to
+	 * pkvm_handle_exit().
+	 */
+	to_vmx(vcpu)->exit_reason.bus_lock_detected = true;
+	return 1;
+}
+
+static int handle_notify(struct kvm_vcpu *vcpu)
+{
+	unsigned long exit_qual = vmx_get_exit_qual(vcpu);
+	bool context_invalid = exit_qual & NOTIFY_VM_CONTEXT_INVALID;
+
+	++vcpu->stat.notify_window_exits;
+
+	/*
+	 * Notify VM exit happened while executing iret from NMI,
+	 * "blocked by NMI" bit has to be set before next VM entry.
+	 */
+	if (enable_vnmi && (exit_qual & INTR_INFO_UNBLOCK_NMI))
+		vmcs_set_bits(GUEST_INTERRUPTIBILITY_INFO,
+			      GUEST_INTR_STATE_NMI);
+
+	if (vcpu->kvm->arch.notify_vmexit_flags & KVM_X86_NOTIFY_VMEXIT_USER ||
+	    context_invalid) {
+		vcpu->run->exit_reason = KVM_EXIT_NOTIFY;
+		vcpu->run->notify.flags = context_invalid ?
+					  KVM_NOTIFY_CONTEXT_INVALID : 0;
+		return 0;
+	}
+
+	return 1;
+}
+
+/*
+ * The exit handlers return 1 if the exit was handled fully and guest execution
+ * may resume.  Otherwise they set the kvm_run parameter to indicate what needs
+ * to be done to userspace and return 0.
+ */
+static int (*pkvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
+	[EXIT_REASON_EXCEPTION_NMI]           = handle_exception_nmi,
+	[EXIT_REASON_EXTERNAL_INTERRUPT]      = handle_external_interrupt,
+	[EXIT_REASON_TRIPLE_FAULT]            = handle_triple_fault,
+	[EXIT_REASON_NMI_WINDOW]	      = handle_nmi_window,
+	[EXIT_REASON_IO_INSTRUCTION]          = handle_io,
+	[EXIT_REASON_MSR_READ]                = kvm_emulate_rdmsr,
+	[EXIT_REASON_MSR_WRITE]               = kvm_emulate_wrmsr,
+	[EXIT_REASON_INTERRUPT_WINDOW]        = handle_interrupt_window,
+	[EXIT_REASON_HLT]                     = kvm_emulate_halt,
+	[EXIT_REASON_VMCALL]                  = kvm_emulate_hypercall,
+	[EXIT_REASON_TPR_BELOW_THRESHOLD]     = handle_tpr_below_threshold,
+	[EXIT_REASON_APIC_WRITE]              = handle_apic_write,
+	[EXIT_REASON_EOI_INDUCED]             = handle_apic_eoi_induced,
+	[EXIT_REASON_WBINVD]                  = kvm_emulate_wbinvd,
+	[EXIT_REASON_MCE_DURING_VMENTRY]      = handle_machine_check,
+	[EXIT_REASON_EPT_VIOLATION]	      = handle_ept_violation,
+	[EXIT_REASON_EPT_MISCONFIG]           = handle_ept_misconfig,
+	[EXIT_REASON_PAUSE_INSTRUCTION]       = handle_pause,
+	[EXIT_REASON_BUS_LOCK]                = handle_bus_lock_vmexit,
+	[EXIT_REASON_NOTIFY]		      = handle_notify,
+};
+
+static const int pkvm_vmx_max_exit_handlers =
+	ARRAY_SIZE(pkvm_vmx_exit_handlers);
+
+static int __pkvm_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	union vmx_exit_reason exit_reason;
+	u16 exit_handler_index;
+	u32 vectoring_info;
+
+	exit_reason = vmx->exit_reason;
+
+	if (exit_reason.failed_vmentry) {
+		vcpu->run->exit_reason = KVM_EXIT_FAIL_ENTRY;
+		vcpu->run->fail_entry.hardware_entry_failure_reason
+			= exit_reason.full;
+		vcpu->run->fail_entry.cpu = vcpu->arch.last_vmentry_cpu;
+		return 0;
+	}
+
+	if (unlikely(vmx->fail)) {
+		vcpu->run->exit_reason = KVM_EXIT_FAIL_ENTRY;
+		vcpu->run->fail_entry.hardware_entry_failure_reason
+			= vmx->error_code;
+		vcpu->run->fail_entry.cpu = vcpu->arch.last_vmentry_cpu;
+		return 0;
+	}
+
+	vectoring_info = vmx->idt_vectoring_info;
+	/*
+	 * Note:
+	 * Do not try to fix EXIT_REASON_EPT_MISCONFIG if it caused by
+	 * delivery event since it indicates guest is accessing MMIO.
+	 * The vm-exit can be triggered again after return to guest that
+	 * will cause infinite loop.
+	 */
+	if ((vectoring_info & VECTORING_INFO_VALID_MASK) &&
+	    (exit_reason.basic != EXIT_REASON_EXCEPTION_NMI &&
+	     exit_reason.basic != EXIT_REASON_EPT_VIOLATION &&
+	     exit_reason.basic != EXIT_REASON_PML_FULL &&
+	     exit_reason.basic != EXIT_REASON_APIC_ACCESS &&
+	     exit_reason.basic != EXIT_REASON_TASK_SWITCH &&
+	     exit_reason.basic != EXIT_REASON_NOTIFY)) {
+		int ndata = 3;
+
+		vcpu->run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+		vcpu->run->internal.suberror = KVM_INTERNAL_ERROR_DELIVERY_EV;
+		vcpu->run->internal.data[0] = vectoring_info;
+		vcpu->run->internal.data[1] = exit_reason.full;
+		vcpu->run->internal.data[2] = vmx_get_exit_qual(vcpu);
+		if (exit_reason.basic == EXIT_REASON_EPT_MISCONFIG)
+			vcpu->run->internal.data[ndata++] =
+				vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+		vcpu->run->internal.data[ndata++] = vcpu->arch.last_vmentry_cpu;
+		vcpu->run->internal.ndata = ndata;
+		return 0;
+	}
+
+	if (exit_fastpath != EXIT_FASTPATH_NONE)
+		return 1;
+
+	if (exit_reason.basic >= pkvm_vmx_max_exit_handlers)
+		goto unexpected_vmexit;
+#ifdef CONFIG_MITIGATION_RETPOLINE
+	if (exit_reason.basic == EXIT_REASON_MSR_WRITE)
+		return kvm_emulate_wrmsr(vcpu);
+	else if (exit_reason.basic == EXIT_REASON_INTERRUPT_WINDOW)
+		return handle_interrupt_window(vcpu);
+	else if (exit_reason.basic == EXIT_REASON_EXTERNAL_INTERRUPT)
+		return handle_external_interrupt(vcpu);
+	else if (exit_reason.basic == EXIT_REASON_HLT)
+		return kvm_emulate_halt(vcpu);
+	else if (exit_reason.basic == EXIT_REASON_EPT_MISCONFIG)
+		return handle_ept_misconfig(vcpu);
+#endif
+
+	exit_handler_index = array_index_nospec((u16)exit_reason.basic,
+						pkvm_vmx_max_exit_handlers);
+	if (!pkvm_vmx_exit_handlers[exit_handler_index])
+		goto unexpected_vmexit;
+
+	return pkvm_vmx_exit_handlers[exit_handler_index](vcpu);
+
+unexpected_vmexit:
+	vcpu_unimpl(vcpu, "vmx: unexpected exit reason 0x%x\n",
+		    exit_reason.full);
+	vcpu->run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+	vcpu->run->internal.suberror =
+			KVM_INTERNAL_ERROR_UNEXPECTED_EXIT_REASON;
+	vcpu->run->internal.ndata = 2;
+	vcpu->run->internal.data[0] = exit_reason.full;
+	vcpu->run->internal.data[1] = vcpu->arch.last_vmentry_cpu;
+	return 0;
+}
+
 static int pkvm_check_processor_compat(void)
 {
 	return kvm_call_pkvm(check_processor_compatibility);
@@ -907,7 +1306,25 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 	if (exit_fastpath == EXIT_FASTPATH_EXIT_HANDLED)
 		return exit_fastpath;
 
-	return vmx_exit_handlers_fastpath(vcpu, force_immediate_exit);
+	return pkvm_exit_handlers_fastpath(vcpu);
+}
+
+static int pkvm_handle_exit(struct kvm_vcpu *vcpu, fastpath_t exit_fastpath)
+{
+	int ret = __pkvm_handle_exit(vcpu, exit_fastpath);
+
+	/*
+	 * Exit to user space when bus lock detected to inform that there is
+	 * a bus lock in guest.
+	 */
+	if (to_vmx(vcpu)->exit_reason.bus_lock_detected) {
+		if (ret > 0)
+			vcpu->run->exit_reason = KVM_EXIT_X86_BUS_LOCK;
+
+		vcpu->run->flags |= KVM_RUN_X86_BUS_LOCK;
+		return 0;
+	}
+	return ret;
 }
 
 static void pkvm_update_emulated_instruction(struct kvm_vcpu *vcpu) {}
@@ -1331,7 +1748,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 
 	.vcpu_pre_run = vmx_vcpu_pre_run,
 	.vcpu_run = pkvm_vcpu_run,
-	.handle_exit = vmx_handle_exit,
+	.handle_exit = pkvm_handle_exit,
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
 	.update_emulated_instruction = pkvm_update_emulated_instruction,
 	.set_interrupt_shadow = pkvm_set_interrupt_shadow,
