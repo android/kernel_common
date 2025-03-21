@@ -7797,6 +7797,16 @@ static void update_protected_vcpu_state(struct kvm_vcpu *vcpu,
 		kvm_skip_emulated_instruction(vcpu);
 		break;
 	}
+	case EXIT_REASON_VMCALL:
+		/*
+		 * After a hypercall being emulated by the host, the RAX
+		 * may be filled by the host with the return value to
+		 * the guest. So for the pVM, suppose it awares that the
+		 * RAX may be modified by the host after returning back
+		 * form a hypercall.
+		 */
+		kvm_rax_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RAX]);
+		break;
 	default:
 		break;
 	}
@@ -7864,6 +7874,22 @@ static void share_protected_vcpu_state(struct kvm_vcpu *vcpu,
 		shared_vcpu->arch.regs[VCPU_REGS_RAX] = kvm_rax_read(vcpu);
 		break;
 	}
+	case EXIT_REASON_VMCALL:
+		/*
+		 * The pVM may also needs to use the hypercall to
+		 * communicate with the host, e.g., MMIO emulation. And
+		 * the hypercall parameters are usually filled by the
+		 * pVM software in below registers, so they should be
+		 * shared with the host. Suppose the pVM itself won't
+		 * leak any sensitive data via below registers when
+		 * fills the hypercall parameters.
+		 */
+		shared_vcpu->arch.regs[VCPU_REGS_RAX] = kvm_rax_read(vcpu);
+		shared_vcpu->arch.regs[VCPU_REGS_RCX] = kvm_rcx_read(vcpu);
+		shared_vcpu->arch.regs[VCPU_REGS_RDX] = kvm_rdx_read(vcpu);
+		shared_vcpu->arch.regs[VCPU_REGS_RBX] = kvm_rbx_read(vcpu);
+		shared_vcpu->arch.regs[VCPU_REGS_RSI] = kvm_rsi_read(vcpu);
+		break;
 	default:
 		break;
 	}
