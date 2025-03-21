@@ -913,6 +913,14 @@ static bool pkvm_apic_init_signal_blocked(struct kvm_vcpu *vcpu)
 
 static void pkvm_migrate_timers(struct kvm_vcpu *vcpu) {}
 
+static int pkvm_complete_emulated_msr(struct kvm_vcpu *vcpu, int err)
+{
+	if (err)
+		return kvm_call_pkvm(complete_emulated_msr, vcpu, err);
+
+	return pkvm_is_protected_vcpu(vcpu) ? 1 : kvm_skip_emulated_instruction(vcpu);
+}
+
 #define VMX_REQUIRED_APICV_INHIBITS				\
 	(BIT(APICV_INHIBIT_REASON_DISABLED) |			\
 	 BIT(APICV_INHIBIT_REASON_ABSENT) |			\
@@ -1094,7 +1102,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.migrate_timers = pkvm_migrate_timers,
 
 	.msr_filter_changed = vmx_msr_filter_changed,
-	.complete_emulated_msr = kvm_complete_insn_gp,
+	.complete_emulated_msr = pkvm_complete_emulated_msr,
 
 	.vcpu_deliver_sipi_vector = kvm_vcpu_deliver_sipi_vector,
 

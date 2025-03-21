@@ -6681,7 +6681,60 @@ static void vmx_switch_to_host_vcpu(struct kvm_vcpu *vcpu)
 	vmcs_load(to_vmx(this_cpu_read(host_vcpu))->vmcs01.vmcs);
 }
 
-static void vmx_sync_vcpu_state_post_switch(struct pkvm_vcpu *pkvm_vcpu) {}
+static void update_protected_vcpu_state(struct kvm_vcpu *vcpu,
+					struct kvm_vcpu *shared_vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	if (vmx->exit_reason.failed_vmentry || vmx->fail)
+		return;
+
+	switch (vmx->exit_reason.basic) {
+	case EXIT_REASON_MSR_READ:
+		if (!to_pkvm_vcpu(vcpu)->host_emulated_msr_err) {
+			kvm_rax_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RAX]);
+			kvm_rdx_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RDX]);
+		}
+		fallthrough;
+	case EXIT_REASON_MSR_WRITE:
+		kvm_complete_insn_gp(vcpu,
+				     xchg(&to_pkvm_vcpu(vcpu)->host_emulated_msr_err, 0));
+		break;
+	default:
+		break;
+	}
+}
+
+static void vmx_sync_vcpu_state_post_switch(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *shared_vcpu = pkvm_vcpu->shared_vcpu;
+	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+	if (pkvm_is_protected_vcpu(vcpu) &&
+	    pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu))
+		update_protected_vcpu_state(vcpu, shared_vcpu);
+}
+
+static void share_protected_vcpu_state(struct kvm_vcpu *vcpu,
+				       struct kvm_vcpu *shared_vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	if (vmx->exit_reason.failed_vmentry || vmx->fail)
+		return;
+
+	switch (vmx->exit_reason.basic) {
+	case EXIT_REASON_MSR_WRITE:
+		shared_vcpu->arch.regs[VCPU_REGS_RAX] = kvm_rax_read(vcpu);
+		shared_vcpu->arch.regs[VCPU_REGS_RDX] = kvm_rdx_read(vcpu);
+		fallthrough;
+	case EXIT_REASON_MSR_READ:
+		shared_vcpu->arch.regs[VCPU_REGS_RCX] = kvm_rcx_read(vcpu);
+		break;
+	default:
+		break;
+	}
+}
 
 static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 {
@@ -6701,6 +6754,10 @@ static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 	shared_vmx->exit_intr_info = exit_intr_info;
 	kvm_register_mark_available(shared_vcpu, VCPU_EXREG_EXIT_INFO_2);
 	shared_vmx->error_code = error_code;
+
+	if (pkvm_is_protected_vcpu(vcpu) &&
+	    pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu))
+		share_protected_vcpu_state(vcpu, shared_vcpu);
 }
 
 struct kvm_x86_ops vt_x86_ops __initdata = {

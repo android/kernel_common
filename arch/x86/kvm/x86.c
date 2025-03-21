@@ -2192,7 +2192,7 @@ fastpath_t handle_fastpath_set_msr_irqoff(struct kvm_vcpu *vcpu)
 	}
 
 	if (handled) {
-		if (!kvm_skip_emulated_instruction(vcpu))
+		if (!kvm_x86_call(complete_emulated_msr)(vcpu, 0))
 			ret = EXIT_FASTPATH_EXIT_USERSPACE;
 		else
 			ret = EXIT_FASTPATH_REENTER_GUEST;

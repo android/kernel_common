@@ -825,6 +825,28 @@ static u32 pkvm_get_interrupt_shadow(struct pkvm_vcpu *pkvm_vcpu)
 	return kvm_x86_call(get_interrupt_shadow)(to_kvm_vcpu(pkvm_vcpu));
 }
 
+static int pkvm_complete_emulated_msr(struct pkvm_vcpu *pkvm_vcpu, int err)
+{
+	struct kvm_vcpu *vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return 0;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	if (!pkvm_is_protected_vcpu(vcpu))
+		return kvm_x86_call(complete_emulated_msr)(vcpu, err);
+
+	/*
+	 * Record the error code from the host for the emulated MSR
+	 * rather than completing the emulation via
+	 * kvm_x86_call(complete_emulated_msr), so that to prevent the
+	 * host from injecting exception or skipping instructions for
+	 * the pVM. The msr emulation will be completed before entering the guest.
+	 */
+	pkvm_vcpu->host_emulated_msr_err = err;
+	return 1;
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -918,6 +940,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__get_interrupt_shadow:
 		ret = pkvm_get_interrupt_shadow(pkvm_vcpu);
+		break;
+	case __pkvm__complete_emulated_msr:
+		ret = pkvm_complete_emulated_msr(pkvm_vcpu, (int)p2);
 		break;
 	default:
 		ret = -EINVAL;

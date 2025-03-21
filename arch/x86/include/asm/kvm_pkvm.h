@@ -287,6 +287,7 @@ enum pkvm_fn {
 	__pkvm__flush_tlb_guest,
 	__pkvm__set_interrupt_shadow,
 	__pkvm__get_interrupt_shadow,
+	__pkvm__complete_emulated_msr,
 };
 
 #define HOST_HANDLE_EXIT		0

@@ -39,6 +39,8 @@ struct pkvm_vcpu {
 	struct pkvm_vm *pkvm_vm;
 	/* Requests for the host VMM to handle */
 	unsigned long reqs_to_host;
+	/* The host emulated MSR error */
+	int host_emulated_msr_err;
 } __aligned(PAGE_SIZE);
 
 /*
@@ -112,6 +114,13 @@ static inline void pkvm_reset_reqs_to_host(struct kvm_vcpu *vcpu)
 static inline unsigned long pkvm_reqs_to_host(struct kvm_vcpu *vcpu)
 {
 	return to_pkvm_vcpu(vcpu)->reqs_to_host;
+}
+
+static inline bool pkvm_has_req_to_host(int req, struct kvm_vcpu *vcpu)
+{
+	BUILD_BUG_ON(req >= sizeof(to_pkvm_vcpu(vcpu)->reqs_to_host) * 8);
+
+	return test_bit(req, &to_pkvm_vcpu(vcpu)->reqs_to_host);
 }
 
 /*
