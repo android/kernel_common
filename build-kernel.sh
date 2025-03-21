@@ -105,7 +105,7 @@ if [[ "$CMD" == "menuconfig" ]]; then
 fi
 
 if [[ "$CMD" == "savedefconfig" ]]; then
-    make -j $BUILD_NUM_CPUS $CMD
+    make -j $BUILD_NUM_CPUS $CMD && cp defconfig arch/$ARCH/configs/$MAKE_DEFCONFIG
     exit
 fi
 
