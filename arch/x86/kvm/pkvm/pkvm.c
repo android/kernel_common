@@ -497,12 +497,72 @@ static void pkvm_vcpu_put(struct pkvm_vcpu *pkvm_vcpu)
 	set_pkvm_vcpu_free(pkvm_vcpu);
 }
 
+static void pkvm_vcpu_update_state_from_host(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *shared_vcpu = pkvm_vcpu->shared_vcpu;
+	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+	if (!pkvm_is_protected_vcpu(vcpu)) {
+		/*
+		 * Make sure the RSP/RIP in shared_vcpu are aligned with the
+		 * private vcpu if they are not dirty.
+		 */
+		if (kvm_register_is_dirty(shared_vcpu, VCPU_REGS_RSP))
+			kvm_register_mark_dirty(vcpu, VCPU_REGS_RSP);
+		else
+			shared_vcpu->arch.regs[VCPU_REGS_RSP] = kvm_rsp_read(vcpu);
+		if (kvm_register_is_dirty(shared_vcpu, VCPU_REGS_RIP))
+			kvm_register_mark_dirty(vcpu, VCPU_REGS_RIP);
+		else
+			shared_vcpu->arch.regs[VCPU_REGS_RIP] = kvm_rip_read(vcpu);
+		/* Update the npVM's GPRs from the host */
+		memcpy(vcpu->arch.regs, shared_vcpu->arch.regs,
+		       NR_VCPU_REGS * sizeof(*vcpu->arch.regs));
+	}
+}
+
+static void pkvm_vcpu_share_state_to_host(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *shared_vcpu = pkvm_vcpu->shared_vcpu;
+	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+	if (!pkvm_is_protected_vcpu(vcpu)) {
+		/* Make sure the RSP/RIP in private vcpu are up-to-date */
+		if (!kvm_register_is_available(vcpu, VCPU_REGS_RSP))
+			kvm_rsp_read(vcpu);
+		if (!kvm_register_is_available(vcpu, VCPU_REGS_RIP))
+			kvm_rip_read(vcpu);
+
+		/*
+		 * Share the npVM's GPRs/EFER/CR0/CR4 to the host which may be
+		 * used by the host to handle vmexit.
+		 */
+		memcpy(shared_vcpu->arch.regs, vcpu->arch.regs,
+		       NR_VCPU_REGS * sizeof(*vcpu->arch.regs));
+		kvm_register_mark_available(shared_vcpu, VCPU_REGS_RSP);
+		kvm_register_mark_available(shared_vcpu, VCPU_REGS_RIP);
+		shared_vcpu->arch.cr0 = kvm_read_cr0(vcpu);
+		kvm_register_mark_available(shared_vcpu, VCPU_EXREG_CR0);
+		shared_vcpu->arch.cr4 = kvm_read_cr4(vcpu);
+		kvm_register_mark_available(shared_vcpu, VCPU_EXREG_CR4);
+		shared_vcpu->arch.efer = vcpu->arch.efer;
+	}
+}
+
 static unsigned long pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immediate_exit)
 {
+	unsigned long reqs;
+
 	if (WARN_ON_ONCE(!pkvm_vcpu))
 		return 0;
 
-	return kvm_vcpu_enter_guest(to_kvm_vcpu(pkvm_vcpu), force_immediate_exit);
+	pkvm_vcpu_update_state_from_host(pkvm_vcpu);
+
+	reqs = kvm_vcpu_enter_guest(to_kvm_vcpu(pkvm_vcpu), force_immediate_exit);
+
+	pkvm_vcpu_share_state_to_host(pkvm_vcpu);
+
+	return reqs;
 }
 
 static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu, unsigned long new_pa)
