@@ -1106,6 +1106,24 @@ static u64 pkvm_get_l2_tsc_multiplier(struct kvm_vcpu *vcpu)
 	return kvm_caps.default_tsc_scaling_ratio;
 }
 
+static void pkvm_write_tsc_offset(struct kvm_vcpu *vcpu)
+{
+	/*
+	 * TODO: Not to write tsc_offset if the PV interface can be secure
+	 * enforced.
+	 */
+	kvm_call_pkvm(write_tsc_offset, vcpu, vcpu->arch.tsc_offset);
+}
+
+static void pkvm_write_tsc_multiplier(struct kvm_vcpu *vcpu)
+{
+	/*
+	 * TODO: Not to write tsc_multiplier if the PV interface can be secure
+	 * enforced.
+	 */
+	kvm_call_pkvm(write_tsc_multiplier, vcpu, vcpu->arch.tsc_scaling_ratio);
+}
+
 static int pkvm_check_intercept(struct kvm_vcpu *vcpu,
 				struct x86_instruction_info *info,
 				enum x86_intercept_stage stage,
@@ -1294,8 +1312,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 
 	.get_l2_tsc_offset = pkvm_get_l2_tsc_offset,
 	.get_l2_tsc_multiplier = pkvm_get_l2_tsc_multiplier,
-	.write_tsc_offset = vmx_write_tsc_offset,
-	.write_tsc_multiplier = vmx_write_tsc_multiplier,
+	.write_tsc_offset = pkvm_write_tsc_offset,
+	.write_tsc_multiplier = pkvm_write_tsc_multiplier,
 
 	.load_mmu_pgd = vmx_load_mmu_pgd,
 

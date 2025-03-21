@@ -1531,6 +1531,16 @@ static void vmx_setup_uret_msrs(struct vcpu_vmx *vmx)
 	vmx->guest_uret_msrs_loaded = false;
 }
 
+void vmx_write_tsc_offset(struct kvm_vcpu *vcpu)
+{
+	vmcs_write64(TSC_OFFSET, vcpu->arch.tsc_offset);
+}
+
+void vmx_write_tsc_multiplier(struct kvm_vcpu *vcpu)
+{
+	vmcs_write64(TSC_MULTIPLIER, vcpu->arch.tsc_scaling_ratio);
+}
+
 /*
  * Userspace is allowed to set any supported IA32_FEATURE_CONTROL regardless of
  * guest CPUID.  Note, KVM allows userspace to set "VMX in SMX" to maintain
@@ -7075,6 +7085,9 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.complete_emulated_msr = kvm_complete_insn_gp,
 
 	.vcpu_after_set_cpuid = vmx_vcpu_after_set_cpuid,
+
+	.write_tsc_offset = vmx_write_tsc_offset,
+	.write_tsc_multiplier = vmx_write_tsc_multiplier,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {

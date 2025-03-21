@@ -1061,6 +1061,35 @@ static void pkvm_hwapic_isr_update(struct pkvm_vcpu *pkvm_vcpu, int max_isr)
 	kvm_x86_call(hwapic_isr_update)(to_kvm_vcpu(pkvm_vcpu), max_isr);
 }
 
+static void pkvm_write_tsc_offset(struct pkvm_vcpu *pkvm_vcpu, u64 tsc_offset)
+{
+	struct kvm_vcpu *vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	vcpu->arch.l1_tsc_offset = tsc_offset;
+	vcpu->arch.tsc_offset = tsc_offset;
+	kvm_x86_call(write_tsc_offset)(vcpu);
+}
+
+static void pkvm_write_tsc_multiplier(struct pkvm_vcpu *pkvm_vcpu, u64 ratio)
+{
+	struct kvm_vcpu *vcpu;
+
+	if (!kvm_caps.has_tsc_control)
+		return;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	vcpu->arch.l1_tsc_scaling_ratio = ratio;
+	vcpu->arch.tsc_scaling_ratio = ratio;
+	kvm_x86_call(write_tsc_multiplier)(vcpu);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1205,6 +1234,12 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__hwapic_isr_update:
 		pkvm_hwapic_isr_update(pkvm_vcpu, (int)p2);
+		break;
+	case __pkvm__write_tsc_offset:
+		pkvm_write_tsc_offset(pkvm_vcpu, (u64)p2);
+		break;
+	case __pkvm__write_tsc_multiplier:
+		pkvm_write_tsc_multiplier(pkvm_vcpu, (u64)p2);
 		break;
 	default:
 		ret = -EINVAL;

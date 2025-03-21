@@ -304,6 +304,8 @@ enum pkvm_fn {
 	__pkvm__load_eoi_exitmap,
 	__pkvm__hwapic_irr_update,
 	__pkvm__hwapic_isr_update,
+	__pkvm__write_tsc_offset,
+	__pkvm__write_tsc_multiplier,
 };
 
 #define HOST_HANDLE_EXIT		0
