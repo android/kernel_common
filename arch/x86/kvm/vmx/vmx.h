@@ -363,6 +363,16 @@ struct vcpu_vmx {
 
 	/* ve_info must be page aligned. */
 	struct vmx_ve_information *ve_info;
+
+	/*
+	 * TODO: Used to store the exit information returned from the pkvm
+	 * hypervisor for the host VMM to handle vmexits. Currently the struct
+	 * vcpu_vmx is used to represent a vcpu instance in the host VMM side.
+	 * If in the end most of the fields in vcpu_vmx are not used, probably
+	 * can create a dedicated structure instead of resuing vcpu_vmx. Then
+	 * below fields can be moved from vcpu_vmx to the new one.
+	 */
+	u64 error_code;
 };
 
 struct kvm_vmx {

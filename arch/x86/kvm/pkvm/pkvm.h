@@ -127,6 +127,7 @@ struct pkvm_x86_ops {
 	void (*switch_to_guest_vcpu)(struct kvm_vcpu *vcpu);
 	void (*switch_to_host_vcpu)(struct kvm_vcpu *vcpu);
 	void (*sync_vcpu_state_post_switch)(struct pkvm_vcpu *pkvm_vcpu);
+	void (*sync_vcpu_state_pre_switch)(struct pkvm_vcpu *pkvm_vcpu);
 };
 
 extern struct pkvm_x86_ops pkvm_x86_ops;

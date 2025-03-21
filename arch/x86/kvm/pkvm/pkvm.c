@@ -583,6 +583,8 @@ static void pkvm_vcpu_share_state_to_host(struct pkvm_vcpu *pkvm_vcpu)
 		kvm_register_mark_available(shared_vcpu, VCPU_EXREG_CR4);
 		shared_vcpu->arch.efer = vcpu->arch.efer;
 	}
+
+	pkvm_x86_call(sync_vcpu_state_pre_switch)(pkvm_vcpu);
 }
 
 static unsigned long pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immediate_exit)

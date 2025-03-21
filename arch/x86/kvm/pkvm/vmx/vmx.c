@@ -4729,6 +4729,30 @@ static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 static const int kvm_vmx_max_exit_handlers =
 	ARRAY_SIZE(kvm_vmx_exit_handlers);
 
+void vmx_get_exit_info(struct kvm_vcpu *vcpu, u32 *reason,
+		       u64 *info1, u64 *info2, u32 *intr_info, u32 *error_code)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	*reason = vmx->exit_reason.full;
+	*info1 = vmx_get_exit_qual(vcpu);
+	if (!(vmx->exit_reason.failed_vmentry)) {
+		*info2 = vmx->idt_vectoring_info;
+		*intr_info = vmx_get_intr_info(vcpu);
+		if (is_exception_with_error_code(*intr_info))
+			*error_code = vmcs_read32(VM_EXIT_INTR_ERROR_CODE);
+		else
+			*error_code = 0;
+	} else {
+		*info2 = 0;
+		*intr_info = 0;
+		if (vmx->fail)
+			*error_code = vmcs_read32(VM_INSTRUCTION_ERROR);
+		else
+			*error_code = 0;
+	}
+}
+
 static void vmx_destroy_pml_buffer(struct vcpu_vmx *vmx)
 {
 	if (vmx->pml_pg) {
@@ -6659,6 +6683,26 @@ static void vmx_switch_to_host_vcpu(struct kvm_vcpu *vcpu)
 
 static void vmx_sync_vcpu_state_post_switch(struct pkvm_vcpu *pkvm_vcpu) {}
 
+static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *shared_vcpu = pkvm_vcpu->shared_vcpu;
+	struct vcpu_vmx *shared_vmx = to_vmx(shared_vcpu);
+	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
+	u32 exit_reason, exit_intr_info, error_code;
+	u64 exit_info1, exit_info2;
+
+	vmx_get_exit_info(vcpu, &exit_reason, &exit_info1,
+			  &exit_info2, &exit_intr_info, &error_code);
+
+	shared_vmx->exit_reason.full = exit_reason;
+	kvm_register_mark_available(shared_vcpu, VCPU_EXREG_EXIT_INFO_1);
+	shared_vmx->exit_qualification = exit_info1;
+	shared_vmx->idt_vectoring_info = exit_info2;
+	shared_vmx->exit_intr_info = exit_intr_info;
+	kvm_register_mark_available(shared_vcpu, VCPU_EXREG_EXIT_INFO_2);
+	shared_vmx->error_code = error_code;
+}
+
 struct kvm_x86_ops vt_x86_ops __initdata = {
 	.name = KBUILD_MODNAME,
 
@@ -6730,6 +6774,7 @@ static struct pkvm_x86_ops pkvm_vt_x86_ops = {
 	.switch_to_guest_vcpu = vmx_switch_to_guest_vcpu,
 	.switch_to_host_vcpu = vmx_switch_to_host_vcpu,
 	.sync_vcpu_state_post_switch = vmx_sync_vcpu_state_post_switch,
+	.sync_vcpu_state_pre_switch = vmx_sync_vcpu_state_pre_switch,
 };
 
 int setup_vmx(void)
