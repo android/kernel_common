@@ -695,6 +695,35 @@ static void pkvm_set_dr7(struct kvm_vcpu *vcpu, unsigned long val)
 	kvm_call_pkvm(set_dr7, vcpu, val);
 }
 
+static unsigned long pkvm_get_rflags(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	if (!kvm_register_is_available(vcpu, VCPU_EXREG_RFLAGS)) {
+		kvm_register_mark_available(vcpu, VCPU_EXREG_RFLAGS);
+		if (vcpu->arch.guest_state_protected)
+			vmx->rflags = 0;
+		else
+			vmx->rflags = kvm_call_pkvm(get_rflags, vcpu);
+	}
+
+	return vmx->rflags;
+}
+
+static void pkvm_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags)
+{
+	kvm_register_mark_available(vcpu, VCPU_EXREG_RFLAGS);
+	to_vmx(vcpu)->rflags = rflags;
+	if (vcpu->arch.guest_state_protected)
+		return;
+	kvm_call_pkvm(set_rflags, vcpu, rflags);
+}
+
+static bool pkvm_get_if_flag(struct kvm_vcpu *vcpu)
+{
+	return pkvm_get_rflags(vcpu) & X86_EFLAGS_IF;
+}
+
 void vmx_do_nmi_irqoff(void);
 
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
@@ -933,9 +962,9 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_dr7 = pkvm_set_dr7,
 	.sync_dirty_debug_regs = vmx_sync_dirty_debug_regs,
 	.cache_reg = vmx_cache_reg,
-	.get_rflags = vmx_get_rflags,
-	.set_rflags = vmx_set_rflags,
-	.get_if_flag = vmx_get_if_flag,
+	.get_rflags = pkvm_get_rflags,
+	.set_rflags = pkvm_set_rflags,
+	.get_if_flag = pkvm_get_if_flag,
 
 	.flush_tlb_all = vmx_flush_tlb_all,
 	.flush_tlb_current = vmx_flush_tlb_current,

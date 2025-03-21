@@ -659,6 +659,22 @@ static void pkvm_set_dr7(struct pkvm_vcpu *pkvm_vcpu, unsigned long val)
 	kvm_x86_call(set_dr7)(to_kvm_vcpu(pkvm_vcpu), val);
 }
 
+static unsigned long pkvm_get_rflags(struct pkvm_vcpu *pkvm_vcpu)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return 0;
+
+	return kvm_x86_call(get_rflags)(to_kvm_vcpu(pkvm_vcpu));
+}
+
+static void pkvm_set_rflags(struct pkvm_vcpu *pkvm_vcpu, unsigned long val)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(set_rflags)(to_kvm_vcpu(pkvm_vcpu), val);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -728,6 +744,12 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__set_dr7:
 		pkvm_set_dr7(pkvm_vcpu, p2);
+		break;
+	case __pkvm__get_rflags:
+		ret = pkvm_get_rflags(pkvm_vcpu);
+		break;
+	case __pkvm__set_rflags:
+		pkvm_set_rflags(pkvm_vcpu, p2);
 		break;
 	default:
 		ret = -EINVAL;
