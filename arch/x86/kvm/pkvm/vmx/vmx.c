@@ -6657,6 +6657,8 @@ static void vmx_switch_to_host_vcpu(struct kvm_vcpu *vcpu)
 	vmcs_load(to_vmx(this_cpu_read(host_vcpu))->vmcs01.vmcs);
 }
 
+static void vmx_sync_vcpu_state_post_switch(struct pkvm_vcpu *pkvm_vcpu) {}
+
 struct kvm_x86_ops vt_x86_ops __initdata = {
 	.name = KBUILD_MODNAME,
 
@@ -6727,6 +6729,7 @@ struct kvm_x86_init_ops vt_init_ops __initdata = {
 static struct pkvm_x86_ops pkvm_vt_x86_ops = {
 	.switch_to_guest_vcpu = vmx_switch_to_guest_vcpu,
 	.switch_to_host_vcpu = vmx_switch_to_host_vcpu,
+	.sync_vcpu_state_post_switch = vmx_sync_vcpu_state_post_switch,
 };
 
 int setup_vmx(void)

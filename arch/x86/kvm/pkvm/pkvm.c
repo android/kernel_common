@@ -550,7 +550,11 @@ static void pkvm_vcpu_update_state_from_host(struct pkvm_vcpu *pkvm_vcpu)
 		 * will not be needed eventually.
 		 */
 		kvm_rdi_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RDI]);
+
+		return;
 	}
+
+	pkvm_x86_call(sync_vcpu_state_post_switch)(pkvm_vcpu);
 }
 
 static void pkvm_vcpu_share_state_to_host(struct pkvm_vcpu *pkvm_vcpu)
