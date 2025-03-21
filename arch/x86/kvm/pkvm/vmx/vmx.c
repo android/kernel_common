@@ -5432,6 +5432,54 @@ void vmx_set_virtual_apic_mode(struct kvm_vcpu *vcpu)
 	vmx_update_msr_bitmap_x2apic(vcpu);
 }
 
+void vmx_hwapic_isr_update(struct kvm_vcpu *vcpu, int max_isr)
+{
+	u16 status;
+	u8 old;
+
+	if (max_isr == -1)
+		max_isr = 0;
+
+	status = vmcs_read16(GUEST_INTR_STATUS);
+	old = status >> 8;
+	if (max_isr != old) {
+		status &= 0xff;
+		status |= max_isr << 8;
+		vmcs_write16(GUEST_INTR_STATUS, status);
+	}
+}
+
+static void vmx_set_rvi(int vector)
+{
+	u16 status;
+	u8 old;
+
+	if (vector == -1)
+		vector = 0;
+
+	status = vmcs_read16(GUEST_INTR_STATUS);
+	old = (u8)status & 0xff;
+	if ((u8)vector != old) {
+		status &= ~0xff;
+		status |= (u8)vector;
+		vmcs_write16(GUEST_INTR_STATUS, status);
+	}
+}
+
+void vmx_hwapic_irr_update(struct kvm_vcpu *vcpu, int max_irr)
+{
+	/*
+	 * When running L2, updating RVI is only relevant when
+	 * vmcs12 virtual-interrupt-delivery enabled.
+	 * However, it can be enabled only when L1 also
+	 * intercepts external-interrupts and in that case
+	 * we should not update vmcs02 RVI but instead intercept
+	 * interrupt. Therefore, do nothing when running L2.
+	 */
+	if (!is_guest_mode(vcpu))
+		vmx_set_rvi(max_irr);
+}
+
 void vmx_load_eoi_exitmap(struct kvm_vcpu *vcpu, u64 *eoi_exit_bitmap)
 {
 	if (!kvm_vcpu_apicv_active(vcpu))
@@ -7008,6 +7056,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.set_virtual_apic_mode = vmx_set_virtual_apic_mode,
 	.refresh_apicv_exec_ctrl = vmx_refresh_apicv_exec_ctrl,
 	.load_eoi_exitmap = vmx_load_eoi_exitmap,
+	.hwapic_irr_update = vmx_hwapic_irr_update,
+	.hwapic_isr_update = vmx_hwapic_isr_update,
 
 	.complete_emulated_msr = kvm_complete_insn_gp,
 

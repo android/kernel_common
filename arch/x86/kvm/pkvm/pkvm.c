@@ -1045,6 +1045,22 @@ static void pkvm_load_eoi_exitmap(struct pkvm_vcpu *pkvm_vcpu, u64 *eoi_exit_bit
 	kvm_x86_call(load_eoi_exitmap)(to_kvm_vcpu(pkvm_vcpu), eoi_exit_bitmap);
 }
 
+static void pkvm_hwapic_irr_update(struct pkvm_vcpu *pkvm_vcpu, int max_irr)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(hwapic_irr_update)(to_kvm_vcpu(pkvm_vcpu), max_irr);
+}
+
+static void pkvm_hwapic_isr_update(struct pkvm_vcpu *pkvm_vcpu, int max_isr)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(hwapic_isr_update)(to_kvm_vcpu(pkvm_vcpu), max_isr);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1183,6 +1199,12 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__load_eoi_exitmap:
 		pkvm_load_eoi_exitmap(pkvm_vcpu, (u64 *)p2);
+		break;
+	case __pkvm__hwapic_irr_update:
+		pkvm_hwapic_irr_update(pkvm_vcpu, (int)p2);
+		break;
+	case __pkvm__hwapic_isr_update:
+		pkvm_hwapic_isr_update(pkvm_vcpu, (int)p2);
 		break;
 	default:
 		ret = -EINVAL;

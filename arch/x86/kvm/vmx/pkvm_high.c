@@ -963,6 +963,16 @@ static void pkvm_load_eoi_exitmap(struct kvm_vcpu *vcpu, u64 *eoi_exit_bitmap)
 	put_this_pv_param(exitmap);
 }
 
+static void pkvm_hwapic_irr_update(struct kvm_vcpu *vcpu, int max_irr)
+{
+	kvm_call_pkvm(hwapic_irr_update, vcpu, max_irr);
+}
+
+static void pkvm_hwapic_isr_update(struct kvm_vcpu *vcpu, int max_isr)
+{
+	kvm_call_pkvm(hwapic_isr_update, vcpu, max_isr);
+}
+
 static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid_entry2 *e2 = vcpu->arch.cpuid_entries;
@@ -1170,8 +1180,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.load_eoi_exitmap = pkvm_load_eoi_exitmap,
 	.apicv_pre_state_restore = vmx_apicv_pre_state_restore,
 	.required_apicv_inhibits = VMX_REQUIRED_APICV_INHIBITS,
-	.hwapic_irr_update = vmx_hwapic_irr_update,
-	.hwapic_isr_update = vmx_hwapic_isr_update,
+	.hwapic_irr_update = pkvm_hwapic_irr_update,
+	.hwapic_isr_update = pkvm_hwapic_isr_update,
 	.sync_pir_to_irr = vmx_sync_pir_to_irr,
 	.deliver_interrupt = vmx_deliver_interrupt,
 	.dy_apicv_has_pending_interrupt = pi_has_pending_interrupt,

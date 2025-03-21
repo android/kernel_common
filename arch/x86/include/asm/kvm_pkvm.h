@@ -302,6 +302,8 @@ enum pkvm_fn {
 	__pkvm__set_virtual_apic_mode,
 	__pkvm__refresh_apicv_exec_ctrl,
 	__pkvm__load_eoi_exitmap,
+	__pkvm__hwapic_irr_update,
+	__pkvm__hwapic_isr_update,
 };
 
 #define HOST_HANDLE_EXIT		0
