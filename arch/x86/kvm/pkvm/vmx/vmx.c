@@ -4181,6 +4181,20 @@ void vmx_inject_nmi(struct kvm_vcpu *vcpu)
 	vmx_clear_hlt(vcpu);
 }
 
+bool vmx_get_nmi_mask(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	bool masked;
+
+	if (!enable_vnmi)
+		return vmx->loaded_vmcs->soft_vnmi_blocked;
+	if (vmx->loaded_vmcs->nmi_known_unmasked)
+		return false;
+	masked = vmcs_read32(GUEST_INTERRUPTIBILITY_INFO) & GUEST_INTR_STATE_NMI;
+	vmx->loaded_vmcs->nmi_known_unmasked = !masked;
+	return masked;
+}
+
 void vmx_set_nmi_mask(struct kvm_vcpu *vcpu, bool masked)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -6805,6 +6819,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.cancel_injection = vmx_cancel_injection,
 	.interrupt_allowed = vmx_interrupt_allowed,
 	.nmi_allowed = vmx_nmi_allowed,
+	.get_nmi_mask = vmx_get_nmi_mask,
+	.set_nmi_mask = vmx_set_nmi_mask,
 	.enable_nmi_window = vmx_enable_nmi_window,
 	.enable_irq_window = vmx_enable_irq_window,
 

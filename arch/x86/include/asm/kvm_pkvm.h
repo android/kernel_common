@@ -294,6 +294,8 @@ enum pkvm_fn {
 	__pkvm__inject_nmi,
 	__pkvm__inject_exception,
 	__pkvm__cancel_injection,
+	__pkvm__get_nmi_mask,
+	__pkvm__set_nmi_mask,
 };
 
 #define HOST_HANDLE_EXIT		0

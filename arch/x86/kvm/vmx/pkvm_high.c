@@ -897,6 +897,19 @@ static int pkvm_nmi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 	return kvm_call_pkvm(nmi_allowed, vcpu, for_injection);
 }
 
+static bool pkvm_get_nmi_mask(struct kvm_vcpu *vcpu)
+{
+	return kvm_call_pkvm(get_nmi_mask, vcpu);
+}
+
+static void pkvm_set_nmi_mask(struct kvm_vcpu *vcpu, bool masked)
+{
+	if (vcpu->arch.guest_state_protected)
+		return;
+
+	kvm_call_pkvm(set_nmi_mask, vcpu, masked);
+}
+
 static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid_entry2 *e2 = vcpu->arch.cpuid_entries;
@@ -1091,8 +1104,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.cancel_injection = pkvm_cancel_injection,
 	.interrupt_allowed = pkvm_interrupt_allowed,
 	.nmi_allowed = pkvm_nmi_allowed,
-	.get_nmi_mask = vmx_get_nmi_mask,
-	.set_nmi_mask = vmx_set_nmi_mask,
+	.get_nmi_mask = pkvm_get_nmi_mask,
+	.set_nmi_mask = pkvm_set_nmi_mask,
 	.enable_nmi_window = vmx_enable_nmi_window,
 	.enable_irq_window = vmx_enable_irq_window,
 	.update_cr8_intercept = vmx_update_cr8_intercept,
