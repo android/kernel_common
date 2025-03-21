@@ -8,6 +8,7 @@
 #include <trace.h>
 #include <uapi/asm/debugreg.h>
 #include <smm.h>
+#include <lapic.h>
 #include "pkvm.h"
 
 #ifdef __PKVM_HYP__
