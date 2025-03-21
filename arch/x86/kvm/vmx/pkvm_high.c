@@ -1244,6 +1244,8 @@ static void pkvm_set_dr7(struct kvm_vcpu *vcpu, unsigned long val)
 	kvm_call_pkvm(set_dr7, vcpu, val);
 }
 
+static void pkvm_sync_dirty_debug_regs(struct kvm_vcpu *vcpu) {}
+
 static unsigned long pkvm_get_rflags(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -1841,7 +1843,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.get_gdt = pkvm_get_gdt,
 	.set_gdt = pkvm_set_gdt,
 	.set_dr7 = pkvm_set_dr7,
-	.sync_dirty_debug_regs = vmx_sync_dirty_debug_regs,
+	.sync_dirty_debug_regs = pkvm_sync_dirty_debug_regs,
 	.cache_reg = vmx_cache_reg,
 	.get_rflags = pkvm_get_rflags,
 	.set_rflags = pkvm_set_rflags,
