@@ -2958,6 +2958,14 @@ void vmx_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
 	vmx->emulation_required = vmx_emulation_required(vcpu);
 }
 
+#ifdef __PKVM_HYP__
+static void vmx_post_set_cr3(struct kvm_vcpu *vcpu, unsigned long cr3)
+{
+	vcpu->arch.cr3 = cr3;
+	kvm_register_mark_dirty(vcpu, VCPU_EXREG_CR3);
+}
+#endif
+
 u64 construct_eptp(struct kvm_vcpu *vcpu, hpa_t root_hpa, int root_level)
 {
 	u64 eptp = VMX_EPTP_MT_WB;
@@ -7042,6 +7050,9 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.get_segment = vmx_get_segment,
 	.set_segment = vmx_set_segment,
 	.set_cr0 = vmx_set_cr0,
+#ifdef __PKVM_HYP__
+	.post_set_cr3 = vmx_post_set_cr3,
+#endif
 	.set_cr4 = vmx_set_cr4,
 	.set_efer = vmx_set_efer,
 	.get_idt = vmx_get_idt,

@@ -1090,6 +1090,14 @@ static void pkvm_write_tsc_multiplier(struct pkvm_vcpu *pkvm_vcpu, u64 ratio)
 	kvm_x86_call(write_tsc_multiplier)(vcpu);
 }
 
+static void pkvm_post_set_cr3(struct pkvm_vcpu *pkvm_vcpu, unsigned long cr3)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(post_set_cr3)(to_kvm_vcpu(pkvm_vcpu), cr3);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1240,6 +1248,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__write_tsc_multiplier:
 		pkvm_write_tsc_multiplier(pkvm_vcpu, (u64)p2);
+		break;
+	case __pkvm__post_set_cr3:
+		pkvm_post_set_cr3(pkvm_vcpu, p2);
 		break;
 	default:
 		ret = -EINVAL;

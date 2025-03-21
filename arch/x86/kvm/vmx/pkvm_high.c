@@ -637,6 +637,14 @@ static void pkvm_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
 	vcpu->arch.cr0 = cr0;
 }
 
+static void pkvm_post_set_cr3(struct kvm_vcpu *vcpu, unsigned long cr3)
+{
+	if (vcpu->arch.guest_state_protected)
+		return;
+
+	kvm_call_pkvm(post_set_cr3, vcpu, cr3);
+}
+
 static bool pkvm_is_valid_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
 {
 	/* No VMX emulation in the pkvm hypervisor */
@@ -1248,6 +1256,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.get_cs_db_l_bits = pkvm_get_cs_db_l_bits,
 	.is_valid_cr0 = pkvm_is_valid_cr0,
 	.set_cr0 = pkvm_set_cr0,
+	.post_set_cr3 = pkvm_post_set_cr3,
 	.is_valid_cr4 = pkvm_is_valid_cr4,
 	.set_cr4 = pkvm_set_cr4,
 	.set_efer = pkvm_set_efer,
