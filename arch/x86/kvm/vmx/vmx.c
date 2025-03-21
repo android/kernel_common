@@ -7697,7 +7697,7 @@ int vmx_vm_init(struct kvm *kvm)
 		}
 	}
 
-	return pkvm_init_shadow_vm(kvm);
+	return 0;
 }
 
 void vmx_vm_free(struct kvm *kvm)

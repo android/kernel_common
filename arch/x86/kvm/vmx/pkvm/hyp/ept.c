@@ -25,6 +25,7 @@
 #include "debug.h"
 #include "ptdev.h"
 #include "io_emulate.h"
+#include <pkvm/vmx/vmx.h>
 
 static struct hyp_pool host_ept_pool;
 static struct pkvm_pgtable host_ept;
@@ -450,21 +451,23 @@ static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt,
 {
 	struct pkvm_shadow_vm *shadow_vm = sept_to_shadow_vm(pgt);
 	struct shadow_vcpu_state *shadow_vcpu;
+	struct pkvm_vcpu *pkvm_vcpu;
 	struct kvm_vcpu *vcpu;
-	s64 shadow_vcpu_handle;
-	int i, shadow_vm_handle = shadow_vm->shadow_vm_handle;
+	struct kvm *kvm;
+	int i;
 
-	for (i = 0; i < shadow_vm->created_vcpus; i++) {
-		shadow_vcpu_handle = to_shadow_vcpu_handle(shadow_vm_handle, i);
-		shadow_vcpu = get_shadow_vcpu(shadow_vcpu_handle);
+	kvm = shadow_to_kvm(shadow_vm);
+	for (i = 0; i < kvm->created_vcpus; i++) {
+		pkvm_vcpu = get_pkvm_vcpu(kvm->arch.pkvm.pkvm_vm_handle, i);
 		/*
-		 * For a shadow_vcpu which is already teardown, no need to kick
+		 * For a pkvm_vcpu which is already teardown, no need to kick
 		 * it as its shadow EPT tlb entries are already flushed when
 		 * this shadow vcpu is doing vmclear before teardown.
 		 */
-		if (!shadow_vcpu)
+		if (!pkvm_vcpu)
 			continue;
 
+		shadow_vcpu = kvm_vcpu_to_shadow(to_kvm_vcpu(pkvm_vcpu));
 		/*
 		 * If this shadow_vcpu is not loaded then there is vcpu
 		 * pointer for it, so can skip this remote tlb flushing.
@@ -476,7 +479,7 @@ static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt,
 		kvm_make_request(PKVM_REQ_TLB_FLUSH_SHADOW_EPT, vcpu);
 		pkvm_kick_vcpu(vcpu);
 next:
-		put_shadow_vcpu(shadow_vcpu_handle);
+		put_pkvm_vcpu(pkvm_vcpu);
 	}
 }
 

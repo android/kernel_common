@@ -25,11 +25,11 @@
 
 int __pkvm_init_shadow_vm(struct kvm_vcpu *hvcpu, unsigned long kvm_va,
 			  unsigned long shadow_pa,  size_t shadow_size);
-int __pkvm_finalize_shadow_vm(int shadow_vm_handle, s64 primary_vcpu_handle,
+int __pkvm_finalize_shadow_vm(int shadow_vm_handle, int primary_vcpu_handle,
 			      gpa_t pvmfw_load_addr);
 unsigned long __pkvm_teardown_shadow_vm(int shadow_vm_handle);
-struct pkvm_shadow_vm *get_shadow_vm(int shadow_vm_handle);
-void put_shadow_vm(int shadow_vm_handle);
+struct pkvm_shadow_vm *get_shadow_vm(int handle);
+void put_shadow_vm(struct pkvm_shadow_vm *shadow_vm);
 void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
 			       struct list_head *node, bool coherency);
 void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,
@@ -39,7 +39,7 @@ s64 __pkvm_init_shadow_vcpu(struct kvm_vcpu *hvcpu, int shadow_vm_handle,
 			    size_t shadow_size);
 unsigned long __pkvm_teardown_shadow_vcpu(s64 shadow_vcpu_handle);
 struct shadow_vcpu_state *get_shadow_vcpu(s64 shadow_vcpu_handle);
-void put_shadow_vcpu(s64 shadow_vcpu_handle);
+void put_shadow_vcpu(struct shadow_vcpu_state *shadow_vcpu);
 s64 find_shadow_vcpu_handle_by_vmcs(unsigned long vmcs12_pa);
 void pkvm_kick_vcpu(struct kvm_vcpu *vcpu);
 int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid);

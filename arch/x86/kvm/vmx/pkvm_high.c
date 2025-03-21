@@ -4,12 +4,90 @@
 #include <asm/kvm_pkvm.h>
 #include <asm/pkvm.h>
 #include "pkvm.h"
+#include "pkvm_constants.h"
 
 #include "x86_ops.h"
 #include "vmx.h"
 #include "nested.h"
 #include "pmu.h"
 #include "posted_intr.h"
+
+static void pkvm_mc_free_fn(void *addr, void *unused)
+{
+	free_page((unsigned long)addr);
+}
+
+static void *kvm_host_va(phys_addr_t phys)
+{
+	return __va(phys);
+}
+
+static void free_pkvm_memcache(struct pkvm_memcache *mc)
+{
+	__free_pkvm_memcache(mc, pkvm_mc_free_fn,
+			     kvm_host_va, NULL);
+}
+
+static inline bool cpu_need_virtualize_apic_accesses(struct kvm_vcpu *vcpu)
+{
+	return flexpriority_enabled && lapic_in_kernel(vcpu);
+}
+
+static void free_pml_buffer(struct vcpu_vmx *vmx)
+{
+	if (vmx->pml_pg) {
+		free_page((unsigned long)vmx->pml_pg);
+		vmx->pml_pg = NULL;
+	}
+}
+
+static void free_ve_info(struct vcpu_vmx *vmx)
+{
+	if (vmx->ve_info) {
+		free_page((unsigned long)vmx->ve_info);
+		vmx->ve_info = NULL;
+	}
+}
+
+static void pkvm_free_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
+{
+	if (!loaded_vmcs->vmcs)
+		return;
+	free_vmcs(loaded_vmcs->vmcs);
+	loaded_vmcs->vmcs = NULL;
+	if (loaded_vmcs->msr_bitmap)
+		free_page((unsigned long)loaded_vmcs->msr_bitmap);
+	WARN_ON(loaded_vmcs->shadow_vmcs != NULL);
+}
+
+static int pkvm_alloc_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
+{
+	loaded_vmcs->vmcs = alloc_vmcs(false);
+	if (!loaded_vmcs->vmcs)
+		return -ENOMEM;
+
+	loaded_vmcs->shadow_vmcs = NULL;
+	loaded_vmcs->hv_timer_soft_disabled = false;
+	loaded_vmcs->cpu = -1;
+	loaded_vmcs->launched = 0;
+
+	if (cpu_has_vmx_msr_bitmap()) {
+		loaded_vmcs->msr_bitmap = (unsigned long *)
+				__get_free_page(GFP_KERNEL_ACCOUNT);
+		if (!loaded_vmcs->msr_bitmap)
+			goto out_vmcs;
+	}
+
+	memset(&loaded_vmcs->host_state, 0, sizeof(struct vmcs_host_state));
+	memset(&loaded_vmcs->controls_shadow, 0,
+		sizeof(struct vmcs_controls_shadow));
+
+	return 0;
+
+out_vmcs:
+	pkvm_free_loaded_vmcs(loaded_vmcs);
+	return -ENOMEM;
+}
 
 static int pkvm_check_processor_compat(void)
 {
@@ -34,6 +112,166 @@ static void pkvm_disable_virtualization_cpu(void)
 }
 
 static void pkvm_emergency_disable_virtualization_cpu(void) { /* TODO */ }
+
+static int pkvm_vm_init(struct kvm *kvm)
+{
+	struct kvm_protected_vm *pkvm = &kvm->arch.pkvm;
+	size_t pkvm_vm_sz;
+	void *pkvm_vm;
+	int ret;
+
+	ret = vmx_vm_init(kvm);
+	if (ret)
+		return ret;
+
+	INIT_LIST_HEAD(&pkvm->pinned_pages);
+	pkvm->pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
+
+	pkvm_vm_sz = PAGE_ALIGN(PKVM_SHADOW_VM_SIZE);
+	pkvm_vm = alloc_pages_exact(pkvm_vm_sz, GFP_KERNEL_ACCOUNT);
+	if (!pkvm_vm)
+		return -ENOMEM;
+
+	/* TODO: share struct kvm_vmx with pkvm */
+
+	ret = kvm_call_pkvm(vm_init, kvm, __pa(pkvm_vm));
+	if (ret < 0)
+		goto free_page;
+
+	pkvm->pkvm_vm_handle = ret;
+
+	return 0;
+
+free_page:
+	free_pages_exact(pkvm_vm, pkvm_vm_sz);
+	return ret;
+}
+
+static void pkvm_vm_destroy(struct kvm *kvm)
+{
+	struct kvm_protected_vm *pkvm = &kvm->arch.pkvm;
+	struct kvm_pinned_page *ppage, *n;
+	struct kvm_vcpu *vcpu;
+	unsigned long i;
+	int ret;
+
+	/*
+	 * Make sure vmcs is cleared before doing vm_destroy. The reason is that
+	 * currently the pkvm emulation method will release pkvm_vm reference
+	 * counter when host sends the vmclear. To make sure all the pkvm_vm
+	 * reference counter is released before doing vm_destroy, needs to do
+	 * vmcs_clear for each vcpu.
+	 *
+	 * TODO: Revisit this when the PV method is fully functional.
+	 */
+	kvm_for_each_vcpu(i, vcpu, kvm)
+		loaded_vmcs_clear(to_vmx(vcpu)->loaded_vmcs);
+
+	ret = kvm_call_pkvm(vm_destroy, pkvm->pkvm_vm_handle);
+	if (ret)
+		return;
+
+	/* TODO: unshare struct kvm_vmx with pkvm */
+
+	free_pkvm_memcache(&pkvm->teardown_mc);
+
+	list_for_each_entry_safe(ppage, n, &pkvm->pinned_pages, list) {
+		list_del(&ppage->list);
+		put_page(ppage->page);
+		kfree(ppage);
+	}
+
+	vmx_vm_destroy(kvm);
+}
+
+static int pkvm_vcpu_create(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx;
+	size_t pkvm_vcpu_sz;
+	struct page *page;
+	void *pkvm_vcpu;
+	int ret;
+
+	BUILD_BUG_ON(offsetof(struct vcpu_vmx, vcpu) != 0);
+	vmx = to_vmx(vcpu);
+
+	INIT_LIST_HEAD(&vmx->pi_wakeup_list);
+
+	/*
+	 * If PML is turned on, failure on enabling PML just results in failure
+	 * of creating the vcpu, therefore we can simplify PML logic (by
+	 * avoiding dealing with cases, such as enabling PML partially on vcpus
+	 * for the guest), etc.
+	 */
+	if (enable_pml) {
+		page = alloc_page(GFP_KERNEL_ACCOUNT | __GFP_ZERO);
+		if (!page)
+			return -ENOMEM;
+		vmx->pml_pg = page_to_virt(page);
+	}
+
+	ret = pkvm_alloc_loaded_vmcs(&vmx->vmcs01);
+	if (ret < 0)
+		goto free_pml;
+
+	vmx->loaded_vmcs = &vmx->vmcs01;
+
+	if (cpu_need_virtualize_apic_accesses(vcpu)) {
+		ret = kvm_alloc_apic_access_page(vcpu->kvm);
+		if (ret)
+			goto free_vmcs;
+	}
+
+	ret = -ENOMEM;
+
+	if (vmcs_config.cpu_based_2nd_exec_ctrl & SECONDARY_EXEC_EPT_VIOLATION_VE) {
+		BUILD_BUG_ON(sizeof(*vmx->ve_info) > PAGE_SIZE);
+
+		/* ve_info must be page aligned. */
+		page = alloc_page(GFP_KERNEL_ACCOUNT | __GFP_ZERO);
+		if (!page)
+			goto free_vmcs;
+
+		vmx->ve_info = page_to_virt(page);
+	}
+
+	pkvm_vcpu_sz = PAGE_ALIGN(PKVM_SHADOW_VCPU_STATE_SIZE);
+	pkvm_vcpu = alloc_pages_exact(pkvm_vcpu_sz, GFP_KERNEL_ACCOUNT);
+	if (!pkvm_vcpu)
+		goto free_ve;
+
+	/* TODO: share struct vcpu_vmx with pkvm */
+
+	ret = kvm_call_pkvm(vcpu_create, vcpu, __pa(pkvm_vcpu));
+	if (ret < 0)
+		goto free_pages;
+
+	vcpu->arch.pkvm_vcpu_handle = ret;
+
+	return 0;
+
+free_pages:
+	free_pages_exact(pkvm_vcpu, pkvm_vcpu_sz);
+free_ve:
+	free_ve_info(vmx);
+free_vmcs:
+	pkvm_free_loaded_vmcs(vmx->loaded_vmcs);
+free_pml:
+	free_pml_buffer(vmx);
+	return ret;
+}
+
+static void pkvm_vcpu_free(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	/* TODO: unshare struct vcpu_vmx with pkvm */
+
+	if (enable_pml)
+		free_pml_buffer(vmx);
+	pkvm_free_loaded_vmcs(vmx->loaded_vmcs);
+	free_ve_info(vmx);
+}
 
 static int pkvm_get_feature_msr(u32 msr, u64 *data)
 {
@@ -150,13 +388,12 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.has_emulated_msr = vmx_has_emulated_msr,
 
 	.vm_size = sizeof(struct kvm_vmx),
-	.vm_init = vmx_vm_init,
-	.vm_destroy = vmx_vm_destroy,
-	.vm_free = vmx_vm_free,
+	.vm_init = pkvm_vm_init,
+	.vm_destroy = pkvm_vm_destroy,
 
 	.vcpu_precreate = vmx_vcpu_precreate,
-	.vcpu_create = vmx_vcpu_create,
-	.vcpu_free = vmx_vcpu_free,
+	.vcpu_create = pkvm_vcpu_create,
+	.vcpu_free = pkvm_vcpu_free,
 	.vcpu_reset = vmx_vcpu_reset,
 
 	.prepare_switch_to_guest = vmx_prepare_switch_to_guest,

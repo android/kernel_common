@@ -643,7 +643,7 @@ static void nested_release_vmcs12(struct kvm_vcpu *vcpu)
 	pkvm_flush_shadow_ept(&cur_shadow_vcpu->vm->sept_desc);
 	kvm_clear_request(PKVM_REQ_TLB_FLUSH_SHADOW_EPT, vcpu);
 
-	put_shadow_vcpu(cur_shadow_vcpu->shadow_vcpu_handle);
+	put_shadow_vcpu(cur_shadow_vcpu);
 }
 
 static void nested_vmx_run(struct kvm_vcpu *vcpu, bool launch)
@@ -1422,7 +1422,7 @@ void nested_invalidate_shadow_ept(int shadow_vm_handle, u64 start_gpa, u64 size)
 		pkvm_invalidate_shadow_ept_with_range(&vm->sept_desc,
 						      start_gpa, size);
 
-	put_shadow_vm(shadow_vm_handle);
+	put_shadow_vm(vm);
 }
 
 void pkvm_init_nest(void)

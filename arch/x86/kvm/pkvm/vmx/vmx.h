@@ -50,12 +50,28 @@ static inline struct pkvm_shadow_vm *kvm_to_shadow(struct kvm *kvm)
 	return &pkvm_vm_vmx->shadow_vm;
 }
 
+static inline struct kvm *shadow_to_kvm(struct pkvm_shadow_vm *shadow_vm)
+{
+	struct pkvm_vm_vmx *pkvm_vm_vmx =
+		container_of(shadow_vm, struct pkvm_vm_vmx, shadow_vm);
+
+	return &pkvm_vm_vmx->kvm_vmx.kvm;
+}
+
 static inline struct shadow_vcpu_state *kvm_vcpu_to_shadow(struct kvm_vcpu *vcpu)
 {
 	struct pkvm_vcpu_vmx *pkvm_vcpu_vmx =
 		container_of(to_vmx(vcpu), struct pkvm_vcpu_vmx, vmx);
 
 	return &pkvm_vcpu_vmx->shadow_vcpu;
+}
+
+static inline struct kvm_vcpu *shadow_to_kvm_vcpu(struct shadow_vcpu_state *shadow_vcpu)
+{
+	struct pkvm_vcpu_vmx *pkvm_vcpu_vmx =
+		container_of(shadow_vcpu, struct pkvm_vcpu_vmx, shadow_vcpu);
+
+	return &pkvm_vcpu_vmx->vmx.vcpu;
 }
 
 int setup_vmcs_config_with_setting(struct vmcs_config *vmcs_conf,

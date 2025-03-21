@@ -77,6 +77,12 @@ static inline struct kvm *to_kvm(struct pkvm_vm *pkvm_vm)
 	return (struct kvm *)((unsigned long)pkvm_vm + sizeof(struct pkvm_vm));
 }
 
+static inline struct pkvm_vm *to_pkvm(struct kvm *kvm)
+{
+	/* See comments for pkvm_vm */
+	return (struct pkvm_vm *)((unsigned long)kvm - sizeof(struct pkvm_vm));
+}
+
 static inline struct kvm_vcpu *to_kvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
 {
 	/* See comments for pkvm_vcpu */

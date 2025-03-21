@@ -28,3 +28,5 @@ $(obj)/pkvm_constants.h: $(obj)/pkvm-constants.s FORCE
 
 obj-intel-pkvm := $(addprefix $(obj)/, $(pkvm-obj))
 $(obj-intel-pkvm): $(obj)/pkvm_constants.h
+
+CFLAGS_../pkvm_high.o += -iquote $(obj)

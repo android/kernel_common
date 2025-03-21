@@ -11,12 +11,14 @@
 #include "hyp/pkvm_hyp_types.h"
 #include "hyp/pkvm_iommu_types.h"
 #include <pkvm/pkvm.h>
+#include <pkvm/vmx/vmx.h>
 
 int main(void)
 {
 	DEFINE(PKVM_VMEMMAP_ENTRY_SIZE, sizeof(struct hyp_page));
-	DEFINE(PKVM_SHADOW_VM_SIZE, sizeof(struct pkvm_shadow_vm) + pkvm_shadow_vcpu_array_size());
-	DEFINE(PKVM_SHADOW_VCPU_STATE_SIZE, sizeof(struct shadow_vcpu_state));
+	DEFINE(PKVM_SHADOW_VM_SIZE, sizeof(struct pkvm_vm) + sizeof(struct pkvm_vm_vmx));
+	DEFINE(PKVM_SHADOW_VCPU_STATE_SIZE, sizeof(struct pkvm_vcpu) +
+					    sizeof(struct pkvm_vcpu_vmx));
 	DEFINE(PKVM_IOMMU_NUM, PKVM_MAX_IOMMU_NUM);
 	DEFINE(PKVM_PASIDDEV_NUM, PKVM_MAX_PASID_PDEV_NUM);
 	DEFINE(PKVM_PDEV_NUM, PKVM_MAX_PDEV_NUM);
