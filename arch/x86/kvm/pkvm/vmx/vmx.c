@@ -3723,6 +3723,34 @@ static u32 vmx_vmexit_ctrl(void)
 		~(VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL | VM_EXIT_LOAD_IA32_EFER);
 }
 
+void vmx_refresh_apicv_exec_ctrl(struct kvm_vcpu *vcpu)
+{
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	if (is_guest_mode(vcpu)) {
+		vmx->nested.update_vmcs01_apicv_status = true;
+		return;
+	}
+
+	pin_controls_set(vmx, vmx_pin_based_exec_ctrl(vmx));
+
+	if (kvm_vcpu_apicv_active(vcpu)) {
+		secondary_exec_controls_setbit(vmx,
+					       SECONDARY_EXEC_APIC_REGISTER_VIRT |
+					       SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY);
+		if (enable_ipiv)
+			tertiary_exec_controls_setbit(vmx, TERTIARY_EXEC_IPI_VIRT);
+	} else {
+		secondary_exec_controls_clearbit(vmx,
+						 SECONDARY_EXEC_APIC_REGISTER_VIRT |
+						 SECONDARY_EXEC_VIRTUAL_INTR_DELIVERY);
+		if (enable_ipiv)
+			tertiary_exec_controls_clearbit(vmx, TERTIARY_EXEC_IPI_VIRT);
+	}
+
+	vmx_update_msr_bitmap_x2apic(vcpu);
+}
+
 static u32 vmx_exec_control(struct vcpu_vmx *vmx)
 {
 	u32 exec_control = vmcs_config.cpu_based_exec_ctrl;
@@ -6967,6 +6995,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.update_cr8_intercept = vmx_update_cr8_intercept,
 
 	.set_virtual_apic_mode = vmx_set_virtual_apic_mode,
+	.refresh_apicv_exec_ctrl = vmx_refresh_apicv_exec_ctrl,
 
 	.complete_emulated_msr = kvm_complete_insn_gp,
 

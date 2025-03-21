@@ -1026,6 +1026,14 @@ static void pkvm_set_virtual_apic_mode(struct pkvm_vcpu *pkvm_vcpu, u64 apic_bas
 	kvm_x86_call(set_virtual_apic_mode)(vcpu);
 }
 
+static void pkvm_refresh_apicv_exec_ctrl(struct pkvm_vcpu *pkvm_vcpu, bool apicv_active)
+{
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	kvm_x86_call(refresh_apicv_exec_ctrl)(to_kvm_vcpu(pkvm_vcpu));
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1158,6 +1166,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__set_virtual_apic_mode:
 		pkvm_set_virtual_apic_mode(pkvm_vcpu, (u64)p2);
+		break;
+	case __pkvm__refresh_apicv_exec_ctrl:
+		pkvm_refresh_apicv_exec_ctrl(pkvm_vcpu, (bool)p2);
 		break;
 	default:
 		ret = -EINVAL;

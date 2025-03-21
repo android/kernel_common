@@ -300,6 +300,7 @@ enum pkvm_fn {
 	__pkvm__enable_irq_window,
 	__pkvm__update_cr8_intercept,
 	__pkvm__set_virtual_apic_mode,
+	__pkvm__refresh_apicv_exec_ctrl,
 };
 
 #define HOST_HANDLE_EXIT		0

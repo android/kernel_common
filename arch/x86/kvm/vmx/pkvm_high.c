@@ -939,6 +939,11 @@ static void pkvm_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
 	/* No virtual apic access support in the pkvm hypervisor */
 }
 
+static void pkvm_refresh_apicv_exec_ctrl(struct kvm_vcpu *vcpu)
+{
+	kvm_call_pkvm(refresh_apicv_exec_ctrl, vcpu);
+}
+
 static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid_entry2 *e2 = vcpu->arch.cpuid_entries;
@@ -1142,7 +1147,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.x2apic_icr_is_split = false,
 	.set_virtual_apic_mode = pkvm_set_virtual_apic_mode,
 	.set_apic_access_page_addr = pkvm_set_apic_access_page_addr,
-	.refresh_apicv_exec_ctrl = vmx_refresh_apicv_exec_ctrl,
+	.refresh_apicv_exec_ctrl = pkvm_refresh_apicv_exec_ctrl,
 	.load_eoi_exitmap = vmx_load_eoi_exitmap,
 	.apicv_pre_state_restore = vmx_apicv_pre_state_restore,
 	.required_apicv_inhibits = VMX_REQUIRED_APICV_INHIBITS,
