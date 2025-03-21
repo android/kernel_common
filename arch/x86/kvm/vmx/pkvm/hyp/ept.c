@@ -1065,3 +1065,28 @@ int pkvm_handle_guest_ept_violation(struct kvm_vcpu *vcpu, u64 gpa)
 
 	return handled;
 }
+
+void pkvm_setup_virtual_ept(struct kvm_vcpu *vcpu, u64 veptp)
+{
+	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
+	struct pkvm_shadow_vm *vm = shadow_vcpu->vm;
+	bool invalidate = false;
+
+	if (!is_valid_eptp(veptp))
+		pkvm_guest_ept_deinit(shadow_vcpu);
+	else if (shadow_vcpu->vept.root_pa !=
+			host_gpa2hpa(veptp & SPTE_BASE_ADDR_MASK)) {
+		pkvm_guest_ept_deinit(shadow_vcpu);
+		pkvm_guest_ept_init(shadow_vcpu, veptp);
+	}
+
+	pkvm_spin_lock(&vm->lock);
+	if (vm->sept_desc.last_guest_eptp != veptp) {
+		vm->sept_desc.last_guest_eptp = veptp;
+		invalidate = true;
+	}
+	pkvm_spin_unlock(&vm->lock);
+
+	if (invalidate)
+		pkvm_invalidate_shadow_ept(&vm->sept_desc);
+}

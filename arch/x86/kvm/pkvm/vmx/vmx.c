@@ -7068,6 +7068,14 @@ static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 		share_protected_vcpu_state(vcpu, shared_vcpu);
 }
 
+static void vmx_setup_virtual_mmu(struct kvm_vcpu *vcpu,
+				  hpa_t root_hpa, int root_level)
+{
+	u64 veptp = construct_eptp(vcpu, root_hpa, root_level);
+
+	pkvm_setup_virtual_ept(vcpu, veptp);
+}
+
 struct kvm_x86_ops vt_x86_ops __initdata = {
 	.name = KBUILD_MODNAME,
 
@@ -7158,6 +7166,7 @@ static struct pkvm_x86_ops pkvm_vt_x86_ops = {
 	.switch_to_host_vcpu = vmx_switch_to_host_vcpu,
 	.sync_vcpu_state_post_switch = vmx_sync_vcpu_state_post_switch,
 	.sync_vcpu_state_pre_switch = vmx_sync_vcpu_state_pre_switch,
+	.setup_virtual_mmu = vmx_setup_virtual_mmu,
 };
 
 int setup_vmx(void)

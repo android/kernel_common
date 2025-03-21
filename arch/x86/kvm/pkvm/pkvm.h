@@ -137,6 +137,11 @@ struct pkvm_x86_ops {
 	void (*switch_to_host_vcpu)(struct kvm_vcpu *vcpu);
 	void (*sync_vcpu_state_post_switch)(struct pkvm_vcpu *pkvm_vcpu);
 	void (*sync_vcpu_state_pre_switch)(struct pkvm_vcpu *pkvm_vcpu);
+	/*
+	 * FIMXE: This is to support the shadow EPT usage. Should be revisited
+	 * when the PV EPT is ready.
+	 */
+	void (*setup_virtual_mmu)(struct kvm_vcpu *vcpu, hpa_t root_hpa, int root_level);
 };
 
 extern struct pkvm_x86_ops pkvm_x86_ops;
