@@ -283,6 +283,9 @@ static int pkvm_vm_init(struct kvm *kvm)
 
 	pkvm->pkvm_vm_handle = ret;
 
+	if (pkvm_is_protected_vm(kvm))
+		kvm->arch.has_protected_state = true;
+
 	return 0;
 
 free_page:
@@ -840,6 +843,18 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 	vcpu->arch.regs_avail &= ~VMX_REGS_LAZY_LOAD_SET;
 	reqs_to_host = kvm_call_pkvm(vcpu_run, vcpu, force_immediate_exit);
 	vcpu->arch.regs_dirty = 0;
+
+	/*
+	 * FIXME: The host still needs to pre-configure pVM's vcpu state for
+	 * booting. Once the vcpu has started running, this will be dis-allowed
+	 * by the pkvm hypervisor. So the guest_state_protected flag has to be
+	 * set after the vcpu has started running. This is a temporary solution.
+	 * Once the host doesn't need to do so, then the guest_state_protected
+	 * can be enabled earlier.
+	 */
+	if (unlikely(vcpu->kvm->arch.has_protected_state &&
+		     !vcpu->arch.guest_state_protected))
+		vcpu->arch.guest_state_protected = true;
 
 	if (unlikely(vmx->exit_reason.full == 0xdead)) {
 		vmx->fail = 1;
