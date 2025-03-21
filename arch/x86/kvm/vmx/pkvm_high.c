@@ -863,6 +863,12 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 	if (reqs_to_host) {
 		if (test_and_clear_bit(HOST_HANDLE_EXIT, &reqs_to_host))
 			exit_fastpath = EXIT_FASTPATH_NONE;
+
+		if (test_and_clear_bit(HOST_RESET_MMU, &reqs_to_host))
+			kvm_mmu_reset_context(vcpu);
+
+		if (test_and_clear_bit(HOST_INIT_MMU, &reqs_to_host))
+			kvm_init_mmu(vcpu);
 	}
 
 	if (exit_fastpath == EXIT_FASTPATH_EXIT_HANDLED)

@@ -11,6 +11,7 @@
 #include <lapic.h>
 #include <pmu.h>
 #include "pkvm.h"
+#include <mmu.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -38,6 +39,8 @@ u64 __read_mostly efer_reserved_bits = ~((u64)(EFER_SCE | EFER_LME | EFER_LMA));
 #else
 static u64 __read_mostly efer_reserved_bits = ~((u64)EFER_SCE);
 #endif
+
+static u64 __read_mostly cr4_reserved_bits = CR4_RESERVED_BITS;
 
 static void __kvm_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags);
 
@@ -527,6 +530,171 @@ bool kvm_require_dr(struct kvm_vcpu *vcpu, int dr)
 }
 EXPORT_SYMBOL_GPL(kvm_require_dr);
 
+/*
+ * Load the pae pdptrs.  Return 1 if they are all valid, 0 otherwise.
+ */
+int load_pdptrs(struct kvm_vcpu *vcpu, unsigned long cr3)
+{
+#ifdef __PKVM_HYP__
+	/* TODO: Support loading PDPTR */
+	return 0;
+#else
+	struct kvm_mmu *mmu = vcpu->arch.walk_mmu;
+	gfn_t pdpt_gfn = cr3 >> PAGE_SHIFT;
+	gpa_t real_gpa;
+	int i;
+	int ret;
+	u64 pdpte[ARRAY_SIZE(mmu->pdptrs)];
+
+	/*
+	 * If the MMU is nested, CR3 holds an L2 GPA and needs to be translated
+	 * to an L1 GPA.
+	 */
+	real_gpa = kvm_translate_gpa(vcpu, mmu, gfn_to_gpa(pdpt_gfn),
+				     PFERR_USER_MASK | PFERR_WRITE_MASK, NULL);
+	if (real_gpa == INVALID_GPA)
+		return 0;
+
+	/* Note the offset, PDPTRs are 32 byte aligned when using PAE paging. */
+	ret = kvm_vcpu_read_guest_page(vcpu, gpa_to_gfn(real_gpa), pdpte,
+				       cr3 & GENMASK(11, 5), sizeof(pdpte));
+	if (ret < 0)
+		return 0;
+
+	for (i = 0; i < ARRAY_SIZE(pdpte); ++i) {
+		if ((pdpte[i] & PT_PRESENT_MASK) &&
+		    (pdpte[i] & pdptr_rsvd_bits(vcpu))) {
+			return 0;
+		}
+	}
+
+	/*
+	 * Marking VCPU_EXREG_PDPTR dirty doesn't work for !tdp_enabled.
+	 * Shadow page roots need to be reconstructed instead.
+	 */
+	if (!tdp_enabled && memcmp(mmu->pdptrs, pdpte, sizeof(mmu->pdptrs)))
+		kvm_mmu_free_roots(vcpu->kvm, mmu, KVM_MMU_ROOT_CURRENT);
+
+	memcpy(mmu->pdptrs, pdpte, sizeof(mmu->pdptrs));
+	kvm_register_mark_dirty(vcpu, VCPU_EXREG_PDPTR);
+	kvm_make_request(KVM_REQ_LOAD_MMU_PGD, vcpu);
+	vcpu->arch.pdptrs_from_userspace = false;
+
+	return 1;
+#endif
+}
+EXPORT_SYMBOL_GPL(load_pdptrs);
+
+static bool kvm_is_valid_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
+{
+#ifdef CONFIG_X86_64
+	if (cr0 & 0xffffffff00000000UL)
+		return false;
+#endif
+
+	if ((cr0 & X86_CR0_NW) && !(cr0 & X86_CR0_CD))
+		return false;
+
+	if ((cr0 & X86_CR0_PG) && !(cr0 & X86_CR0_PE))
+		return false;
+
+	return kvm_x86_call(is_valid_cr0)(vcpu, cr0);
+}
+
+void kvm_post_set_cr0(struct kvm_vcpu *vcpu, unsigned long old_cr0, unsigned long cr0)
+{
+	/*
+	 * CR0.WP is incorporated into the MMU role, but only for non-nested,
+	 * indirect shadow MMUs.  If paging is disabled, no updates are needed
+	 * as there are no permission bits to emulate.  If TDP is enabled, the
+	 * MMU's metadata needs to be updated, e.g. so that emulating guest
+	 * translations does the right thing, but there's no need to unload the
+	 * root as CR0.WP doesn't affect SPTEs.
+	 */
+	if ((cr0 ^ old_cr0) == X86_CR0_WP) {
+		if (!(cr0 & X86_CR0_PG))
+			return;
+
+		if (tdp_enabled) {
+#ifdef __PKVM_HYP__
+			/* TODO: Revisit when the PV EPT implementation is ready. */
+			pkvm_make_req_to_host(HOST_INIT_MMU, vcpu);
+#else
+			kvm_init_mmu(vcpu);
+#endif
+			return;
+		}
+	}
+
+	if ((cr0 ^ old_cr0) & X86_CR0_PG) {
+		kvm_clear_async_pf_completion_queue(vcpu);
+		kvm_async_pf_hash_reset(vcpu);
+
+		/*
+		 * Clearing CR0.PG is defined to flush the TLB from the guest's
+		 * perspective.
+		 */
+		if (!(cr0 & X86_CR0_PG))
+			kvm_make_request(KVM_REQ_TLB_FLUSH_GUEST, vcpu);
+	}
+
+	if ((cr0 ^ old_cr0) & KVM_MMU_CR0_ROLE_BITS)
+#ifdef __PKVM_HYP__
+		/* TODO: Revisit when the PV EPT implementation is ready. */
+		pkvm_make_req_to_host(HOST_RESET_MMU, vcpu);
+#else
+		kvm_mmu_reset_context(vcpu);
+#endif
+}
+EXPORT_SYMBOL_GPL(kvm_post_set_cr0);
+
+int kvm_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
+{
+	unsigned long old_cr0 = kvm_read_cr0(vcpu);
+
+	if (!kvm_is_valid_cr0(vcpu, cr0))
+		return 1;
+
+	cr0 |= X86_CR0_ET;
+
+	/* Write to CR0 reserved bits are ignored, even on Intel. */
+	cr0 &= ~CR0_RESERVED_BITS;
+
+#ifdef CONFIG_X86_64
+	if ((vcpu->arch.efer & EFER_LME) && !is_paging(vcpu) &&
+	    (cr0 & X86_CR0_PG)) {
+		int cs_db, cs_l;
+
+		if (!is_pae(vcpu))
+			return 1;
+		kvm_x86_call(get_cs_db_l_bits)(vcpu, &cs_db, &cs_l);
+		if (cs_l)
+			return 1;
+	}
+#endif
+	if (!(vcpu->arch.efer & EFER_LME) && (cr0 & X86_CR0_PG) &&
+	    is_pae(vcpu) && ((cr0 ^ old_cr0) & X86_CR0_PDPTR_BITS) &&
+	    !load_pdptrs(vcpu, kvm_read_cr3(vcpu)))
+		return 1;
+
+	if (!(cr0 & X86_CR0_PG) &&
+	    (is_64_bit_mode(vcpu) || kvm_is_cr4_bit_set(vcpu, X86_CR4_PCIDE)))
+		return 1;
+
+	kvm_x86_call(set_cr0)(vcpu, cr0);
+
+	kvm_post_set_cr0(vcpu, old_cr0, cr0);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_set_cr0);
+
+void kvm_lmsw(struct kvm_vcpu *vcpu, unsigned long msw)
+{
+	(void)kvm_set_cr0(vcpu, kvm_read_cr0_bits(vcpu, ~0x0eul) | (msw & 0x0f));
+}
+EXPORT_SYMBOL_GPL(kvm_lmsw);
+
 void kvm_load_guest_xsave_state(struct kvm_vcpu *vcpu)
 {
 #ifndef __PKVM_HYP__
@@ -636,6 +804,105 @@ int kvm_emulate_xsetbv(struct kvm_vcpu *vcpu)
 	return kvm_skip_emulated_instruction(vcpu);
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_xsetbv);
+
+bool __kvm_is_valid_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
+{
+	if (cr4 & cr4_reserved_bits)
+		return false;
+
+	if (cr4 & vcpu->arch.cr4_guest_rsvd_bits)
+		return false;
+
+	return true;
+}
+EXPORT_SYMBOL_GPL(__kvm_is_valid_cr4);
+
+static bool kvm_is_valid_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
+{
+	return __kvm_is_valid_cr4(vcpu, cr4) &&
+	       kvm_x86_call(is_valid_cr4)(vcpu, cr4);
+}
+
+void kvm_post_set_cr4(struct kvm_vcpu *vcpu, unsigned long old_cr4, unsigned long cr4)
+{
+	if ((cr4 ^ old_cr4) & KVM_MMU_CR4_ROLE_BITS)
+#ifdef __PKVM_HYP__
+		/* TODO: Revisit when the PV EPT implementation is ready. */
+		pkvm_make_req_to_host(HOST_RESET_MMU, vcpu);
+#else
+		kvm_mmu_reset_context(vcpu);
+#endif
+
+#ifndef __PKVM_HYP__ /* pkvm hypervisor requires tdp_enabled */
+	/*
+	 * If CR4.PCIDE is changed 0 -> 1, there is no need to flush the TLB
+	 * according to the SDM; however, stale prev_roots could be reused
+	 * incorrectly in the future after a MOV to CR3 with NOFLUSH=1, so we
+	 * free them all.  This is *not* a superset of KVM_REQ_TLB_FLUSH_GUEST
+	 * or KVM_REQ_TLB_FLUSH_CURRENT, because the hardware TLB is not flushed,
+	 * so fall through.
+	 */
+	if (!tdp_enabled &&
+	    (cr4 & X86_CR4_PCIDE) && !(old_cr4 & X86_CR4_PCIDE))
+		kvm_mmu_unload(vcpu);
+#endif
+
+	/*
+	 * The TLB has to be flushed for all PCIDs if any of the following
+	 * (architecturally required) changes happen:
+	 * - CR4.PCIDE is changed from 1 to 0
+	 * - CR4.PGE is toggled
+	 *
+	 * This is a superset of KVM_REQ_TLB_FLUSH_CURRENT.
+	 */
+	if (((cr4 ^ old_cr4) & X86_CR4_PGE) ||
+	    (!(cr4 & X86_CR4_PCIDE) && (old_cr4 & X86_CR4_PCIDE)))
+		kvm_make_request(KVM_REQ_TLB_FLUSH_GUEST, vcpu);
+
+	/*
+	 * The TLB has to be flushed for the current PCID if any of the
+	 * following (architecturally required) changes happen:
+	 * - CR4.SMEP is changed from 0 to 1
+	 * - CR4.PAE is toggled
+	 */
+	else if (((cr4 ^ old_cr4) & X86_CR4_PAE) ||
+		 ((cr4 & X86_CR4_SMEP) && !(old_cr4 & X86_CR4_SMEP)))
+		kvm_make_request(KVM_REQ_TLB_FLUSH_CURRENT, vcpu);
+
+}
+EXPORT_SYMBOL_GPL(kvm_post_set_cr4);
+
+int kvm_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
+{
+	unsigned long old_cr4 = kvm_read_cr4(vcpu);
+
+	if (!kvm_is_valid_cr4(vcpu, cr4))
+		return 1;
+
+	if (is_long_mode(vcpu)) {
+		if (!(cr4 & X86_CR4_PAE))
+			return 1;
+		if ((cr4 ^ old_cr4) & X86_CR4_LA57)
+			return 1;
+	} else if (is_paging(vcpu) && (cr4 & X86_CR4_PAE)
+		   && ((cr4 ^ old_cr4) & X86_CR4_PDPTR_BITS)
+		   && !load_pdptrs(vcpu, kvm_read_cr3(vcpu)))
+		return 1;
+
+	if ((cr4 & X86_CR4_PCIDE) && !(old_cr4 & X86_CR4_PCIDE)) {
+		/* PCID can not be enabled when cr3[11:0]!=000H or EFER.LMA=0 */
+		if ((kvm_read_cr3(vcpu) & X86_CR3_PCID_MASK) || !is_long_mode(vcpu))
+			return 1;
+	}
+
+	kvm_x86_call(set_cr4)(vcpu, cr4);
+
+	kvm_post_set_cr4(vcpu, old_cr4, cr4);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_set_cr4);
+
 
 static void kvm_update_dr0123(struct kvm_vcpu *vcpu)
 {
@@ -1864,6 +2131,10 @@ int kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 	r = ops->hardware_setup();
 	if (r != 0)
 		return r;
+
+#define __kvm_cpu_cap_has(UNUSED_, f) kvm_cpu_cap_has(f)
+	cr4_reserved_bits = __cr4_reserved_bits(__kvm_cpu_cap_has, UNUSED_);
+#undef __kvm_cpu_cap_has
 
 	return 0;
 #else

@@ -2888,6 +2888,17 @@ void ept_save_pdptrs(struct kvm_vcpu *vcpu)
 #define CR3_EXITING_BITS (CPU_BASED_CR3_LOAD_EXITING | \
 			  CPU_BASED_CR3_STORE_EXITING)
 
+bool vmx_is_valid_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
+{
+	if (is_guest_mode(vcpu))
+		return nested_guest_cr0_valid(vcpu, cr0);
+
+	if (to_vmx(vcpu)->nested.vmxon)
+		return nested_host_cr0_valid(vcpu, cr0);
+
+	return true;
+}
+
 void vmx_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -3026,6 +3037,22 @@ void vmx_load_mmu_pgd(struct kvm_vcpu *vcpu, hpa_t root_hpa, int root_level)
 
 	if (update_guest_cr3)
 		vmcs_writel(GUEST_CR3, guest_cr3);
+}
+
+bool vmx_is_valid_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
+{
+	/*
+	 * We operate under the default treatment of SMM, so VMX cannot be
+	 * enabled under SMM.  Note, whether or not VMXE is allowed at all,
+	 * i.e. is a reserved bit, is handled by common x86 code.
+	 */
+	if ((cr4 & X86_CR4_VMXE) && is_smm(vcpu))
+		return false;
+
+	if (to_vmx(vcpu)->nested.vmxon && !nested_cr4_valid(vcpu, cr4))
+		return false;
+
+	return true;
 }
 
 void vmx_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
@@ -3214,6 +3241,14 @@ void vmx_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int seg)
 	__vmx_set_segment(vcpu, var, seg);
 
 	to_vmx(vcpu)->emulation_required = vmx_emulation_required(vcpu);
+}
+
+void vmx_get_cs_db_l_bits(struct kvm_vcpu *vcpu, int *db, int *l)
+{
+	u32 ar = vmx_read_guest_seg_ar(to_vmx(vcpu), VCPU_SREG_CS);
+
+	*db = (ar >> 14) & 1;
+	*l = (ar >> 13) & 1;
 }
 
 void vmx_get_idt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
@@ -4469,6 +4504,50 @@ static int handle_io(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+/* called to set cr0 as appropriate for a mov-to-cr0 exit. */
+static int handle_set_cr0(struct kvm_vcpu *vcpu, unsigned long val)
+{
+	if (is_guest_mode(vcpu)) {
+		struct vmcs12 *vmcs12 = get_vmcs12(vcpu);
+		unsigned long orig_val = val;
+
+		/*
+		 * We get here when L2 changed cr0 in a way that did not change
+		 * any of L1's shadowed bits (see nested_vmx_exit_handled_cr),
+		 * but did change L0 shadowed bits. So we first calculate the
+		 * effective cr0 value that L1 would like to write into the
+		 * hardware. It consists of the L2-owned bits from the new
+		 * value combined with the L1-owned bits from L1's guest_cr0.
+		 */
+		val = (val & ~vmcs12->cr0_guest_host_mask) |
+			(vmcs12->guest_cr0 & vmcs12->cr0_guest_host_mask);
+
+		if (kvm_set_cr0(vcpu, val))
+			return 1;
+		vmcs_writel(CR0_READ_SHADOW, orig_val);
+		return 0;
+	} else {
+		return kvm_set_cr0(vcpu, val);
+	}
+}
+
+static int handle_set_cr4(struct kvm_vcpu *vcpu, unsigned long val)
+{
+	if (is_guest_mode(vcpu)) {
+		struct vmcs12 *vmcs12 = get_vmcs12(vcpu);
+		unsigned long orig_val = val;
+
+		/* analogously to handle_set_cr0 */
+		val = (val & ~vmcs12->cr4_guest_host_mask) |
+			(vmcs12->guest_cr4 & vmcs12->cr4_guest_host_mask);
+		if (kvm_set_cr4(vcpu, val))
+			return 1;
+		vmcs_writel(CR4_READ_SHADOW, orig_val);
+		return 0;
+	} else
+		return kvm_set_cr4(vcpu, val);
+}
+
 #ifndef __PKVM_HYP__
 static int handle_desc(struct kvm_vcpu *vcpu)
 {
@@ -4485,7 +4564,122 @@ static int handle_desc(struct kvm_vcpu *vcpu)
 
 static int handle_cr(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+	unsigned long exit_qualification, val;
+	int cr;
+	int reg;
+	int err;
+
+	exit_qualification = vmx_get_exit_qual(vcpu);
+	cr = exit_qualification & 15;
+	reg = (exit_qualification >> 8) & 15;
+	switch ((exit_qualification >> 4) & 3) {
+	case 0: /* mov to cr */
+		val = kvm_register_read(vcpu, reg);
+		trace_kvm_cr_write(cr, val);
+		switch (cr) {
+		case 0:
+			err = handle_set_cr0(vcpu, val);
+			return kvm_complete_insn_gp(vcpu, err);
+		case 3:
+#ifdef __PKVM_HYP__
+			/*
+			 * The pkvm hypervisor requires ept and unrestricted
+			 * guest so the CR3 exiting bits are not set, and the
+			 * guest shouldn't cause write-to-cr3 vmexit.
+			 */
+			KVM_BUG(1, vcpu->kvm, "pkvm: unexpected writing cr3 vmexit\n");
+			return -EIO;
+#else
+			WARN_ON_ONCE(enable_unrestricted_guest);
+
+			err = kvm_set_cr3(vcpu, val);
+			return kvm_complete_insn_gp(vcpu, err);
+#endif
+		case 4:
+			err = handle_set_cr4(vcpu, val);
+			return kvm_complete_insn_gp(vcpu, err);
+		case 8: {
+#ifdef __PKVM_HYP__
+				/*
+				 * The pkvm hypervisor requires TPR shadow
+				 * feature thus doesn't have CR8 load exit.
+				 */
+				KVM_BUG(1, vcpu->kvm, "pkvm: unexpected writing cr8 vmexit\n");
+				return -EIO;
+#else
+				u8 cr8_prev = kvm_get_cr8(vcpu);
+				u8 cr8 = (u8)val;
+				int ret;
+
+				err = kvm_set_cr8(vcpu, cr8);
+				ret = kvm_complete_insn_gp(vcpu, err);
+				if (lapic_in_kernel(vcpu))
+					return ret;
+				if (cr8_prev <= cr8)
+					return ret;
+				/*
+				 * TODO: we might be squashing a
+				 * KVM_GUESTDBG_SINGLESTEP-triggered
+				 * KVM_EXIT_DEBUG here.
+				 */
+				vcpu->run->exit_reason = KVM_EXIT_SET_TPR;
+				return 0;
+#endif
+			}
+		}
+		break;
+	case 2: /* clts */
+		KVM_BUG(1, vcpu->kvm, "Guest always owns CR0.TS");
+		return -EIO;
+	case 1: /*mov from cr*/
+		switch (cr) {
+		case 3:
+#ifdef __PKVM_HYP__
+			/*
+			 * The pkvm hypervisor requires ept and unrestricted
+			 * guest so the CR3 exiting bits are not set, and the
+			 * guest shouldn't cause read-from-cr3 vmexit.
+			 */
+			KVM_BUG(1, vcpu->kvm, "pkvm: unexpected reading cr3 vmexit\n");
+			return -EIO;
+#else
+			WARN_ON_ONCE(enable_unrestricted_guest);
+
+			val = kvm_read_cr3(vcpu);
+			kvm_register_write(vcpu, reg, val);
+			trace_kvm_cr_read(cr, val);
+			return kvm_skip_emulated_instruction(vcpu);
+#endif
+		case 8:
+#ifdef __PKVM_HYP__
+			/*
+			 * The pkvm hypervisor requires TPR shadow
+			 * feature thus doesn't have CR8 store exit.
+			 */
+			KVM_BUG(1, vcpu->kvm, "pkvm: unexpected reading cr8 vmexit\n");
+			return -EIO;
+#else
+			val = kvm_get_cr8(vcpu);
+			kvm_register_write(vcpu, reg, val);
+			trace_kvm_cr_read(cr, val);
+			return kvm_skip_emulated_instruction(vcpu);
+#endif
+		}
+		break;
+	case 3: /* lmsw */
+		val = (exit_qualification >> LMSW_SOURCE_DATA_SHIFT) & 0x0f;
+		trace_kvm_cr_write(0, (kvm_read_cr0_bits(vcpu, ~0xful) | val));
+		kvm_lmsw(vcpu, val);
+
+		return kvm_skip_emulated_instruction(vcpu);
+	default:
+		break;
+	}
+#ifndef __PKVM_HYP__ /* No vcpu run page for the vcpu in pkvm hypervisor */
+	vcpu->run->exit_reason = 0;
+#endif
+	vcpu_unimpl(vcpu, "unhandled control register: op %d cr %d\n",
+	       (int)(exit_qualification >> 4) & 3, cr);
 	return 0;
 }
 
@@ -7315,10 +7509,13 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.get_segment = vmx_get_segment,
 	.set_segment = vmx_set_segment,
 	.get_cpl = vmx_get_cpl,
+	.get_cs_db_l_bits = vmx_get_cs_db_l_bits,
+	.is_valid_cr0 = vmx_is_valid_cr0,
 	.set_cr0 = vmx_set_cr0,
 #ifdef __PKVM_HYP__
 	.post_set_cr3 = vmx_post_set_cr3,
 #endif
+	.is_valid_cr4 = vmx_is_valid_cr4,
 	.set_cr4 = vmx_set_cr4,
 	.set_efer = vmx_set_efer,
 	.get_idt = vmx_get_idt,
