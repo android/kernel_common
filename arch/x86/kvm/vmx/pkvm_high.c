@@ -622,7 +622,8 @@ static int pkvm_get_cpl(struct kvm_vcpu *vcpu)
 	int seg = VCPU_SREG_SS;
 	u32 ar;
 
-	if (WARN_ON_ONCE(!pkvm_segment_cache_test(vmx, seg, SEG_FIELD_AR)))
+	if (vcpu->arch.guest_state_protected ||
+	    WARN_ON_ONCE(!pkvm_segment_cache_test(vmx, seg, SEG_FIELD_AR)))
 		return 0;
 
 	ar = vmx->segment_cache.seg[seg].ar;
@@ -635,7 +636,8 @@ static void pkvm_get_cs_db_l_bits(struct kvm_vcpu *vcpu, int *db, int *l)
 	int seg = VCPU_SREG_CS;
 	u32 ar;
 
-	if (WARN_ON_ONCE(!pkvm_segment_cache_test(vmx, seg, SEG_FIELD_AR))) {
+	if (vcpu->arch.guest_state_protected ||
+	    WARN_ON_ONCE(!pkvm_segment_cache_test(vmx, seg, SEG_FIELD_AR))) {
 		*db = *l = 0;
 		return;
 	}

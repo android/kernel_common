@@ -7734,17 +7734,19 @@ static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 	kvm_register_mark_available(shared_vcpu, VCPU_EXREG_EXIT_INFO_2);
 	shared_vmx->error_code = error_code;
 
-	if (unlikely(vmx->rmode.vm86_active)) {
-		shared_vmx->segment_cache.seg[VCPU_SREG_CS].ar = 0;
-		shared_vmx->segment_cache.seg[VCPU_SREG_SS].ar = 0;
-	} else {
-		shared_vmx->segment_cache.seg[VCPU_SREG_CS].ar =
-			vmx_read_guest_seg_ar(vmx, VCPU_SREG_CS);
-		shared_vmx->segment_cache.seg[VCPU_SREG_SS].ar =
-			vmx_read_guest_seg_ar(vmx, VCPU_SREG_SS);
+	if (!pkvm_is_protected_vcpu(vcpu)) {
+		if (unlikely(vmx->rmode.vm86_active)) {
+			shared_vmx->segment_cache.seg[VCPU_SREG_CS].ar = 0;
+			shared_vmx->segment_cache.seg[VCPU_SREG_SS].ar = 0;
+		} else {
+			shared_vmx->segment_cache.seg[VCPU_SREG_CS].ar =
+				vmx_read_guest_seg_ar(vmx, VCPU_SREG_CS);
+			shared_vmx->segment_cache.seg[VCPU_SREG_SS].ar =
+				vmx_read_guest_seg_ar(vmx, VCPU_SREG_SS);
+		}
+		vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_CS, SEG_FIELD_AR);
+		vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_SS, SEG_FIELD_AR);
 	}
-	vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_CS, SEG_FIELD_AR);
-	vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_SS, SEG_FIELD_AR);
 
 	if (pkvm_is_protected_vcpu(vcpu) &&
 	    pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu))
