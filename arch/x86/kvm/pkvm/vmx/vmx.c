@@ -6973,6 +6973,7 @@ static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 	struct kvm_vcpu *shared_vcpu = pkvm_vcpu->shared_vcpu;
 	struct vcpu_vmx *shared_vmx = to_vmx(shared_vcpu);
 	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	u32 exit_reason, exit_intr_info, error_code;
 	u64 exit_info1, exit_info2;
 
@@ -6986,6 +6987,18 @@ static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 	shared_vmx->exit_intr_info = exit_intr_info;
 	kvm_register_mark_available(shared_vcpu, VCPU_EXREG_EXIT_INFO_2);
 	shared_vmx->error_code = error_code;
+
+	if (unlikely(vmx->rmode.vm86_active)) {
+		shared_vmx->segment_cache.seg[VCPU_SREG_CS].ar = 0;
+		shared_vmx->segment_cache.seg[VCPU_SREG_SS].ar = 0;
+	} else {
+		shared_vmx->segment_cache.seg[VCPU_SREG_CS].ar =
+			vmx_read_guest_seg_ar(vmx, VCPU_SREG_CS);
+		shared_vmx->segment_cache.seg[VCPU_SREG_SS].ar =
+			vmx_read_guest_seg_ar(vmx, VCPU_SREG_SS);
+	}
+	vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_CS, SEG_FIELD_AR);
+	vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_SS, SEG_FIELD_AR);
 
 	if (pkvm_is_protected_vcpu(vcpu) &&
 	    pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu))
