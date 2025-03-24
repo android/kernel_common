@@ -496,7 +496,13 @@ int gunyah_demand_page(struct gunyah_vm *ghvm, u64 gpa, bool write)
 		ret = -ENOENT;
 		goto unlock;
 	}
-	ret = gunyah_gup_demand_page(ghvm, b, gpa, write);
+
+	if (b->mem_type == VM_MEM_CMA) {
+		dev_warn(ghvm->parent, "Demand paging of CMA mem not supported\n");
+		ret = -EOPNOTSUPP;
+	} else {
+		ret = gunyah_gup_demand_page(ghvm, b, gpa, write);
+	}
 
 unlock:
 	up_read(&ghvm->bindings_lock);
@@ -651,10 +657,18 @@ int gunyah_share_parcel(struct gunyah_vm *ghvm, struct gunyah_vm_parcel *vm_parc
 		parcel->acl_entries[1].perms = GUNYAH_RM_ACL_R | GUNYAH_RM_ACL_W | GUNYAH_RM_ACL_X;
 	}
 
-	ret = gunyah_gup_share_parcel(ghvm, vm_parcel, b, gfn, nr);
-	if (ret) {
-		dev_warn(ghvm->parent, "Failed to share GUP memory: %d\n", ret);
-		goto free_acl;
+	if (b->mem_type == VM_MEM_CMA) {
+		ret = gunyah_cma_share_parcel(ghvm, vm_parcel, b, gfn, nr);
+		if (ret) {
+			dev_warn(ghvm->parent, "Failed to share CMA memory: %d\n", ret);
+			goto free_acl;
+		}
+	} else {
+		ret = gunyah_gup_share_parcel(ghvm, vm_parcel, b, gfn, nr);
+		if (ret) {
+			dev_warn(ghvm->parent, "Failed to share GUP memory: %d\n", ret);
+			goto free_acl;
+		}
 	}
 	goto unlock;
 
@@ -742,7 +756,11 @@ static int gunyah_reclaim_parcel(struct gunyah_vm *ghvm,
 		ret = -ENOENT;
 		goto unlock;
 	}
-	ret = gunyah_gup_reclaim_parcel(ghvm, vm_parcel, b);
+
+	if (b->mem_type == VM_MEM_CMA)
+		ret = gunyah_cma_reclaim_parcel(ghvm, vm_parcel, b);
+	else
+		ret = gunyah_gup_reclaim_parcel(ghvm, vm_parcel, b);
 
 unlock:
 	up_write(&ghvm->bindings_lock);

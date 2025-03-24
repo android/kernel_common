@@ -402,4 +402,22 @@ struct gunyah_address_range {
  */
 #define GH_ANDROID_CREATE_CMA_MEM_FD _IO(GH_ANDROID_IOCTL_TYPE, 0x14)
 
+/**
+ * struct gunyah_map_cma_mem_args - Description to provide CMA based guest memory into a VM
+ * @guest_addr: Location in guest address space to place the memory
+ * @flags: See &enum gunyah_map_flags.
+ * @guest_mem_fd: File descriptor created by GH_ANDROID_CREATE_CMA_MEM_FD
+ * @offset: Offset into the guest memory file
+ * @size: Size of the region to be mapped.
+ */
+struct gunyah_map_cma_mem_args {
+	__u32 label;
+	__u64 guest_addr;
+	__u32 flags;
+	__u32 guest_mem_fd;
+	__u64 offset;
+	__u64 size;
+};
+
+#define GH_VM_ANDROID_MAP_CMA_MEM _IOW(GH_ANDROID_IOCTL_TYPE, 0x15, struct gunyah_map_cma_mem_args)
 #endif

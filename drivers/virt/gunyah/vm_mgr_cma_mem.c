@@ -112,6 +112,144 @@ static const struct file_operations gunyah_cma_fops = {
 	.release = gunyah_cma_release,
 };
 
+int gunyah_cma_reclaim_parcel(struct gunyah_vm *ghvm, struct gunyah_vm_parcel *vm_parcel,
+				struct gunyah_vm_binding *b)
+{
+	struct gunyah_rm_mem_parcel *parcel = &vm_parcel->parcel;
+	int ret;
+
+	if (parcel->mem_handle == GUNYAH_MEM_HANDLE_INVAL)
+		return 0;
+
+	ret = gunyah_rm_mem_reclaim(ghvm->rm, parcel);
+	if (ret) {
+		dev_err(ghvm->parent, "Failed to reclaim parcel: %d\n",
+			ret);
+		/* We can't reclaim the pages -- hold onto the pages
+		 * forever because we don't know what state the memory
+		 * is in
+		 */
+		return ret;
+	}
+	parcel->mem_handle = GUNYAH_MEM_HANDLE_INVAL;
+	kfree(parcel->mem_entries);
+	kfree(parcel->acl_entries);
+	vm_parcel->start = 0;
+	vm_parcel->pages = 0;
+	b->vm_parcel = NULL;
+	fput(b->cma.file);
+	return ret;
+}
+
+int gunyah_cma_share_parcel(struct gunyah_vm *ghvm, struct gunyah_vm_parcel *vm_parcel,
+				struct gunyah_vm_binding *b, u64 *gfn, u64 *nr)
+{
+	struct gunyah_rm_mem_parcel *parcel = &vm_parcel->parcel;
+	unsigned long offset;
+	struct gunyah_cma *cma;
+	struct file *file;
+	int ret;
+
+	if ((*nr << PAGE_SHIFT) > b->size)
+		return -EINVAL;
+
+	file = fget(b->cma.fd);
+	if (!file)
+		return -EINVAL;
+
+	if (file->f_op != &gunyah_cma_fops) {
+		fput(file);
+		return -EINVAL;
+	}
+
+	cma = file->private_data;
+	b->cma.file = file;
+
+	parcel->n_mem_entries = 1;
+	parcel->mem_entries = kcalloc(parcel->n_mem_entries, sizeof(parcel->mem_entries[0]),
+					GFP_KERNEL_ACCOUNT);
+	if (!parcel->mem_entries) {
+		fput(file);
+		return -ENOMEM;
+	}
+
+	offset = gunyah_gfn_to_gpa(*gfn) - b->guest_phys_addr;
+	parcel->mem_entries[0].size = cpu_to_le64(*nr << PAGE_SHIFT);
+	parcel->mem_entries[0].phys_addr =
+		cpu_to_le64(page_to_phys(cma->page + b->cma.offset + offset));
+
+	ret = gunyah_rm_mem_share(ghvm->rm, parcel);
+	if (ret)
+		goto free_mem_entries;
+
+	vm_parcel->start = *gfn;
+	vm_parcel->pages = *nr;
+	b->vm_parcel = vm_parcel;
+	return ret;
+
+free_mem_entries:
+	kfree(parcel->mem_entries);
+	parcel->mem_entries = NULL;
+	parcel->n_mem_entries = 0;
+	fput(file);
+	return ret;
+}
+
+int gunyah_vm_binding_cma_alloc(struct gunyah_vm *ghvm,
+			    struct gunyah_map_cma_mem_args *cma_map)
+{
+	struct gunyah_vm_binding *binding;
+	struct file *file;
+	loff_t max_size;
+	int ret = 0;
+
+	if (!cma_map->size || !PAGE_ALIGNED(cma_map->size) ||
+		!PAGE_ALIGNED(cma_map->guest_addr))
+		return -EINVAL;
+
+	if (overflows_type(cma_map->guest_addr + cma_map->size, u64))
+		return -EOVERFLOW;
+
+	file = fget(cma_map->guest_mem_fd);
+	max_size = i_size_read(file_inode(file));
+	if (cma_map->offset + cma_map->size > max_size) {
+		fput(file);
+		return -EOVERFLOW;
+	}
+	fput(file);
+
+	binding = kzalloc(sizeof(*binding), GFP_KERNEL_ACCOUNT);
+	if (!binding)
+		return -ENOMEM;
+
+	binding->mem_type = VM_MEM_CMA;
+	binding->cma.fd = cma_map->guest_mem_fd;
+	binding->cma.offset = cma_map->offset;
+	binding->guest_phys_addr = cma_map->guest_addr;
+	binding->label = cma_map->label;
+	binding->size = cma_map->size;
+	binding->flags = cma_map->flags;
+	binding->vm_parcel = NULL;
+
+	if (binding->flags & GUNYAH_MEM_FORCE_LEND)
+		binding->share_type = VM_MEM_LEND;
+	else
+		binding->share_type = VM_MEM_SHARE;
+
+	down_write(&ghvm->bindings_lock);
+	ret = mtree_insert_range(&ghvm->bindings,
+				 gunyah_gpa_to_gfn(binding->guest_phys_addr),
+				 gunyah_gpa_to_gfn(binding->guest_phys_addr + cma_map->size - 1),
+				 binding, GFP_KERNEL);
+
+	if (ret != 0)
+		kfree(binding);
+
+	up_write(&ghvm->bindings_lock);
+
+	return ret;
+}
+
 static long gunyah_cma_create_mem_fd(struct gunyah_cma *cma)
 {
 	unsigned long flags = 0;

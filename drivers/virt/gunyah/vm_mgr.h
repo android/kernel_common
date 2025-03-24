@@ -27,8 +27,15 @@ struct gunyah_vm_parcel {
 };
 
 struct gunyah_vm_binding {
-	enum { VM_MEM_USER } mem_type;
-	u64 userspace_addr;
+	enum { VM_MEM_USER, VM_MEM_CMA } mem_type;
+	union {
+		u64 userspace_addr;
+		struct {
+			struct file *file;
+			u32 fd;
+			u64 offset;
+		} cma;
+	};
 	struct gunyah_vm_parcel *vm_parcel;
 	enum { VM_MEM_SHARE, VM_MEM_LEND } share_type;
 	u64 guest_phys_addr;
@@ -233,6 +240,15 @@ int gunyah_setup_demand_paging(struct gunyah_vm *ghvm, u64 start_gfn,
 #ifdef CONFIG_DMA_CMA
 int gunyah_cma_mem_init(void);
 void gunyah_cma_mem_exit(void);
+int gunyah_vm_binding_cma_alloc(struct gunyah_vm *ghvm,
+			    struct gunyah_map_cma_mem_args *cma_map);
+int gunyah_cma_share_parcel(struct gunyah_vm *ghvm,
+			      struct gunyah_vm_parcel *parcel,
+			      struct gunyah_vm_binding *b,
+				  u64 *gfn, u64 *nr);
+int gunyah_cma_reclaim_parcel(struct gunyah_vm *ghvm,
+			      struct gunyah_vm_parcel *parcel,
+			      struct gunyah_vm_binding *b);
 #else
 static inline int gunyah_cma_mem_init(void)
 {
@@ -240,6 +256,24 @@ static inline int gunyah_cma_mem_init(void)
 }
 static inline void gunyah_cma_mem_exit(void)
 {
+}
+static inline int gunyah_vm_binding_cma_alloc(struct gunyah_vm *ghvm,
+			    struct gunyah_map_cma_mem_args *cma_map)
+{
+	return -ENOSYS;
+}
+static inline int gunyah_cma_share_parcel(struct gunyah_vm *ghvm,
+			      struct gunyah_vm_parcel *parcel,
+			      struct gunyah_vm_binding *b,
+				  u64 *gfn, u64 *nr)
+{
+	return -EINVAL;
+}
+static inline int gunyah_cma_reclaim_parcel(struct gunyah_vm *ghvm,
+			      struct gunyah_vm_parcel *parcel,
+			      struct gunyah_vm_binding *b)
+{
+	return -EINVAL;
 }
 #endif
 

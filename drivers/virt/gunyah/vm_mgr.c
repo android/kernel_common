@@ -898,6 +898,19 @@ static long gunyah_vm_ioctl(struct file *filp, unsigned int cmd,
 					    gunyah_gpa_to_gfn(range.size) - 1);
 		break;
 	}
+	case GH_VM_ANDROID_MAP_CMA_MEM: {
+		struct gunyah_map_cma_mem_args cma_mem;
+
+		/* only allow owner task to add memory */
+		if (ghvm->mm_s != current->mm)
+			return -EPERM;
+
+		if (copy_from_user(&cma_mem, argp, sizeof(cma_mem)))
+			return -EFAULT;
+
+		r = gunyah_vm_binding_cma_alloc(ghvm, &cma_mem);
+		break;
+	}
 	case GUNYAH_VM_SET_BOOT_CONTEXT: {
 		struct gunyah_vm_boot_context boot_ctx;
 
