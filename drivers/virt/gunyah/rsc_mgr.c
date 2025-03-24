@@ -3,6 +3,8 @@
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#define pr_fmt(fmt) "gunyah: " fmt
+
 #include <linux/completion.h>
 #include <linux/gunyah.h>
 #include <linux/module.h>
@@ -78,6 +80,17 @@ enum gunyah_rm_error {
 	/* clang-format on */
 };
 
+struct gunyah_rm_info {
+	__le64 tx_msgq_cap;
+	__le64 rx_msgq_cap;
+	__le32 tx_msgq_irq;
+	__le32 rx_msgq_irq;
+	__le32 tx_msgq_queue_depth;
+	__le32 tx_msgq_max_msg_size;
+	__le32 rx_msgq_queue_depth;
+	__le32 rx_msgq_max_msg_size;
+};
+
 /**
  * struct gunyah_rm_message - Represents a complete message from resource manager
  * @payload: Combined payload of all the fragments (msg headers stripped off).
@@ -113,7 +126,6 @@ struct gunyah_rm_message {
 
 /**
  * struct gunyah_rm - private data for communicating w/Gunyah resource manager
- * @dev: pointer to RM platform device
  * @tx_ghrsc: message queue resource to TX to RM
  * @rx_ghrsc: message queue resource to RX from RM
  * @active_rx_message: ongoing gunyah_rm_message for which we're receiving fragments
@@ -128,7 +140,6 @@ struct gunyah_rm_message {
  * @parent_fwnode: Parent IRQ fwnode to translate Gunyah hwirqs to Linux irqs
  */
 struct gunyah_rm {
-	struct device *dev;
 	struct gunyah_resource tx_ghrsc;
 	struct gunyah_resource rx_ghrsc;
 	struct gunyah_rm_message *active_rx_message;
@@ -185,6 +196,28 @@ static inline int gunyah_rm_error_remap(enum gunyah_rm_error rm_error)
 	}
 }
 
+static int gunyah_rm_alloc_irq(struct gunyah_rm *rm, u32 virq)
+{
+	struct irq_fwspec fwspec;
+	int ret;
+
+	fwspec.fwnode = rm->parent_fwnode;
+	ret = arch_gunyah_fill_irq_fwspec_params(virq, &fwspec);
+	if (ret) {
+		pr_err("Failed to translate interrupt: %d\n", ret);
+		return ret;
+	}
+
+	ret = irq_create_fwspec_mapping(&fwspec);
+	if (ret < 0) {
+		pr_err("Failed to allocate irq mapping: %d\n", ret);
+		return ret;
+	}
+
+	return ret;
+}
+
+
 struct gunyah_resource *
 gunyah_rm_alloc_resource(struct gunyah_rm *rm,
 			 struct gunyah_rm_hyp_resource *hyp_resource)
@@ -201,21 +234,9 @@ gunyah_rm_alloc_resource(struct gunyah_rm *rm,
 	ghrsc->irq = IRQ_NOTCONNECTED;
 	ghrsc->rm_label = le32_to_cpu(hyp_resource->resource_label);
 	if (hyp_resource->virq) {
-		struct irq_fwspec fwspec;
-
-
-		fwspec.fwnode = rm->parent_fwnode;
-		ret = arch_gunyah_fill_irq_fwspec_params(le32_to_cpu(hyp_resource->virq), &fwspec);
-		if (ret) {
-			dev_err(rm->dev,
-				"Failed to translate interrupt for resource %d label: %d: %d\n",
-				ghrsc->type, ghrsc->rm_label, ret);
-		}
-
-		ret = irq_create_fwspec_mapping(&fwspec);
+		ret = gunyah_rm_alloc_irq(rm, le32_to_cpu(hyp_resource->virq));
 		if (ret < 0) {
-			dev_err(rm->dev,
-				"Failed to allocate interrupt for resource %d label: %d: %d\n",
+			pr_err("Failed to allocate interrupt for resource %d label: %d: %d\n",
 				ghrsc->type, ghrsc->rm_label, ret);
 			kfree(ghrsc);
 			return NULL;
@@ -303,9 +324,8 @@ static inline void gunyah_rm_try_complete_message(struct gunyah_rm *rm)
 		kfree(message);
 		break;
 	default:
-		dev_err_ratelimited(rm->dev,
-				    "Invalid message type (%u) received\n",
-				    message->type);
+		pr_err_ratelimited("Invalid message type (%u) received\n",
+				   message->type);
 		gunyah_rm_abort_message(rm);
 		break;
 	}
@@ -321,8 +341,7 @@ static void gunyah_rm_process_notif(struct gunyah_rm *rm, const void *msg,
 	int ret;
 
 	if (rm->active_rx_message) {
-		dev_err(rm->dev,
-			"Unexpected new notification, still processing an active message");
+		pr_err("Unexpected new notification, still processing an active message\n");
 		gunyah_rm_abort_message(rm);
 	}
 
@@ -336,9 +355,8 @@ static void gunyah_rm_process_notif(struct gunyah_rm *rm, const void *msg,
 	ret = gunyah_rm_init_message_payload(message, msg, sizeof(*hdr),
 					     msg_size);
 	if (ret) {
-		dev_err(rm->dev,
-			"Failed to initialize message for notification: %d\n",
-			ret);
+		pr_err("Failed to initialize message for notification: %d\n",
+		       ret);
 		kfree(message);
 		return;
 	}
@@ -362,15 +380,13 @@ static void gunyah_rm_process_reply(struct gunyah_rm *rm, const void *msg,
 		return;
 
 	if (rm->active_rx_message) {
-		dev_err(rm->dev,
-			"Unexpected new reply, still processing an active message");
+		pr_err("Unexpected new reply, still processing an active message\n");
 		gunyah_rm_abort_message(rm);
 	}
 
 	if (gunyah_rm_init_message_payload(message, msg, sizeof(*reply_hdr),
 					   msg_size)) {
-		dev_err(rm->dev,
-			"Failed to alloc message buffer for sequence %d\n",
+		pr_err("Failed to alloc message buffer for sequence %d\n",
 			seq_id);
 		/* Send message complete and error the client. */
 		message->reply.ret = -ENOMEM;
@@ -429,22 +445,19 @@ static irqreturn_t gunyah_rm_rx(int irq, void *data)
 							  &len, &ready);
 		if (gunyah_error != GUNYAH_ERROR_OK) {
 			if (gunyah_error != GUNYAH_ERROR_MSGQUEUE_EMPTY)
-				dev_warn(rm->dev,
-					 "Failed to receive data: %d\n",
+				pr_warn("Failed to receive data: %d\n",
 					 gunyah_error);
 			return IRQ_HANDLED;
 		}
 
 		if (len < sizeof(*hdr)) {
-			dev_err_ratelimited(
-				rm->dev,
-				"Too small message received. size=%ld\n", len);
+			pr_err_ratelimited("Too small message received. size=%ld\n", len);
 			continue;
 		}
 
 		hdr = msg;
 		if (hdr->api != RM_RPC_API) {
-			dev_err(rm->dev, "Unknown RM RPC API version: %x\n",
+			pr_err("Unknown RM RPC API version: %x\n",
 				hdr->api);
 			return IRQ_HANDLED;
 		}
@@ -461,8 +474,7 @@ static irqreturn_t gunyah_rm_rx(int irq, void *data)
 					       len);
 			break;
 		default:
-			dev_err(rm->dev,
-				"Invalid message type (%lu) received\n",
+			pr_err("Invalid message type (%lu) received\n",
 				FIELD_GET(RM_RPC_TYPE_MASK, hdr->type));
 			return IRQ_HANDLED;
 		}
@@ -521,9 +533,7 @@ static int gunyah_rm_send_request(struct gunyah_rm *rm, u32 message_id,
 
 	if (req_buf_size >
 	    GUNYAH_RM_MAX_NUM_FRAGMENTS * GUNYAH_RM_PAYLOAD_SIZE) {
-		dev_warn(
-			rm->dev,
-			"Limit (%lu bytes) exceeded for the maximum message size: %lu\n",
+		pr_warn("Limit (%lu bytes) exceeded for the maximum message size: %lu\n",
 			GUNYAH_RM_MAX_NUM_FRAGMENTS * GUNYAH_RM_PAYLOAD_SIZE,
 			req_buf_size);
 		dump_stack();
@@ -612,7 +622,7 @@ int gunyah_rm_call(struct gunyah_rm *rm, u32 message_id, const void *req_buf,
 	ret = gunyah_rm_send_request(rm, message_id, req_buf, req_buf_size,
 				     &message);
 	if (ret < 0) {
-		dev_warn(rm->dev, "Failed to send request. Error: %d\n", ret);
+		pr_warn("Failed to send request. Error: %d\n", ret);
 		goto out;
 	}
 
@@ -630,7 +640,7 @@ int gunyah_rm_call(struct gunyah_rm *rm, u32 message_id, const void *req_buf,
 
 	/* Got a response, did resource manager give us an error? */
 	if (message.reply.rm_error != GUNYAH_RM_ERROR_OK) {
-		dev_warn(rm->dev, "RM rejected message %08x. Error: %d\n",
+		pr_warn("RM rejected message %08x. Error: %d\n",
 			 message_id, message.reply.rm_error);
 		ret = gunyah_rm_error_remap(message.reply.rm_error);
 		kfree(message.payload);
@@ -700,61 +710,74 @@ static const struct file_operations gunyah_dev_fops = {
 	/* clang-format on */
 };
 
-static int gunyah_platform_probe_capability(struct platform_device *pdev,
-					    int idx,
-					    struct gunyah_resource *ghrsc)
+static int gunyah_rm_probe_info_area(struct gunyah_rm *rm)
 {
+	struct gunyah_rm_info *info;
+	size_t info_size;
 	int ret;
 
-	ghrsc->irq = platform_get_irq(pdev, idx);
-	if (ghrsc->irq < 0) {
-		dev_err(&pdev->dev, "Failed to get %s irq: %d\n",
-			idx ? "rx" : "tx", ghrsc->irq);
-		return ghrsc->irq;
-	}
+	info = gunyah_get_info(GUNYAH_INFO_OWNER_RM, 0, &info_size);
+	if (IS_ERR_OR_NULL(info))
+		return -ENOENT;
+	if (info_size != sizeof(*info))
+		return -EINVAL;
 
-	ret = of_property_read_u64_index(pdev->dev.of_node, "reg", idx,
-					 &ghrsc->capid);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to get %s capid: %d\n",
-			idx ? "rx" : "tx", ret);
-		return ret;
-	}
+	rm->tx_ghrsc.type = GUNYAH_RESOURCE_TYPE_MSGQ_TX;
+	rm->tx_ghrsc.capid = le64_to_cpu(info->tx_msgq_cap);
+	ret = gunyah_rm_alloc_irq(rm, le32_to_cpu(info->tx_msgq_irq));
+	if (ret <= 0)
+		return -EINVAL;
+	rm->tx_ghrsc.irq = ret;
+
+	rm->rx_ghrsc.type = GUNYAH_RESOURCE_TYPE_MSGQ_RX;
+	rm->rx_ghrsc.capid = le64_to_cpu(info->rx_msgq_cap);
+	ret = gunyah_rm_alloc_irq(rm, le32_to_cpu(info->rx_msgq_irq));
+	if (ret <= 0)
+		return -EINVAL;
+	rm->rx_ghrsc.irq = ret;
 
 	return 0;
 }
 
-static int gunyah_rm_probe_tx_msgq(struct gunyah_rm *rm,
-				   struct platform_device *pdev)
+static int gunyah_rm_get_of_info(struct gunyah_rm *rm)
 {
+	struct device_node *gunyah_np __free(device_node) = NULL;
+	struct device_node *rm_np __free(device_node) = NULL;
 	int ret;
+
+	if (!arch_is_gunyah_guest())
+		return -ENODEV;
+
+	gunyah_np = of_find_node_by_path("/hypervisor");
+	if (!gunyah_np)
+		return -ENODEV;
+
+	rm_np = of_get_compatible_child(gunyah_np, "gunyah-resource-manager");
+	if (!rm_np)
+		return -ENODEV;
 
 	rm->tx_ghrsc.type = GUNYAH_RESOURCE_TYPE_MSGQ_TX;
-	ret = gunyah_platform_probe_capability(pdev, 0, &rm->tx_ghrsc);
+	ret = of_property_read_u64_index(rm_np, "reg", 0, &rm->tx_ghrsc.capid);
 	if (ret)
-		return ret;
+		return -EINVAL;
 
-	enable_irq_wake(rm->tx_ghrsc.irq);
-
-	return devm_request_irq(rm->dev, rm->tx_ghrsc.irq, gunyah_rm_tx, 0,
-				"gunyah_rm_tx", rm);
-}
-
-static int gunyah_rm_probe_rx_msgq(struct gunyah_rm *rm,
-				   struct platform_device *pdev)
-{
-	int ret;
+	ret = of_irq_get(rm_np, 0);
+	if (ret <= 0)
+		return -EINVAL;
+	rm->tx_ghrsc.irq = ret;
 
 	rm->rx_ghrsc.type = GUNYAH_RESOURCE_TYPE_MSGQ_RX;
-	ret = gunyah_platform_probe_capability(pdev, 1, &rm->rx_ghrsc);
+	ret = of_property_read_u64_index(rm_np, "reg", 1, &rm->rx_ghrsc.capid);
 	if (ret)
-		return ret;
+		return -EINVAL;
 
-	enable_irq_wake(rm->rx_ghrsc.irq);
+	ret = of_irq_get(rm_np, 1);
+	if (ret <= 0)
+		return -EINVAL;
+	rm->rx_ghrsc.irq = ret;
 
-	return devm_request_threaded_irq(rm->dev, rm->rx_ghrsc.irq, NULL,
-					 gunyah_rm_rx, IRQF_ONESHOT,
-					 "gunyah_rm_rx", rm);
+	of_node_put(rm_np);
+	return 0;
 }
 
 static void gunyah_adev_release(struct device *dev)
@@ -768,7 +791,8 @@ static int gunyah_adev_init(struct gunyah_rm *rm, const char *name)
 	int ret = 0;
 
 	adev->name = name;
-	adev->dev.parent = rm->dev;
+	adev->dev.platform_data = rm;
+	adev->dev.parent = rm->miscdev.this_device;
 	adev->dev.release = gunyah_adev_release;
 	ret = auxiliary_device_init(adev);
 	if (ret)
@@ -783,90 +807,102 @@ static int gunyah_adev_init(struct gunyah_rm *rm, const char *name)
 	return ret;
 }
 
-static int gunyah_rm_probe(struct platform_device *pdev)
+static struct gunyah_rm *__rm;
+
+static int __init gunyah_rm_init(void)
 {
 	struct device_node *parent_irq_node;
-	struct gunyah_rm *rm;
+	struct gunyah_rm *rm __free(kfree) = NULL;
 	int ret;
 
-	rm = devm_kzalloc(&pdev->dev, sizeof(*rm), GFP_KERNEL);
+	rm = kzalloc(sizeof(*rm), GFP_KERNEL);
 	if (!rm)
 		return -ENOMEM;
 
-	platform_set_drvdata(pdev, rm);
-	rm->dev = &pdev->dev;
+	of_node_get(of_root);
+	parent_irq_node = of_irq_find_parent(of_root);
+	if (!parent_irq_node) {
+		pr_err("Failed to find interrupt parent of resource manager\n");
+		return -ENODEV;
+	}
+	of_node_put(of_root);
+
+	rm->parent_fwnode = of_node_to_fwnode(parent_irq_node);
+	if (!rm->parent_fwnode) {
+		pr_err("Failed to find interrupt parent domain of resource manager\n");
+		return -ENODEV;
+	}
 
 	mutex_init(&rm->send_lock);
 	init_completion(&rm->send_ready);
 	BLOCKING_INIT_NOTIFIER_HEAD(&rm->nh);
 	xa_init_flags(&rm->call_xarray, XA_FLAGS_ALLOC);
 
-	device_init_wakeup(&pdev->dev, true);
+	ret = gunyah_rm_probe_info_area(rm);
+	if (ret == -ENOENT)
+		ret = gunyah_rm_get_of_info(rm);
+	if (ret)
+		return ret;
 
-	ret = gunyah_rm_probe_tx_msgq(rm, pdev);
+	enable_irq_wake(rm->tx_ghrsc.irq);
+	ret = request_threaded_irq(rm->tx_ghrsc.irq, NULL,
+					 gunyah_rm_tx, IRQF_ONESHOT,
+					 "gunyah_rm_tx", rm);
 	if (ret)
 		return ret;
 	/* assume RM is ready to receive messages from us */
 	complete(&rm->send_ready);
 
-	ret = gunyah_rm_probe_rx_msgq(rm, pdev);
+	enable_irq_wake(rm->rx_ghrsc.irq);
+	ret = request_threaded_irq(rm->rx_ghrsc.irq, NULL,
+					 gunyah_rm_rx, IRQF_ONESHOT,
+					 "gunyah_rm_rx", rm);
 	if (ret)
-		return ret;
+		goto free_tx_irq;
 
-	parent_irq_node = of_irq_find_parent(pdev->dev.of_node);
-	if (!parent_irq_node) {
-		dev_err(&pdev->dev,
-			"Failed to find interrupt parent of resource manager\n");
-		return -ENODEV;
-	}
-
-	rm->parent_fwnode = of_node_to_fwnode(parent_irq_node);
-	if (!rm->parent_fwnode) {
-		dev_err(&pdev->dev,
-			"Failed to find interrupt parent domain of resource manager\n");
-		return -ENODEV;
-	}
-
-	rm->miscdev.parent = &pdev->dev;
 	rm->miscdev.name = "gunyah";
 	rm->miscdev.minor = MISC_DYNAMIC_MINOR;
 	rm->miscdev.fops = &gunyah_dev_fops;
 
 	ret = misc_register(&rm->miscdev);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to register gunyah misc device\n");
-	} else {
-		ret = gunyah_adev_init(rm, "gh_rm_core");
-		if (ret) {
-			dev_err(&pdev->dev, "Failed to add gh_rm_core device\n");
-			return ret;
-		}
+		pr_err("Failed to register gunyah misc device\n");
+		goto free_rx_irq;
 	}
+
+	ret = gunyah_adev_init(rm, "gh_rm_core");
+	if (ret) {
+		pr_err("Failed to add gh_rm_core device\n");
+		goto deregister_misc;
+	}
+
+	__rm = no_free_ptr(rm);
 	return 0;
-}
-
-static void gunyah_rm_remove(struct platform_device *pdev)
-{
-	struct gunyah_rm *rm = platform_get_drvdata(pdev);
-
+deregister_misc:
 	misc_deregister(&rm->miscdev);
+free_rx_irq:
+	free_irq(rm->rx_ghrsc.irq, rm);
+free_tx_irq:
+	free_irq(rm->tx_ghrsc.irq, rm);
+	return ret;
 }
+module_init(gunyah_rm_init);
 
-static const struct of_device_id gunyah_rm_of_match[] = {
-	{ .compatible = "gunyah-resource-manager" },
-	{}
-};
-MODULE_DEVICE_TABLE(of, gunyah_rm_of_match);
+static void __exit gunyah_rm_exit(void)
+{
+	struct gunyah_rm *rm = __rm;
 
-static struct platform_driver gunyah_rm_driver = {
-	.probe = gunyah_rm_probe,
-	.remove_new = gunyah_rm_remove,
-	.driver = {
-		.name = "gunyah_rsc_mgr",
-		.of_match_table = gunyah_rm_of_match,
-	},
-};
-module_platform_driver(gunyah_rm_driver);
+	__rm = NULL;
+
+	if (!rm)
+		return;
+
+	auxiliary_device_delete(&rm->adev);
+	misc_deregister(&rm->miscdev);
+	free_irq(rm->rx_ghrsc.irq, rm);
+	free_irq(rm->tx_ghrsc.irq, rm);
+}
+module_exit(gunyah_rm_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Gunyah Resource Manager Driver");
