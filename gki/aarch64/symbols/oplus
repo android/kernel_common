@@ -211,6 +211,7 @@
   __traceiter_android_vh_binder_transaction_received
   __traceiter_android_vh_binder_wait_for_work
   __traceiter_android_vh_cpufreq_fast_switch
+  __traceiter_android_vh_exit_check
   __traceiter_android_vh_task_should_scx
   __traceiter_android_vh_scx_ops_consider_migration
   __traceiter_android_vh_scx_fix_prev_slice
@@ -338,6 +339,7 @@
   __tracepoint_android_vh_binder_transaction_received
   __tracepoint_android_vh_binder_wait_for_work
   __tracepoint_android_vh_cpufreq_fast_switch
+  __tracepoint_android_vh_exit_check
   __tracepoint_android_vh_task_should_scx
   __tracepoint_android_vh_scx_ops_consider_migration
   __tracepoint_android_vh_scx_fix_prev_slice
