@@ -4,13 +4,14 @@
  */
 
 #include <linux/of_platform.h>
+#include <linux/gunyah_qtvm.h>
 #include "vm_mgr.h"
 
 #define PAS_VM_METADATA_SZ 8192
 
 static DEFINE_MUTEX(gunyah_qtvm_lock);
 static LIST_HEAD(gunyah_qtvm_list);
-SRCU_NOTIFIER_HEAD_STATIC(gunyah_vm_notifier);
+SRCU_NOTIFIER_HEAD_STATIC(gunyah_qtvm_notifier);
 
 struct gunyah_qtvm {
 	struct gunyah_vm *ghvm;
@@ -21,6 +22,24 @@ struct gunyah_qtvm {
 	u32 pas_id;
 	u16 vmid;
 };
+
+int gunyah_qtvm_register_notifier(struct notifier_block *nb)
+{
+	return srcu_notifier_chain_register(&gunyah_qtvm_notifier, nb);
+}
+EXPORT_SYMBOL_GPL(gunyah_qtvm_register_notifier);
+
+int gunyah_qtvm_unregister_notifier(struct notifier_block *nb)
+{
+	return srcu_notifier_chain_unregister(&gunyah_qtvm_notifier, nb);
+}
+EXPORT_SYMBOL_GPL(gunyah_qtvm_unregister_notifier);
+
+static void gunyah_notify_clients(struct gunyah_qtvm *vm,
+					enum gunyah_qtvm_state state)
+{
+	srcu_notifier_call_chain(&gunyah_qtvm_notifier, state, &vm->vmid);
+}
 
 static u16 gunyah_qtvm_pre_alloc_vmid(struct gunyah_vm *ghvm)
 {
@@ -109,10 +128,45 @@ static int gunyah_qtvm_authenticate(struct gunyah_vm *ghvm)
 	return 0;
 }
 
+static int gunyah_qtvm_pre_vm_start(struct gunyah_vm *ghvm)
+{
+	struct gunyah_qtvm *vm = ghvm->auth_vm_mgr_data;
+
+	gunyah_notify_clients(vm, GUNYAH_QTVM_BEFORE_POWERUP);
+	return 0;
+}
+
+static void gunyah_qtvm_vm_start_fail(struct gunyah_vm *ghvm)
+{
+	struct gunyah_qtvm *vm = ghvm->auth_vm_mgr_data;
+
+	gunyah_notify_clients(vm, GUNYAH_QTVM_POWERUP_FAIL);
+}
+
+static int gunyah_qtvm_pre_vm_reset(struct gunyah_vm *ghvm)
+{
+	struct gunyah_qtvm *vm = ghvm->auth_vm_mgr_data;
+
+	gunyah_notify_clients(vm, GUNYAH_QTVM_EXITED);
+	return 0;
+}
+
+static int gunyah_qtvm_post_vm_reset(struct gunyah_vm *ghvm)
+{
+	struct gunyah_qtvm *vm = ghvm->auth_vm_mgr_data;
+
+	gunyah_notify_clients(vm, GUNYAH_QTVM_EARLY_POWEROFF);
+	return 0;
+}
+
 static struct gunyah_auth_vm_mgr_ops vm_ops = {
 	.pre_alloc_vmid = gunyah_qtvm_pre_alloc_vmid,
 	.pre_vm_configure = gunyah_qtvm_pre_vm_configure,
 	.vm_authenticate = gunyah_qtvm_authenticate,
+	.pre_vm_start = gunyah_qtvm_pre_vm_start,
+	.vm_start_fail = gunyah_qtvm_vm_start_fail,
+	.pre_vm_reset = gunyah_qtvm_pre_vm_reset,
+	.post_vm_reset = gunyah_qtvm_post_vm_reset,
 };
 
 static long gunyah_qtvm_attach(struct gunyah_vm *ghvm, struct gunyah_auth_desc *desc)
@@ -161,6 +215,7 @@ static void gunyah_qtvm_detach(struct gunyah_vm *ghvm)
 	struct gunyah_qtvm *vm = ghvm->auth_vm_mgr_data;
 
 	kfree(vm->parcel_list);
+	gunyah_notify_clients(vm, GUNYAH_QTVM_POWEROFF);
 	list_del(&vm->list);
 	kfree(vm);
 	ghvm->auth_vm_mgr_ops = NULL;

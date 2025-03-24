@@ -37,6 +37,9 @@ void gunyah_vm_put(struct gunyah_vm *ghvm);
  *               choose to setup if you want demand paged VM or not. (Optional)
  * @pre_vm_start: Callback for any setup before VM start where client
  *                drivers can share/lend memory. (Optional)
+ * @pre_vm_reset: Callback for any cleanup before VM reset. All resources
+ *                tracked by RM will be cleaned at this stage (Optional)
+ * @post_vm_reset: Callback for any cleanup after VM reset (Optional)
  * @start_fail: Needed when roll back is needed before auth_mgr can
  *           clean up at a later stage.
  **/
@@ -46,6 +49,8 @@ struct gunyah_auth_vm_mgr_ops {
 	int (*vm_authenticate)(struct gunyah_vm *ghvm);
 	int (*pre_vm_init)(struct gunyah_vm *ghvm);
 	int (*pre_vm_start)(struct gunyah_vm *ghvm);
+	int (*pre_vm_reset)(struct gunyah_vm *ghvm);
+	int (*post_vm_reset)(struct gunyah_vm *ghvm);
 	void (*vm_start_fail)(struct gunyah_vm *ghvm);
 };
 

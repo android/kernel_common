@@ -329,4 +329,19 @@ static inline void gunyah_vm_start_fail(struct gunyah_vm *ghvm)
 		return ghvm->auth_vm_mgr_ops->vm_start_fail(ghvm);
 }
 
+static inline int gunyah_vm_pre_vm_reset(struct gunyah_vm *ghvm)
+{
+	if (ghvm->auth_vm_mgr_ops->pre_vm_reset)
+		return ghvm->auth_vm_mgr_ops->pre_vm_reset(ghvm);
+
+	return 0;
+}
+
+static inline int gunyah_vm_post_vm_reset(struct gunyah_vm *ghvm)
+{
+	if (ghvm->auth_vm_mgr_ops->post_vm_reset)
+		return ghvm->auth_vm_mgr_ops->post_vm_reset(ghvm);
+
+	return 0;
+}
 #endif

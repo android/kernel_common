@@ -1127,6 +1127,10 @@ static void _gunyah_vm_put(struct kref *kref)
 	gunyah_vm_remove_resource_ticket(ghvm, &ghvm->guest_private_extent_ticket);
 	/* clang-format on */
 
+	ret = gunyah_vm_pre_vm_reset(ghvm);
+	if (ret)
+		dev_err(ghvm->parent, "Failed pre reset the vm: %d\n", ret);
+
 	gunyah_vm_clean_resources(ghvm);
 
 	if (ghvm->vm_status == GUNYAH_RM_VM_STATUS_EXITED ||
@@ -1138,7 +1142,11 @@ static void _gunyah_vm_put(struct kref *kref)
 			wait_event(ghvm->vm_status_wait,
 				   ghvm->vm_status == GUNYAH_RM_VM_STATUS_RESET);
 		else
-			dev_err(ghvm->parent, "Failed to reset the vm: %d\n",ret);
+			dev_err(ghvm->parent, "Failed to reset the vm: %d\n", ret);
+
+		ret = gunyah_vm_post_vm_reset(ghvm);
+		if (ret)
+			dev_err(ghvm->parent, "Failed post reset the vm: %d\n", ret);
 		/* clang-format on */
 	}
 
