@@ -6,6 +6,16 @@
   pmd_clear_bad
   __pmd_trans_huge_lock
   __pte_offset_map_lock
+  __traceiter_android_vh_slab_alloc_node
+  __tracepoint_android_vh_slab_alloc_node
+  __traceiter_android_vh_slab_free
+  __tracepoint_android_vh_slab_free
+  __traceiter_android_rvh_hw_protection_shutdown
+  __tracepoint_android_rvh_hw_protection_shutdown
+  __traceiter_android_rvh_cpuinfo_c_show
+  __tracepoint_android_rvh_cpuinfo_c_show
+  __traceiter_signal_generate
+  __tracepoint_signal_generate
   __traceiter_android_vh_add_lazyfree_bypass
   __tracepoint_android_vh_add_lazyfree_bypass
   netdev_get_name
