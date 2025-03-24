@@ -75,6 +75,13 @@ DECLARE_HOOK(android_vh_vmscan_kswapd_done,
 	TP_PROTO(int node_id, unsigned int highest_zoneidx, unsigned int alloc_order,
 	        unsigned int reclaim_order),
 	TP_ARGS(node_id, highest_zoneidx, alloc_order, reclaim_order));
+DECLARE_RESTRICTED_HOOK(android_rvh_vmscan_kswapd_wake,
+	TP_PROTO(int node_id, unsigned int highest_zoneidx, unsigned int alloc_order),
+	TP_ARGS(node_id, highest_zoneidx, alloc_order), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_vmscan_kswapd_done,
+	TP_PROTO(int node_id, unsigned int highest_zoneidx, unsigned int alloc_order,
+			unsigned int reclaim_order),
+	TP_ARGS(node_id, highest_zoneidx, alloc_order, reclaim_order), 1);
 
 #endif /* _TRACE_HOOK_VMSCAN_H */
 /* This part must be outside protection */
