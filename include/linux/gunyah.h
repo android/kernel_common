@@ -492,6 +492,11 @@ enum gunyah_error
 gunyah_hypercall_vcpu_run(u64 capid, unsigned long *resume_data,
 			  struct gunyah_hypercall_vcpu_run_resp *resp);
 
+#define GUNYAH_ADDRSPC_MODIFY_FLAG_UNLOCK_BIT		0
+#define GUNYAH_ADDRSPC_MODIFY_FLAG_SANITIZE_BIT		1
+enum gunyah_error
+gunyah_hypercall_addrspc_modify_pages(u64 capid, u64 addr, u64 size, u64 flags);
+
 enum gunyah_error
 gunyah_hypercall_addrspace_find_info_area(unsigned long *ipa, unsigned long *size);
 
