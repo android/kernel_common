@@ -21,6 +21,34 @@ struct gunyah_vm;
 int __must_check gunyah_vm_get(struct gunyah_vm *ghvm);
 void gunyah_vm_put(struct gunyah_vm *ghvm);
 
+/**
+ * struct gunyah_auth_vm_mgr_ops - Auth VM Mgr helper ops
+ * auth_vm_mgr driver will add the specific ops to setup the VM before
+ * the VM starts
+ * @pre_alloc_vmid: QTVMs have predetermined vmids. This callback can be
+ *              used by the auth vm mgr to request RM to assign the
+ *              same vmid for the VM. (Optional)
+ * @pre_vm_configure: Fill in the arguments of VM_CONFIGURE RM call. Most of
+ *                    the auth vm mgrs would need this, as different AUTH has
+ *                    a different layout of image or metadata or dtb offsets.
+ * @vm_authenticate: Callback to make an RM call if it is a qtvm. (Optional)
+ * @pre_vm_init: Callback before RM sets up all the objects/resources
+ *               needed by the VM. For ex, this would be when you can
+ *               choose to setup if you want demand paged VM or not. (Optional)
+ * @pre_vm_start: Callback for any setup before VM start where client
+ *                drivers can share/lend memory. (Optional)
+ * @start_fail: Needed when roll back is needed before auth_mgr can
+ *           clean up at a later stage.
+ **/
+struct gunyah_auth_vm_mgr_ops {
+	u16 (*pre_alloc_vmid)(struct gunyah_vm *ghvm);
+	int (*pre_vm_configure)(struct gunyah_vm *ghvm);
+	int (*vm_authenticate)(struct gunyah_vm *ghvm);
+	int (*pre_vm_init)(struct gunyah_vm *ghvm);
+	int (*pre_vm_start)(struct gunyah_vm *ghvm);
+	void (*vm_start_fail)(struct gunyah_vm *ghvm);
+};
+
 struct gunyah_vm_function_instance;
 /**
  * struct gunyah_vm_function - Represents a function type

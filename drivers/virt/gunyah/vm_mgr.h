@@ -143,9 +143,14 @@ struct gunyah_vm {
 
 	struct device *parent;
 	enum gunyah_rm_vm_auth_mechanism auth;
+	void *auth_vm_mgr_data;
+	struct gunyah_auth_vm_mgr_ops *auth_vm_mgr_ops;
+	struct {
+		u64 image_offset, image_size, dtb_offset, dtb_size;
+		struct gunyah_vm_parcel parcel;
+	} config_image;
 	struct {
 		struct gunyah_vm_dtb_config config;
-		struct gunyah_vm_parcel parcel;
 	} dtb;
 	struct {
 		struct gunyah_vm_firmware_config config;
@@ -276,5 +281,52 @@ static inline int gunyah_cma_reclaim_parcel(struct gunyah_vm *ghvm,
 	return -EINVAL;
 }
 #endif
+
+/* Auth VM Manager ops */
+static inline u16 gunyah_vm_pre_alloc_vmid(struct gunyah_vm *ghvm)
+{
+	if (ghvm->auth_vm_mgr_ops->pre_alloc_vmid)
+		return ghvm->auth_vm_mgr_ops->pre_alloc_vmid(ghvm);
+
+	return 0;
+}
+
+static inline int gunyah_vm_pre_vm_configure(struct gunyah_vm *ghvm)
+{
+	if (ghvm->auth_vm_mgr_ops->pre_vm_configure)
+		return ghvm->auth_vm_mgr_ops->pre_vm_configure(ghvm);
+	else
+		return -EINVAL;
+}
+
+static inline int gunyah_vm_authenticate(struct gunyah_vm *ghvm)
+{
+	if (ghvm->auth_vm_mgr_ops->vm_authenticate)
+		return ghvm->auth_vm_mgr_ops->vm_authenticate(ghvm);
+
+	return 0;
+}
+
+static inline int gunyah_vm_pre_vm_init(struct gunyah_vm *ghvm)
+{
+	if (ghvm->auth_vm_mgr_ops->pre_vm_init)
+		return ghvm->auth_vm_mgr_ops->pre_vm_init(ghvm);
+
+	return 0;
+}
+
+static inline int gunyah_vm_pre_vm_start(struct gunyah_vm *ghvm)
+{
+	if (ghvm->auth_vm_mgr_ops->pre_vm_start)
+		return ghvm->auth_vm_mgr_ops->pre_vm_start(ghvm);
+
+	return 0;
+}
+
+static inline void gunyah_vm_start_fail(struct gunyah_vm *ghvm)
+{
+	if (ghvm->auth_vm_mgr_ops->vm_start_fail)
+		return ghvm->auth_vm_mgr_ops->vm_start_fail(ghvm);
+}
 
 #endif
