@@ -16,6 +16,7 @@ struct page;
 struct virtio_balloon_hyp_ops {
 	bool (*page_relinquish_disallowed)(void);
 	void (*page_relinquish)(struct page *page, unsigned int nr);
+	void (*post_page_relinquish_tlb_inv)(void);
 };
 
 extern struct virtio_balloon_hyp_ops *virtio_balloon_hyp_ops;
@@ -35,10 +36,17 @@ static inline void page_relinquish(struct page *page, unsigned int nr)
 		return virtio_balloon_hyp_ops->page_relinquish(page, nr);
 }
 
+static inline void post_page_relinquish_tlb_inv(void)
+{
+	if (virtio_balloon_hyp_ops &&
+	    virtio_balloon_hyp_ops->post_page_relinquish_tlb_inv)
+		return virtio_balloon_hyp_ops->post_page_relinquish_tlb_inv();
+}
 #else	/* !CONFIG_VIRTIO_BALLOON_HYP_OPS */
 
 static inline bool page_relinquish_disallowed(void) { return false; }
 static inline void page_relinquish(struct page *page, unsigned int nr) { }
+static inline void post_page_relinquish_tlb_inv(void) { }
 
 #endif	/* CONFIG_VIRTIO_BALLOON_HYP_OPS */
 
