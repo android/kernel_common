@@ -29,6 +29,9 @@
 
 #define BOOT_CONTEXT_REG_MASK	GUNYAH_VM_BOOT_CONTEXT_REG(0xff, 0xff)
 
+#define GUNYAH_EVENT_CREATE_VM 0
+#define GUNYAH_EVENT_DESTROY_VM 1
+
 static DEFINE_XARRAY(gunyah_vm_functions);
 
 static inline int gunyah_vm_fill_boot_context(struct gunyah_vm *ghvm)
@@ -570,6 +573,27 @@ static int gunyah_vm_rm_notification(struct notifier_block *nb,
 	}
 }
 
+static void gunyah_uevent_notify_change(unsigned int type, struct gunyah_vm *ghvm)
+{
+	struct kobj_uevent_env *env;
+
+	env = kzalloc(sizeof(*env), GFP_KERNEL_ACCOUNT);
+	if (!env)
+		return;
+
+	if (type == GUNYAH_EVENT_CREATE_VM)
+		add_uevent_var(env, "EVENT=create");
+	else if (type == GUNYAH_EVENT_DESTROY_VM) {
+		add_uevent_var(env, "EVENT=destroy");
+		add_uevent_var(env, "vm_exit=%d", ghvm->exit_info.type);
+	}
+
+	add_uevent_var(env, "vm_id=%hu", ghvm->vmid);
+	env->envp[env->envp_idx++] = NULL;
+	kobject_uevent_env(&ghvm->parent->kobj, KOBJ_CHANGE, env->envp);
+	kfree(env);
+}
+
 static void gunyah_vm_stop(struct gunyah_vm *ghvm)
 {
 	int ret;
@@ -738,6 +762,7 @@ static int gunyah_vm_start(struct gunyah_vm *ghvm)
 		goto err;
 	}
 	ghvm->vmid = vmid ? vmid : ret;
+	gunyah_uevent_notify_change(GUNYAH_EVENT_CREATE_VM, ghvm);
 
 	ret = gunyah_vm_pre_vm_configure(ghvm);
 	if (ret)
@@ -1064,6 +1089,7 @@ static void _gunyah_vm_put(struct kref *kref)
 	up_write(&ghvm->bindings_lock);
 	WARN_ON(!mtree_empty(&ghvm->bindings));
 	mtree_destroy(&ghvm->bindings);
+	gunyah_uevent_notify_change(GUNYAH_EVENT_DESTROY_VM, ghvm);
 
 	if (ghvm->vm_status > GUNYAH_RM_VM_STATUS_NO_STATE) {
 		gunyah_rm_notifier_unregister(ghvm->rm, &ghvm->nb);
