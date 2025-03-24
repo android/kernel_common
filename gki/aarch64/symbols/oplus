@@ -181,13 +181,17 @@
   tcp_reno_undo_cwnd
   touch_atime
   __traceiter_android_vh_account_task_time
+  __traceiter_android_rvh_check_preempt_wakeup_fair
   __traceiter_android_rvh_post_init_entity_util_avg
+  __traceiter_android_rvh_place_entity
   __traceiter_android_rvh_set_cpus_allowed_comm
+  __traceiter_android_rvh_try_to_wake_up_success
   __traceiter_android_vh_adjust_alloc_flags
   __traceiter_android_vh_adjust_kvmalloc_flags
   __traceiter_android_vh_alloc_pages_reclaim_bypass
   __traceiter_android_vh_alloc_pages_failure_bypass
   __traceiter_android_vh_alloc_oem_binder_struct
+  __traceiter_android_vh_alter_futex_plist_add
   __traceiter_android_vh_binder_buffer_release
   __traceiter_android_vh_binder_free_proc
   __traceiter_android_vh_binder_has_proc_work_ilocked
@@ -206,6 +210,7 @@
   __traceiter_android_vh_binder_trans
   __traceiter_android_vh_binder_transaction_received
   __traceiter_android_vh_binder_wait_for_work
+  __traceiter_android_vh_cpufreq_fast_switch
   __traceiter_android_vh_task_should_scx
   __traceiter_android_vh_scx_ops_consider_migration
   __traceiter_android_vh_scx_fix_prev_slice
@@ -302,13 +307,17 @@
   __traceiter_android_vh_binder_alloc_new_buf_locked
   __traceiter_android_vh_copy_process
   __tracepoint_android_vh_account_task_time
+  __tracepoint_android_rvh_check_preempt_wakeup_fair
+  __tracepoint_android_rvh_place_entity
   __tracepoint_android_rvh_post_init_entity_util_avg
   __tracepoint_android_rvh_set_cpus_allowed_comm
+  __tracepoint_android_rvh_try_to_wake_up_success
   __tracepoint_android_vh_adjust_alloc_flags
   __tracepoint_android_vh_adjust_kvmalloc_flags
   __tracepoint_android_vh_alloc_pages_reclaim_bypass
   __tracepoint_android_vh_alloc_pages_failure_bypass
   __tracepoint_android_vh_alloc_oem_binder_struct
+  __tracepoint_android_vh_alter_futex_plist_add
   __tracepoint_android_vh_binder_buffer_release
   __tracepoint_android_vh_binder_free_proc
   __tracepoint_android_vh_binder_has_proc_work_ilocked
@@ -327,6 +336,7 @@
   __tracepoint_android_vh_binder_trans
   __tracepoint_android_vh_binder_transaction_received
   __tracepoint_android_vh_binder_wait_for_work
+  __tracepoint_android_vh_cpufreq_fast_switch
   __tracepoint_android_vh_task_should_scx
   __tracepoint_android_vh_scx_ops_consider_migration
   __tracepoint_android_vh_scx_fix_prev_slice
