@@ -50,3 +50,13 @@ config GUNYAH_IOEVENTFD
 	  when a Gunyah virtual machine accesses a memory address.
 
 	  Say Y/M here if unsure and you want to support Gunyah VMMs.
+
+config GUNYAH_QCOM_TRUSTED_VM
+	tristate "Gunyah Qualcomm Trusted VM Support"
+	depends on GUNYAH
+	help
+	  Enable kernel support for creating Qualcomm Trusted VMs.
+	  They are a kind of protected VM which is authenticated by the
+	  firmware.
+
+	  Say Y/M here if unsure and you want to support QTVMs.

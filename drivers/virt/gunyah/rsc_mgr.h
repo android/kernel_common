@@ -74,7 +74,7 @@ int gunyah_rm_vm_stop(struct gunyah_rm *rm, u16 vmid);
 enum gunyah_rm_vm_auth_mechanism {
 	/* clang-format off */
 	GUNYAH_RM_VM_AUTH_NONE			= 0,
-	GUNYAH_RM_VM_AUTH_QCOM_PIL_ELF		= 1,
+	GUNYAH_RM_VM_AUTH_QCOM_TRUSTED_VM	= 1,
 	GUNYAH_RM_VM_AUTH_QCOM_ANDROID_PVM	= 2,
 	/* clang-format on */
 };
