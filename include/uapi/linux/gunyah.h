@@ -387,4 +387,13 @@ struct gunyah_vm_firmware_config {
 
 #define GH_VM_ANDROID_SET_FW_CONFIG	_IOW(GH_ANDROID_IOCTL_TYPE, 0x12, \
 						struct gunyah_vm_firmware_config)
+
+struct gunyah_address_range {
+	__u64 guest_phys_addr;
+	__u64 size;
+};
+
+#define GH_VM_RECLAIM_REGION		_IOW(GH_ANDROID_IOCTL_TYPE, 0x13, \
+						struct gunyah_address_range)
+
 #endif

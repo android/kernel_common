@@ -923,6 +923,22 @@ static long gunyah_vm_ioctl(struct file *filp, unsigned int cmd,
 		r = gunyah_vm_binding_alloc(ghvm, &region, lend);
 		break;
 	}
+	case GH_VM_RECLAIM_REGION: {
+		struct gunyah_address_range range;
+
+		/* only allow owner task to remove memory */
+		if (ghvm->mm_s != current->mm)
+			return -EPERM;
+		if (copy_from_user(&range, argp, sizeof(range)))
+			return -EFAULT;
+		if (!PAGE_ALIGNED(range.size) || !PAGE_ALIGNED(range.guest_phys_addr))
+			return -EINVAL;
+
+		r = gunyah_vm_reclaim_range(ghvm,
+					    gunyah_gpa_to_gfn(range.guest_phys_addr),
+					    gunyah_gpa_to_gfn(range.size) - 1);
+		break;
+	}
 	case GUNYAH_VM_SET_BOOT_CONTEXT: {
 		struct gunyah_vm_boot_context boot_ctx;
 
