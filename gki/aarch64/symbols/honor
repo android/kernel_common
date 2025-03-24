@@ -30,6 +30,36 @@
   __tracepoint_android_vh_tcp_rcv_established_slow_path
   __traceiter_android_vh_tcp_rcv_rtt_update
   __tracepoint_android_vh_tcp_rcv_rtt_update
+  percpu_ref_init
+  percpu_ref_exit
+  __tracepoint_android_vh_io_statistics
+  __traceiter_android_vh_io_statistics
+  __traceiter_android_vh_ufs_eh_timed_out
+  __tracepoint_android_vh_ufs_eh_timed_out
+  __traceiter_android_vh_ufs_link_startup
+  __tracepoint_android_vh_ufs_link_startup
+  __traceiter_android_vh_ufs_dev_cmd_completion
+  __tracepoint_android_vh_ufs_dev_cmd_completion
+  __traceiter_android_vh_ufs_wait_for_uic_cmd
+  __tracepoint_android_vh_ufs_wait_for_uic_cmd
+  __traceiter_android_vh_ufs_transfer_rsp_status
+  __tracepoint_android_vh_ufs_transfer_rsp_status
+  __tracepoint_ufshcd_profile_hibern8
+  __traceiter_ufshcd_profile_hibern8
+  __tracepoint_ufshcd_profile_clk_scaling
+  __traceiter_ufshcd_profile_clk_scaling
+  __tracepoint_ufshcd_profile_clk_gating
+  __traceiter_ufshcd_profile_clk_gating
+  __tracepoint_scsi_dispatch_cmd_start
+  __traceiter_scsi_dispatch_cmd_start
+  __tracepoint_scsi_dispatch_cmd_done
+  __traceiter_scsi_dispatch_cmd_done
+  __tracepoint_f2fs_write_begin
+  __traceiter_f2fs_write_begin
+  __tracepoint_f2fs_submit_folio_write
+  __traceiter_f2fs_submit_folio_write
+  __tracepoint_android_vh_f2fs_printk
+  __traceiter_android_vh_f2fs_printk
   wb_wakeup
   redirty_tail_locked
   bdi_list
