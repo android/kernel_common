@@ -396,4 +396,10 @@ struct gunyah_address_range {
 #define GH_VM_RECLAIM_REGION		_IOW(GH_ANDROID_IOCTL_TYPE, 0x13, \
 						struct gunyah_address_range)
 
+
+/**
+ * Obtain an fd for the CMA backed file.
+ */
+#define GH_ANDROID_CREATE_CMA_MEM_FD _IO(GH_ANDROID_IOCTL_TYPE, 0x14)
+
 #endif

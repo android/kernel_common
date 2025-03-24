@@ -226,4 +226,17 @@ int gunyah_gup_share_parcel(struct gunyah_vm *ghvm,
 			      u64 *gfn, u64 *nr);
 int gunyah_gup_demand_page(struct gunyah_vm *ghvm, u64 gpa, bool write);
 
+#ifdef CONFIG_DMA_CMA
+int gunyah_cma_mem_init(void);
+void gunyah_cma_mem_exit(void);
+#else
+static inline int gunyah_cma_mem_init(void)
+{
+	return -EOPNOTSUPP;
+}
+static inline void gunyah_cma_mem_exit(void)
+{
+}
+#endif
+
 #endif

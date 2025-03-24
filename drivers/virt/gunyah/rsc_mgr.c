@@ -876,6 +876,10 @@ static int __init gunyah_rm_init(void)
 		goto deregister_misc;
 	}
 
+	ret = gunyah_cma_mem_init();
+	if (ret)
+		pr_err("Failed to register gunyah CMA device\n");
+
 	__rm = no_free_ptr(rm);
 	return 0;
 deregister_misc:
@@ -897,6 +901,7 @@ static void __exit gunyah_rm_exit(void)
 	if (!rm)
 		return;
 
+	gunyah_cma_mem_exit();
 	auxiliary_device_delete(&rm->adev);
 	misc_deregister(&rm->miscdev);
 	free_irq(rm->rx_ghrsc.irq, rm);
