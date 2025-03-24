@@ -4,3 +4,7 @@
   __tracepoint_android_vh_page_should_be_protected
   __traceiter_android_vh_page_referenced_check_bypass
   __tracepoint_android_vh_page_referenced_check_bypass
+
+  #required by perf_helper.ko
+  __traceiter_android_rvh_dequeue_entity_delayed
+  __tracepoint_android_rvh_dequeue_entity_delayed
