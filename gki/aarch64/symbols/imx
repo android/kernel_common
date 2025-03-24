@@ -2312,6 +2312,10 @@
   skb_trim
   skb_tstamp_tx
   sk_skb_reason_drop
+  snd_card_free
+  snd_card_new
+  snd_card_register
+  snd_compress_new
   snd_compr_malloc_pages
   snd_ctl_add
   snd_ctl_boolean_mono_info
@@ -2320,6 +2324,7 @@
   snd_ctl_notify
   snd_ctl_notify_one
   snd_dma_alloc_dir_pages
+  snd_dma_buffer_mmap
   snd_dma_buffer_sync
   snd_dmaengine_pcm_prepare_slave_config
   snd_dmaengine_pcm_refine_runtime_hwparams
