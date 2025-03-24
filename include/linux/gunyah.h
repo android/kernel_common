@@ -49,6 +49,24 @@ struct gunyah_auth_vm_mgr_ops {
 	void (*vm_start_fail)(struct gunyah_vm *ghvm);
 };
 
+/**
+ * struct gunyah_auth_vm - Represents an authentication type handler
+ * @type: value from &enum gunyah_auth_type
+ * @name: friendly name for debug purposes
+ * @mod: owner of the auth type
+ * @vm_attach: attach ops/private_data with the VM.
+ * @vm_detach: detach ops/private_data with the VM.
+ */
+struct gunyah_auth_vm_mgr {
+	u32 type;
+	const char *name;
+	struct module *mod;
+	long (*vm_attach)(struct gunyah_vm *ghvm, struct gunyah_auth_desc *d);
+	void (*vm_detach)(struct gunyah_vm *ghvm);
+};
+int gunyah_auth_vm_mgr_register(struct gunyah_auth_vm_mgr *auth_vm);
+void gunyah_auth_vm_mgr_unregister(struct gunyah_auth_vm_mgr *auth_vm);
+
 struct gunyah_vm_function_instance;
 /**
  * struct gunyah_vm_function - Represents a function type

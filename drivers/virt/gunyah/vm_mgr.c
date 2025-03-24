@@ -33,6 +33,7 @@
 #define GUNYAH_EVENT_DESTROY_VM 1
 
 static DEFINE_XARRAY(gunyah_vm_functions);
+static DEFINE_XARRAY(gunyah_auth_vm_mgr);
 
 static inline int gunyah_vm_fill_boot_context(struct gunyah_vm *ghvm)
 {
@@ -51,6 +52,59 @@ static inline int gunyah_vm_fill_boot_context(struct gunyah_vm *ghvm)
 	}
 
 	return 0;
+}
+
+int gunyah_auth_vm_mgr_register(struct gunyah_auth_vm_mgr *auth_vm)
+{
+	if (!auth_vm->vm_attach || !auth_vm->vm_detach)
+		return -EINVAL;
+
+	return xa_err(xa_store(&gunyah_auth_vm_mgr, auth_vm->type, auth_vm, GFP_KERNEL));
+}
+EXPORT_SYMBOL_GPL(gunyah_auth_vm_mgr_register);
+
+void gunyah_auth_vm_mgr_unregister(struct gunyah_auth_vm_mgr *auth_vm)
+{
+	/* Expecting unregister to only come when unloading a module */
+	WARN_ON(auth_vm->mod && module_refcount(auth_vm->mod));
+	xa_erase(&gunyah_auth_vm_mgr, auth_vm->type);
+}
+EXPORT_SYMBOL_GPL(gunyah_auth_vm_mgr_unregister);
+
+static struct gunyah_auth_vm_mgr *gunyah_get_auth_vm_mgr(u32 auth_type)
+{
+	struct gunyah_auth_vm_mgr *auth_vm;
+
+	auth_vm = xa_load(&gunyah_auth_vm_mgr, auth_type);
+	if (!auth_vm || !try_module_get(auth_vm->mod))
+		auth_vm = ERR_PTR(-ENOENT);
+
+	return auth_vm;
+}
+
+static void gunyah_put_auth_vm_mgr(struct gunyah_vm *ghvm)
+{
+	struct gunyah_auth_vm_mgr *auth_vm;
+
+	auth_vm = xa_load(&gunyah_auth_vm_mgr, ghvm->auth);
+	if (!auth_vm)
+		return;
+
+	auth_vm->vm_detach(ghvm);
+	module_put(auth_vm->mod);
+}
+
+static long gunyah_vm_set_auth_type(struct gunyah_vm *ghvm,
+				struct gunyah_auth_desc *auth_desc)
+{
+	struct gunyah_auth_vm_mgr *auth_vm;
+
+	auth_vm = gunyah_get_auth_vm_mgr(auth_desc->type);
+	if (IS_ERR(auth_vm))
+		return PTR_ERR(auth_vm);
+
+	/* The auth mgr should be populating the auth_vm_mgr_ops*/
+	return auth_vm->vm_attach(ghvm, auth_desc);
 }
 
 static int gunyah_generic_pre_vm_configure(struct gunyah_vm *ghvm)
@@ -1016,6 +1070,14 @@ static long gunyah_vm_ioctl(struct file *filp, unsigned int cmd,
 
 		return gunyah_vm_set_boot_context(ghvm, &boot_ctx);
 	}
+	case GH_VM_ANDROID_SET_AUTH_TYPE: {
+		struct gunyah_auth_desc auth_desc;
+
+		if (copy_from_user(&auth_desc, argp, sizeof(auth_desc)))
+			return -EFAULT;
+
+		return gunyah_vm_set_auth_type(ghvm, &auth_desc);
+	}
 	default:
 		r = -ENOTTY;
 		break;
@@ -1103,6 +1165,7 @@ static void _gunyah_vm_put(struct kref *kref)
 	xa_for_each(&ghvm->boot_context, index, entry)
 		kfree(entry);
 
+	gunyah_put_auth_vm_mgr(ghvm);
 	xa_destroy(&ghvm->boot_context);
 	gunyah_rm_put(ghvm->rm);
 	mmdrop(ghvm->mm_s);

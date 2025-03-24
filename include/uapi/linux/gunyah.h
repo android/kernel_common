@@ -420,4 +420,40 @@ struct gunyah_map_cma_mem_args {
 };
 
 #define GH_VM_ANDROID_MAP_CMA_MEM _IOW(GH_ANDROID_IOCTL_TYPE, 0x15, struct gunyah_map_cma_mem_args)
+
+/**
+ * enum gunyah_auth_type - Valid types of authentication supported by Gunyah
+ */
+enum gunyah_auth_type {
+	GUNYAH_QCOM_TRUSTED_VM_TYPE = 1,
+};
+
+/**
+ * struct gunyah_qtvm_auth_arg - Argument to QTVM auth vm manager
+ * @vm_id: The VM ID that Gunyah associates with the QTVM.
+ * @peripheral_id: Also called pas_id which firmware needs for authenticating the QTVM.
+ * @guest_phys_addr: Address where the VM image should be mapped to.
+ * @size: Size of the VM image
+ */
+struct gunyah_qtvm_auth_arg {
+	__u16 vm_id;
+	__u32 peripheral_id;
+	__u64 guest_phys_addr;
+	__u64 size;
+};
+
+/**
+ * struct gunyah_auth_desc - Arguments to match with an auth vm manager
+ * @type: Type of the authentication mechanism. See &enum gunyah_auth_type.
+ * @arg_size: Size of argument to pass to the auth vm mgr. arg_size <= GUNYAH_FN_MAX_ARG_SIZE
+ * @arg: Pointer to argument given to the auth vm mgr. See &enum gunyah_auth_type for expected
+ *       arguments for a function type.
+ */
+struct gunyah_auth_desc {
+	__u32 type;
+	__u32 arg_size;
+	__u64 arg;
+};
+#define GH_VM_ANDROID_SET_AUTH_TYPE		_IOW(GH_ANDROID_IOCTL_TYPE, 0x16, \
+							struct gunyah_auth_desc)
 #endif
