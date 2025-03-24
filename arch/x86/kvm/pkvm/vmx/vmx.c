@@ -532,8 +532,13 @@ void vmx_update_exception_bitmap(struct kvm_vcpu *vcpu)
 {
 	u32 eb;
 
-	eb = (1u << PF_VECTOR) | (1u << UD_VECTOR) | (1u << MC_VECTOR) |
-	     (1u << DB_VECTOR) | (1u << AC_VECTOR);
+#ifdef __PKVM_HYP__
+	if (pkvm_is_protected_vcpu(vcpu))
+		eb = (1u << MC_VECTOR);
+	else
+#endif
+		eb = (1u << PF_VECTOR) | (1u << UD_VECTOR) | (1u << MC_VECTOR) |
+		     (1u << DB_VECTOR) | (1u << AC_VECTOR);
 	/*
 	 * #VE isn't used for VMX.  To test against unexpected changes
 	 * related to #VE for VMX, intercept unexpected #VE and warn on it.
