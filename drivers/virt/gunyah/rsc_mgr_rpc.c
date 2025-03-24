@@ -21,6 +21,7 @@
 #define GUNYAH_RM_RPC_VM_STOP			0x56000005
 #define GUNYAH_RM_RPC_VM_RESET			0x56000006
 #define GUNYAH_RM_RPC_VM_CONFIG_IMAGE		0x56000009
+#define GUNYAH_RM_RPC_VM_AUTH_IMAGE		0x5600000A
 #define GUNYAH_RM_RPC_VM_INIT			0x5600000B
 #define GUNYAH_RM_RPC_VM_GET_HYP_RESOURCES	0x56000020
 #define GUNYAH_RM_RPC_VM_GET_VMID		0x56000024
@@ -94,6 +95,12 @@ struct gunyah_rm_vm_stop_req {
 	u8 flags;
 	u8 _padding;
 	__le32 stop_reason;
+} __packed;
+
+/* Call: VM_AUTH_IMAGE */
+struct gunyah_rm_vm_authenticate_req_header {
+	__le16 vmid;
+	__le16 n_params;
 } __packed;
 
 /* Call: VM_CONFIG_IMAGE */
@@ -418,6 +425,62 @@ int gunyah_rm_vm_stop(struct gunyah_rm *rm, u16 vmid)
 			      sizeof(req_payload), NULL, NULL);
 }
 ALLOW_ERROR_INJECTION(gunyah_rm_vm_stop, ERRNO);
+
+/**
+ * gunyah_rm_vm_authenticate() - Send a request to Resource Manager VM to authenticate a VM.
+ * @rm: Handle to a Gunyah resource manager
+ * @vmid: VM identifier allocated with gunyah_rm_alloc_vmid
+ * @n_entries: Number of entries of type gunyah_rm_vm_auth_param_entry
+ * @entry: Type of authentication parameters
+ */
+int gunyah_rm_vm_authenticate(struct gunyah_rm *rm, u16 vmid,
+		ssize_t n_entries,
+		struct gunyah_rm_vm_authenticate_param_entry *entry)
+{
+	struct gunyah_rm_vm_authenticate_req_header *req_header;
+	struct gunyah_rm_vm_authenticate_param_entry *dest_entry;
+	size_t resp_payload_size;
+	size_t req_size;
+	int err;
+	void *req_buf;
+	__le32 *resp;
+
+	req_size = sizeof(*req_header) + n_entries * sizeof(*entry);
+
+	req_buf = kzalloc(req_size, GFP_KERNEL);
+	if (!req_buf)
+		return -ENOMEM;
+
+	req_header = req_buf;
+	req_header->vmid = vmid;
+	req_header->n_params = n_entries;
+
+	dest_entry = req_buf + sizeof(*req_header);
+	memcpy(dest_entry, entry, sizeof(*entry) * n_entries);
+
+	err = gunyah_rm_call(rm, GUNYAH_RM_RPC_VM_AUTH_IMAGE,
+					req_buf, req_size, (void **)&resp,
+						&resp_payload_size);
+	if (err) {
+		pr_err("%s: Unable to send VM_AUTH_IMAGE to RM: %d\n", __func__, err);
+		kfree(req_buf);
+		return err;
+	}
+
+	if (resp_payload_size) {
+		pr_err("%s: Invalid size received for VM_AUTH_IMAGE: %zu\n",
+			__func__, resp_payload_size);
+		kfree(resp);
+		kfree(req_buf);
+		return -EINVAL;
+	}
+
+	/* no need to free the resp as no payload is expected */
+	kfree(req_buf);
+	return 0;
+}
+ALLOW_ERROR_INJECTION(gunyah_rm_vm_authenticate, ERRNO);
+EXPORT_SYMBOL_GPL(gunyah_rm_vm_authenticate);
 
 /**
  * gunyah_rm_vm_configure() - Prepare a VM to start and provide the common
