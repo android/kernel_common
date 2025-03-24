@@ -480,4 +480,7 @@ enum gunyah_error
 gunyah_hypercall_vcpu_run(u64 capid, unsigned long *resume_data,
 			  struct gunyah_hypercall_vcpu_run_resp *resp);
 
+enum gunyah_error
+gunyah_hypercall_addrspace_find_info_area(unsigned long *ipa, unsigned long *size);
+
 #endif
