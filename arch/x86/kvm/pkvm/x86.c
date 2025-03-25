@@ -3265,6 +3265,15 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 
 	/* TODO: Save the host VMM fpu and load the guest fpu */
 
+	/* Switch to the guest debug registers. */
+	if (unlikely(vcpu->arch.switch_db_regs)) {
+		set_debugreg(0, 7);
+		set_debugreg(vcpu->arch.eff_db[0], 0);
+		set_debugreg(vcpu->arch.eff_db[1], 1);
+		set_debugreg(vcpu->arch.eff_db[2], 2);
+		set_debugreg(vcpu->arch.eff_db[3], 3);
+	}
+
 	vcpu->arch.host_debugctl = get_debugctlmsr();
 
 	for (;;) {
@@ -3318,6 +3327,21 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 	}
 
 	kvm_x86_call(prepare_switch_to_host)(vcpu);
+
+	/* Save and clear the guest debug registers */
+	if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT)) {
+		WARN_ON(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP);
+		kvm_x86_call(sync_dirty_debug_regs)(vcpu);
+
+		kvm_update_dr0123(vcpu);
+		set_debugreg(0, 0);
+		set_debugreg(0, 1);
+		set_debugreg(0, 2);
+		set_debugreg(0, 3);
+
+		kvm_update_dr7(vcpu);
+		set_debugreg(0, 7);
+	}
 
 	/* TODO: Restore the host VMM fpu and save the guest fpu */
 
