@@ -590,6 +590,13 @@ static void pkvm_vcpu_share_state_to_host(struct pkvm_vcpu *pkvm_vcpu)
 			shared_vcpu->arch.exception = vcpu->arch.exception;
 			kvm_clear_exception_queue(vcpu);
 		}
+	} else if (pkvm_has_req_to_host(HOST_INIT_MMU, vcpu) ||
+		   pkvm_has_req_to_host(HOST_RESET_MMU, vcpu)) {
+		shared_vcpu->arch.cr0 = kvm_read_cr0(vcpu);
+		kvm_register_mark_available(shared_vcpu, VCPU_EXREG_CR0);
+		shared_vcpu->arch.cr4 = kvm_read_cr4(vcpu);
+		kvm_register_mark_available(shared_vcpu, VCPU_EXREG_CR4);
+		shared_vcpu->arch.efer = vcpu->arch.efer;
 	}
 
 	pkvm_x86_call(sync_vcpu_state_pre_switch)(pkvm_vcpu);
