@@ -1859,6 +1859,7 @@
   regulator_enable
   regulator_get_optional
   regulator_get_voltage
+  regulator_is_enabled
   regulator_list_voltage
   regulator_map_voltage_iterate
   regulator_put
