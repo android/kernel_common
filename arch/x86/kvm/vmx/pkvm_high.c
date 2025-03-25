@@ -845,6 +845,16 @@ static u32 pkvm_get_interrupt_shadow(struct kvm_vcpu *vcpu)
 	return kvm_call_pkvm(get_interrupt_shadow, vcpu);
 }
 
+static void pkvm_inject_irq(struct kvm_vcpu *vcpu, bool reinjected)
+{
+	trace_kvm_inj_virq(vcpu->arch.interrupt.nr,
+			   vcpu->arch.interrupt.soft, reinjected);
+
+	++vcpu->stat.irq_injections;
+
+	kvm_call_pkvm(inject_irq, vcpu);
+}
+
 static int pkvm_interrupt_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 {
 	return kvm_call_pkvm(interrupt_allowed, vcpu, for_injection);
@@ -1043,7 +1053,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_interrupt_shadow = pkvm_set_interrupt_shadow,
 	.get_interrupt_shadow = pkvm_get_interrupt_shadow,
 	.patch_hypercall = vmx_patch_hypercall,
-	.inject_irq = vmx_inject_irq,
+	.inject_irq = pkvm_inject_irq,
 	.inject_nmi = vmx_inject_nmi,
 	.inject_exception = vmx_inject_exception,
 	.cancel_injection = vmx_cancel_injection,

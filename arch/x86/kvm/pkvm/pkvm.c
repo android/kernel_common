@@ -889,6 +889,24 @@ static int pkvm_nmi_allowed(struct pkvm_vcpu *pkvm_vcpu, bool for_injection)
 	return __pkvm_nmi_allowed(pkvm_vcpu, for_injection);
 }
 
+static void pkvm_inject_irq(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *vcpu, *shared_vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	if (WARN_ON_ONCE(__pkvm_interrupt_allowed(pkvm_vcpu, true) <= 0))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	shared_vcpu = pkvm_vcpu->shared_vcpu;
+	vcpu->arch.interrupt.soft = shared_vcpu->arch.interrupt.soft;
+	vcpu->arch.interrupt.nr = shared_vcpu->arch.interrupt.nr;
+
+	kvm_x86_call(inject_irq)(vcpu, false);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -991,6 +1009,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__nmi_allowed:
 		ret = pkvm_nmi_allowed(pkvm_vcpu, (bool)p2);
+		break;
+	case __pkvm__inject_irq:
+		pkvm_inject_irq(pkvm_vcpu);
 		break;
 	default:
 		ret = -EINVAL;
