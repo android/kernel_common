@@ -290,33 +290,7 @@ static void pkvm_vcpu_free(struct kvm_vcpu *vcpu)
 	free_ve_info(vmx);
 }
 
-static void pkvm_prepare_switch_to_guest(struct kvm_vcpu *vcpu)
-{
-	struct vcpu_vmx *vmx = to_vmx(vcpu);
-
-	/*
-	 * FIXME: The uret msr emulation is still done by host VMM right now
-	 * so keep the uret msr loading here. When vMSR emulation is done by
-	 * pkvm hypervisor, this should be moved to pkvm hypervisor.
-	 *
-	 * Note that guest MSRs to be saved/restored can also be changed
-	 * when guest state is loaded. This happens when guest transitions
-	 * to/from long-mode by setting MSR_EFER.LMA.
-	 */
-	if (!vmx->guest_uret_msrs_loaded) {
-		int i;
-
-		vmx->guest_uret_msrs_loaded = true;
-		for (i = 0; i < kvm_nr_uret_msrs; ++i) {
-			if (!vmx->guest_uret_msrs[i].load_into_hardware)
-				continue;
-
-			kvm_set_user_return_msr(i,
-						vmx->guest_uret_msrs[i].data,
-						vmx->guest_uret_msrs[i].mask);
-		}
-	}
-}
+static void pkvm_prepare_switch_to_guest(struct kvm_vcpu *vcpu) {}
 
 static void pkvm_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
@@ -338,14 +312,6 @@ static void pkvm_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 static void pkvm_vcpu_put(struct kvm_vcpu *vcpu)
 {
 	vmx_vcpu_pi_put(vcpu);
-
-	/*
-	 * FIXME: The uret msr is restored when switch to the user space by
-	 * the host VMM. Need to set this to false to make sure uret msr
-	 * can be reloaded before entering guest. This can be removed once
-	 * the uret msr loading is moved to pkvm hypervisor.
-	 */
-	to_vmx(vcpu)->guest_uret_msrs_loaded = false;
 }
 
 static int pkvm_get_feature_msr(u32 msr, u64 *data)

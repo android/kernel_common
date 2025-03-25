@@ -1283,6 +1283,21 @@ int kvm_spec_ctrl_test_value(u64 value)
 EXPORT_SYMBOL_GPL(kvm_spec_ctrl_test_value);
 
 #ifdef __PKVM_HYP__
+static void kvm_restore_user_return_msr(void)
+{
+	struct kvm_user_return_msrs *msrs = this_cpu_ptr(&user_return_msrs);
+	struct kvm_user_return_msr_values *values;
+	unsigned slot;
+
+	for (slot = 0; slot < kvm_nr_uret_msrs; ++slot) {
+		values = &msrs->values[slot];
+		if (values->host != values->curr) {
+			wrmsrl(kvm_uret_msrs_list[slot], values->host);
+			values->curr = values->host;
+		}
+	}
+}
+
 fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 {
 	fastpath_t exit_fastpath;
@@ -1342,7 +1357,7 @@ fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit
 
 	/* TODO: Restore the host VMM fpu and save the guest fpu */
 
-	/* TODO: restore uret msrs */
+	kvm_restore_user_return_msr();
 
 	return exit_fastpath;
 }

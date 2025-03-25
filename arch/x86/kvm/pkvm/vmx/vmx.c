@@ -802,7 +802,6 @@ void vmx_prepare_switch_to_guest(struct kvm_vcpu *vcpu)
 	struct vmcs_host_state *host_state;
 	unsigned long fs_base, gs_base;
 	u16 fs_sel, gs_sel;
-#ifndef __PKVM_HYP__ /* TODO: set uret MSR */
 	int i;
 
 	/*
@@ -821,7 +820,6 @@ void vmx_prepare_switch_to_guest(struct kvm_vcpu *vcpu)
 						vmx->guest_uret_msrs[i].mask);
 		}
 	}
-#endif
 
 	if (vmx->nested.need_vmcs12_to_shadow_sync)
 		nested_sync_vmcs12_to_shadow(vcpu);
@@ -931,9 +929,7 @@ static void vmx_prepare_switch_to_host(struct kvm_vcpu *vcpu)
 #endif
 
 	vmx->guest_state_loaded = false;
-#ifndef __PKVM_HYP__
 	vmx->guest_uret_msrs_loaded = false;
-#endif
 }
 
 #ifdef CONFIG_X86_64
