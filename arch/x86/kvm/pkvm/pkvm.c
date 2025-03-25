@@ -582,6 +582,14 @@ static void pkvm_vcpu_share_state_to_host(struct pkvm_vcpu *pkvm_vcpu)
 		shared_vcpu->arch.cr4 = kvm_read_cr4(vcpu);
 		kvm_register_mark_available(shared_vcpu, VCPU_EXREG_CR4);
 		shared_vcpu->arch.efer = vcpu->arch.efer;
+
+		/*
+		 * Share the exception information to the host if there is any
+		 */
+		if (vcpu->arch.exception.pending || vcpu->arch.exception.injected) {
+			shared_vcpu->arch.exception = vcpu->arch.exception;
+			kvm_clear_exception_queue(vcpu);
+		}
 	}
 
 	pkvm_x86_call(sync_vcpu_state_pre_switch)(pkvm_vcpu);
@@ -918,6 +926,23 @@ static void pkvm_inject_nmi(struct pkvm_vcpu *pkvm_vcpu)
 	kvm_x86_call(inject_nmi)(to_kvm_vcpu(pkvm_vcpu));
 }
 
+static void pkvm_inject_exception(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *vcpu, *shared_vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	if (WARN_ON_ONCE(pkvm_is_protected_vcpu(vcpu)))
+		return;
+
+	shared_vcpu = pkvm_vcpu->shared_vcpu;
+	vcpu->arch.exception = shared_vcpu->arch.exception;
+
+	kvm_x86_call(inject_exception)(vcpu);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1026,6 +1051,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__inject_nmi:
 		pkvm_inject_nmi(pkvm_vcpu);
+		break;
+	case __pkvm__inject_exception:
+		pkvm_inject_exception(pkvm_vcpu);
 		break;
 	default:
 		ret = -EINVAL;

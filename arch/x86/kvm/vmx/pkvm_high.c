@@ -776,6 +776,7 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 		mds_clear_cpu_buffers();
 
 	vcpu->arch.nmi_injected = false;
+	kvm_clear_exception_queue(vcpu);
 	kvm_clear_interrupt_queue(vcpu);
 
 	vmx->exit_reason.full = 0xdead;
@@ -814,6 +815,9 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 		vmx->loaded_vmcs->vnmi_blocked_time +=
 			ktime_to_ns(ktime_sub(ktime_get(),
 					      vmx->loaded_vmcs->entry_time));
+
+	if (vcpu->arch.exception.injected)
+		kvm_make_request(KVM_REQ_EVENT, vcpu);
 
 	exit_fastpath = EXIT_FASTPATH_EXIT_HANDLED;
 	if (reqs_to_host) {
@@ -860,6 +864,13 @@ static void pkvm_inject_nmi(struct kvm_vcpu *vcpu)
 	++vcpu->stat.nmi_injections;
 
 	kvm_call_pkvm(inject_nmi, vcpu);
+}
+
+static void pkvm_inject_exception(struct kvm_vcpu *vcpu)
+{
+	KVM_BUG_ON(pkvm_is_protected_vcpu(vcpu), vcpu->kvm);
+
+	kvm_call_pkvm(inject_exception, vcpu);
 }
 
 static int pkvm_interrupt_allowed(struct kvm_vcpu *vcpu, bool for_injection)
@@ -1062,7 +1073,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.patch_hypercall = vmx_patch_hypercall,
 	.inject_irq = pkvm_inject_irq,
 	.inject_nmi = pkvm_inject_nmi,
-	.inject_exception = vmx_inject_exception,
+	.inject_exception = pkvm_inject_exception,
 	.cancel_injection = vmx_cancel_injection,
 	.interrupt_allowed = pkvm_interrupt_allowed,
 	.nmi_allowed = pkvm_nmi_allowed,

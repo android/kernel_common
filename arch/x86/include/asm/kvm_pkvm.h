@@ -292,6 +292,7 @@ enum pkvm_fn {
 	__pkvm__nmi_allowed,
 	__pkvm__inject_irq,
 	__pkvm__inject_nmi,
+	__pkvm__inject_exception,
 };
 
 #define HOST_HANDLE_EXIT		0
