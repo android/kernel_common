@@ -502,11 +502,9 @@ static int handle_pause(struct kvm_vcpu *vcpu)
 static int handle_bus_lock_vmexit(struct kvm_vcpu *vcpu)
 {
 	/*
-	 * Hardware may or may not set the BUS_LOCK_DETECTED flag on BUS_LOCK
-	 * VM-Exits. Unconditionally set the flag here and leave the handling to
-	 * pkvm_handle_exit().
+	 * The bus_lock_detected flag is set when got the vmexit reason from the
+	 * pkvm hypervisor. Nothing to do here.
 	 */
-	to_vmx(vcpu)->exit_reason.bus_lock_detected = true;
 	return 1;
 }
 
