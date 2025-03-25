@@ -943,6 +943,36 @@ static void pkvm_inject_exception(struct pkvm_vcpu *pkvm_vcpu)
 	kvm_x86_call(inject_exception)(vcpu);
 }
 
+static void pkvm_cancel_injection(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *vcpu, *shared_vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	kvm_x86_call(cancel_injection)(vcpu);
+
+	shared_vcpu = pkvm_vcpu->shared_vcpu;
+	if (vcpu->arch.nmi_injected) {
+		shared_vcpu->arch.nmi_injected = true;
+		vcpu->arch.nmi_injected = false;
+	} else if (vcpu->arch.interrupt.injected) {
+		kvm_queue_interrupt(shared_vcpu, vcpu->arch.interrupt.nr,
+				    vcpu->arch.interrupt.soft);
+		kvm_clear_interrupt_queue(vcpu);
+	} else if (!pkvm_is_protected_vcpu(vcpu) && vcpu->arch.exception.injected) {
+		/*
+		 * For the pVM, the exception can only be injected and canceled
+		 * by the pkvm hypervisor.
+		 * For the npVM, the exception can be injected and caceled by
+		 * both sides.
+		 */
+		shared_vcpu->arch.exception = vcpu->arch.exception;
+		kvm_clear_exception_queue(vcpu);
+	}
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1054,6 +1084,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__inject_exception:
 		pkvm_inject_exception(pkvm_vcpu);
+		break;
+	case __pkvm__cancel_injection:
+		pkvm_cancel_injection(pkvm_vcpu);
 		break;
 	default:
 		ret = -EINVAL;

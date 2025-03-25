@@ -5354,6 +5354,16 @@ static void vmx_complete_interrupts(struct vcpu_vmx *vmx)
 				  IDT_VECTORING_ERROR_CODE);
 }
 
+void vmx_cancel_injection(struct kvm_vcpu *vcpu)
+{
+	__vmx_complete_interrupts(vcpu,
+				  vmcs_read32(VM_ENTRY_INTR_INFO_FIELD),
+				  VM_ENTRY_INSTRUCTION_LEN,
+				  VM_ENTRY_EXCEPTION_ERROR_CODE);
+
+	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, 0);
+}
+
 static void atomic_switch_perf_msrs(struct vcpu_vmx *vmx)
 {
 	int i, nr_msrs;
@@ -6792,6 +6802,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.inject_irq = vmx_inject_irq,
 	.inject_nmi = vmx_inject_nmi,
 	.inject_exception = vmx_inject_exception,
+	.cancel_injection = vmx_cancel_injection,
 	.interrupt_allowed = vmx_interrupt_allowed,
 	.nmi_allowed = vmx_nmi_allowed,
 	.enable_nmi_window = vmx_enable_nmi_window,
