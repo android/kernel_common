@@ -1246,6 +1246,28 @@ static void pkvm_set_dr7(struct kvm_vcpu *vcpu, unsigned long val)
 
 static void pkvm_sync_dirty_debug_regs(struct kvm_vcpu *vcpu) {}
 
+static void pkvm_cache_reg(struct kvm_vcpu *vcpu, enum kvm_reg reg)
+{
+	kvm_register_mark_available(vcpu, reg);
+
+	if (vcpu->arch.guest_state_protected)
+		return;
+
+	switch (reg) {
+	case VCPU_REGS_RSP:
+	case VCPU_REGS_RIP:
+	case VCPU_EXREG_PDPTR:
+	case VCPU_EXREG_CR0:
+	case VCPU_EXREG_CR3:
+	case VCPU_EXREG_CR4:
+		kvm_call_pkvm(cache_reg, vcpu, reg);
+		break;
+	default:
+		KVM_BUG_ON(1, vcpu->kvm);
+		break;
+	}
+}
+
 static unsigned long pkvm_get_rflags(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -1844,7 +1866,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_gdt = pkvm_set_gdt,
 	.set_dr7 = pkvm_set_dr7,
 	.sync_dirty_debug_regs = pkvm_sync_dirty_debug_regs,
-	.cache_reg = vmx_cache_reg,
+	.cache_reg = pkvm_cache_reg,
 	.get_rflags = pkvm_get_rflags,
 	.set_rflags = pkvm_set_rflags,
 	.get_if_flag = pkvm_get_if_flag,

@@ -309,6 +309,7 @@ enum pkvm_fn {
 	__pkvm__post_set_cr3,
 	__pkvm__load_mmu_pgd,
 	__pkvm__setup_mce,
+	__pkvm__cache_reg,
 };
 
 #define HOST_HANDLE_EXIT		0

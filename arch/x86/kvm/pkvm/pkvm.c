@@ -449,6 +449,7 @@ static bool is_kvm_vcpu_accessible(struct kvm_vcpu *vcpu, unsigned long fn)
 	case __pkvm__inject_exception:
 	case __pkvm__set_nmi_mask:
 	case __pkvm__post_set_cr3:
+	case __pkvm__cache_reg:
 		/*
 		 * FIXME: As the host still needs to pre-configure pVM's vcpu
 		 * state for booting, the protection is enforced by the pkvm
@@ -1195,6 +1196,54 @@ static void pkvm_setup_mce(struct pkvm_vcpu *pkvm_vcpu, u64 mcg_cap)
 	kvm_x86_call(setup_mce)(vcpu);
 }
 
+static unsigned long pkvm_cache_reg(struct pkvm_vcpu *pkvm_vcpu, enum kvm_reg reg)
+{
+	struct kvm_vcpu *vcpu, *shared_vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return 0;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+	kvm_x86_call(cache_reg)(vcpu, reg);
+
+	shared_vcpu = pkvm_vcpu->shared_vcpu;
+
+	switch (reg) {
+	case VCPU_REGS_RSP:
+		shared_vcpu->arch.regs[VCPU_REGS_RSP] = vcpu->arch.regs[VCPU_REGS_RSP];
+		break;
+	case VCPU_REGS_RIP:
+		shared_vcpu->arch.regs[VCPU_REGS_RIP] = vcpu->arch.regs[VCPU_REGS_RIP];
+		break;
+	case VCPU_EXREG_PDPTR: {
+		struct kvm_mmu *shared_mmu = shared_vcpu->arch.walk_mmu;
+		struct kvm_mmu *mmu = vcpu->arch.walk_mmu;
+
+		shared_mmu->pdptrs[0] = mmu->pdptrs[0];
+		shared_mmu->pdptrs[1] = mmu->pdptrs[1];
+		shared_mmu->pdptrs[2] = mmu->pdptrs[2];
+		shared_mmu->pdptrs[3] = mmu->pdptrs[3];
+
+		break;
+	}
+	case VCPU_EXREG_CR0:
+		shared_vcpu->arch.cr0 = vcpu->arch.cr0;
+		break;
+	case VCPU_EXREG_CR3:
+		shared_vcpu->arch.cr3 = vcpu->arch.cr3;
+		break;
+	case VCPU_EXREG_CR4:
+		shared_vcpu->arch.cr4 = vcpu->arch.cr4;
+		break;
+	default:
+		pr_err("pkvm: Unsupported register %d\n", reg);
+		break;
+	}
+
+	return 0;
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1354,6 +1403,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__setup_mce:
 		pkvm_setup_mce(pkvm_vcpu, (u64)p2);
+		break;
+	case __pkvm__cache_reg:
+		ret = pkvm_cache_reg(pkvm_vcpu, (enum kvm_reg)p2);
 		break;
 	default:
 		ret = -EINVAL;
