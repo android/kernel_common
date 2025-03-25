@@ -277,6 +277,7 @@
   __traceiter_android_vh_save_track_hash
   __traceiter_android_vh_sched_move_task
   __traceiter_android_vh_sched_setaffinity_early
+  __traceiter_android_vh_tick_nohz_idle_stop_tick
   __traceiter_android_vh_should_alloc_pages_retry
   __traceiter_android_vh_show_stack_hash
   __traceiter_android_vh_shrink_slab_bypass
@@ -406,6 +407,7 @@
   __tracepoint_android_vh_save_vmalloc_stack
   __tracepoint_android_vh_sched_move_task
   __tracepoint_android_vh_sched_setaffinity_early
+  __tracepoint_android_vh_tick_nohz_idle_stop_tick
   __tracepoint_android_vh_should_alloc_pages_retry
   __tracepoint_android_vh_show_stack_hash
   __tracepoint_android_vh_shrink_slab_bypass
