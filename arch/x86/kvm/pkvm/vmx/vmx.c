@@ -6579,6 +6579,16 @@ static __init void vmx_set_cpu_caps(void)
 		kvm_cpu_cap_check_and_set(X86_FEATURE_WAITPKG);
 }
 
+void vmx_setup_mce(struct kvm_vcpu *vcpu)
+{
+	if (vcpu->arch.mcg_cap & MCG_LMCE_P)
+		to_vmx(vcpu)->msr_ia32_feature_control_valid_bits |=
+			FEAT_CTL_LMCE_ENABLED;
+	else
+		to_vmx(vcpu)->msr_ia32_feature_control_valid_bits &=
+			~FEAT_CTL_LMCE_ENABLED;
+}
+
 void vmx_vm_destroy(struct kvm *kvm)
 {
 #ifdef __PKVM_HYP__
@@ -7154,6 +7164,8 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.write_tsc_multiplier = vmx_write_tsc_multiplier,
 
 	.load_mmu_pgd = vmx_load_mmu_pgd,
+
+	.setup_mce = vmx_setup_mce,
 };
 
 struct kvm_x86_init_ops vt_init_ops __initdata = {

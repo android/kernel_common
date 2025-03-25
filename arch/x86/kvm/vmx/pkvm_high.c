@@ -1145,6 +1145,11 @@ static int pkvm_check_intercept(struct kvm_vcpu *vcpu,
 	return X86EMUL_UNHANDLEABLE;
 }
 
+static void pkvm_setup_mce(struct kvm_vcpu *vcpu)
+{
+	kvm_call_pkvm(setup_mce, vcpu, vcpu->arch.mcg_cap);
+}
+
 #ifdef CONFIG_KVM_SMM
 static int pkvm_smi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 {
@@ -1347,7 +1352,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.cancel_hv_timer = vmx_cancel_hv_timer,
 #endif
 
-	.setup_mce = vmx_setup_mce,
+	.setup_mce = pkvm_setup_mce,
 
 #ifdef CONFIG_KVM_SMM
 	.smi_allowed = pkvm_smi_allowed,

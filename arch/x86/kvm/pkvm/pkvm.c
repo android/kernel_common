@@ -1113,6 +1113,18 @@ static void pkvm_load_mmu_pgd(struct pkvm_vcpu *pkvm_vcpu, hpa_t root_hpa, int r
 				   vcpu->arch.mmu->root_role.level);
 }
 
+static void pkvm_setup_mce(struct pkvm_vcpu *pkvm_vcpu, u64 mcg_cap)
+{
+	struct kvm_vcpu *vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	vcpu->arch.mcg_cap = mcg_cap;
+	kvm_x86_call(setup_mce)(vcpu);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1269,6 +1281,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__load_mmu_pgd:
 		pkvm_load_mmu_pgd(pkvm_vcpu, (hpa_t)p2, (int)p3);
+		break;
+	case __pkvm__setup_mce:
+		pkvm_setup_mce(pkvm_vcpu, (u64)p2);
 		break;
 	default:
 		ret = -EINVAL;

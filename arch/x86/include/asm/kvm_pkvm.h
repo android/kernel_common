@@ -308,6 +308,7 @@ enum pkvm_fn {
 	__pkvm__write_tsc_multiplier,
 	__pkvm__post_set_cr3,
 	__pkvm__load_mmu_pgd,
+	__pkvm__setup_mce,
 };
 
 #define HOST_HANDLE_EXIT		0
