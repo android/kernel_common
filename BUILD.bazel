@@ -250,6 +250,7 @@ common_kernel(
 common_kernel(
     name = "kernel_aarch64_16k",
     outs = DEFAULT_GKI_OUTS,
+    additional_kmi_symbol_lists = [":aarch64_additional_kmi_symbol_lists"],
     arch = "arm64",
     build_gki_artifacts = True,
     ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
@@ -262,11 +263,18 @@ common_kernel(
     gki_boot_img_sizes = _GKI_AARCH64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
     kcflags = COMMON_KCFLAGS,
+    # We don't guarantee ABI stability for 16k target
+    kmi_enforced = False,
+    kmi_symbol_list = "gki/aarch64/symbols/base",
+    kmi_symbol_list_strict_mode = True,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     page_size = "16k",
+    protected_exports_list = "gki/aarch64/protected_exports",
+    protected_modules_list = ":gki_aarch64_protected_modules",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
+    trim_nonlisted_kmi = True,
     visibility = ["//visibility:public"],
 )
 
