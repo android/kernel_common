@@ -1173,6 +1173,7 @@
   generic_cont_expand_simple
   generic_file_fsync
   generic_file_llseek
+  generic_file_llseek_size
   generic_file_mmap
   generic_file_open
   generic_file_read_iter
@@ -2442,7 +2443,10 @@
   round_jiffies_relative
   round_jiffies_up
   round_jiffies_up_relative
+  rtc_cmos_read
+  rtc_cmos_write
   rtc_ktime_to_tm
+  rtc_lock
   rtc_valid_tm
   rtnl_is_locked
   rtnl_link_register
