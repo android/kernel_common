@@ -301,6 +301,7 @@ enum pkvm_fn {
 	__pkvm__update_cr8_intercept,
 	__pkvm__set_virtual_apic_mode,
 	__pkvm__refresh_apicv_exec_ctrl,
+	__pkvm__load_eoi_exitmap,
 };
 
 #define HOST_HANDLE_EXIT		0
@@ -309,6 +310,7 @@ union pkvm_pv_param {
 	struct kvm_segment seg;
 	struct msr_data msr;
 	struct desc_ptr desc;
+	u64 eoi_exit_bitmap[4];
 } __aligned(PAGE_SIZE);
 
 #endif

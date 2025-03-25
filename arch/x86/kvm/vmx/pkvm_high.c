@@ -944,6 +944,25 @@ static void pkvm_refresh_apicv_exec_ctrl(struct kvm_vcpu *vcpu)
 	kvm_call_pkvm(refresh_apicv_exec_ctrl, vcpu);
 }
 
+static void pkvm_load_eoi_exitmap(struct kvm_vcpu *vcpu, u64 *eoi_exit_bitmap)
+{
+	u64 *exitmap;
+
+	if (!kvm_vcpu_apicv_active(vcpu))
+		return;
+
+	exitmap = get_this_pv_param(eoi_exit_bitmap[0]);
+
+	exitmap[0] = eoi_exit_bitmap[0];
+	exitmap[1] = eoi_exit_bitmap[1];
+	exitmap[2] = eoi_exit_bitmap[2];
+	exitmap[3] = eoi_exit_bitmap[3];
+
+	kvm_call_pkvm(load_eoi_exitmap, vcpu, exitmap);
+
+	put_this_pv_param(exitmap);
+}
+
 static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 {
 	struct kvm_cpuid_entry2 *e2 = vcpu->arch.cpuid_entries;
@@ -1148,7 +1167,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_virtual_apic_mode = pkvm_set_virtual_apic_mode,
 	.set_apic_access_page_addr = pkvm_set_apic_access_page_addr,
 	.refresh_apicv_exec_ctrl = pkvm_refresh_apicv_exec_ctrl,
-	.load_eoi_exitmap = vmx_load_eoi_exitmap,
+	.load_eoi_exitmap = pkvm_load_eoi_exitmap,
 	.apicv_pre_state_restore = vmx_apicv_pre_state_restore,
 	.required_apicv_inhibits = VMX_REQUIRED_APICV_INHIBITS,
 	.hwapic_irr_update = vmx_hwapic_irr_update,

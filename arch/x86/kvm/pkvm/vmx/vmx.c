@@ -5432,6 +5432,17 @@ void vmx_set_virtual_apic_mode(struct kvm_vcpu *vcpu)
 	vmx_update_msr_bitmap_x2apic(vcpu);
 }
 
+void vmx_load_eoi_exitmap(struct kvm_vcpu *vcpu, u64 *eoi_exit_bitmap)
+{
+	if (!kvm_vcpu_apicv_active(vcpu))
+		return;
+
+	vmcs_write64(EOI_EXIT_BITMAP0, eoi_exit_bitmap[0]);
+	vmcs_write64(EOI_EXIT_BITMAP1, eoi_exit_bitmap[1]);
+	vmcs_write64(EOI_EXIT_BITMAP2, eoi_exit_bitmap[2]);
+	vmcs_write64(EOI_EXIT_BITMAP3, eoi_exit_bitmap[3]);
+}
+
 static void vmx_recover_nmi_blocking(struct vcpu_vmx *vmx)
 {
 	u32 exit_intr_info;
@@ -6996,6 +7007,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 
 	.set_virtual_apic_mode = vmx_set_virtual_apic_mode,
 	.refresh_apicv_exec_ctrl = vmx_refresh_apicv_exec_ctrl,
+	.load_eoi_exitmap = vmx_load_eoi_exitmap,
 
 	.complete_emulated_msr = kvm_complete_insn_gp,
 
