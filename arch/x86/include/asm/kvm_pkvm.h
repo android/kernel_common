@@ -289,6 +289,8 @@ enum pkvm_fn {
 	__pkvm__get_interrupt_shadow,
 };
 
+#define HOST_HANDLE_EXIT		0
+
 union pkvm_pv_param {
 	struct kvm_segment seg;
 	struct msr_data msr;

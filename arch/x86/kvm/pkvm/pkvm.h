@@ -37,6 +37,8 @@ struct pkvm_vcpu {
 	int vcpu_idx;
 	/* Point to the pkvm_vm this pkvm_vcpu belongs to */
 	struct pkvm_vm *pkvm_vm;
+	/* Requests for the host VMM to handle */
+	unsigned long reqs_to_host;
 } __aligned(PAGE_SIZE);
 
 /*
@@ -93,6 +95,23 @@ static inline struct pkvm_vcpu *to_pkvm_vcpu(struct kvm_vcpu *vcpu)
 {
 	/* See comments for pkvm_vcpu */
 	return (struct pkvm_vcpu *)((unsigned long)vcpu - sizeof(struct pkvm_vcpu));
+}
+
+static inline void pkvm_make_req_to_host(int req, struct kvm_vcpu *vcpu)
+{
+	BUILD_BUG_ON(req >= sizeof(to_pkvm_vcpu(vcpu)->reqs_to_host) * 8);
+
+	set_bit(req, &to_pkvm_vcpu(vcpu)->reqs_to_host);
+}
+
+static inline void pkvm_reset_reqs_to_host(struct kvm_vcpu *vcpu)
+{
+	to_pkvm_vcpu(vcpu)->reqs_to_host = 0;
+}
+
+static inline unsigned long pkvm_reqs_to_host(struct kvm_vcpu *vcpu)
+{
+	return to_pkvm_vcpu(vcpu)->reqs_to_host;
 }
 
 /*

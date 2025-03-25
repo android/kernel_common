@@ -2,11 +2,13 @@
 #include "x86.h"
 #include <asm/debugreg.h>
 #include <asm/fpu/xcr.h>
+#include <asm/kvm_pkvm.h>
 #include <cpuid.h>
 #include <linux/user-return-notifier.h>
 #include <trace.h>
 #include <uapi/asm/debugreg.h>
 #include <smm.h>
+#include "pkvm.h"
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -2750,13 +2752,15 @@ static void kvm_restore_user_return_msr(void)
 	}
 }
 
-fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
+unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 {
 	fastpath_t exit_fastpath;
 	int ret;
 
+	pkvm_reset_reqs_to_host(vcpu);
+
 	if (kvm_x86_call(vcpu_pre_run)(vcpu) <= 0)
-		return EXIT_FASTPATH_NONE;
+		return 0;
 
 	vcpu->arch.last_vmentry_cpu = vcpu->cpu;
 
@@ -2805,13 +2809,12 @@ fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit
 			continue;
 
 		ret = kvm_x86_call(handle_exit)(vcpu, exit_fastpath);
-		if (ret <= 0)
+		if (ret <= 0) {
+			pkvm_make_req_to_host(HOST_HANDLE_EXIT, vcpu);
 			break;
+		}
 
-		/* Vmeixt is handled by the pkvm hypervisor */
-		exit_fastpath = EXIT_FASTPATH_EXIT_HANDLED;
-
-		if (unlikely(force_immediate_exit))
+		if (unlikely(force_immediate_exit) || pkvm_reqs_to_host(vcpu))
 			break;
 	}
 
@@ -2821,6 +2824,6 @@ fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit
 
 	kvm_restore_user_return_msr();
 
-	return exit_fastpath;
+	return pkvm_reqs_to_host(vcpu);
 }
 #endif

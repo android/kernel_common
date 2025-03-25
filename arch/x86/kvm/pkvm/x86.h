@@ -4,6 +4,6 @@
 
 #include <x86.h>
 
-fastpath_t kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit);
+unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit);
 
 #endif /* __PKVM_X86_H */

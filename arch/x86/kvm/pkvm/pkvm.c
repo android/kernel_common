@@ -497,10 +497,10 @@ static void pkvm_vcpu_put(struct pkvm_vcpu *pkvm_vcpu)
 	set_pkvm_vcpu_free(pkvm_vcpu);
 }
 
-static fastpath_t pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immediate_exit)
+static unsigned long pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immediate_exit)
 {
 	if (WARN_ON_ONCE(!pkvm_vcpu))
-		return EXIT_FASTPATH_NONE;
+		return 0;
 
 	return kvm_vcpu_enter_guest(to_kvm_vcpu(pkvm_vcpu), force_immediate_exit);
 }

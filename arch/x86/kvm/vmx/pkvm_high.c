@@ -749,6 +749,7 @@ void vmx_do_nmi_irqoff(void);
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	unsigned long reqs_to_host;
 	fastpath_t exit_fastpath;
 
 	/* Record the guest's net vcpu time for enforced NMI injections. */
@@ -777,7 +778,7 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 	vmx->exit_reason.full = 0xdead;
 
 	vcpu->arch.regs_avail &= ~VMX_REGS_LAZY_LOAD_SET;
-	exit_fastpath = kvm_call_pkvm(vcpu_run, vcpu, force_immediate_exit);
+	reqs_to_host = kvm_call_pkvm(vcpu_run, vcpu, force_immediate_exit);
 	vcpu->arch.regs_dirty = 0;
 
 	if (unlikely(vmx->exit_reason.full == 0xdead)) {
@@ -810,6 +811,12 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 		vmx->loaded_vmcs->vnmi_blocked_time +=
 			ktime_to_ns(ktime_sub(ktime_get(),
 					      vmx->loaded_vmcs->entry_time));
+
+	exit_fastpath = EXIT_FASTPATH_EXIT_HANDLED;
+	if (reqs_to_host) {
+		if (test_and_clear_bit(HOST_HANDLE_EXIT, &reqs_to_host))
+			exit_fastpath = EXIT_FASTPATH_NONE;
+	}
 
 	if (exit_fastpath == EXIT_FASTPATH_EXIT_HANDLED)
 		return exit_fastpath;
