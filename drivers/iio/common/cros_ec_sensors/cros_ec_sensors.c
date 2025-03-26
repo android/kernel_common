@@ -8,7 +8,6 @@
  * EC about sensors data. Data access is presented through iio sysfs.
  */
 
-#include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/common/cros_ec_sensors_core.h>
@@ -215,17 +214,6 @@ static int cros_ec_sensors_write(struct iio_dev *indio_dev,
 
 	mutex_unlock(&st->core.cmd_lock);
 
-	if ((ret == 0) &&
-	    ((mask == IIO_CHAN_INFO_FREQUENCY) ||
-	     (mask == IIO_CHAN_INFO_SAMP_FREQ))) {
-		/*
-		 * Add a delay to allow the EC to flush older datum.
-		 * Assuming 1Mb link to the EC and 20 bytes per event, with 200
-		 * elements in the FIFO, we need 4ms. Add time for interrupt
-		 * handling and waking up requestor.
-		 */
-		usleep_range(10000, 15000);
-	}
 	return ret;
 }
 
