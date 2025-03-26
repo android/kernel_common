@@ -29,6 +29,11 @@ if [ $BUILD_FAMILY_NAME = "brya" ]; then
   exit 1
 fi
 
+# Add legacy_kernel to corsola output
+if [ $BUILD_FAMILY_NAME = "corsola" ]; then
+  OUTPUT=$OUTPUT/legacy_kernel
+fi
+
 # Determine the host architecture, and which default prebuilt tag we need.
 # For the toolchain auto-detection.
 #
