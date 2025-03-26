@@ -22,7 +22,7 @@ extern struct memblock_region pkvm_sym(hyp_memory)[];
 extern unsigned int pkvm_sym(hyp_memblock_nr);
 
 void *pkvm_phys_to_virt(unsigned long phys);
-unsigned long pkvm_virt_to_phys(void *virt);
+phys_addr_t pkvm_virt_to_phys(void *virt);
 
 #define __pkvm_pa(virt)	pkvm_virt_to_phys((void *)(virt))
 #define __pkvm_va(phys)	pkvm_phys_to_virt((unsigned long)(phys))

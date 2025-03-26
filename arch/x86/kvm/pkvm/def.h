@@ -29,7 +29,8 @@
 #undef CONFIG_PREEMPT_COUNT
 #define __NO_FORTIFY
 
-unsigned long pkvm_virt_to_phys(void *virt);
+#include <linux/types.h>
+phys_addr_t pkvm_virt_to_phys(void *virt);
 #undef __pa
 #define __pa(x) pkvm_virt_to_phys((void *)(x))
 

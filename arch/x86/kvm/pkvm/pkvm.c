@@ -96,6 +96,17 @@ out:
 	return pkvm_vm;
 }
 
+static void teardown_donated_memory(struct pkvm_memcache *mc, void *addr, size_t size)
+{
+	size = PAGE_ALIGN(size);
+	memset(addr, 0, size);
+
+	for (void *start = addr; start < addr + size; start += PAGE_SIZE)
+		push_pkvm_memcache(mc, start, pkvm_virt_to_host_gpa);
+
+	__pkvm_hyp_donate_host(pkvm_virt_to_phys(addr), size);
+}
+
 static int pkvm_vm_init(struct kvm *shared_kvm, unsigned long gpa)
 {
 	unsigned long pkvm_vm_pa;
@@ -154,7 +165,8 @@ static void pkvm_vm_destroy(int handle)
 	shared_pkvm = &pkvm_vm->shared_kvm->arch.pkvm;
 
 	kvm_arch_destroy_vm(to_kvm(pkvm_vm));
-	__pkvm_hyp_donate_host(__pkvm_pa(pkvm_vm), pkvm_vm->size);
+	teardown_donated_memory(&shared_pkvm->teardown_mc,
+				(void *)pkvm_vm, pkvm_vm->size);
 
 	/* TODO: unpin shared_kvm */
 }

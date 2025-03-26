@@ -35,7 +35,7 @@ void *pkvm_phys_to_virt(unsigned long phys)
 	return (void *)__page_base_offset + phys;
 }
 
-unsigned long pkvm_virt_to_phys(void *virt)
+phys_addr_t pkvm_virt_to_phys(void *virt)
 {
 	/* this api only take care direct & io mapping */
 	if ((unsigned long)virt < PKVM_IOVA_OFFSET)
@@ -96,6 +96,12 @@ unsigned long host_gpa2hpa(unsigned long gpa)
 {
 	/* Host VM is using identity mapping so GPA == HPA */
 	return gpa;
+}
+
+phys_addr_t pkvm_virt_to_host_gpa(void *virt)
+{
+	/* The same reason with host_gpa2hpa, which is GPA == HPA */
+	return pkvm_virt_to_phys(virt);
 }
 
 void *host_mmio2hva(unsigned long gpa)
