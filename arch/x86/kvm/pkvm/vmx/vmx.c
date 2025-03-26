@@ -4824,11 +4824,32 @@ static int handle_invpcid(struct kvm_vcpu *vcpu)
 	return 0;
 }
 
+#ifndef __PKVM_HYP__
 static int handle_pml_full(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
-	return 0;
+	unsigned long exit_qualification;
+
+	trace_kvm_pml_full(vcpu->vcpu_id);
+
+	exit_qualification = vmx_get_exit_qual(vcpu);
+
+	/*
+	 * PML buffer FULL happened while executing iret from NMI,
+	 * "blocked by NMI" bit has to be set before next VM entry.
+	 */
+	if (!(to_vmx(vcpu)->idt_vectoring_info & VECTORING_INFO_VALID_MASK) &&
+			enable_vnmi &&
+			(exit_qualification & INTR_INFO_UNBLOCK_NMI))
+		vmcs_set_bits(GUEST_INTERRUPTIBILITY_INFO,
+				GUEST_INTR_STATE_NMI);
+
+	/*
+	 * PML buffer already flushed at beginning of VMEXIT. Nothing to do
+	 * here.., and there's no userspace involvement needed for PML.
+	 */
+	return 1;
 }
+#endif
 
 static fastpath_t handle_fastpath_preemption_timer(struct kvm_vcpu *vcpu,
 						   bool force_immediate_exit)
@@ -4953,7 +4974,9 @@ static int (*kvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[EXIT_REASON_INVVPID]                 = handle_vmx_instruction,
 	[EXIT_REASON_RDRAND]                  = kvm_handle_invalid_op,
 	[EXIT_REASON_RDSEED]                  = kvm_handle_invalid_op,
+#ifndef __PKVM_HYP__
 	[EXIT_REASON_PML_FULL]		      = handle_pml_full,
+#endif
 	[EXIT_REASON_INVPCID]                 = handle_invpcid,
 	[EXIT_REASON_VMFUNC]		      = handle_vmx_instruction,
 	[EXIT_REASON_PREEMPTION_TIMER]	      = handle_preemption_timer,
@@ -7290,6 +7313,12 @@ int setup_vmx(void)
 	 * can avoid setting the virtual apic access page.
 	 */
 	flexpriority_enabled = 0;
+
+	/*
+	 * FIXME: Disable PML support in the pkvm hypervisor as implementation
+	 * to mark the dirty page.
+	 */
+	enable_pml = 0;
 
 	for_each_possible_cpu(cpu)
 		INIT_LIST_HEAD(&per_cpu(loaded_vmcss_on_cpu, cpu));
