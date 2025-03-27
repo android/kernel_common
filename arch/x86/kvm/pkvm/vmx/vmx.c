@@ -4469,8 +4469,12 @@ int vmx_interrupt_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 
 static int handle_machine_check(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
 	return 0;
+#else
+	/* handled by vmx_vcpu_run() */
+	return 1;
+#endif
 }
 
 static int handle_exception_nmi(struct kvm_vcpu *vcpu)
@@ -4663,13 +4667,20 @@ static int handle_exception_nmi(struct kvm_vcpu *vcpu)
 
 static __always_inline int handle_external_interrupt(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
 	return 0;
+#else
+	++vcpu->stat.irq_exits;
+	return 1;
+#endif
 }
 
 static int handle_triple_fault(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifndef __PKVM_HYP__
+	vcpu->run->exit_reason = KVM_EXIT_SHUTDOWN;
+	vcpu->mmio_needed = 0;
+#endif
 	return 0;
 }
 
@@ -4939,8 +4950,12 @@ void vmx_set_dr7(struct kvm_vcpu *vcpu, unsigned long val)
 
 static int handle_tpr_below_threshold(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
 	return 0;
+#else
+	kvm_apic_update_ppr(vcpu);
+	return 1;
+#endif
 }
 
 static int handle_interrupt_window(struct kvm_vcpu *vcpu)
@@ -5019,20 +5034,63 @@ static int handle_vmcall(struct kvm_vcpu *vcpu)
 
 static int handle_apic_access(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
 	return 0;
+#else
+	if (likely(fasteoi)) {
+		unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+		int access_type, offset;
+
+		access_type = exit_qualification & APIC_ACCESS_TYPE;
+		offset = exit_qualification & APIC_ACCESS_OFFSET;
+		/*
+		 * Sane guest uses MOV to write EOI, with written value
+		 * not cared. So make a short-circuit here by avoiding
+		 * heavy instruction emulation.
+		 */
+		if ((access_type == TYPE_LINEAR_APIC_INST_WRITE) &&
+		    (offset == APIC_EOI)) {
+			kvm_lapic_set_eoi(vcpu);
+			return kvm_skip_emulated_instruction(vcpu);
+		}
+	}
+	return kvm_emulate_instruction(vcpu, 0);
+#endif
 }
 
 static int handle_apic_eoi_induced(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
 	return 0;
+#else
+	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+	int vector = exit_qualification & 0xff;
+
+	/* EOI-induced VM exit is trap-like and thus no need to adjust IP */
+	kvm_apic_set_eoi_accelerated(vcpu, vector);
+	return 1;
+#endif
 }
 
 static int handle_apic_write(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
 	return 0;
+#else
+	unsigned long exit_qualification = vmx_get_exit_qual(vcpu);
+
+	/*
+	 * APIC-write VM-Exit is trap-like, KVM doesn't need to advance RIP and
+	 * hardware has done any necessary aliasing, offset adjustments, etc...
+	 * for the access.  I.e. the correct value has already been  written to
+	 * the vAPIC page for the correct 16-byte chunk.  KVM needs only to
+	 * retrieve the register value and emulate the access.
+	 */
+	u32 offset = exit_qualification & 0xff0;
+
+	kvm_apic_write_nodecode(vcpu, offset);
+	return 1;
+#endif
 }
 
 #ifndef __PKVM_HYP__
@@ -5369,8 +5427,18 @@ static fastpath_t handle_fastpath_preemption_timer(struct kvm_vcpu *vcpu,
 
 static int handle_preemption_timer(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
 	return 0;
+#else
+	/*
+	 * This non-fastpath handler is reached if and only if the preemption
+	 * timer was being used to emulate a guest timer while L2 is active.
+	 * All other scenarios are supposed to be handled in the fastpath.
+	 */
+	WARN_ON_ONCE(!is_guest_mode(vcpu));
+	kvm_lapic_expired_hv_timer(vcpu);
+	return 1;
+#endif
 }
 
 static int handle_vmx_instruction(struct kvm_vcpu *vcpu)
