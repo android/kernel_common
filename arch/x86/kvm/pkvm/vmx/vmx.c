@@ -7414,6 +7414,28 @@ static void vmx_sync_vcpu_state_post_switch(struct pkvm_vcpu *pkvm_vcpu)
 	if (pkvm_is_protected_vcpu(vcpu) &&
 	    pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu))
 		update_protected_vcpu_state(vcpu, shared_vcpu);
+
+	/*
+	 * FIXME: The MSR_IA32_XFD handling in vmx_set_msr is skipped as
+	 * currently the FPU switching is still managed by the host. So the
+	 * MSR_IA32_XFD emulation is forwarded to the host to handle. On behalf
+	 * of the host, updating the MSR interception and exeption bitmap before
+	 * entering the guest according to the xfd_no_write_intercept flag. This
+	 * should be removed once the XFD emulation can be done in the pkvm
+	 * hypervisor.
+	 */
+	if (unlikely(shared_vcpu->arch.xfd_no_write_intercept ^
+		     vcpu->arch.xfd_no_write_intercept)) {
+		vcpu->arch.xfd_no_write_intercept =
+			shared_vcpu->arch.xfd_no_write_intercept;
+		if (shared_vcpu->arch.xfd_no_write_intercept)
+			vmx_disable_intercept_for_msr(vcpu, MSR_IA32_XFD,
+						      MSR_TYPE_RW);
+		else
+			vmx_enable_intercept_for_msr(vcpu, MSR_IA32_XFD,
+						     MSR_TYPE_RW);
+		vmx_update_exception_bitmap(vcpu);
+	}
 }
 
 static void share_protected_vcpu_state(struct kvm_vcpu *vcpu,

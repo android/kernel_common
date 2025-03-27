@@ -500,6 +500,8 @@ static int pkvm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 
 static int pkvm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 {
+	int ret;
+
 	/* Use PV interface to set the MSR emulated by the pkvm hypervisor */
 	if (pkvm_hyp_emulated_msr(msr_info->index)) {
 		if (!vcpu->arch.guest_state_protected) {
@@ -517,7 +519,20 @@ static int pkvm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	}
 
 	/* Otherwise handle by the host VMM itself */
-	return kvm_set_msr_common(vcpu, msr_info);
+	ret = kvm_set_msr_common(vcpu, msr_info);
+	if (ret)
+		return ret;
+
+	/*
+	 * FIXME: The pkvm hypervisor will disable the write intercept for the
+	 * XFD MSR. But as the FPU switching is done by the host, has to set the
+	 * xfd_no_write_intercept here. Once the FPU switching can be done in
+	 * the pkvm hypervisor, this can be removed.
+	 */
+	if (msr_info->index == MSR_IA32_XFD && msr_info->data)
+		vcpu->arch.xfd_no_write_intercept = true;
+
+	return 0;
 }
 
 static u64 pkvm_get_segment_base(struct kvm_vcpu *vcpu, int seg)
