@@ -4470,8 +4470,190 @@ static int handle_machine_check(struct kvm_vcpu *vcpu)
 
 static int handle_exception_nmi(struct kvm_vcpu *vcpu)
 {
-	/* TODO */
+#ifdef __PKVM_HYP__
+	u32 intr_info = vmx_get_intr_info(vcpu);
+
+	/*
+	 * Queue #NM exception in the pkvm hypervisor. Still needs going back to
+	 * the host for handle_nm_fault_irqoff() to complete the #NM exception
+	 * emulation by saving the XFD error.
+	 */
+	if (is_nm_fault(intr_info))
+		kvm_queue_exception(vcpu, NM_VECTOR);
+
 	return 0;
+#else
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct kvm_run *kvm_run = vcpu->run;
+	u32 intr_info, ex_no, error_code;
+	unsigned long cr2, dr6;
+	u32 vect_info;
+
+	vect_info = vmx->idt_vectoring_info;
+	intr_info = vmx_get_intr_info(vcpu);
+
+	/*
+	 * Machine checks are handled by handle_exception_irqoff(), or by
+	 * vmx_vcpu_run() if a #MC occurs on VM-Entry.  NMIs are handled by
+	 * vmx_vcpu_enter_exit().
+	 */
+	if (is_machine_check(intr_info) || is_nmi(intr_info))
+		return 1;
+
+	/*
+	 * Queue the exception here instead of in handle_nm_fault_irqoff().
+	 * This ensures the nested_vmx check is not skipped so vmexit can
+	 * be reflected to L1 (when it intercepts #NM) before reaching this
+	 * point.
+	 */
+	if (is_nm_fault(intr_info)) {
+		kvm_queue_exception(vcpu, NM_VECTOR);
+		return 1;
+	}
+
+	if (is_invalid_opcode(intr_info))
+		return handle_ud(vcpu);
+
+	if (WARN_ON_ONCE(is_ve_fault(intr_info))) {
+		struct vmx_ve_information *ve_info = vmx->ve_info;
+
+		WARN_ONCE(ve_info->exit_reason != EXIT_REASON_EPT_VIOLATION,
+			  "Unexpected #VE on VM-Exit reason 0x%x", ve_info->exit_reason);
+		dump_vmcs(vcpu);
+		kvm_mmu_print_sptes(vcpu, ve_info->guest_physical_address, "#VE");
+		return 1;
+	}
+
+	error_code = 0;
+	if (intr_info & INTR_INFO_DELIVER_CODE_MASK)
+		error_code = vmcs_read32(VM_EXIT_INTR_ERROR_CODE);
+
+	if (!vmx->rmode.vm86_active && is_gp_fault(intr_info)) {
+		WARN_ON_ONCE(!enable_vmware_backdoor);
+
+		/*
+		 * VMware backdoor emulation on #GP interception only handles
+		 * IN{S}, OUT{S}, and RDPMC, none of which generate a non-zero
+		 * error code on #GP.
+		 */
+		if (error_code) {
+			kvm_queue_exception_e(vcpu, GP_VECTOR, error_code);
+			return 1;
+		}
+		return kvm_emulate_instruction(vcpu, EMULTYPE_VMWARE_GP);
+	}
+
+	/*
+	 * The #PF with PFEC.RSVD = 1 indicates the guest is accessing
+	 * MMIO, it is better to report an internal error.
+	 * See the comments in vmx_handle_exit.
+	 */
+	if ((vect_info & VECTORING_INFO_VALID_MASK) &&
+	    !(is_page_fault(intr_info) && !(error_code & PFERR_RSVD_MASK))) {
+		vcpu->run->exit_reason = KVM_EXIT_INTERNAL_ERROR;
+		vcpu->run->internal.suberror = KVM_INTERNAL_ERROR_SIMUL_EX;
+		vcpu->run->internal.ndata = 4;
+		vcpu->run->internal.data[0] = vect_info;
+		vcpu->run->internal.data[1] = intr_info;
+		vcpu->run->internal.data[2] = error_code;
+		vcpu->run->internal.data[3] = vcpu->arch.last_vmentry_cpu;
+		return 0;
+	}
+
+	if (is_page_fault(intr_info)) {
+		cr2 = vmx_get_exit_qual(vcpu);
+		if (enable_ept && !vcpu->arch.apf.host_apf_flags) {
+			/*
+			 * EPT will cause page fault only if we need to
+			 * detect illegal GPAs.
+			 */
+			WARN_ON_ONCE(!allow_smaller_maxphyaddr);
+			kvm_fixup_and_inject_pf_error(vcpu, cr2, error_code);
+			return 1;
+		} else
+			return kvm_handle_page_fault(vcpu, error_code, cr2, NULL, 0);
+	}
+
+	ex_no = intr_info & INTR_INFO_VECTOR_MASK;
+
+	if (vmx->rmode.vm86_active && rmode_exception(vcpu, ex_no))
+		return handle_rmode_exception(vcpu, ex_no, error_code);
+
+	switch (ex_no) {
+	case DB_VECTOR:
+		dr6 = vmx_get_exit_qual(vcpu);
+		if (!(vcpu->guest_debug &
+		      (KVM_GUESTDBG_SINGLESTEP | KVM_GUESTDBG_USE_HW_BP))) {
+			/*
+			 * If the #DB was due to ICEBP, a.k.a. INT1, skip the
+			 * instruction.  ICEBP generates a trap-like #DB, but
+			 * despite its interception control being tied to #DB,
+			 * is an instruction intercept, i.e. the VM-Exit occurs
+			 * on the ICEBP itself.  Use the inner "skip" helper to
+			 * avoid single-step #DB and MTF updates, as ICEBP is
+			 * higher priority.  Note, skipping ICEBP still clears
+			 * STI and MOVSS blocking.
+			 *
+			 * For all other #DBs, set vmcs.PENDING_DBG_EXCEPTIONS.BS
+			 * if single-step is enabled in RFLAGS and STI or MOVSS
+			 * blocking is active, as the CPU doesn't set the bit
+			 * on VM-Exit due to #DB interception.  VM-Entry has a
+			 * consistency check that a single-step #DB is pending
+			 * in this scenario as the previous instruction cannot
+			 * have toggled RFLAGS.TF 0=>1 (because STI and POP/MOV
+			 * don't modify RFLAGS), therefore the one instruction
+			 * delay when activating single-step breakpoints must
+			 * have already expired.  Note, the CPU sets/clears BS
+			 * as appropriate for all other VM-Exits types.
+			 */
+			if (is_icebp(intr_info))
+				WARN_ON(!skip_emulated_instruction(vcpu));
+			else if ((vmx_get_rflags(vcpu) & X86_EFLAGS_TF) &&
+				 (vmcs_read32(GUEST_INTERRUPTIBILITY_INFO) &
+				  (GUEST_INTR_STATE_STI | GUEST_INTR_STATE_MOV_SS)))
+				vmcs_writel(GUEST_PENDING_DBG_EXCEPTIONS,
+					    vmcs_readl(GUEST_PENDING_DBG_EXCEPTIONS) | DR6_BS);
+
+			kvm_queue_exception_p(vcpu, DB_VECTOR, dr6);
+			return 1;
+		}
+		kvm_run->debug.arch.dr6 = dr6 | DR6_ACTIVE_LOW;
+		kvm_run->debug.arch.dr7 = vmcs_readl(GUEST_DR7);
+		fallthrough;
+	case BP_VECTOR:
+		/*
+		 * Update instruction length as we may reinject #BP from
+		 * user space while in guest debugging mode. Reading it for
+		 * #DB as well causes no harm, it is not used in that case.
+		 */
+		vmx->vcpu.arch.event_exit_inst_len =
+			vmcs_read32(VM_EXIT_INSTRUCTION_LEN);
+		kvm_run->exit_reason = KVM_EXIT_DEBUG;
+		kvm_run->debug.arch.pc = kvm_get_linear_rip(vcpu);
+		kvm_run->debug.arch.exception = ex_no;
+		break;
+	case AC_VECTOR:
+		if (vmx_guest_inject_ac(vcpu)) {
+			kvm_queue_exception_e(vcpu, AC_VECTOR, error_code);
+			return 1;
+		}
+
+		/*
+		 * Handle split lock. Depending on detection mode this will
+		 * either warn and disable split lock detection for this
+		 * task or force SIGBUS on it.
+		 */
+		if (handle_guest_split_lock(kvm_rip_read(vcpu)))
+			return 1;
+		fallthrough;
+	default:
+		kvm_run->exit_reason = KVM_EXIT_EXCEPTION;
+		kvm_run->ex.exception = ex_no;
+		kvm_run->ex.error_code = error_code;
+		break;
+	}
+	return 0;
+#endif
 }
 
 static __always_inline int handle_external_interrupt(struct kvm_vcpu *vcpu)
