@@ -6576,16 +6576,6 @@ static void vmx_switch_to_guest_vcpu(struct kvm_vcpu *vcpu)
 	vmx->vcpu.arch.pat = shared_vmx->vcpu.arch.pat;
 	vmx->vcpu.arch.xcr0 = shared_vmx->vcpu.arch.xcr0;
 
-	memcpy(&vmx->vcpu.arch.exception, &shared_vmx->vcpu.arch.exception,
-	       sizeof(struct kvm_queued_exception));
-	memcpy(&vmx->vcpu.arch.interrupt, &shared_vmx->vcpu.arch.interrupt,
-	       sizeof(struct kvm_queued_interrupt));
-	vmx->vmcs01.soft_vnmi_blocked = shared_vmx->vmcs01.soft_vnmi_blocked;
-	vmx->vmcs01.vnmi_blocked_time = shared_vmx->vmcs01.vnmi_blocked_time;
-	vmx->vmcs01.nmi_known_unmasked = shared_vmx->vmcs01.nmi_known_unmasked;
-	vmx->vcpu.arch.nmi_injected = shared_vmx->vcpu.arch.nmi_injected;
-	vmx->vcpu.arch.nmi_pending = shared_vmx->vcpu.arch.nmi_pending;
-
 	/* Guest vcpu is not loaded, no need to switch */
 	if (vmx->loaded_vmcs->cpu == -1)
 		return;
@@ -6648,16 +6638,6 @@ static void vmx_switch_to_host_vcpu(struct kvm_vcpu *vcpu)
 	shared_vmx->idt_vectoring_info = vmx->idt_vectoring_info;
 	vmx_get_intr_info(&shared_vmx->vcpu);
 	vmx_get_exit_qual(&shared_vmx->vcpu);
-
-	memcpy(&shared_vmx->vcpu.arch.exception, &vmx->vcpu.arch.exception,
-	       sizeof(struct kvm_queued_exception));
-	memcpy(&shared_vmx->vcpu.arch.interrupt, &vmx->vcpu.arch.interrupt,
-	       sizeof(struct kvm_queued_interrupt));
-	shared_vmx->vmcs01.soft_vnmi_blocked = vmx->vmcs01.soft_vnmi_blocked;
-	shared_vmx->vmcs01.vnmi_blocked_time = vmx->vmcs01.vnmi_blocked_time;
-	shared_vmx->vmcs01.nmi_known_unmasked = vmx->vmcs01.nmi_known_unmasked;
-	shared_vmx->vcpu.arch.nmi_injected = vmx->vcpu.arch.nmi_injected;
-	shared_vmx->vcpu.arch.nmi_pending = vmx->vcpu.arch.nmi_pending;
 
 	if (vmx->loaded_vmcs->cpu == cpu) {
 		vmcs_load(vmx->loaded_vmcs->vmcs);
