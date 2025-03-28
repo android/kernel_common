@@ -2518,13 +2518,7 @@ void free_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
 	loaded_vmcs->vmcs = NULL;
 	if (loaded_vmcs->msr_bitmap)
 #ifdef __PKVM_HYP__
-	{
-		/*
-		 * TODO undoate msr_bitmap page
 		__pkvm_hyp_donate_host(__pkvm_pa(loaded_vmcs->msr_bitmap), PAGE_SIZE);
-		 */
-		;
-	}
 #else
 		free_page((unsigned long)loaded_vmcs->msr_bitmap);
 #endif
@@ -2565,15 +2559,11 @@ int alloc_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
 		if (!loaded_vmcs->msr_bitmap)
 			goto out_vmcs;
 #ifdef __PKVM_HYP__
-		/*
-		 * TODO: donate msr_bitmap. Cannot do this right now as the linux
-		 * host may still need to access msr_bitmap.
 		if (__pkvm_host_donate_hyp(__pkvm_pa(loaded_vmcs->msr_bitmap),
 					   PAGE_SIZE)) {
 			loaded_vmcs->msr_bitmap = NULL;
 			goto out_vmcs;
 		}
-		 */
 #endif
 		memset(loaded_vmcs->msr_bitmap, 0xff, PAGE_SIZE);
 	}
@@ -5743,10 +5733,7 @@ static void vmx_destroy_pml_buffer(struct vcpu_vmx *vmx)
 {
 	if (vmx->pml_pg) {
 #ifdef __PKVM_HYP__
-		/*
-		 * TODO: undoate pml_pg.
 		__pkvm_hyp_donate_host(__pkvm_pa(vmx->pml_pg), PAGE_SIZE);
-		 */
 #else
 		free_page((unsigned long)vmx->pml_pg);
 #endif
@@ -5758,10 +5745,7 @@ static void vmx_destroy_ve(struct vcpu_vmx *vmx)
 {
 	if (vmx->ve_info) {
 #ifdef __PKVM_HYP__
-		/*
-		 * TODO: undoate ve_info page
 		__pkvm_hyp_donate_host(__pkvm_pa(vmx->ve_info), PAGE_SIZE);
-		 */
 #else
 		free_page((unsigned long)vmx->ve_info);
 #endif
@@ -6885,12 +6869,8 @@ int vmx_vcpu_create(struct kvm_vcpu *vcpu)
 	if (enable_pml) {
 #ifdef __PKVM_HYP__
 		vmx->pml_pg = kern_pkvm_va(shared_vmx->pml_pg);
-		/*
-		 * TODO: donate pml_pg. Cannot do this right now as the linux
-		 * host may still need to access pml page.
-		 */
-		if (!vmx->pml_pg/*||
-			__pkvm_host_donate_hyp(__pkvm_pa(vmx->pml_pg), PAGE_SIZE)*/)
+		if (!vmx->pml_pg ||
+		    __pkvm_host_donate_hyp(__pkvm_pa(vmx->pml_pg), PAGE_SIZE))
 			goto free_vpid;
 #else
 		page = alloc_page(GFP_KERNEL_ACCOUNT | __GFP_ZERO);
@@ -6986,11 +6966,8 @@ int vmx_vcpu_create(struct kvm_vcpu *vcpu)
 		BUILD_BUG_ON(sizeof(*vmx->ve_info) > PAGE_SIZE);
 #ifdef __PKVM_HYP__
 		vmx->ve_info = kern_pkvm_va(shared_vmx->ve_info);
-		/*
-		 * TODO: donate ve_info. Cannot do this right now as the linux
-		 * host may still need to access ve_info page.
-		 */
-		if (!vmx->ve_info /*|| __pkvm_host_donate_hyp(__pkvm_pa(vmx->ve_info), PAGE_SIZE)*/)
+		if (!vmx->ve_info ||
+		    __pkvm_host_donate_hyp(__pkvm_pa(vmx->ve_info), PAGE_SIZE))
 			goto free_vmcs;
 #else
 		/* ve_info must be page aligned. */
