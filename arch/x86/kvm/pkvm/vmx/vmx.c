@@ -15,7 +15,6 @@
 #include <pkvm/pkvm.h>
 #include <vmx/pkvm/hyp/pkvm_hyp.h>
 #include <vmx/pkvm/hyp/mem_protect.h>
-#include <vmx/pkvm/hyp/nested.h>
 #include <vmx/pkvm/hyp/ept.h>
 #include <vmx/hyperv.h>
 #include <kvm_onhyperv.h>
@@ -7700,43 +7699,14 @@ static void vmx_switch_to_guest_vcpu(struct kvm_vcpu *vcpu)
 	if (WARN_ON_ONCE(vmx->loaded_vmcs->cpu != cpu))
 		return;
 
-	/*
-	 * The VMX emulate-based method is still in use. Make sure
-	 * the guest VMCS shadow indicator is cleared before loading it.
-	 */
-	vmx->loaded_vmcs->vmcs->hdr.shadow_vmcs = 0;
 	/* Load guest vmcs */
 	vmcs_load(vmx->loaded_vmcs->vmcs);
-
-	/* Sync the vmcs12 to vmcs02 to satisfy the VMX emulate-based method */
-	pkvm_sync_emulated_fields_vmcs12to02(vcpu);
 }
 
 static void vmx_switch_to_host_vcpu(struct kvm_vcpu *vcpu)
 {
-	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	int cpu = raw_smp_processor_id();
-
-	if (vmx->loaded_vmcs->cpu == cpu) {
-		vmcs_load(vmx->loaded_vmcs->vmcs);
-		/*
-		 * In pair with vmx_switch_to_guest_vcpu, sync vmcs02 to vmcs12
-		 * to make sure the right value can be write back to the vmcs02
-		 * when calls pkvm_sync_emulated_fields_vmcs12to02.
-		 */
-		pkvm_sync_emulated_fields_vmcs02to12(vcpu);
-
-		/*
-		 * The VMX emulate-based method is still in use, which requires
-		 * to launch the guest VMCS and set the shadow indicator.
-		 */
-		vmcs_clear(vmx->loaded_vmcs->vmcs);
-		vmx->loaded_vmcs->launched = 0;
-		vmx->loaded_vmcs->vmcs->hdr.shadow_vmcs = 1;
-	}
-
 	/* Load host vmcs */
-	vmcs_load(to_vmx(this_cpu_read(host_vcpu))->vmcs01.vmcs);
+	vmcs_load(to_vmx(vcpu)->vmcs01.vmcs);
 }
 
 static void update_protected_vcpu_state(struct kvm_vcpu *vcpu,
