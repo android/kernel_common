@@ -2417,23 +2417,7 @@ int vmx_check_processor_compat(void)
 
 int vmx_enable_virtualization_cpu(void)
 {
-#ifdef __PKVM_HYP__
-	struct vcpu_vmx *vmx = to_vmx(this_cpu_read(host_vcpu));
-
-	/*
-	 * FIXME: As currently the PV ABIs are not fully functional, the
-	 * emulation method is still required. Once PV ABIs are ready then these
-	 * can reimplemented.
-	 */
-	if (vmx->nested.vmxon)
-		return -EAGAIN;
-
-	vmx->nested.current_vmptr = INVALID_GPA;
-	vmx->nested.dirty_vmcs12 = false;
-	vmx->nested.vmxon = true;
-
-	return 0;
-#else
+#ifndef __PKVM_HYP__
 	int cpu = raw_smp_processor_id();
 	u64 phys_addr = __pa(per_cpu(vmxarea, cpu));
 	int r;
@@ -2455,9 +2439,9 @@ int vmx_enable_virtualization_cpu(void)
 		intel_pt_handle_vmx(0);
 		return r;
 	}
+#endif
 
 	return 0;
-#endif
 }
 
 static void vmclear_local_loaded_vmcss(void)
@@ -2472,20 +2456,9 @@ static void vmclear_local_loaded_vmcss(void)
 
 void vmx_disable_virtualization_cpu(void)
 {
-#ifdef __PKVM_HYP__
-	struct vcpu_vmx *vmx = to_vmx(this_cpu_read(host_vcpu));
-
 	vmclear_local_loaded_vmcss();
 
-	/*
-	 * FIXME: As currently the PV ABIs are not fully functional, the
-	 * emulation method is still required. Once PV ABIs are ready then these
-	 * can reimplemented.
-	 */
-	vmx->nested.current_vmptr = INVALID_GPA;
-	vmx->nested.dirty_vmcs12 = false;
-	vmx->nested.vmxon = false;
-#else
+#ifndef __PKVM_HYP__
 	vmclear_local_loaded_vmcss();
 
 	if (kvm_cpu_vmxoff())
