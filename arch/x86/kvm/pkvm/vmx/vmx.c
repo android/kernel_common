@@ -1236,8 +1236,6 @@ void vmx_vcpu_put(struct kvm_vcpu *vcpu)
 			WARN_ON_ONCE(vmx->loaded_vmcs->cpu != cpu))
 		return;
 
-	/* In pair with pkvm_nested_load_vmcs02 in vcpu_load. */
-	pkvm_nested_release_vmcs(vcpu);
 	__loaded_vmcs_clear(vmx->loaded_vmcs);
 #else
 	vmx_vcpu_pi_put(vcpu);
