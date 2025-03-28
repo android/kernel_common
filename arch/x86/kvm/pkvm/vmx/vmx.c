@@ -4493,7 +4493,6 @@ int vmx_vcpu_pre_run(struct kvm_vcpu *vcpu)
 			shadow_vcpu->pvmfw_entry_pending = false;
 		}
 	}
-	pkvm_update_host_rip(vcpu);
 #endif
 
 	return 1;
