@@ -1147,31 +1147,11 @@ static bool update_transition_efer(struct vcpu_vmx *vmx)
 	    (enable_ept && ((vmx->vcpu.arch.efer ^ kvm_host.efer) & EFER_NX))) {
 		if (!(guest_efer & EFER_LMA))
 			guest_efer &= ~EFER_LME;
-#if IS_ENABLED(CONFIG_PKVM_INTEL)
-		if (enable_pkvm) {
-			/*
-			 * FIXME:
-			 * Always do atomic switch when pkvm enabled as the
-			 * kvm_host is just for the host VMM which runs as a
-			 * VM, not the real hypervisor. After implementing
-			 * vmx_set_efer in pkvm, this can be reverted.
-			 */
-			add_atomic_switch_msr(vmx, MSR_EFER,
-					      guest_efer, kvm_host.efer, false);
-		} else {
-			if (guest_efer != kvm_host.efer)
-				add_atomic_switch_msr(vmx, MSR_EFER,
-						      guest_efer, kvm_host.efer, false);
-			else
-				clear_atomic_switch_msr(vmx, MSR_EFER);
-		}
-#else
 		if (guest_efer != kvm_host.efer)
 			add_atomic_switch_msr(vmx, MSR_EFER,
 					      guest_efer, kvm_host.efer, false);
 		else
 			clear_atomic_switch_msr(vmx, MSR_EFER);
-#endif
 		return false;
 	}
 
