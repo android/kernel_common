@@ -2713,7 +2713,7 @@ static int intel_pstate_init_cpu(unsigned int cpunum)
 	}
 
 	cpu->epp_powersave = -EINVAL;
-	cpu->epp_policy = 0;
+	cpu->epp_policy = CPUFREQ_POLICY_UNKNOWN;
 
 	intel_pstate_get_cpu_pstates(cpu);
 
@@ -3675,7 +3675,6 @@ static const struct x86_cpu_id intel_hybrid_scaling_factor[] = {
 	X86_MATCH_VFM(INTEL_RAPTORLAKE_P, HYBRID_SCALING_FACTOR_ADL),
 	X86_MATCH_VFM(INTEL_RAPTORLAKE_S, HYBRID_SCALING_FACTOR_ADL),
 	X86_MATCH_VFM(INTEL_METEORLAKE_L, HYBRID_SCALING_FACTOR_MTL),
-	X86_MATCH_VFM(INTEL_ARROWLAKE, HYBRID_SCALING_FACTOR_MTL),
 	X86_MATCH_VFM(INTEL_LUNARLAKE_M, HYBRID_SCALING_FACTOR_LNL),
 	{}
 };
