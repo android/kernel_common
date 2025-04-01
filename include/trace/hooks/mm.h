@@ -124,6 +124,9 @@ DECLARE_HOOK(android_vh_process_madvise_begin,
 DECLARE_HOOK(android_vh_process_madvise_iter,
 	TP_PROTO(struct task_struct *task, int behavior, ssize_t *ret),
 	TP_ARGS(task, behavior, ret));
+DECLARE_RESTRICTED_HOOK(android_rvh_do_read_fault,
+	TP_PROTO(struct vm_fault *vmf, unsigned long *fault_around_pages),
+	TP_ARGS(vmf, fault_around_pages), 1);
 DECLARE_HOOK(android_vh_rmqueue,
 	TP_PROTO(struct zone *preferred_zone, struct zone *zone,
 		unsigned int order, gfp_t gfp_flags,
