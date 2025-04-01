@@ -350,6 +350,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tcp_update_rtt);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sk_alloc);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_sk_free);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_enable_thermal_genl_check);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_thermal_pm_notify_suspend);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alloc_pages_entry);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_watermark_fast_ok);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_count_workingset_refault);
