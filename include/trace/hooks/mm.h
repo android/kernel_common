@@ -384,6 +384,9 @@ DECLARE_HOOK(android_vh_adjust_kvmalloc_flags,
 DECLARE_HOOK(android_vh_customize_alloc_gfp,
 	TP_PROTO(gfp_t *alloc_gfp, unsigned int order),
 	TP_ARGS(alloc_gfp, order));
+DECLARE_HOOK(android_vh_mm_kcompactd_cpu_online,
+	TP_PROTO(int cpu),
+	TP_ARGS(cpu));
 
 #endif /* _TRACE_HOOK_MM_H */
 
