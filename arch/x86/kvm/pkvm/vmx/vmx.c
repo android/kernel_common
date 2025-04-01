@@ -4078,6 +4078,9 @@ static void init_vmcs(struct vcpu_vmx *vmx)
 		tertiary_exec_controls_set(vmx, vmx_tertiary_exec_control(vmx));
 
 	if (enable_apicv && lapic_in_kernel(&vmx->vcpu)) {
+#ifdef __PKVM_HYP__
+		struct vcpu_vmx *shared_vmx = to_vmx(to_pkvm_vcpu(&vmx->vcpu)->shared_vcpu);
+#endif
 		vmcs_write64(EOI_EXIT_BITMAP0, 0);
 		vmcs_write64(EOI_EXIT_BITMAP1, 0);
 		vmcs_write64(EOI_EXIT_BITMAP2, 0);
@@ -4086,7 +4089,17 @@ static void init_vmcs(struct vcpu_vmx *vmx)
 		vmcs_write16(GUEST_INTR_STATUS, 0);
 
 		vmcs_write16(POSTED_INTR_NV, POSTED_INTR_VECTOR);
+#ifdef __PKVM_HYP__
+		/*
+		 * The pkvm hypervisor still needs to use the pi_desc from the
+		 * shared vmx in the host to set the POSTED_INTR_DESC_ADDR as
+		 * the host will post the virtual interrupt to the guest via its
+		 * pi_desc.
+		 */
+		vmcs_write64(POSTED_INTR_DESC_ADDR, __pa(kern_pkvm_va(&shared_vmx->pi_desc)));
+#else
 		vmcs_write64(POSTED_INTR_DESC_ADDR, __pa((&vmx->pi_desc)));
+#endif
 	}
 
 	if (vmx_can_use_ipiv(&vmx->vcpu)) {
