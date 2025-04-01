@@ -256,6 +256,7 @@
   out_of_line_wait_on_bit_lock
   override_creds
   pagecache_get_page
+  pm_wakeup_irq
   posix_lock_file
   posix_test_lock
   prepare_kernel_cred
