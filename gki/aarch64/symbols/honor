@@ -16,6 +16,10 @@
   __tracepoint_android_rvh_cpuinfo_c_show
   __traceiter_signal_generate
   __tracepoint_signal_generate
+  __traceiter_android_rvh_do_el1_bti
+  __tracepoint_android_rvh_do_el1_bti
+  __traceiter_android_rvh_panic_unhandled
+  __tracepoint_android_rvh_panic_unhandled
   __traceiter_android_vh_add_lazyfree_bypass
   __tracepoint_android_vh_add_lazyfree_bypass
   netdev_get_name
