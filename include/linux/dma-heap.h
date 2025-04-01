@@ -107,8 +107,8 @@ void dma_heap_buffer_free(struct dma_buf *);
  * @heap_flags:	flags to pass to the dma heap
  */
 int dma_heap_bufferfd_alloc(struct dma_heap *heap, size_t len,
-			    unsigned int fd_flags,
-			    unsigned int heap_flags);
+			    u32 fd_flags,
+			    u64 heap_flags);
 
 /**
  * dma_heap_try_get_pool_size_kb - Returns total dma-heap pool size in kb
