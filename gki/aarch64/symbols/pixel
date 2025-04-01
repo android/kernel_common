@@ -608,6 +608,7 @@
   __do_once_done
   __do_once_start
   do_SAK
+  do_send_sig_info
   do_trace_netlink_extack
   do_wait_intr_irq
   down
@@ -617,6 +618,7 @@
   down_read_trylock
   down_trylock
   down_write
+  d_path
   dput
   drain_workqueue
   driver_find_device
@@ -1023,6 +1025,7 @@
   get_random_u32
   __get_random_u32_below
   get_random_u8
+  get_reclaim_params
   get_sg_io_hdr
   __get_task_comm
   get_unused_fd_flags
@@ -1663,6 +1666,7 @@
   of_reserved_mem_lookup
   of_root
   of_usb_host_tpl_support
+  __oom_reap_task_mm
   oops_in_progress
   __page_frag_alloc_align
   __page_frag_cache_drain
@@ -2083,6 +2087,7 @@
   sched_show_task
   schedule
   schedule_timeout
+  schedule_timeout_idle
   schedule_timeout_interruptible
   scnprintf
   scsi_alloc_request
@@ -2121,6 +2126,7 @@
   set_page_dirty
   set_page_dirty_lock
   __SetPageMovable
+  set_reclaim_params
   set_user_nice
   sg_alloc_table
   sg_alloc_table_from_pages_segment
@@ -2444,6 +2450,7 @@
   trace_event_raw_init
   trace_event_reg
   trace_handle_return
+  __traceiter_android_rvh_do_read_fault
   __traceiter_android_rvh_iommu_alloc_insert_iova
   __traceiter_android_rvh_iommu_iovad_init_alloc_algo
   __traceiter_android_rvh_iommu_limit_align_shift
@@ -2497,6 +2504,7 @@
   __traceiter_workqueue_execute_end
   __traceiter_workqueue_execute_start
   trace_output_call
+  __tracepoint_android_rvh_do_read_fault
   __tracepoint_android_rvh_iommu_alloc_insert_iova
   __tracepoint_android_rvh_iommu_iovad_init_alloc_algo
   __tracepoint_android_rvh_iommu_limit_align_shift
@@ -2784,6 +2792,7 @@
   vm_node_stat
   vm_unmapped_area
   vm_unmap_ram
+  vm_zone_stat
   vprintk
   vprintk_emit
   vring_del_virtqueue
