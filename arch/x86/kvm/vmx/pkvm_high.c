@@ -899,8 +899,20 @@ static void pkvm_vcpu_free(struct kvm_vcpu *vcpu)
 
 static void pkvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 {
+	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
 	if (!vcpu->arch.guest_state_protected)
 		kvm_call_pkvm(vcpu_reset, vcpu, init_event);
+
+	/*
+	 * The host response to inject interrupts to the guest. The pi_desc is
+	 * the key structure for the host to inject interrupts via the posted
+	 * interrupt mechanism. Its physical address is used for the
+	 * POSTED_INTR_DESC_ADDR in the VMCS by the pkvm hypervisor. Initialize
+	 * the pi_desc when reset vcpu.
+	 */
+	vmx->pi_desc.nv = POSTED_INTR_VECTOR;
+	__pi_set_sn(&vmx->pi_desc);
 
 	/*
 	 * The CR0/CR4 guest-owned/rsvd bits are controlled by the pkvm
