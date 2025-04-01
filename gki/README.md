@@ -6,9 +6,6 @@ The path names here are intended to be concise and unambiguous.
 gki
 |-- README.md
 |-- aarch64
-|   |-- defconfig
-|   |   |-- allmodconfig
-|   |   +-- ...
 |   |-- symbols
 |   |   |-- base
 |   |   |-- virtual_device
@@ -24,8 +21,6 @@ The `gki` directory has one subdirectory per
 [Kleaf](https://android.googlesource.com/kernel/build/+/refs/heads/main/kleaf/README.md)
 architecture. Within each such subdirectory:
 
-* `defconfig` - contains fragments for Kleaf builds
-   * `allmodconfig` - post-defconfig allmodconfig fragment
 * `symbols` - contains symbol list files
    * `base` - a short list of symbols that are essential for ABI safety
    * `$partner` - a symbol list file for a specific partner
