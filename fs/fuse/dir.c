@@ -333,7 +333,7 @@ static struct vfsmount *fuse_dentry_automount(struct path *path)
  * look up paths on its own. Instead, we handle the lookup as a special case
  * inside of the write request.
  */
-static int fuse_dentry_canonical_path(const struct path *path,
+static void fuse_dentry_canonical_path(const struct path *path,
 				       struct path *canonical_path)
 {
 	struct inode *inode = d_inode(path->dentry);
@@ -343,12 +343,9 @@ static int fuse_dentry_canonical_path(const struct path *path,
 	char *path_name;
 	int err;
 
-	if (fm->fc->no_dentry_canonical_path)
-		goto out;
-
 	path_name = (char *)get_zeroed_page(GFP_KERNEL);
 	if (!path_name)
-		return -ENOMEM;
+		goto default_path;
 
 	args.opcode = FUSE_CANONICAL_PATH;
 	args.nodeid = get_node_id(inode);
@@ -362,18 +359,11 @@ static int fuse_dentry_canonical_path(const struct path *path,
 	err = fuse_simple_request(fm, &args);
 	free_page((unsigned long)path_name);
 	if (err > 0)
-		return 0;
-	if (err < 0 && err != -ENOSYS)
-		return err;
-
-	if (err == -ENOSYS)
-		fm->fc->no_dentry_canonical_path = 1;
-
-out:
+		return;
+default_path:
 	canonical_path->dentry = path->dentry;
 	canonical_path->mnt = path->mnt;
 	path_get(canonical_path);
-	return 0;
 }
 
 const struct dentry_operations fuse_dentry_operations = {
