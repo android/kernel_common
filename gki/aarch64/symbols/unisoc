@@ -125,6 +125,8 @@
   __traceiter_android_vh_cpufreq_target
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
+  __traceiter_android_vh_direct_reclaim_begin
+  __traceiter_android_vh_direct_reclaim_end
   __traceiter_android_vh_dup_task_struct
   __traceiter_android_vh_ftrace_dump_buffer
   __traceiter_android_vh_ftrace_format_check
@@ -198,6 +200,8 @@
   __tracepoint_android_vh_cpufreq_target
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
+  __tracepoint_android_vh_direct_reclaim_begin
+  __tracepoint_android_vh_direct_reclaim_end
   __tracepoint_android_vh_dup_task_struct
   __tracepoint_android_vh_ftrace_dump_buffer
   __tracepoint_android_vh_ftrace_format_check
