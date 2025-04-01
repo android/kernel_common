@@ -283,6 +283,7 @@
   super_setup_bdi
   tcp_sock_set_cork
   tcp_sock_set_nodelay
+  tcp_sync_mss
   timestamp_truncate
   truncate_inode_pages_final
   truncate_inode_pages_range
