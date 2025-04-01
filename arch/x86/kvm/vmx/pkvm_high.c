@@ -1645,7 +1645,7 @@ static int pkvm_sync_pir_to_irr(struct kvm_vcpu *vcpu)
 	 * attempt to post interrupts.  The posted interrupt vector will cause
 	 * a VM-Exit and the subsequent entry will call sync_pir_to_irr.
 	 */
-	if (!is_guest_mode(vcpu) && kvm_vcpu_apicv_active(vcpu))
+	if (!is_guest_mode(vcpu) && kvm_vcpu_apicv_active(vcpu) && max_irr != -1)
 		kvm_call_pkvm(hwapic_irr_update, vcpu, max_irr);
 	else if (got_posted_interrupt)
 		kvm_make_request(KVM_REQ_EVENT, vcpu);
