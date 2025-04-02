@@ -106,10 +106,6 @@ Targets
 		be added with INSTALL_MOD_PATH (discussed in section
 		`Module Installation`_).
 
-	headers_install
-		Export headers in a format suitable for userspace. The default
-		location is $PWD/usr. INSTALL_HDR_PATH can change this path.
-
 	clean
 		Remove all generated files in the module directory only.
 
@@ -319,17 +315,6 @@ Several Subdirectories
 	absolute path is needed. $(src) provides the absolute path by
 	pointing to the directory where the currently executing kbuild
 	file is located.
-
-UAPI Headers Installation
--------------------------
-
-	External modules may export headers to userspace in a similar
-	fashion to the in-tree counterpart drivers. kbuild supports
-	running headers_install target in an out-of-tree. The location
-	where kbuild searches for headers is $(M)/include/uapi and
-	$(M)/arch/$(SRCARCH)/include/uapi.
-
-	See also Documentation/kbuild/headers_install.rst.
 
 
 Module Installation
