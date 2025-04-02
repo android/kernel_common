@@ -1244,6 +1244,24 @@ static unsigned long pkvm_cache_reg(struct pkvm_vcpu *pkvm_vcpu, enum kvm_reg re
 	return 0;
 }
 
+static void pkvm_update_cpuid_runtime(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *vcpu, *shared_vcpu;
+	u64 old_apic_base;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	shared_vcpu = pkvm_vcpu->shared_vcpu;
+
+	old_apic_base = vcpu->arch.apic_base;
+	vcpu->arch.apic_base = shared_vcpu->arch.apic_base;
+
+	if ((old_apic_base ^ vcpu->arch.apic_base) & MSR_IA32_APICBASE_ENABLE)
+		kvm_update_cpuid_runtime(vcpu);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1406,6 +1424,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__cache_reg:
 		ret = pkvm_cache_reg(pkvm_vcpu, (enum kvm_reg)p2);
+		break;
+	case __pkvm__update_cpuid_runtime:
+		pkvm_update_cpuid_runtime(pkvm_vcpu);
 		break;
 	default:
 		ret = -EINVAL;

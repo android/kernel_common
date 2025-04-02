@@ -1800,6 +1800,11 @@ static int pkvm_complete_emulated_msr(struct kvm_vcpu *vcpu, int err)
 	return pkvm_is_protected_vcpu(vcpu) ? 1 : kvm_skip_emulated_instruction(vcpu);
 }
 
+static void pkvm_update_cpuid_runtime(struct kvm_vcpu *vcpu)
+{
+	kvm_call_pkvm(update_cpuid_runtime, vcpu);
+}
+
 #define VMX_REQUIRED_APICV_INHIBITS				\
 	(BIT(APICV_INHIBIT_REASON_DISABLED) |			\
 	 BIT(APICV_INHIBIT_REASON_ABSENT) |			\
@@ -1987,6 +1992,8 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.vcpu_deliver_sipi_vector = kvm_vcpu_deliver_sipi_vector,
 
 	.get_untagged_addr = vmx_get_untagged_addr,
+
+	.update_cpuid_runtime = pkvm_update_cpuid_runtime,
 };
 
 static struct kvm_pmc *pkvm_intel_rdpmc_ecx_to_pmc(struct kvm_vcpu *vcpu,

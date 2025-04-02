@@ -310,6 +310,7 @@ enum pkvm_fn {
 	__pkvm__load_mmu_pgd,
 	__pkvm__setup_mce,
 	__pkvm__cache_reg,
+	__pkvm__update_cpuid_runtime,
 };
 
 #define HOST_HANDLE_EXIT		0
