@@ -131,8 +131,7 @@ $(dst)/%.ko: %.ko FORCE
 ifneq ($(KBUILD_EXTMOD),)
 $(dst)/modules.order.$(extmod_suffix): modules.order FORCE
 	$(call cmd,install)
-	@sed -e "s:^$(KBUILD_EXTMOD):$(INSTALL_MOD_DIR):g" \
-	     -e 's:^\(.*\)\.o$$:\1.ko:' \
+	@sed -e 's:^\(.*\)\.o$$:$(INSTALL_MOD_DIR)/\1.ko:' \
 	     -i $@
 endif
 
