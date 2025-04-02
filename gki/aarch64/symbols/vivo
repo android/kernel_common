@@ -34,6 +34,8 @@
   __traceiter_android_vh_dup_task_struct
   __traceiter_android_vh_free_task
   __traceiter_android_vh_irqtime_account_process_tick
+  __traceiter_android_vh_inode_lru_isolate
+  __traceiter_android_vh_invalidate_mapping_pagevec
   __traceiter_android_vh_mutex_unlock_slowpath
   __traceiter_android_vh_mutex_wait_finish
   __traceiter_android_vh_mutex_wait_start
@@ -45,6 +47,7 @@
   __traceiter_android_vh_rwsem_write_wait_finish
   __traceiter_android_vh_rwsem_write_wait_start
   __traceiter_android_vh_scheduler_tick
+  __traceiter_android_vh_shrink_folio_list
   __traceiter_android_vh_sync_txn_recvd
   __traceiter_cpu_frequency_limits
   __traceiter_sched_switch
@@ -70,6 +73,8 @@
   __tracepoint_android_vh_do_send_sig_info
   __tracepoint_android_vh_dup_task_struct
   __tracepoint_android_vh_free_task
+  __tracepoint_android_vh_inode_lru_isolate
+  __tracepoint_android_vh_invalidate_mapping_pagevec
   __tracepoint_android_vh_irqtime_account_process_tick
   __tracepoint_android_vh_mutex_unlock_slowpath
   __tracepoint_android_vh_mutex_wait_finish
@@ -82,6 +87,7 @@
   __tracepoint_android_vh_rwsem_write_wait_finish
   __tracepoint_android_vh_rwsem_write_wait_start
   __tracepoint_android_vh_scheduler_tick
+  __tracepoint_android_vh_shrink_folio_list
   __tracepoint_android_vh_sync_txn_recvd
   __tracepoint_cpu_frequency_limits
   __tracepoint_sched_switch
