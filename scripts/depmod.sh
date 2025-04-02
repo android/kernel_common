@@ -3,8 +3,8 @@
 #
 # A depmod wrapper
 
-if test $# -ne 1 -a $# -ne 2; then
-	echo "Usage: $0 <kernelrelease> [System.map folder]" >&2
+if test $# -ne 1; then
+	echo "Usage: $0 <kernelrelease>" >&2
 	exit 1
 fi
 

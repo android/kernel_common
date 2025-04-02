@@ -143,7 +143,7 @@ depmod: $(install-y)
 	$(call cmd,depmod)
 
 quiet_cmd_depmod = DEPMOD  $(MODLIB)
-      cmd_depmod = $(srctree)/scripts/depmod.sh $(KERNELRELEASE) $(mixed-build-prefix)
+      cmd_depmod = $(srctree)/scripts/depmod.sh $(KERNELRELEASE)
 endif
 
 else
