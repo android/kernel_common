@@ -168,7 +168,12 @@ static bool pkvm_hyp_emulated_msr(u32 msr)
 {
 	switch (msr) {
 	case MSR_EFER:
+	case MSR_TSC_AUX:
+	case MSR_STAR:
 #ifdef CONFIG_X86_64
+	case MSR_LSTAR:
+	case MSR_CSTAR:
+	case MSR_SYSCALL_MASK:
 	case MSR_FS_BASE:
 	case MSR_GS_BASE:
 	case MSR_KERNEL_GS_BASE:
