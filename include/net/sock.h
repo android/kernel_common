@@ -69,6 +69,7 @@
 #include <linux/net_tstamp.h>
 #include <net/l3mdev.h>
 #include <uapi/linux/socket.h>
+#include <linux/android_vendor.h>
 
 /*
  * This structure really needs to be cleaned up.
@@ -544,6 +545,8 @@ struct sock {
 	struct rcu_head		sk_rcu;
 	netns_tracker		ns_tracker;
 	struct xarray		sk_user_frags;
+
+	ANDROID_OEM_DATA(1);
 };
 
 struct sock_bh_locked {
