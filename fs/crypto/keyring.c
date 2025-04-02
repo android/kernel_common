@@ -583,7 +583,8 @@ static int add_master_key(struct super_block *sb,
 			 * different key identifiers by deriving their key
 			 * identifiers using different KDF contexts.
 			 */
-			keyid_kdf_ctx =
+			keyid_kdf_ctx = secret->android_compat ?
+				HKDF_CONTEXT_KEY_IDENTIFIER_FOR_RAW_KEY :
 				HKDF_CONTEXT_KEY_IDENTIFIER_FOR_HW_WRAPPED_KEY;
 		}
 		err = fscrypt_init_hkdf(&secret->hkdf, kdf_key, kdf_key_size);
@@ -780,6 +781,16 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 		return -EACCES;
 
 	memset(&secret, 0, sizeof(secret));
+
+	if (arg.__flags) {
+		/* Support for the original Android flag */
+		if (arg.__flags & ~__FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
+			return -EINVAL; /* unknown flags */
+		if (arg.flags & FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)
+			return -EINVAL; /* conflicting flags */
+		arg.flags |= FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED;
+		secret.android_compat = true;
+	}
 
 	if (arg.flags) {
 		if (arg.flags & ~FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED)

@@ -510,6 +510,9 @@ struct fscrypt_master_key_secret {
 	 */
 	bool			is_hw_wrapped;
 
+	/* True if this key was added using __FSCRYPT_ADD_KEY_FLAG_HW_WRAPPED */
+	bool			android_compat;
+
 	/*
 	 * Size of the key in bytes.  This remains set even if ->bytes was
 	 * zeroized due to no longer being needed.  I.e. we still remember the
