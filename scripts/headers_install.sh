@@ -38,7 +38,7 @@ sed -E -e '
 	s@#(ifndef|define|endif[[:space:]]*/[*])[[:space:]]*_UAPI@#\1 @
 ' $INFILE > $TMPFILE || exit 1
 
-scripts/unifdef -U__KERNEL__ -D__EXPORTED_HEADERS__ $TMPFILE > $OUTFILE
+${objtree}/scripts/unifdef -U__KERNEL__ -D__EXPORTED_HEADERS__ $TMPFILE > $OUTFILE
 [ $? -gt 1 ] && exit 1
 
 # Remove /* ... */ style comments, and find CONFIG_ references in code
