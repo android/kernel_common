@@ -186,16 +186,16 @@ if ${no_local}; then
 	exit 0
 fi
 
-if ! test -e include/config/auto.conf; then
+if ! test -e ${objtree}/include/config/auto.conf; then
 	echo "Error: kernelrelease not valid - run 'make prepare' to update it" >&2
 	exit 1
 fi
 
 # version string from CONFIG_LOCALVERSION
-config_localversion=$(sed -n 's/^CONFIG_LOCALVERSION=\(.*\)$/\1/p' include/config/auto.conf)
+config_localversion=$(sed -n 's/^CONFIG_LOCALVERSION=\(.*\)$/\1/p' ${objtree}/include/config/auto.conf)
 
 # scm version string if not at the kernel version tag or at the file_localversion
-if grep -q "^CONFIG_LOCALVERSION_AUTO=y$" include/config/auto.conf; then
+if grep -q "^CONFIG_LOCALVERSION_AUTO=y$" ${objtree}/include/config/auto.conf; then
 	# full scm version string
 	scm_version="$(scm_version)"
 elif [ "${LOCALVERSION+set}" != "set" ]; then
