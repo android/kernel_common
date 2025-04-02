@@ -12,6 +12,13 @@
 
 #include <net/cls_cgroup.h>
 #include <net/sock.h>
+#include <trace/hooks/net.h>
+
+void _trace_android_vh_task_get_classid(const struct sk_buff *skb, u32 *classid)
+{
+	trace_android_vh_task_get_classid(skb, classid);
+}
+EXPORT_SYMBOL_GPL(_trace_android_vh_task_get_classid);
 
 static inline struct cgroup_cls_state *css_cls_state(struct cgroup_subsys_state *css)
 {

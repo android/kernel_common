@@ -82,6 +82,10 @@ DECLARE_HOOK(android_vh_tcp_rcv_established_fast_path,
 	TP_PROTO(struct sock *sk), TP_ARGS(sk));
 DECLARE_HOOK(android_vh_tcp_rcv_established_slow_path,
 	TP_PROTO(struct sock *sk), TP_ARGS(sk));
+DECLARE_HOOK(android_vh_receive_sock,
+	TP_PROTO(struct sock *sk), TP_ARGS(sk));
+DECLARE_HOOK(android_vh_task_get_classid,
+	TP_PROTO(const struct sk_buff *skb, u32 *classid), TP_ARGS(skb, classid));
 struct net_device;
 DECLARE_HOOK(android_vh_dc_send_copy,
 	TP_PROTO(struct sk_buff *skb, struct net_device *dev), TP_ARGS(skb, dev));
