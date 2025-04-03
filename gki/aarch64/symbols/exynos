@@ -1382,6 +1382,10 @@
 # required by exynos-hsi-iommu.ko
   gen_pool_has_addr
 
+# required by exynos-irq-gic-v3-its.ko
+  its_restore_enable
+  its_save_disable
+
 # required by exynos-itmon-t.ko
   int_pow
 
