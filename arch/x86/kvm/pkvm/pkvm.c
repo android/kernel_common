@@ -583,6 +583,18 @@ static void pkvm_vcpu_update_state_from_host(struct pkvm_vcpu *pkvm_vcpu)
 		/* Update the npVM's GPRs from the host */
 		memcpy(vcpu->arch.regs, shared_vcpu->arch.regs,
 		       NR_VCPU_REGS * sizeof(*vcpu->arch.regs));
+
+		/* Update the debug registers from the host */
+		memcpy(vcpu->arch.db, shared_vcpu->arch.db,
+		       ARRAY_SIZE(vcpu->arch.db) * sizeof(*vcpu->arch.db));
+		memcpy(vcpu->arch.eff_db, shared_vcpu->arch.eff_db,
+		       ARRAY_SIZE(vcpu->arch.db) * sizeof(*vcpu->arch.db));
+		vcpu->arch.dr6 = shared_vcpu->arch.dr6;
+		vcpu->arch.dr7 = shared_vcpu->arch.dr7;
+		if (vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP)
+			vcpu->arch.guest_debug_dr7 = shared_vcpu->arch.guest_debug_dr7;
+		if (vcpu->guest_debug & KVM_GUESTDBG_SINGLESTEP)
+			vcpu->arch.singlestep_rip = shared_vcpu->arch.singlestep_rip;
 	} else if (unlikely(!kvm_vcpu_has_run(vcpu))) {
 		/*
 		 * FIXME: Allows the host to set the pVM's vcpu state for the
@@ -655,6 +667,14 @@ static void pkvm_vcpu_share_state_to_host(struct pkvm_vcpu *pkvm_vcpu)
 			shared_vcpu->arch.exception = vcpu->arch.exception;
 			kvm_clear_exception_queue(vcpu);
 		}
+
+		/* Share the debug registers to the host */
+		memcpy(shared_vcpu->arch.db, vcpu->arch.db,
+		       ARRAY_SIZE(vcpu->arch.db) * sizeof(*vcpu->arch.db));
+		memcpy(shared_vcpu->arch.eff_db, vcpu->arch.eff_db,
+		       ARRAY_SIZE(vcpu->arch.db) * sizeof(*vcpu->arch.db));
+		shared_vcpu->arch.dr6 = vcpu->arch.dr6;
+		shared_vcpu->arch.dr7 = vcpu->arch.dr7;
 	} else if (pkvm_has_req_to_host(HOST_INIT_MMU, vcpu) ||
 		   pkvm_has_req_to_host(HOST_RESET_MMU, vcpu)) {
 		shared_vcpu->arch.cr0 = kvm_read_cr0(vcpu);
