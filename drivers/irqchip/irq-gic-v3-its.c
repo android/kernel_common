@@ -4883,7 +4883,7 @@ static void its_enable_quirks(struct its_node *its)
 				     its_quirks, its);
 }
 
-static int its_save_disable(void)
+int its_save_disable(void)
 {
 	struct its_node *its;
 	int err = 0;
@@ -4918,8 +4918,9 @@ err:
 
 	return err;
 }
+EXPORT_SYMBOL_GPL(its_save_disable);
 
-static void its_restore_enable(void)
+void its_restore_enable(void)
 {
 	struct its_node *its;
 	int ret;
@@ -4978,6 +4979,7 @@ static void its_restore_enable(void)
 	}
 	raw_spin_unlock(&its_lock);
 }
+EXPORT_SYMBOL_GPL(its_restore_enable);
 
 static struct syscore_ops its_syscore_ops = {
 	.suspend = its_save_disable,
