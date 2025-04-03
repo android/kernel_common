@@ -450,6 +450,7 @@ static bool is_kvm_vcpu_accessible(struct kvm_vcpu *vcpu, unsigned long fn)
 	case __pkvm__set_nmi_mask:
 	case __pkvm__post_set_cr3:
 	case __pkvm__cache_reg:
+	case __pkvm__update_exception_bitmap:
 		/*
 		 * FIXME: As the host still needs to pre-configure pVM's vcpu
 		 * state for booting, the protection is enforced by the pkvm
@@ -1262,6 +1263,20 @@ static void pkvm_update_cpuid_runtime(struct pkvm_vcpu *pkvm_vcpu)
 		kvm_update_cpuid_runtime(vcpu);
 }
 
+static void pkvm_update_exception_bitmap(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *vcpu, *shared_vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	shared_vcpu = pkvm_vcpu->shared_vcpu;
+	vcpu->guest_debug = shared_vcpu->guest_debug;
+
+	kvm_x86_call(update_exception_bitmap)(vcpu);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1427,6 +1442,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__update_cpuid_runtime:
 		pkvm_update_cpuid_runtime(pkvm_vcpu);
+		break;
+	case __pkvm__update_exception_bitmap:
+		pkvm_update_exception_bitmap(pkvm_vcpu);
 		break;
 	default:
 		ret = -EINVAL;

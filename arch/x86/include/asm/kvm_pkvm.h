@@ -311,6 +311,7 @@ enum pkvm_fn {
 	__pkvm__setup_mce,
 	__pkvm__cache_reg,
 	__pkvm__update_cpuid_runtime,
+	__pkvm__update_exception_bitmap,
 };
 
 #define HOST_HANDLE_EXIT		0

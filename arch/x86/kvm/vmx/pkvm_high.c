@@ -970,7 +970,10 @@ static void pkvm_vcpu_put(struct kvm_vcpu *vcpu)
 
 static void pkvm_update_exception_bitmap(struct kvm_vcpu *vcpu)
 {
-	/* TODO: Support for npVM */
+	if (vcpu->arch.guest_state_protected)
+		return;
+
+	kvm_call_pkvm(update_exception_bitmap, vcpu);
 }
 
 static int pkvm_get_feature_msr(u32 msr, u64 *data)
