@@ -215,6 +215,7 @@ static int handle_exception_nmi(struct kvm_vcpu *vcpu)
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	struct kvm_run *kvm_run = vcpu->run;
 	u32 intr_info, ex_no, error_code;
+	unsigned long dr6;
 	u32 vect_info;
 
 	vect_info = vmx->idt_vectoring_info;
@@ -257,6 +258,22 @@ static int handle_exception_nmi(struct kvm_vcpu *vcpu)
 
 	ex_no = intr_info & INTR_INFO_VECTOR_MASK;
 	switch (ex_no) {
+	case DB_VECTOR:
+		dr6 = vmx_get_exit_qual(vcpu);
+		if (WARN_ON_ONCE(!(vcpu->guest_debug &
+			      (KVM_GUESTDBG_SINGLESTEP | KVM_GUESTDBG_USE_HW_BP))))
+			break;
+		kvm_run->debug.arch.dr6 = dr6 | DR6_ACTIVE_LOW;
+		if (vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP)
+			kvm_run->debug.arch.dr7 = vcpu->arch.guest_debug_dr7;
+		else
+			kvm_run->debug.arch.dr7 = vcpu->arch.dr7;
+		fallthrough;
+	case BP_VECTOR:
+		kvm_run->exit_reason = KVM_EXIT_DEBUG;
+		kvm_run->debug.arch.pc = kvm_get_linear_rip(vcpu);
+		kvm_run->debug.arch.exception = ex_no;
+		break;
 	case AC_VECTOR:
 		if (vmx_guest_inject_ac(vcpu)) {
 			kvm_queue_exception_e(vcpu, AC_VECTOR, error_code);

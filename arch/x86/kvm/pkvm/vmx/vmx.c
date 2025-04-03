@@ -4526,6 +4526,13 @@ static int handle_exception_nmi(struct kvm_vcpu *vcpu)
 			return 1;
 		}
 		break;
+	case BP_VECTOR:
+		/*
+		 * Update instruction length as we may reinject #BP from
+		 * user space while in guest debugging mode.
+		 */
+		vcpu->arch.event_exit_inst_len = vmcs_read32(VM_EXIT_INSTRUCTION_LEN);
+		break;
 	default:
 		break;
 	}
@@ -7852,6 +7859,12 @@ static void share_nonprotected_vcpu_state(struct kvm_vcpu *vcpu,
 		return;
 
 	switch (to_vmx(vcpu)->exit_reason.basic) {
+	case EXIT_REASON_EXCEPTION_NMI:
+		if ((vmx_get_intr_info(vcpu) & INTR_INFO_VECTOR_MASK) == DB_VECTOR) {
+			if (!(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP))
+				shared_vcpu->arch.dr7 = vmcs_readl(GUEST_DR7);
+		}
+		break;
 	case EXIT_REASON_EPT_MISCONFIG:
 	case EXIT_REASON_EPT_VIOLATION:
 		to_vmx(shared_vcpu)->exit_gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
