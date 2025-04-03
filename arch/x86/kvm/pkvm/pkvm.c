@@ -831,10 +831,17 @@ static void pkvm_access_idt_gdt(struct pkvm_vcpu *pkvm_vcpu, struct desc_ptr *de
 
 static void pkvm_set_dr7(struct pkvm_vcpu *pkvm_vcpu, unsigned long val)
 {
+	unsigned long dr7 = val;
+	struct kvm_vcpu *vcpu;
+
 	if (WARN_ON_ONCE(!pkvm_vcpu))
 		return;
 
-	kvm_x86_call(set_dr7)(to_kvm_vcpu(pkvm_vcpu), val);
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	kvm_x86_call(set_dr7)(vcpu, dr7);
+	vcpu->arch.switch_db_regs &= ~KVM_DEBUGREG_BP_ENABLED;
+	if (dr7 & DR7_BP_EN_MASK)
+		vcpu->arch.switch_db_regs |= KVM_DEBUGREG_BP_ENABLED;
 }
 
 static unsigned long pkvm_get_rflags(struct pkvm_vcpu *pkvm_vcpu)
