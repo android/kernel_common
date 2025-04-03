@@ -244,14 +244,10 @@ void kvm_update_pv_runtime(struct kvm_vcpu *vcpu)
 	 * operation
 	 */
 	if (best) {
-#ifdef __PKVM_HYP__
-		/*
-		 * FIXME: Disable all PV features in the pkvm hypervisor to
-		 * simplify the emulation. Can PV features be enabled for npVM?
-		 * Can some of the PV features be enabled for pVM?
-		 */
-		best->eax = 0;
-#endif
+		/* Disable PV features for pkvm protected vm */
+		if (pkvm_is_protected_vcpu(vcpu))
+			best->eax = 0;
+
 		vcpu->arch.pv_cpuid.features = best->eax;
 	}
 }

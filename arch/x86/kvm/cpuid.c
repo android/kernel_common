@@ -22,6 +22,7 @@
 #include <asm/fpu/xstate.h>
 #include <asm/sgx.h>
 #include <asm/cpuid.h>
+#include <asm/kvm_pkvm.h>
 #include "cpuid.h"
 #include "lapic.h"
 #include "mmu.h"
@@ -271,8 +272,13 @@ void kvm_update_pv_runtime(struct kvm_vcpu *vcpu)
 	 * save the feature bitmap to avoid cpuid lookup for every PV
 	 * operation
 	 */
-	if (best)
+	if (best) {
+		/* Disable PV features for pkvm protected vm */
+		if (pkvm_is_protected_vcpu(vcpu))
+			best->eax = 0;
+
 		vcpu->arch.pv_cpuid.features = best->eax;
+	}
 }
 
 /*
