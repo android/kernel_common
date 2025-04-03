@@ -317,6 +317,7 @@ enum pkvm_fn {
 #define HOST_HANDLE_EXIT		0
 #define HOST_RESET_MMU			1
 #define HOST_INIT_MMU			2
+#define HOST_HANDLE_GUESTDBG_SINGLESTEP	3
 
 union pkvm_pv_param {
 	struct kvm_segment seg;

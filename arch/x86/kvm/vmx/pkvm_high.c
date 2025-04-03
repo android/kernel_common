@@ -1434,9 +1434,21 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 
 		if (test_and_clear_bit(HOST_INIT_MMU, &reqs_to_host))
 			kvm_init_mmu(vcpu);
+
+		if (test_and_clear_bit(HOST_HANDLE_GUESTDBG_SINGLESTEP, &reqs_to_host)) {
+			struct kvm_run *kvm_run = vcpu->run;
+
+			kvm_run->debug.arch.dr6 = DR6_BS | DR6_ACTIVE_LOW;
+			kvm_run->debug.arch.pc = kvm_get_linear_rip(vcpu);
+			kvm_run->debug.arch.exception = DB_VECTOR;
+			kvm_run->exit_reason = KVM_EXIT_DEBUG;
+
+			exit_fastpath = EXIT_FASTPATH_EXIT_USERSPACE;
+		}
 	}
 
-	if (exit_fastpath == EXIT_FASTPATH_EXIT_HANDLED)
+	if (exit_fastpath == EXIT_FASTPATH_EXIT_HANDLED ||
+	    exit_fastpath == EXIT_FASTPATH_EXIT_USERSPACE)
 		return exit_fastpath;
 
 	return pkvm_exit_handlers_fastpath(vcpu);

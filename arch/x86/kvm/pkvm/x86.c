@@ -2120,6 +2120,11 @@ static bool kvm_is_vm_type_supported(unsigned long type)
 	return type < 32 && (kvm_caps.supported_vm_types & BIT(type));
 }
 
+static unsigned long get_segment_base(struct kvm_vcpu *vcpu, int seg)
+{
+	return kvm_x86_call(get_segment_base)(vcpu, seg);
+}
+
 int kvm_emulate_wbinvd(struct kvm_vcpu *vcpu)
 {
 #ifdef __PKVM_HYP__
@@ -2136,19 +2141,40 @@ int kvm_emulate_wbinvd(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_wbinvd);
 
-int kvm_skip_emulated_instruction(struct kvm_vcpu *vcpu)
+static int kvm_vcpu_do_singlestep(struct kvm_vcpu *vcpu)
 {
 #ifndef __PKVM_HYP__
-	unsigned long rflags = kvm_x86_call(get_rflags)(vcpu);
+	struct kvm_run *kvm_run = vcpu->run;
 #endif
+
+	if (vcpu->guest_debug & KVM_GUESTDBG_SINGLESTEP) {
+#ifdef __PKVM_HYP__
+		pkvm_make_req_to_host(HOST_HANDLE_GUESTDBG_SINGLESTEP, vcpu);
+		return 1;
+#else
+		kvm_run->debug.arch.dr6 = DR6_BS | DR6_ACTIVE_LOW;
+		kvm_run->debug.arch.pc = kvm_get_linear_rip(vcpu);
+		kvm_run->debug.arch.exception = DB_VECTOR;
+		kvm_run->exit_reason = KVM_EXIT_DEBUG;
+		return 0;
+#endif
+	}
+	kvm_queue_exception_p(vcpu, DB_VECTOR, DR6_BS);
+	return 1;
+}
+
+int kvm_skip_emulated_instruction(struct kvm_vcpu *vcpu)
+{
+	unsigned long rflags = kvm_x86_call(get_rflags)(vcpu);
 	int r;
 
 	r = kvm_x86_call(skip_emulated_instruction)(vcpu);
 	if (unlikely(!r))
 		return 0;
 
-#ifndef __PKVM_HYP__ /* No PMU and guest_debug support in the pkvm hypervisor */
+#ifndef __PKVM_HYP__ /* No PMU support in the pkvm hypervisor */
 	kvm_pmu_trigger_event(vcpu, kvm_pmu_eventsel.INSTRUCTIONS_RETIRED);
+#endif
 
 	/*
 	 * rflags is the old, "raw" value of the flags.  The new value has
@@ -2160,7 +2186,6 @@ int kvm_skip_emulated_instruction(struct kvm_vcpu *vcpu)
 	 */
 	if (unlikely(rflags & X86_EFLAGS_TF))
 		r = kvm_vcpu_do_singlestep(vcpu);
-#endif
 	return r;
 }
 EXPORT_SYMBOL_GPL(kvm_skip_emulated_instruction);
@@ -3175,26 +3200,41 @@ void kvm_arch_destroy_vm(struct kvm *kvm)
 #endif
 }
 
+unsigned long kvm_get_linear_rip(struct kvm_vcpu *vcpu)
+{
+	/* Can't read the RIP when guest state is protected, just return 0 */
+	if (vcpu->arch.guest_state_protected)
+		return 0;
+
+	if (is_64_bit_mode(vcpu))
+		return kvm_rip_read(vcpu);
+	return (u32)(get_segment_base(vcpu, VCPU_SREG_CS) +
+		     kvm_rip_read(vcpu));
+}
+EXPORT_SYMBOL_GPL(kvm_get_linear_rip);
+
+bool kvm_is_linear_rip(struct kvm_vcpu *vcpu, unsigned long linear_rip)
+{
+	return kvm_get_linear_rip(vcpu) == linear_rip;
+}
+EXPORT_SYMBOL_GPL(kvm_is_linear_rip);
+
 unsigned long kvm_get_rflags(struct kvm_vcpu *vcpu)
 {
 	unsigned long rflags;
 
 	rflags = kvm_x86_call(get_rflags)(vcpu);
-#ifndef __PKVM_HYP__ /* No guest_debug support in the pkvm hypervisor */
 	if (vcpu->guest_debug & KVM_GUESTDBG_SINGLESTEP)
 		rflags &= ~X86_EFLAGS_TF;
-#endif
 	return rflags;
 }
 EXPORT_SYMBOL_GPL(kvm_get_rflags);
 
 static void __kvm_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags)
 {
-#ifndef __PKVM_HYP__ /* No guest_debug support in the pkvm hypervisor */
 	if (vcpu->guest_debug & KVM_GUESTDBG_SINGLESTEP &&
 	    kvm_is_linear_rip(vcpu, vcpu->arch.singlestep_rip))
 		rflags |= X86_EFLAGS_TF;
-#endif
 	kvm_x86_call(set_rflags)(vcpu, rflags);
 }
 
