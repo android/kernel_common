@@ -1826,20 +1826,7 @@ static bool pkvm_nested_is_exception_vmexit(struct kvm_vcpu *vcpu, u8 vector,
 	return false;
 }
 static int pkvm_check_nested_events(struct kvm_vcpu *vcpu) { return 0; }
-static bool pkvm_has_nested_events(struct kvm_vcpu *vcpu, bool for_injection) { return false; }
 static void pkvm_nested_triple_fault(struct kvm_vcpu *vcpu) {}
-static int pkvm_get_nested_state(struct kvm_vcpu *vcpu,
-				 struct kvm_nested_state __user *user_kvm_nested_state,
-				 u32 user_data_size)
-{
-	return -EINVAL;
-}
-static int pkvm_set_nested_state(struct kvm_vcpu *vcpu,
-				 struct kvm_nested_state __user *user_kvm_nested_state,
-				 struct kvm_nested_state *kvm_state)
-{
-	return -EINVAL;
-}
 static bool pkvm_get_nested_state_pages(struct kvm_vcpu *vcpu) { return true; }
 static int pkvm_nested_write_pml_buffer(struct kvm_vcpu *vcpu, gpa_t gpa) { return 0; }
 
@@ -1847,10 +1834,7 @@ static struct kvm_x86_nested_ops pkvm_nested_ops = {
 	.leave_nested = pkvm_leave_nested,
 	.is_exception_vmexit = pkvm_nested_is_exception_vmexit,
 	.check_events = pkvm_check_nested_events,
-	.has_events = pkvm_has_nested_events,
 	.triple_fault = pkvm_nested_triple_fault,
-	.get_state = pkvm_get_nested_state,
-	.set_state = pkvm_set_nested_state,
 	.get_nested_state_pages = pkvm_get_nested_state_pages,
 	.write_log_dirty = pkvm_nested_write_pml_buffer,
 };
