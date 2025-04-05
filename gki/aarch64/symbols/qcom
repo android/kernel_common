@@ -806,6 +806,8 @@
   dma_resv_fini
   dma_resv_get_singleton
   dma_resv_init
+  dma_resv_iter_first
+  dma_resv_iter_next
   dma_resv_wait_timeout
   dma_set_coherent_mask
   dma_set_mask
@@ -1206,6 +1208,7 @@
   get_cpu_idle_time_us
   get_device
   get_device_system_crosststamp
+  get_dmabuf_debugfs_data
   get_each_kmemcache_object
   get_free_pages_noprof
   get_governor_parent_kobj
