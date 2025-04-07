@@ -3253,8 +3253,9 @@ static void kvm_restore_user_return_msr(void)
 
 unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 {
+	struct kvm_vcpu *hvcpu = this_cpu_read(host_vcpu);
 	fastpath_t exit_fastpath;
-	int ret;
+	int ret, i;
 
 	pkvm_reset_reqs_to_host(vcpu);
 
@@ -3265,14 +3266,10 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 
 	/* TODO: Save the host VMM fpu and load the guest fpu */
 
-	/* Switch to the guest debug registers. */
-	if (unlikely(vcpu->arch.switch_db_regs)) {
-		set_debugreg(0, 7);
-		set_debugreg(vcpu->arch.eff_db[0], 0);
-		set_debugreg(vcpu->arch.eff_db[1], 1);
-		set_debugreg(vcpu->arch.eff_db[2], 2);
-		set_debugreg(vcpu->arch.eff_db[3], 3);
-	}
+	/* Save the host debug registers */
+	get_debugreg(hvcpu->arch.dr7, 7);
+	for (i = 0; i < KVM_NR_DB_REGS; i++)
+		get_debugreg(hvcpu->arch.db[i], i);
 
 	vcpu->arch.host_debugctl = get_debugctlmsr();
 
@@ -3304,7 +3301,23 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 		else
 			req_immediate_exit = force_immediate_exit;
 
+		if (unlikely(vcpu->arch.switch_db_regs)) {
+			set_debugreg(0, 7);
+			set_debugreg(vcpu->arch.eff_db[0], 0);
+			set_debugreg(vcpu->arch.eff_db[1], 1);
+			set_debugreg(vcpu->arch.eff_db[2], 2);
+			set_debugreg(vcpu->arch.eff_db[3], 3);
+		}
+
 		exit_fastpath = kvm_x86_call(vcpu_run)(vcpu, req_immediate_exit);
+
+		/* Sync the guest debug registers */
+		if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT)) {
+			WARN_ON(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP);
+			kvm_x86_call(sync_dirty_debug_regs)(vcpu);
+			kvm_update_dr0123(vcpu);
+			kvm_update_dr7(vcpu);
+		}
 
 		/*
 		 * Make sure vcpu->mode is changed to OUTSIDE_GUEST_MODE after
@@ -3328,20 +3341,10 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 
 	kvm_x86_call(prepare_switch_to_host)(vcpu);
 
-	/* Save and clear the guest debug registers */
-	if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT)) {
-		WARN_ON(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP);
-		kvm_x86_call(sync_dirty_debug_regs)(vcpu);
-
-		kvm_update_dr0123(vcpu);
-		set_debugreg(0, 0);
-		set_debugreg(0, 1);
-		set_debugreg(0, 2);
-		set_debugreg(0, 3);
-
-		kvm_update_dr7(vcpu);
-		set_debugreg(0, 7);
-	}
+	/* Restore the host debug registers */
+	set_debugreg(hvcpu->arch.dr7, 7);
+	for (i = 0; i < KVM_NR_DB_REGS; i++)
+		set_debugreg(hvcpu->arch.db[i], i);
 
 	/* TODO: Restore the host VMM fpu and save the guest fpu */
 
