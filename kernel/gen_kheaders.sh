@@ -66,13 +66,13 @@ if [ "$building_out_of_srctree" ]; then
 		cd $srctree
 		for f in $dir_list
 			do find "$f" -name "*.h";
-		done | tar -c -f - -T - | tar -xf - -C "${tmpdir}"
+		done | tar -c --dereference -f - -T - | tar -xf - -C "${tmpdir}"
 	)
 fi
 
 for f in $dir_list;
 	do find "$f" -name "*.h";
-done | tar -c -f - -T - | tar -xf - -C "${tmpdir}"
+done | tar -c --dereference -f - -T - | tar -xf - -C "${tmpdir}"
 
 # Always exclude include/generated/utsversion.h
 # Otherwise, the contents of the tarball may vary depending on the build steps.
