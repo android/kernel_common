@@ -72,8 +72,8 @@ pub use new_condvar;
 /// }
 ///
 /// /// Allocates a new boxed `Example`.
-/// fn new_example() -> Result<Pin<Box<Example>>> {
-///     Box::pin_init(pin_init!(Example {
+/// fn new_example() -> Result<Pin<KBox<Example>>> {
+///     KBox::pin_init(pin_init!(Example {
 ///         value <- new_mutex!(0),
 ///         value_changed <- new_condvar!(),
 ///     }), GFP_KERNEL)
@@ -95,7 +95,6 @@ pub struct CondVar {
 }
 
 // SAFETY: `CondVar` only uses a `struct wait_queue_head`, which is safe to use on any thread.
-#[allow(clippy::non_send_fields_in_send_ty)]
 unsafe impl Send for CondVar {}
 
 // SAFETY: `CondVar` only uses a `struct wait_queue_head`, which is safe to use on multiple threads
