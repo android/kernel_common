@@ -1418,7 +1418,7 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit
 			ktime_to_ns(ktime_sub(ktime_get(),
 					      vmx->loaded_vmcs->entry_time));
 
-	if (vcpu->arch.exception.injected)
+	if (vcpu->arch.exception.pending || vcpu->arch.exception.injected)
 		kvm_make_request(KVM_REQ_EVENT, vcpu);
 
 	exit_fastpath = EXIT_FASTPATH_EXIT_HANDLED;
