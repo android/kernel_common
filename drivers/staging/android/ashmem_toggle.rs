@@ -29,8 +29,8 @@ pub(crate) trait AshmemToggle {
 pub(crate) struct AshmemToggleMisc<T>(PhantomData<T>);
 
 impl<T: AshmemToggle> AshmemToggleMisc<T> {
-    pub(crate) fn new() -> Result<Pin<Box<MiscDeviceRegistration<AshmemToggleMisc<T>>>>> {
-        Box::pin_init(
+    pub(crate) fn new() -> Result<Pin<KBox<MiscDeviceRegistration<AshmemToggleMisc<T>>>>> {
+        KBox::pin_init(
             MiscDeviceRegistration::register(MiscDeviceOptions { name: T::NAME }),
             GFP_KERNEL,
         )
