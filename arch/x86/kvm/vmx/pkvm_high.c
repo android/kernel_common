@@ -408,6 +408,22 @@ static int handle_io(struct kvm_vcpu *vcpu)
 			ret : (ret && kvm_skip_emulated_instruction(vcpu));
 }
 
+static int handle_dr(struct kvm_vcpu *vcpu)
+{
+	if ((vcpu->arch.guest_debug_dr7 & DR7_GD) &&
+	    (vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP)) {
+		vcpu->run->debug.arch.dr6 = DR6_BD | DR6_ACTIVE_LOW;
+		vcpu->run->debug.arch.dr7 = vcpu->arch.guest_debug_dr7;
+		vcpu->run->debug.arch.pc = kvm_get_linear_rip(vcpu);
+		vcpu->run->debug.arch.exception = DB_VECTOR;
+		vcpu->run->exit_reason = KVM_EXIT_DEBUG;
+
+		return 0;
+	}
+
+	return 1;
+}
+
 static int handle_tpr_below_threshold(struct kvm_vcpu *vcpu)
 {
 	kvm_apic_update_ppr(vcpu);
@@ -594,6 +610,7 @@ static int (*pkvm_vmx_exit_handlers[])(struct kvm_vcpu *vcpu) = {
 	[EXIT_REASON_TRIPLE_FAULT]            = handle_triple_fault,
 	[EXIT_REASON_NMI_WINDOW]	      = handle_nmi_window,
 	[EXIT_REASON_IO_INSTRUCTION]          = handle_io,
+	[EXIT_REASON_DR_ACCESS]               = handle_dr,
 	[EXIT_REASON_MSR_READ]                = kvm_emulate_rdmsr,
 	[EXIT_REASON_MSR_WRITE]               = kvm_emulate_wrmsr,
 	[EXIT_REASON_INTERRUPT_WINDOW]        = handle_interrupt_window,
