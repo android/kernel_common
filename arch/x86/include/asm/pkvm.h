@@ -49,16 +49,20 @@ struct pkvm_iommu_driver {
 
 #ifndef __PKVM_HYP__
 extern bool __read_mostly enable_pkvm;	/* kernel command-line flag */
-#endif
 
-DECLARE_PER_CPU_READ_MOSTLY(bool, pkvm_enabled);
+extern struct static_key_false pkvm_enabled_key;
+
+static inline bool pkvm_enabled(void)
+{
+	return static_branch_likely(&pkvm_enabled_key);
+}
 
 int pkvm_iommu_register_driver(const struct pkvm_iommu_driver *kern_ops);
 
 static inline u64 pkvm_readq(void __iomem *reg, unsigned long reg_phys,
 			     unsigned long offset)
 {
-	if (likely(this_cpu_read(pkvm_enabled)))
+	if (pkvm_enabled())
 		return (u64)kvm_hypercall3(PKVM_HC_MMIO_ACCESS, true,
 					   sizeof(u64), reg_phys + offset);
 	else
@@ -68,7 +72,7 @@ static inline u64 pkvm_readq(void __iomem *reg, unsigned long reg_phys,
 static inline u32 pkvm_readl(void __iomem *reg, unsigned long reg_phys,
 			     unsigned long offset)
 {
-	if (likely(this_cpu_read(pkvm_enabled)))
+	if (pkvm_enabled())
 		return (u32)kvm_hypercall3(PKVM_HC_MMIO_ACCESS, true,
 					   sizeof(u32), reg_phys + offset);
 	else
@@ -78,7 +82,7 @@ static inline u32 pkvm_readl(void __iomem *reg, unsigned long reg_phys,
 static inline void pkvm_writeq(void __iomem *reg, unsigned long reg_phys,
 			       unsigned long offset, u64 val)
 {
-	if (likely(this_cpu_read(pkvm_enabled)))
+	if (pkvm_enabled())
 		kvm_hypercall4(PKVM_HC_MMIO_ACCESS, false, sizeof(u64),
 			       reg_phys + offset, val);
 	else
@@ -88,12 +92,13 @@ static inline void pkvm_writeq(void __iomem *reg, unsigned long reg_phys,
 static inline void pkvm_writel(void __iomem *reg, unsigned long reg_phys,
 			       unsigned long offset, u32 val)
 {
-	if (likely(this_cpu_read(pkvm_enabled)))
+	if (pkvm_enabled())
 		kvm_hypercall4(PKVM_HC_MMIO_ACCESS, false, sizeof(u32),
 			       reg_phys + offset, (u64)val);
 	else
 		writel(val, reg + offset);
 }
+#endif /* __PKVM_HYP__ */
 
 static inline void pkvm_update_iommu_virtual_caps(u64 *cap, u64 *ecap)
 {
@@ -144,6 +149,11 @@ static inline void pkvm_update_iommu_virtual_caps(u64 *cap, u64 *ecap)
 #else /* CONFIG_PKVM_INTEL */
 
 #define enable_pkvm false
+
+static inline bool pkvm_enabled(void)
+{
+	return false;
+}
 
 static inline int pkvm_iommu_register_driver(const struct pkvm_iommu_driver *kern_ops)
 {
