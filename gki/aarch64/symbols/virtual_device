@@ -1425,6 +1425,85 @@
   xa_find
   xa_find_after
 
+# required by vivid.ko
+  cec_get_edid_phys_addr
+  find_font
+  freezer_active
+  freezing_slow_path
+  get_random_u32
+  __get_random_u32_below
+  get_random_u8
+  media_device_cleanup
+  media_device_init
+  __media_device_register
+  media_device_unregister
+  media_entity_pads_init
+  msleep_interruptible
+  mutex_trylock
+  platform_device_register
+  __refrigerator
+  set_freezable
+  sys_tz
+  time64_to_tm
+  v4l2_ctrl_activate
+  v4l2_ctrl_add_handler
+  v4l2_ctrl_auto_cluster
+  v4l2_ctrl_cluster
+  v4l2_ctrl_g_ctrl
+  __v4l2_ctrl_grab
+  v4l2_ctrl_log_status
+  __v4l2_ctrl_modify_dimensions
+  __v4l2_ctrl_modify_range
+  v4l2_ctrl_new_std
+  v4l2_ctrl_new_std_menu
+  v4l2_ctrl_poll
+  v4l2_ctrl_request_complete
+  v4l2_ctrl_request_setup
+  __v4l2_ctrl_s_ctrl
+  __v4l2_ctrl_s_ctrl_string
+  v4l2_detect_cvt
+  v4l2_detect_gtf
+  v4l2_device_put
+  v4l2_dv_timings_presets
+  v4l2_enum_dv_timings_cap
+  v4l2_event_wake_all
+  v4l2_fh_is_singular
+  v4l2_fh_open
+  v4l2_fh_release
+  v4l2_find_dv_timings_cap
+  __v4l2_find_nearest_size
+  v4l2_match_dv_timings
+  v4l2_phys_addr_for_input
+  v4l2_phys_addr_validate
+  v4l2_valid_dv_timings
+  vb2_buffer_done
+  vb2_dma_contig_memops
+  vb2_fop_mmap
+  vb2_fop_poll
+  vb2_fop_read
+  vb2_fop_release
+  vb2_fop_write
+  vb2_ioctl_create_bufs
+  vb2_ioctl_dqbuf
+  vb2_ioctl_expbuf
+  vb2_ioctl_prepare_buf
+  vb2_ioctl_qbuf
+  vb2_ioctl_querybuf
+  vb2_ioctl_remove_bufs
+  vb2_ioctl_reqbufs
+  vb2_ioctl_streamoff
+  vb2_ioctl_streamon
+  vb2_ops_wait_finish
+  vb2_ops_wait_prepare
+  vb2_plane_vaddr
+  vb2_queue_change_type
+  vb2_queue_error
+  vb2_queue_init
+  vb2_request_queue
+  vb2_request_validate
+  vb2_video_unregister_device
+  vb2_vmalloc_memops
+
 # preserved by --additions-only
   down_write
   up_write
