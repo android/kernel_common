@@ -398,7 +398,7 @@ int __pkvm_guest_relinquish_to_host(struct pkvm_hyp_vcpu *vcpu,
 	addr = ALIGN_DOWN(ipa, kvm_granule_size(level));
 	phys = kvm_pte_to_phys(pte);
 	phys += ipa - addr;
-	hyp_poison_page(phys);
+	hyp_poison_page(phys, PAGE_SIZE);
 	psci_mem_protect_dec(1);
 
 	/* Zap the guest stage2 pte and return ownership to the host */
@@ -2330,20 +2330,29 @@ unlock:
 	return ret;
 }
 
-void hyp_poison_page(phys_addr_t phys)
+void hyp_poison_page(phys_addr_t phys, size_t size)
 {
-	void *addr = hyp_fixmap_map(phys);
+	WARN_ON(!PAGE_ALIGNED(size));
 
-	memset(addr, 0, PAGE_SIZE);
-	/*
-	 * Prefer kvm_flush_dcache_to_poc() over __clean_dcache_guest_page()
-	 * here as the latter may elide the CMO under the assumption that FWB
-	 * will be enabled on CPUs that support it. This is incorrect for the
-	 * host stage-2 and would otherwise lead to a malicious host potentially
-	 * being able to read the contents of newly reclaimed guest pages.
-	 */
-	kvm_flush_dcache_to_poc(addr, PAGE_SIZE);
-	hyp_fixmap_unmap();
+	while (size) {
+		size_t __size = size == PMD_SIZE ? size : PAGE_SIZE;
+		void *addr = __fixmap_guest_page(__hyp_va(phys), &__size);
+
+		memset(addr, 0, __size);
+
+		/*
+		 * Prefer kvm_flush_dcache_to_poc() over __clean_dcache_guest_page()
+		 * here as the latter may elide the CMO under the assumption that FWB
+		 * will be enabled on CPUs that support it. This is incorrect for the
+		 * host stage-2 and would otherwise lead to a malicious host potentially
+		 * being able to read the contents of newly reclaimed guest pages.
+		 */
+		kvm_flush_dcache_to_poc(addr, __size);
+		__fixunmap_guest_page(__size);
+
+		size -= __size;
+		phys += __size;
+	}
 }
 
 void destroy_hyp_vm_pgt(struct pkvm_hyp_vm *vm)
@@ -2386,7 +2395,7 @@ int __pkvm_host_reclaim_page(struct pkvm_hyp_vm *vm, u64 pfn, u64 ipa, u8 order)
 	switch ((int)guest_get_page_state(pte, ipa)) {
 	case PKVM_PAGE_OWNED:
 		WARN_ON(__host_check_page_state_range(phys, page_size, PKVM_NOPAGE));
-		hyp_poison_page(phys);
+		hyp_poison_page(phys, page_size);
 		psci_mem_protect_dec(1 << order);
 		break;
 	case PKVM_PAGE_SHARED_BORROWED:
