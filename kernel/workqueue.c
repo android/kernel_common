@@ -2812,6 +2812,7 @@ static struct worker *create_worker(struct worker_pool *pool)
 		}
 
 		set_user_nice(worker->task, pool->attrs->nice);
+		trace_android_rvh_create_worker(worker->task, pool->attrs);
 		kthread_bind_mask(worker->task, pool_allowed_cpus(pool));
 	}
 
