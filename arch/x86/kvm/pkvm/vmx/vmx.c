@@ -7799,12 +7799,10 @@ static void vmx_sync_vcpu_state_post_switch(struct pkvm_vcpu *pkvm_vcpu)
 static void share_protected_vcpu_state(struct kvm_vcpu *vcpu,
 				       struct kvm_vcpu *shared_vcpu)
 {
-	struct vcpu_vmx *vmx = to_vmx(vcpu);
-
-	if (vmx->exit_reason.failed_vmentry || vmx->fail)
+	if (!pkvm_is_protected_vcpu(vcpu))
 		return;
 
-	switch (vmx->exit_reason.basic) {
+	switch (to_vmx(vcpu)->exit_reason.basic) {
 	case EXIT_REASON_MSR_WRITE:
 		shared_vcpu->arch.regs[VCPU_REGS_RAX] = kvm_rax_read(vcpu);
 		shared_vcpu->arch.regs[VCPU_REGS_RDX] = kvm_rdx_read(vcpu);
@@ -7847,6 +7845,20 @@ static void share_protected_vcpu_state(struct kvm_vcpu *vcpu,
 	}
 }
 
+static void share_nonprotected_vcpu_state(struct kvm_vcpu *vcpu,
+					  struct kvm_vcpu *shared_vcpu)
+{
+	if (pkvm_is_protected_vcpu(vcpu))
+		return;
+
+	switch (to_vmx(vcpu)->exit_reason.basic) {
+	case EXIT_REASON_EPT_MISCONFIG:
+	case EXIT_REASON_EPT_VIOLATION:
+		to_vmx(shared_vcpu)->exit_gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+		break;
+	}
+}
+
 static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 {
 	struct kvm_vcpu *shared_vcpu = pkvm_vcpu->shared_vcpu;
@@ -7879,18 +7891,16 @@ static void vmx_sync_vcpu_state_pre_switch(struct pkvm_vcpu *pkvm_vcpu)
 		}
 		vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_CS, SEG_FIELD_AR);
 		vmx_segment_cache_test_set(shared_vmx, VCPU_SREG_SS, SEG_FIELD_AR);
-
-		if (pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu) &&
-		    !vmx->exit_reason.failed_vmentry &&
-		    !vmx->fail &&
-		    (vmx->exit_reason.basic == EXIT_REASON_EPT_MISCONFIG ||
-		     vmx->exit_reason.basic == EXIT_REASON_EPT_VIOLATION))
-			shared_vmx->exit_gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
 	}
 
-	if (pkvm_is_protected_vcpu(vcpu) &&
-	    pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu))
-		share_protected_vcpu_state(vcpu, shared_vcpu);
+	if (pkvm_has_req_to_host(HOST_HANDLE_EXIT, vcpu) &&
+	    !vmx->exit_reason.failed_vmentry &&
+	    !vmx->fail) {
+		if (pkvm_is_protected_vcpu(vcpu))
+			share_protected_vcpu_state(vcpu, shared_vcpu);
+		else
+			share_nonprotected_vcpu_state(vcpu, shared_vcpu);
+	}
 }
 
 static void vmx_setup_virtual_mmu(struct kvm_vcpu *vcpu,
