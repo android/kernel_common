@@ -25,6 +25,7 @@
   __traceiter_android_rvh_try_to_wake_up
   __traceiter_android_vh_alter_mutex_list_add
   __traceiter_android_vh_alter_rwsem_list_add
+  __traceiter_android_vh_bd_link_disk_holder
   __traceiter_android_vh_binder_preset
   __traceiter_android_vh_binder_restore_priority
   __traceiter_android_vh_binder_wait_for_work
@@ -65,6 +66,7 @@
   __tracepoint_android_rvh_try_to_wake_up
   __tracepoint_android_vh_alter_mutex_list_add
   __tracepoint_android_vh_alter_rwsem_list_add
+  __tracepoint_android_vh_bd_link_disk_holder
   __tracepoint_android_vh_binder_preset
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_wait_for_work
