@@ -1,6 +1,7 @@
 [abi_symbol_list]
   arch_vma_name
   anon_vma_name
+  binder_alloc_copy_from_buffer
   walk_page_range
   vm_normal_page
   pmd_clear_bad
