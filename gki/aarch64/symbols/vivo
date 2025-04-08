@@ -24,6 +24,7 @@
   __set_task_comm
   __traceiter_android_rvh_alloc_and_link_pwqs
   __traceiter_android_rvh_cpufreq_transition
+  __traceiter_android_rvh_create_worker
   __traceiter_android_rvh_dequeue_task_fair
   __traceiter_android_rvh_enqueue_task_fair
   __traceiter_android_rvh_replace_next_task_fair
@@ -66,6 +67,7 @@
   __traceiter_android_vh_shrink_node_memcgs_bypass
   __traceiter_android_vh_mglru_aging_bypass
   __tracepoint_android_rvh_cpufreq_transition
+  __tracepoint_android_rvh_create_worker
   __tracepoint_android_rvh_dequeue_task_fair
   __tracepoint_android_rvh_enqueue_task_fair
   __tracepoint_android_rvh_replace_next_task_fair
