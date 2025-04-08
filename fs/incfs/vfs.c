@@ -38,7 +38,7 @@ static void dentry_release(struct dentry *d);
 static int iterate_incfs_dir(struct file *file, struct dir_context *ctx);
 static struct dentry *dir_lookup(struct inode *dir_inode,
 		struct dentry *dentry, unsigned int flags);
-static int dir_mkdir(struct mnt_idmap *idmap, struct inode *dir,
+static struct dentry *dir_mkdir(struct mnt_idmap *idmap, struct inode *dir,
 		     struct dentry *dentry, umode_t mode);
 static int dir_unlink(struct inode *dir, struct dentry *dentry);
 static int dir_link(struct dentry *old_dentry, struct inode *dir,
@@ -451,7 +451,6 @@ static struct dentry *open_or_create_special_dir(struct dentry *backing_dir,
 {
 	struct dentry *index_dentry;
 	struct inode *backing_inode = d_inode(backing_dir);
-	int err = 0;
 
 	index_dentry = incfs_lookup_dentry(backing_dir, name);
 	if (!index_dentry) {
@@ -466,12 +465,12 @@ static struct dentry *open_or_create_special_dir(struct dentry *backing_dir,
 
 	/* Index needs to be created. */
 	inode_lock_nested(backing_inode, I_MUTEX_PARENT);
-	err = vfs_mkdir(&nop_mnt_idmap, backing_inode, index_dentry, 0777);
+	index_dentry = vfs_mkdir(&nop_mnt_idmap, backing_inode, index_dentry, 0777);
 	inode_unlock(backing_inode);
 
-	if (err) {
+	if (IS_ERR(index_dentry)) {
 		dput(index_dentry);
-		return ERR_PTR(err);
+		return ERR_CAST(index_dentry);
 	}
 
 	if (!d_really_is_positive(index_dentry) ||
@@ -1063,7 +1062,7 @@ out:
 	return ERR_PTR(err);
 }
 
-static int dir_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode)
+static struct dentry *dir_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode)
 {
 	struct mount_info *mi = get_mount_info(dir->i_sb);
 	struct inode_info *dir_node = get_incfs_node(dir);
@@ -1073,11 +1072,11 @@ static int dir_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dentry *
 
 
 	if (!mi || !dir_node || !dir_node->n_backing_inode)
-		return -EBADF;
+		return ERR_PTR(-EBADF);
 
 	err = mutex_lock_interruptible(&mi->mi_dir_struct_mutex);
 	if (err)
-		return err;
+		return ERR_PTR(err);
 
 	get_incfs_backing_path(dentry, &backing_path);
 	backing_dentry = backing_path.dentry;
@@ -1099,9 +1098,9 @@ static int dir_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dentry *
 		goto out;
 	}
 	inode_lock_nested(dir_node->n_backing_inode, I_MUTEX_PARENT);
-	err = vfs_mkdir(idmap, dir_node->n_backing_inode, backing_dentry, mode | 0222);
+	backing_dentry = vfs_mkdir(idmap, dir_node->n_backing_inode, backing_dentry, mode | 0222);
 	inode_unlock(dir_node->n_backing_inode);
-	if (!err) {
+	if (!IS_ERR(backing_dentry)) {
 		struct inode *inode = NULL;
 
 		if (d_really_is_negative(backing_dentry) ||
@@ -1127,7 +1126,7 @@ path_err:
 	mutex_unlock(&mi->mi_dir_struct_mutex);
 	if (err)
 		pr_debug("incfs: %s err:%d\n", __func__, err);
-	return err;
+	return ERR_PTR(err);
 }
 
 /*
