@@ -1123,6 +1123,7 @@
   flush_delayed_work
   flush_work
   __flush_workqueue
+  __folio_batch_release
   __folio_lock
   __folio_put
   folio_unlock
