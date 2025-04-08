@@ -613,14 +613,3 @@ wwan_port_txon
 wwan_register_ops
 wwan_remove_port
 wwan_unregister_ops
-zs_compact
-zs_create_pool
-zs_destroy_pool
-zs_free
-zs_get_total_pages
-zs_huge_class_size
-zs_lookup_class_index
-zs_malloc
-zs_map_object
-zs_pool_stats
-zs_unmap_object

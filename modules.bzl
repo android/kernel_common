@@ -227,7 +227,10 @@ def get_kunit_modules_list(arch = None):
     return kunit_modules_list
 
 # LINT.IfChange
-_COMMON_UNPROTECTED_MODULES_LIST = []
+_COMMON_UNPROTECTED_MODULES_LIST = [
+    "drivers/block/zram/zram.ko",
+    "mm/zsmalloc.ko",
+]
 # LINT.ThenChange(gki/aarch64/protected_exports)
 
 # buildifier: disable=unnamed-macro
