@@ -22,6 +22,9 @@
 #include "acl.h"
 #include <trace/events/f2fs.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/fs.h>
+
 static inline bool is_extension_exist(const unsigned char *s, const char *sub,
 						bool tmp_ext, bool tmp_dot)
 {
@@ -376,6 +379,7 @@ static int f2fs_create(struct mnt_idmap *idmap, struct inode *dir,
 	inode->i_mapping->a_ops = &f2fs_dblock_aops;
 	ino = inode->i_ino;
 
+	trace_android_vh_f2fs_create(inode, dentry);
 	f2fs_lock_op(sbi);
 	err = f2fs_add_link(dentry, inode);
 	if (err)
