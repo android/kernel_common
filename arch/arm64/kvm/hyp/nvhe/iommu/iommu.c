@@ -215,7 +215,7 @@ int kvm_iommu_init(struct kvm_iommu_ops *ops,
 	    !ops->init ||
 	    !ops->alloc_domain ||
 	    !ops->free_domain)
-		return -ENODEV;
+		return 0;
 
 	ret = hyp_pool_init_empty(&iommu_host_pool, 64);
 	if (ret)
