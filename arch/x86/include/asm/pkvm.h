@@ -14,10 +14,9 @@
 #define PKVM_HC_KVM_CALL		0
 #define PKVM_HC_INIT_FINALISE		1
 #define PKVM_HC_MMIO_ACCESS		7
-#define PKVM_HC_ACTIVATE_IOMMU		8
-#define PKVM_HC_TLB_REMOTE_FLUSH_RANGE	9
-#define PKVM_HC_SET_MMIO_VE		10
-#define PKVM_HC_ADD_PTDEV		11
+#define PKVM_HC_TLB_REMOTE_FLUSH_RANGE	8
+#define PKVM_HC_SET_MMIO_VE		9
+#define PKVM_HC_ADD_PTDEV		10
 
 /*
  * Internal hypercall to commit the pkvm initialization
@@ -41,6 +40,11 @@
 #define PKVM_MAX_PASID_BITS	15
 #define PKVM_MAX_PASID		(1 << PKVM_MAX_PASID_BITS)
 
+struct pkvm_iommu_driver {
+	int (*prepare_driver)(void);
+	int (*init_driver)(void);
+};
+
 #ifdef CONFIG_PKVM_INTEL
 
 #ifndef __PKVM_HYP__
@@ -48,6 +52,8 @@ extern bool __read_mostly enable_pkvm;	/* kernel command-line flag */
 #endif
 
 DECLARE_PER_CPU_READ_MOSTLY(bool, pkvm_enabled);
+
+int pkvm_iommu_register_driver(const struct pkvm_iommu_driver *kern_ops);
 
 static inline u64 pkvm_readq(void __iomem *reg, unsigned long reg_phys,
 			     unsigned long offset)
@@ -135,6 +141,15 @@ static inline void pkvm_update_iommu_virtual_caps(u64 *cap, u64 *ecap)
 		*ecap = (*ecap & ~GENMASK_ULL(39, 35)) | (tmp << 35);
 	}
 }
-#endif
+#else /* CONFIG_PKVM_INTEL */
+
+#define enable_pkvm false
+
+static inline int pkvm_iommu_register_driver(const struct pkvm_iommu_driver *kern_ops)
+{
+	return -EPERM;
+}
+
+#endif /* CONFIG_PKVM_INTEL */
 
 #endif

@@ -66,6 +66,18 @@ struct pkvm_deprivilege_param {
 };
 DEFINE_PER_CPU_READ_MOSTLY(bool, pkvm_enabled);
 
+static bool pkvm_finalise_started;
+
+static const struct pkvm_iommu_driver *iommu_driver;
+
+int pkvm_iommu_register_driver(const struct pkvm_iommu_driver *kern_ops)
+{
+	if (WARN_ON(!kern_ops))
+		return -EINVAL;
+
+	return cmpxchg_release(&iommu_driver, NULL, kern_ops) ? -EBUSY : 0;
+}
+
 struct pkvm_tlb_range {
 	u64 start_gfn;
 	u64 pages;
@@ -1010,21 +1022,6 @@ ok:
 	put_cpu();
 }
 
-static __init void pkvm_host_reprivilege_cpus(struct pkvm_hyp *pkvm)
-{
-	int cpu;
-
-	for_each_possible_cpu(cpu) {
-		struct pkvm_host_vcpu *hvcpu = pkvm->host_vm.host_vcpus[cpu];
-
-		if (hvcpu->vmx.vcpu.mode == OUTSIDE_GUEST_MODE)
-			continue;
-
-		smp_call_function_single(cpu, pkvm_host_reprivilege_cpu,
-					       (void *)hvcpu, true);
-	}
-}
-
 /*
  * Used in root mode to deprivilege CPUs
  */
@@ -1146,6 +1143,13 @@ static __init int pkvm_init_finalise(void)
 	};
 
 	/*
+	 * Marking start of the finalise phase. We need to do a rollback
+	 * operation as part of disabling pkvm if any failure happens from
+	 * now on.
+	 */
+	pkvm_finalise_started = true;
+
+	/*
 	 * First hypercall to recreate the pgtable for pkvm, and init
 	 * memory pool for later use, on boot cpu.
 	 * Input parameters are only needed for first hypercall.
@@ -1176,7 +1180,6 @@ static __init int pkvm_init_finalise(void)
 		}
 	}
 
-	ret = kvm_hypercall0(PKVM_HC_ACTIVATE_IOMMU);
 out:
 	put_cpu();
 
@@ -1424,29 +1427,78 @@ static int __init setup_pkvm_l1d(void)
 	return 0;
 }
 
-int __init vmx_pkvm_init(void)
+static int __init pkvm_iommu_driver_prepare(void)
+{
+	/* Pairs with cmpxchg_release in pkvm_iommu_register_driver */
+	if (!smp_load_acquire(&iommu_driver))
+		return -ENOENT;
+
+	return iommu_driver->prepare_driver();
+}
+
+static int __init pkvm_iommu_driver_init(void)
+{
+	/* Pairs with cmpxchg_release in pkvm_iommu_register_driver */
+	if (!smp_load_acquire(&iommu_driver))
+		return -ENOENT;
+
+	return iommu_driver->init_driver();
+}
+
+static void __init pkvm_init_rollback(void)
+{
+	struct pkvm_host_vcpu *hvcpu;
+	int cpu;
+
+	if (WARN_ON(!pkvm))
+		return;
+
+	/*
+	 * If finalise operation started, it may be that pkvm would
+	 * have enabled resource(memory, iommu and such) protection
+	 * from the host. Request pkvm to undo the protection so that
+	 * host can rollback pkvm initialization successfully.
+	 */
+	if (pkvm_finalise_started)
+		kvm_hypercall1(__PKVM_HC_COMMIT_FINALISE, false);
+
+	/*
+	 * Host now has access to hypervisor memory and clear the
+	 * firmware reserved memory now. This ensures that the secrets
+	 * are cleared even if reprivilege fails(which may end up in
+	 * stalled cpu and prevent further rollback actions).
+	 */
+	pkvm_firmware_rmem_clear();
+
+	/*
+	 * Return the cpus to VMX root mode.
+	 */
+	for_each_possible_cpu(cpu) {
+		hvcpu = pkvm->host_vm.host_vcpus[cpu];
+
+		if (hvcpu->vmx.vcpu.mode == OUTSIDE_GUEST_MODE)
+			continue;
+
+		smp_call_function_single(cpu, pkvm_host_reprivilege_cpu,
+					       (void *)hvcpu, true);
+	}
+
+	pkvm_sym(pkvm_hyp) = NULL;
+	/* TODO: Revisit if the memory resource may be reused here */
+}
+
+static void __init pkvm_init_commit(void)
+{
+	if (WARN_ON(!pkvm_finalise_started))
+		return;
+
+	kvm_hypercall1(__PKVM_HC_COMMIT_FINALISE, true);
+}
+
+static int __init __vmx_pkvm_init(void)
 {
 	int ret = 0, cpu;
 
-	ret = pkvm_firmware_rmem_init();
-	if (ret)
-		return ret;
-
-	if (!enable_pkvm) {
-		pkvm_firmware_rmem_clear();
-		return -EOPNOTSUPP;
-	}
-
-	if (pkvm_sym(pkvm_hyp)) {
-		pr_err("pkvm hypervisor is running!");
-		return -EBUSY;
-	}
-
-	if (!hyp_mem_base) {
-		pr_err("pkvm required memory not get reserved!");
-		ret = -ENOMEM;
-		goto out;
-	}
 	pkvm_sym(pkvm_early_alloc_init)(__va(hyp_mem_base),
 			pkvm_data_struct_pages(PKVM_GLOBAL_PAGES,
 					       PKVM_PERCPU_PAGES,
@@ -1493,7 +1545,6 @@ int __init vmx_pkvm_init(void)
 	pkvm->num_cpus = num_possible_cpus();
 
 	ret = pkvm_init_finalise();
-	kvm_hypercall1(__PKVM_HC_COMMIT_FINALISE, !ret);
 	if (ret)
 		goto out;
 
@@ -1501,11 +1552,65 @@ int __init vmx_pkvm_init(void)
 	return 0;
 
 out:
-	if (ret) {
-		pkvm_host_reprivilege_cpus(pkvm);
-		pkvm_firmware_rmem_clear();
-		pkvm_sym(pkvm_hyp) = NULL;
-		/* TODO: Revisit if the memory resource may be reused here */
+	return ret;
+}
+
+int __init vmx_pkvm_init(void)
+{
+	int ret, iommu_ret;
+
+	if (pkvm_sym(pkvm_hyp)) {
+		pr_err("pkvm hypervisor is running!");
+		return -EBUSY;
 	}
+
+	if (pkvm_firmware_rmem_init())
+		return -EINVAL;
+
+	if (!enable_pkvm) {
+		ret = -EOPNOTSUPP;
+		goto fw_rmem_clear;
+	}
+
+	if (!hyp_mem_base) {
+		pr_err("pkvm required memory not get reserved!");
+		ret = -ENOMEM;
+		goto fw_rmem_clear;
+	}
+
+	/*
+	 * IOMMU initialization is spread across multiple places
+	 * in the host. pkvm expects the drhd structures to be filled
+	 * before pkvm initialization. So we let the host initialize
+	 * those structure before continuing with pkvm initialization.
+	 */
+	ret = pkvm_iommu_driver_prepare();
+	if (ret)
+		goto fw_rmem_clear;
+
+	ret = __vmx_pkvm_init();
+
+	if (ret)
+		pkvm_init_rollback();
+
+	/*
+	 * Initialize iommu regardless of whether pkvm initialization
+	 * succeeded or not.
+	 */
+	iommu_ret = pkvm_iommu_driver_init();
+
+	if (!ret) {
+		if (iommu_ret) {
+			pr_warn("IOMMU initialization failed. Disabling pkvm!\n");
+			pkvm_init_rollback();
+		} else {
+			pkvm_init_commit();
+		}
+	}
+
+	return ret ? ret : iommu_ret;
+
+fw_rmem_clear:
+	pkvm_firmware_rmem_clear();
 	return ret;
 }
