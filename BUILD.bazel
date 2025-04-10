@@ -175,6 +175,7 @@ filegroup(
         # keep sorted
         "gki/aarch64/symbols/amlogic",
         "gki/aarch64/symbols/db845c",
+        "gki/aarch64/symbols/desktop",
         "gki/aarch64/symbols/exynos",
         "gki/aarch64/symbols/exynosauto",
         "gki/aarch64/symbols/fips140",
