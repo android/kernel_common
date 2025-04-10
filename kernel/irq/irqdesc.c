@@ -990,7 +990,7 @@ unsigned int kstat_irqs_cpu(unsigned int irq, int cpu)
 }
 EXPORT_SYMBOL_GPL(kstat_irqs_cpu);
 
-unsigned int kstat_irqs_desc(struct irq_desc *desc, const struct cpumask *cpumask)
+static unsigned int kstat_irqs_desc(struct irq_desc *desc, const struct cpumask *cpumask)
 {
 	unsigned int sum = 0;
 	int cpu;
