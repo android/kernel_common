@@ -971,6 +971,8 @@ static int kvm_arm_smmu_probe(struct platform_device *pdev)
 	hyp_smmu->mmio_size = size;
 	hyp_smmu->features = smmu->features;
 	hyp_smmu->iommu.power_domain = host_smmu->power_domain;
+	hyp_smmu->ssid_bits = smmu->ssid_bits;
+
 	kvm_arm_smmu_cur++;
 
 	pm_runtime_set_active(dev);
