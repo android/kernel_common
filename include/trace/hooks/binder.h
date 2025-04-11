@@ -112,6 +112,12 @@ DECLARE_HOOK(android_vh_binder_thread_read,
 	TP_PROTO(struct list_head **list, struct binder_proc *proc,
 		struct binder_thread *thread),
 	TP_ARGS(list, proc, thread));
+DECLARE_HOOK(android_vh_binder_new_ref,
+	TP_PROTO(struct binder_proc *proc, uint32_t ref_desc, int node_debug_id),
+	TP_ARGS(proc, ref_desc, node_debug_id));
+DECLARE_HOOK(android_vh_binder_del_ref,
+	TP_PROTO(struct binder_proc *proc, uint32_t ref_desc),
+	TP_ARGS(proc, ref_desc));
 #endif /* _TRACE_HOOK_BINDER_H */
 /* This part must be outside protection */
 #include <trace/define_trace.h>
