@@ -429,6 +429,8 @@ long __sys_setregid(gid_t rgid, gid_t egid)
 	if (retval < 0)
 		goto error;
 
+	trace_android_vh_security_audit_log_setid(4, old->gid.val, new->gid.val);
+
 	return commit_creds(new);
 
 error:
@@ -474,6 +476,8 @@ long __sys_setgid(gid_t gid)
 	retval = security_task_fix_setgid(new, old, LSM_SETID_ID);
 	if (retval < 0)
 		goto error;
+
+	trace_android_vh_security_audit_log_setid(3, old->gid.val, gid);
 
 	return commit_creds(new);
 
@@ -594,6 +598,8 @@ long __sys_setreuid(uid_t ruid, uid_t euid)
 	if (retval < 0)
 		goto error;
 
+	trace_android_vh_security_audit_log_setid(1, old->uid.val, new->uid.val);
+
 	flag_nproc_exceeded(new);
 	return commit_creds(new);
 
@@ -656,6 +662,8 @@ long __sys_setuid(uid_t uid)
 	retval = set_cred_ucounts(new);
 	if (retval < 0)
 		goto error;
+
+	trace_android_vh_security_audit_log_setid(0, old->uid.val, uid);
 
 	flag_nproc_exceeded(new);
 	return commit_creds(new);
@@ -741,6 +749,8 @@ long __sys_setresuid(uid_t ruid, uid_t euid, uid_t suid)
 	retval = set_cred_ucounts(new);
 	if (retval < 0)
 		goto error;
+
+	trace_android_vh_security_audit_log_setid(2, old->uid.val, new->uid.val);
 
 	flag_nproc_exceeded(new);
 	return commit_creds(new);
@@ -831,6 +841,8 @@ long __sys_setresgid(gid_t rgid, gid_t egid, gid_t sgid)
 	retval = security_task_fix_setgid(new, old, LSM_SETID_RES);
 	if (retval < 0)
 		goto error;
+
+	trace_android_vh_security_audit_log_setid(5, old->gid.val, new->gid.val);
 
 	return commit_creds(new);
 
