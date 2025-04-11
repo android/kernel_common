@@ -5426,6 +5426,7 @@ static int scx_ops_enable(struct sched_ext_ops *ops, struct bpf_link *link)
 
 	atomic_long_inc(&scx_enable_seq);
 
+	add_taint(TAINT_AUX, LOCKDEP_STILL_OK);
 	return 0;
 
 err_del:
