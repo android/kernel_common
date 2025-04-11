@@ -1382,6 +1382,7 @@ kernel_build(
     makefile = ":Makefile",
     module_outs = ["crypto/fips140.ko"],
     post_defconfig_fragments = ["arch/arm64/configs/fips140_gki.fragment"],
+    strip_modules = True,
 )
 
 kernel_abi(
