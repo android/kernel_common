@@ -1077,6 +1077,9 @@ bool kvm_guest_ffa_handler(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
 	case FFA_ID_GET:
 		ffa_to_smccc_res_prop(&res, FFA_RET_SUCCESS, hyp_vcpu_to_ffa_handle(hyp_vcpu));
 		goto out_guest;
+	case FFA_PARTITION_INFO_GET:
+		do_ffa_part_get(&res, ctxt, hyp_vcpu);
+		goto out_guest;
 	default:
 		ret = -EOPNOTSUPP;
 		break;
