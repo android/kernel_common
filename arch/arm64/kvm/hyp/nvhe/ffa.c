@@ -1158,6 +1158,11 @@ bool kvm_host_ffa_handler(struct kvm_cpu_context *host_ctxt, u32 func_id)
 	case FFA_PARTITION_INFO_GET:
 		do_ffa_part_get(&res, host_ctxt, NULL);
 		goto out_handled;
+	case FFA_RX_RELEASE:
+		hyp_spin_lock(&kvm_ffa_hyp_lock);
+		ffa_rx_release(&res);
+		hyp_spin_unlock(&kvm_ffa_hyp_lock);
+		goto out_handled;
 	}
 
 	if (ffa_call_supported(func_id))
@@ -1223,6 +1228,11 @@ bool kvm_guest_ffa_handler(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
 		goto out_guest;
 	case FFA_PARTITION_INFO_GET:
 		do_ffa_part_get(&res, ctxt, hyp_vcpu);
+		goto out_guest;
+	case FFA_RX_RELEASE:
+		hyp_spin_lock(&kvm_ffa_hyp_lock);
+		ffa_rx_release(&res);
+		hyp_spin_unlock(&kvm_ffa_hyp_lock);
 		goto out_guest;
 	default:
 		ret = -EOPNOTSUPP;
