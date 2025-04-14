@@ -828,59 +828,14 @@ out_unlock:
 	return ret;
 }
 
-static u32 pkvm_get_ffa_version(void)
-{
-	static u32 ffa_version;
-	u32 ret;
-
-	ret = READ_ONCE(ffa_version);
-	if (ret)
-		return ret;
-
-	ret = kvm_call_hyp_nvhe(__pkvm_host_get_ffa_version);
-	WRITE_ONCE(ffa_version, ret);
-	return ret;
-
-}
-
 static int pkvm_vm_ioctl_info(struct kvm *kvm,
 			      struct kvm_protected_vm_info __user *info)
 {
 	struct kvm_protected_vm_info kinfo = {
 		.firmware_size = pvmfw_size,
-		.ffa_version = pkvm_get_ffa_version(),
 	};
 
 	return copy_to_user(info, &kinfo, sizeof(kinfo)) ? -EFAULT : 0;
-}
-
-static int pkvm_vm_ioctl_ffa_support(struct kvm *kvm, u32 enable)
-{
-	int ret = 0;
-	u32 ffa_version;
-
-	/* Restrict userspace from having an IPC channel over FF-A with secure */
-	if (!capable(CAP_IPC_OWNER))
-		return -EPERM;
-
-	/*
-	 * If the host hasn't negotiated a version don't enable the
-	 * FF-A capability.
-	 */
-	ffa_version = pkvm_get_ffa_version();
-	if (!ffa_version)
-		return -EINVAL;
-
-	mutex_lock(&kvm->arch.config_lock);
-	if (kvm->arch.pkvm.handle) {
-		ret = -EBUSY;
-		goto out_unlock;
-	}
-
-	kvm->arch.pkvm.ffa_support = enable;
-out_unlock:
-	mutex_unlock(&kvm->arch.config_lock);
-	return ret;
 }
 
 int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_cap *cap)
@@ -896,8 +851,6 @@ int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_cap *cap)
 		return pkvm_vm_ioctl_set_fw_ipa(kvm, cap->args[0]);
 	case KVM_CAP_ARM_PROTECTED_VM_FLAGS_INFO:
 		return pkvm_vm_ioctl_info(kvm, (void __force __user *)cap->args[0]);
-	case KVM_CAP_ARM_PROTECTED_VM_FLAGS_SET_FFA:
-		return pkvm_vm_ioctl_ffa_support(kvm, cap->args[0]);
 	default:
 		return -EINVAL;
 	}

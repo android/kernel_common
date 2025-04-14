@@ -1881,11 +1881,6 @@ out:
 	cpu_reg(host_ctxt, 1) = ret;
 }
 
-static void handle___pkvm_host_get_ffa_version(struct kvm_cpu_context *host_ctxt)
-{
-	cpu_reg(host_ctxt, 1) = ffa_get_hypervisor_version();
-}
-
 typedef void (*hcall_t)(struct kvm_cpu_context *);
 
 #define HANDLE_FUNC(x)	[__KVM_HOST_SMCCC_FUNC_##x] = (hcall_t)handle_##x
@@ -1965,7 +1960,6 @@ static const hcall_t host_hcall[] = {
 	HANDLE_FUNC(__pkvm_host_donate_hyp_mmio),
 	HANDLE_FUNC(__pkvm_host_reclaim_hyp_mmio),
 	HANDLE_FUNC(__pkvm_host_map_guest_mmio),
-	HANDLE_FUNC(__pkvm_host_get_ffa_version),
 };
 
 static void handle_host_hcall(struct kvm_cpu_context *host_ctxt)
