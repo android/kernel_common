@@ -31,4 +31,12 @@ struct ffa_mem_transfer *find_transfer_by_handle(u64 ffa_handle, struct kvm_ffa_
 int kvm_dying_guest_reclaim_ffa_resources(struct pkvm_hyp_vm *vm);
 u32 ffa_get_hypervisor_version(void);
 
+static inline bool is_ffa_call(u64 func_id)
+{
+	return ARM_SMCCC_IS_FAST_CALL(func_id) &&
+		ARM_SMCCC_OWNER_NUM(func_id) == ARM_SMCCC_OWNER_STANDARD &&
+		ARM_SMCCC_FUNC_NUM(func_id) >= FFA_MIN_FUNC_NUM &&
+		ARM_SMCCC_FUNC_NUM(func_id) <= FFA_MAX_FUNC_NUM;
+}
+
 #endif /* __KVM_HYP_FFA_H */

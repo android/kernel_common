@@ -1743,7 +1743,10 @@ bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code)
 	case ARM_SMCCC_VENDOR_HYP_KVM_DEV_REQ_MMIO_FUNC_ID:
 		return pkvm_device_request_mmio(hyp_vcpu, exit_code);
 	default:
-		return pkvm_handle_psci(hyp_vcpu);
+		if (is_ffa_call(fn))
+			return kvm_guest_ffa_handler(hyp_vcpu, exit_code);
+		else
+			return pkvm_handle_psci(hyp_vcpu);
 	}
 
 	smccc_set_retval(vcpu, val[0], val[1], val[2], val[3]);
