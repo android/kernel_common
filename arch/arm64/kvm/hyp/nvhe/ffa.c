@@ -789,6 +789,8 @@ static void do_ffa_mem_reclaim(struct arm_smccc_res *res,
 			ret = FFA_RET_INVALID_PARAMETERS;
 			goto out_unlock;
 		}
+
+		goto out_reclaim;
 	} else {
 		transfer = __pkvm_get_vm_ffa_transfer(handle);
 
@@ -846,14 +848,19 @@ static void do_ffa_mem_reclaim(struct arm_smccc_res *res,
 		ffa_rx_release(res);
 	}
 
+out_reclaim:
 	ffa_mem_reclaim(res, handle_lo, handle_hi, flags);
 	if (res->a0 != FFA_SUCCESS)
 		goto out_unlock;
 
-	reg = (void *)buf + offset;
 	/* If the SPMD was happy, then we should be too. */
-	WARN_ON(ffa_host_unshare_ranges(reg->constituents,
-					reg->addr_range_cnt));
+	if (hyp_vcpu)
+		ffa_guest_unshare_ranges(hyp_vcpu, transfer);
+	else {
+		reg = (void *)buf + offset;
+		WARN_ON(ffa_host_unshare_ranges(reg->constituents,
+						reg->addr_range_cnt));
+	}
 
 	if (transfer) {
 		list_del(&transfer->node);
