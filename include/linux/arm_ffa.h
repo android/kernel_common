@@ -502,4 +502,14 @@ static inline int ffa_to_linux_errno(int errno)
 	return -EINVAL;
 }
 
+static inline int linux_errno_to_ffa(int errno)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ffa_linux_errmap); i++)
+		if (ffa_linux_errmap[i] == errno)
+			return -i;
+	return FFA_RET_NOT_SUPPORTED;
+}
+
 #endif /* _LINUX_ARM_FFA_H */

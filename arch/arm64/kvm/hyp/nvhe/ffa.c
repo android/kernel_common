@@ -28,6 +28,7 @@
 
 #include <linux/arm_ffa.h>
 #include <asm/kvm_pkvm.h>
+#include <kvm/arm_hypercalls.h>
 
 #include <nvhe/arm-smccc.h>
 #include <nvhe/ffa.h>
@@ -272,6 +273,62 @@ err_unshare_tx:
 err_unmap:
 	ffa_unmap_hyp_buffers();
 	goto out_unlock;
+}
+
+static int do_ffa_rxtx_guest_map(struct kvm_cpu_context *ctxt, struct pkvm_hyp_vcpu *hyp_vcpu)
+{
+	DECLARE_REG(phys_addr_t, tx, ctxt, 1);
+	DECLARE_REG(phys_addr_t, rx, ctxt, 2);
+	DECLARE_REG(u32, npages, ctxt, 3);
+	int ret = 0;
+	u64 rx_va, tx_va;
+	struct kvm_ffa_buffers *ffa_buf;
+	struct kvm_hyp_req *req;
+
+	if (npages != (KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE) / FFA_PAGE_SIZE)
+		return -EINVAL;
+
+	if (!PAGE_ALIGNED(tx) || !PAGE_ALIGNED(rx))
+		return -EINVAL;
+
+	ret = __pkvm_guest_share_hyp_page(hyp_vcpu, tx, &tx_va);
+	if (ret)
+		goto out_err;
+
+	ret = __pkvm_guest_share_hyp_page(hyp_vcpu, rx, &rx_va);
+	if (ret)
+		goto out_err_with_tx;
+
+	hyp_spin_lock(&kvm_ffa_hyp_lock);
+	ffa_buf = ffa_get_buffers(hyp_vcpu);
+	if (ffa_buf->tx) {
+		ret = -EACCES;
+		goto out_unlock;
+	}
+
+	ffa_buf->tx = (void *)tx_va;
+	ffa_buf->rx = (void *)rx_va;
+out_unlock:
+	hyp_spin_unlock(&kvm_ffa_hyp_lock);
+	return ret;
+out_err_with_tx:
+	WARN_ON(__pkvm_guest_unshare_hyp_page(hyp_vcpu, tx));
+out_err:
+	if (ret == -EFAULT) {
+		req = pkvm_hyp_req_reserve(hyp_vcpu, KVM_HYP_REQ_TYPE_MAP);
+		if (!req || !pkvm_hyp_req_reserve(hyp_vcpu, KVM_HYP_REQ_TYPE_MAP))
+			return -ENOSPC;
+
+		req->map.guest_ipa = tx;
+		req->map.size = PAGE_SIZE;
+
+		req++;
+
+		req->map.guest_ipa = rx;
+		req->map.size = PAGE_SIZE;
+	}
+
+	return ret;
 }
 
 static void do_ffa_rxtx_unmap(struct arm_smccc_res *res,
@@ -684,6 +741,33 @@ out_handled:
 	return true;
 }
 
+static void do_ffa_guest_features(struct arm_smccc_res *res, struct kvm_cpu_context *ctxt)
+{
+	DECLARE_REG(u32, id, ctxt, 1);
+
+	switch (id) {
+	case FFA_MEM_SHARE:
+	case FFA_FN64_MEM_SHARE:
+	case FFA_MEM_LEND:
+	case FFA_FN64_MEM_LEND:
+		res->a0 = FFA_RET_SUCCESS;
+		break;
+	case FFA_RXTX_MAP:
+		res->a0 = FFA_RET_SUCCESS;
+		if (PAGE_SIZE == SZ_4K)
+			res->a2 = FFA_FEAT_RXTX_MIN_SZ_4K;
+		else if (PAGE_SIZE == SZ_64K)
+			res->a2 = FFA_FEAT_RXTX_MIN_SZ_64K;
+		else if (PAGE_SIZE == SZ_16K)
+			res->a2 = FFA_FEAT_RXTX_MIN_SZ_16K;
+		else
+			res->a2 = 3;
+		break;
+	default:
+		ffa_to_smccc_error(res, FFA_RET_NOT_SUPPORTED);
+	}
+}
+
 static int hyp_ffa_post_init(void)
 {
 	size_t min_rxtx_sz;
@@ -758,6 +842,24 @@ static void do_ffa_version(struct arm_smccc_res *res,
 		res->a0 = hyp_ffa_version;
 	}
 unlock:
+	hyp_spin_unlock(&version_lock);
+}
+
+static void do_ffa_guest_version(struct arm_smccc_res *res, struct kvm_cpu_context *ctxt,
+				 struct pkvm_hyp_vcpu *hyp_vcpu)
+{
+	DECLARE_REG(u32, ffa_req_version, ctxt, 1);
+
+	if (FFA_MAJOR_VERSION(ffa_req_version) != 1) {
+		res->a0 = FFA_RET_NOT_SUPPORTED;
+		return;
+	}
+
+	hyp_spin_lock(&version_lock);
+	if (has_version_negotiated)
+		res->a0 = hyp_ffa_version;
+	else
+		res->a0 = FFA_RET_NOT_SUPPORTED;
 	hyp_spin_unlock(&version_lock);
 }
 
@@ -879,6 +981,47 @@ bool kvm_host_ffa_handler(struct kvm_cpu_context *host_ctxt, u32 func_id)
 	ffa_to_smccc_error(&res, FFA_RET_NOT_SUPPORTED);
 out_handled:
 	ffa_set_retval(host_ctxt, &res);
+	return true;
+}
+
+bool kvm_guest_ffa_handler(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
+{
+	struct kvm_vcpu *vcpu = &hyp_vcpu->vcpu;
+	struct kvm_cpu_context *ctxt = &vcpu->arch.ctxt;
+	struct arm_smccc_res res;
+	int ret;
+
+	DECLARE_REG(u64, func_id, ctxt, 0);
+
+	if (!is_ffa_call(func_id)) {
+		smccc_set_retval(vcpu, SMCCC_RET_NOT_SUPPORTED, 0, 0, 0);
+		return true;
+	}
+
+	switch (func_id) {
+	case FFA_FEATURES:
+		do_ffa_guest_features(&res, ctxt);
+		goto out_guest;
+	case FFA_VERSION:
+		do_ffa_guest_version(&res, ctxt, hyp_vcpu);
+		goto out_guest;
+	case FFA_FN64_RXTX_MAP:
+		ret = do_ffa_rxtx_guest_map(ctxt, hyp_vcpu);
+		break;
+	default:
+		ret = -EOPNOTSUPP;
+		break;
+	}
+
+	if (ret == -EFAULT || ret == -ENOMEM) {
+		if (!pkvm_handle_empty_memcache(hyp_vcpu, exit_code))
+			return false;
+	}
+
+	ffa_to_smccc_res(&res, linux_errno_to_ffa(ret));
+
+out_guest:
+	ffa_set_retval(ctxt, &res);
 	return true;
 }
 

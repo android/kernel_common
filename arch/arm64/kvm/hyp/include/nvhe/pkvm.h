@@ -130,6 +130,7 @@ int kvm_check_pvm_sysreg_table(void);
 void pkvm_reset_vcpu(struct pkvm_hyp_vcpu *hyp_vcpu);
 
 bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code);
+bool kvm_hyp_handle_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code);
 
 struct pkvm_hyp_vcpu *pkvm_mpidr_to_hyp_vcpu(struct pkvm_hyp_vm *vm, u64 mpidr);
 
@@ -201,5 +202,6 @@ int pkvm_device_reclaim_mmio(u64 pfn, u64 nr_pages);
 int pkvm_host_map_guest_mmio(struct pkvm_hyp_vcpu *hyp_vcpu, u64 pfn, u64 gfn);
 int pkvm_device_register_reset(u64 phys, void *cookie,
 			       int (*cb)(void *cookie, bool host_to_guest));
+int pkvm_handle_empty_memcache(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code);
 
 #endif /* __ARM64_KVM_NVHE_PKVM_H__ */
