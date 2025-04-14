@@ -366,23 +366,35 @@ static void __pkvm_destroy_hyp_vm(struct kvm *host_kvm)
 	struct mm_struct *mm = current->mm;
 	struct kvm_pinned_page *ppage;
 	struct kvm_vcpu *host_vcpu;
-	unsigned long pages = 0;
+	unsigned long nr_busy;
+	unsigned long pages;
 	unsigned long idx;
+	int ret;
 
 	if (!pkvm_is_hyp_created(host_kvm))
 		goto out_free;
 
 	WARN_ON(kvm_call_hyp_nvhe(__pkvm_start_teardown_vm, host_kvm->arch.pkvm.handle));
 
+retry:
+	pages = 0;
+	nr_busy = 0;
 	ppage = kvm_pinned_pages_iter_first(&host_kvm->arch.pkvm.pinned_pages, 0, ~(0UL));
 	while (ppage) {
 		struct kvm_pinned_page *next;
 		u16 pins = ppage->pins;
 
-		WARN_ON(pkvm_call_hyp_nvhe_ppage(ppage,
+		ret = pkvm_call_hyp_nvhe_ppage(ppage,
 						 __reclaim_dying_guest_page_call,
-						 host_kvm, true));
+						 host_kvm, true);
 		cond_resched();
+		if (ret == -EBUSY) {
+			nr_busy++;
+			next = kvm_pinned_pages_iter_next(ppage, 0, ~(0UL));
+			ppage = next;
+			continue;
+		}
+		WARN_ON(ret);
 
 		unpin_user_pages_dirty_lock(&ppage->page, 1, true);
 		next = kvm_pinned_pages_iter_next(ppage, 0, ~(0UL));
@@ -393,6 +405,16 @@ static void __pkvm_destroy_hyp_vm(struct kvm *host_kvm)
 	}
 
 	account_locked_vm(mm, pages, false);
+
+	if (nr_busy) {
+		do {
+			ret = kvm_call_hyp_nvhe(__pkvm_reclaim_dying_guest_ffa_resources,
+						host_kvm->arch.pkvm.handle);
+			WARN_ON(ret && ret != -EAGAIN);
+			cond_resched();
+		} while (ret == -EAGAIN);
+		goto retry;
+	}
 
 	WARN_ON(kvm_call_hyp_nvhe(__pkvm_finalize_teardown_vm, host_kvm->arch.pkvm.handle));
 

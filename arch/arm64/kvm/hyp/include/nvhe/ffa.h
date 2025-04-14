@@ -28,5 +28,6 @@ int hyp_ffa_init(void *pages);
 bool kvm_host_ffa_handler(struct kvm_cpu_context *host_ctxt, u32 func_id);
 bool kvm_guest_ffa_handler(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code);
 struct ffa_mem_transfer *find_transfer_by_handle(u64 ffa_handle, struct kvm_ffa_buffers *buf);
+int kvm_dying_guest_reclaim_ffa_resources(struct pkvm_hyp_vm *vm);
 
 #endif /* __KVM_HYP_FFA_H */

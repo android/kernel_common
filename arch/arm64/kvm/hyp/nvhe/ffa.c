@@ -1264,6 +1264,60 @@ out_guest:
 	return true;
 }
 
+static void kvm_guest_try_reclaim_transfer(struct ffa_mem_transfer *transfer,
+					   struct pkvm_hyp_vm *vm)
+{
+	struct ffa_translation *translation, *tmp;
+	struct arm_smccc_res res;
+
+	ffa_mem_reclaim(&res, HANDLE_LOW(transfer->ffa_handle),
+			HANDLE_HIGH(transfer->ffa_handle), 0);
+	if (res.a0 != FFA_SUCCESS)
+		return;
+
+	list_for_each_entry_safe(translation, tmp, &transfer->translations, node) {
+		WARN_ON(__pkvm_guest_unshare_ffa_page(vm->vcpus[0], translation->ipa));
+		list_del(&translation->node);
+		hyp_free(translation);
+	}
+
+	list_del(&transfer->node);
+	hyp_free(transfer);
+}
+
+int kvm_dying_guest_reclaim_ffa_resources(struct pkvm_hyp_vm *vm)
+{
+	struct kvm_ffa_buffers *ffa_buf = &vm->ffa_buf;
+	struct ffa_mem_transfer *transfer;
+	int ret = 0;
+
+	hyp_spin_lock(&kvm_ffa_hyp_lock);
+	if (!ffa_buf->tx && !ffa_buf->rx)
+		goto unlock;
+
+	if (list_empty(&ffa_buf->xfer_list)) {
+		/* XXX - needs an explicit rxtx unmap call ? */
+		if (ffa_buf->tx) {
+			WARN_ON(__pkvm_guest_unshare_hyp_page(vm->vcpus[0], ffa_buf->tx_ipa));
+			ffa_buf->tx = NULL;
+		}
+		if (ffa_buf->rx) {
+			WARN_ON(__pkvm_guest_unshare_hyp_page(vm->vcpus[0], ffa_buf->rx_ipa));
+			ffa_buf->rx = NULL;
+		}
+		goto unlock;
+	}
+
+	transfer = list_first_entry(&ffa_buf->xfer_list, typeof(*transfer), node);
+	kvm_guest_try_reclaim_transfer(transfer, vm);
+	ret = -EAGAIN;
+
+unlock:
+	hyp_spin_unlock(&kvm_ffa_hyp_lock);
+
+	return ret;
+}
+
 int hyp_ffa_init(void *pages)
 {
 	struct arm_smccc_res res;

@@ -2389,12 +2389,10 @@ int __pkvm_host_reclaim_page(struct pkvm_hyp_vm *vm, u64 pfn, u64 ipa, u8 order)
 		goto unlock;
 	}
 
-	/* We could avoid TLB inval, it is done per VMID on the finalize path */
-	WARN_ON(kvm_pgtable_stage2_unmap(&vm->pgt, ipa, page_size));
-
 	switch ((int)guest_get_page_state(pte, ipa)) {
 	case PKVM_PAGE_OWNED:
 		WARN_ON(__host_check_page_state_range(phys, page_size, PKVM_NOPAGE));
+		/* No vCPUs of the guest can run, doing this prior to stage-2 unmap is OK */
 		hyp_poison_page(phys, page_size);
 		psci_mem_protect_dec(1 << order);
 		break;
@@ -2403,12 +2401,18 @@ int __pkvm_host_reclaim_page(struct pkvm_hyp_vm *vm, u64 pfn, u64 ipa, u8 order)
 		WARN_ON(__host_check_page_state_range(phys, page_size, PKVM_PAGE_SHARED_OWNED));
 		break;
 	case PKVM_PAGE_SHARED_OWNED:
-		WARN_ON(__host_check_page_state_range(phys, page_size, PKVM_PAGE_SHARED_BORROWED));
+		if (__host_check_page_state_range(phys, page_size, PKVM_PAGE_SHARED_BORROWED)) {
+			/* Presumably a page shared via FF-A, will be handled separately */
+			ret = -EBUSY;
+			goto unlock;
+		}
 		break;
 	default:
 		BUG_ON(1);
 	}
 
+	/* We could avoid TLB inval, it is done per VMID on the finalize path */
+	WARN_ON(kvm_pgtable_stage2_unmap(&vm->pgt, ipa, page_size));
 	WARN_ON(host_stage2_set_owner_locked(phys, page_size, PKVM_ID_HOST));
 
 unlock:
