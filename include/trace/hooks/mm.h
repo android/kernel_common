@@ -399,6 +399,9 @@ DECLARE_HOOK(android_vh_customize_alloc_gfp,
 DECLARE_HOOK(android_vh_mm_kcompactd_cpu_online,
 	TP_PROTO(int cpu),
 	TP_ARGS(cpu));
+DECLARE_HOOK(android_vh_adjust_swap_info_flags,
+	TP_PROTO(unsigned long *flags),
+	TP_ARGS(flags));
 DECLARE_HOOK(android_rvh_alloc_pages_reclaim_start,
 	TP_PROTO(gfp_t gfp_mask, int order, int *alloc_flags),
 	TP_ARGS(gfp_mask, order, alloc_flags));
