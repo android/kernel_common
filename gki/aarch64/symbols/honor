@@ -23,6 +23,12 @@
   __tracepoint_android_rvh_do_el1_bti
   __traceiter_android_rvh_panic_unhandled
   __tracepoint_android_rvh_panic_unhandled
+  __traceiter_android_vh_binder_transaction_record
+  __tracepoint_android_vh_binder_transaction_record
+  __traceiter_android_vh_binder_data_preset
+  __tracepoint_android_vh_binder_data_preset
+  __traceiter_android_rvh_init_binder_logs
+  __tracepoint_android_rvh_init_binder_logs
   __traceiter_android_vh_add_lazyfree_bypass
   __tracepoint_android_vh_add_lazyfree_bypass
   netdev_get_name
