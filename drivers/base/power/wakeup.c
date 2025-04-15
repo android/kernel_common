@@ -1216,10 +1216,11 @@ static const struct seq_operations wakeup_sources_stats_seq_ops = {
 	.show  = wakeup_sources_stats_seq_show,
 };
 
-static int wakeup_sources_stats_open(struct inode *inode, struct file *file)
+int wakeup_sources_stats_open(struct inode *inode, struct file *file)
 {
 	return seq_open_private(file, &wakeup_sources_stats_seq_ops, sizeof(int));
 }
+EXPORT_SYMBOL_GPL(wakeup_sources_stats_open);
 
 static const struct file_operations wakeup_sources_stats_fops = {
 	.owner = THIS_MODULE,
