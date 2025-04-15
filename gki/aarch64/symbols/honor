@@ -368,6 +368,7 @@
   usb_for_each_dev
   usb_gadget_connect
   usb_gadget_disconnect
+  wakeup_sources_stats_open
   wakeup_sources_walk_next
   wakeup_sources_walk_start
   __traceiter_android_vh_receive_sock
