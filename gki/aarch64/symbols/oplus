@@ -271,6 +271,7 @@
   __traceiter_android_vh_futex_wake_up_q_finish
   __traceiter_android_vh_get_page_wmark
   __traceiter_android_vh_irqtime_account_process_tick
+  __traceiter_android_vh_kmalloc_slab
   __traceiter_android_vh_kvmalloc_node_use_vmalloc
   __traceiter_android_vh_look_around
   __traceiter_android_vh_look_around_migrate_folio
@@ -404,6 +405,7 @@
   __tracepoint_android_vh_futex_wake_up_q_finish
   __tracepoint_android_vh_get_page_wmark
   __tracepoint_android_vh_irqtime_account_process_tick
+  __tracepoint_android_vh_kmalloc_slab
   __tracepoint_android_vh_kvmalloc_node_use_vmalloc
   __tracepoint_android_vh_look_around
   __tracepoint_android_vh_look_around_migrate_folio
