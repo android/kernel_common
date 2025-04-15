@@ -18,6 +18,7 @@
 #include <linux/wait.h>
 #include <linux/mm.h>
 #include <linux/page_reporting.h>
+#include <linux/kstrtox.h>
 
 /*
  * Balloon device works in 4K page units.  So each page is pointed to by
@@ -124,6 +125,8 @@ struct virtio_balloon {
 	spinlock_t wakeup_lock;
 	bool processing_wakeup_event;
 	u32 wakeup_signal_mask;
+
+	bool bail_on_out_of_puff;
 };
 
 #define VIRTIO_BALLOON_WAKEUP_SIGNAL_ADJUST (1 << 0)
@@ -247,7 +250,8 @@ static void set_page_pfns(struct virtio_balloon *vb,
 					  page_to_balloon_pfn(page) + i);
 }
 
-static unsigned int fill_balloon(struct virtio_balloon *vb, size_t num)
+static unsigned int fill_balloon(struct virtio_balloon *vb, size_t num,
+				 bool *out_of_puff)
 {
 	unsigned int num_allocated_pages;
 	unsigned int num_pfns;
@@ -267,6 +271,7 @@ static unsigned int fill_balloon(struct virtio_balloon *vb, size_t num)
 					     VIRTIO_BALLOON_PAGES_PER_PAGE);
 			/* Sleep for at least 1/5 of a second before retry. */
 			msleep(200);
+			*out_of_puff = true;
 			break;
 		}
 
@@ -563,6 +568,7 @@ static void update_balloon_size_func(struct work_struct *work)
 {
 	struct virtio_balloon *vb;
 	s64 diff;
+	bool out_of_puff = false;
 
 	vb = container_of(work, struct virtio_balloon,
 			  update_balloon_size_work);
@@ -573,13 +579,13 @@ static void update_balloon_size_func(struct work_struct *work)
 
 	if (diff) {
 		if (diff > 0)
-			diff -= fill_balloon(vb, diff);
+			diff -= fill_balloon(vb, diff, &out_of_puff);
 		else
 			diff += leak_balloon(vb, -diff);
 		update_balloon_size(vb);
 	}
 
-	if (diff)
+	if (diff && !(vb->bail_on_out_of_puff && out_of_puff))
 		queue_work(system_freezable_wq, work);
 	else
 		finish_wakeup_event(vb);
@@ -957,6 +963,38 @@ static int virtio_balloon_register_shrinker(struct virtio_balloon *vb)
 	return 0;
 }
 
+static ssize_t bail_on_out_of_puff_show(struct device *d, struct device_attribute *attr,
+			       char *buf)
+{
+	struct virtio_device *vdev =
+		container_of(d, struct virtio_device, dev);
+	struct virtio_balloon *vb = vdev->priv;
+
+	return sprintf(buf, "%c\n", vb->bail_on_out_of_puff ? '1' : '0');
+}
+
+static ssize_t bail_on_out_of_puff_store(struct device *d, struct device_attribute *attr,
+				const char *buf, size_t count)
+{
+	struct virtio_device *vdev =
+		container_of(d, struct virtio_device, dev);
+	struct virtio_balloon *vb = vdev->priv;
+
+	return kstrtobool(buf, &vb->bail_on_out_of_puff) ?: count;
+}
+
+static DEVICE_ATTR_RW(bail_on_out_of_puff);
+
+static struct attribute *virtio_balloon_sysfs_entries[] = {
+	&dev_attr_bail_on_out_of_puff.attr,
+	NULL
+};
+
+static const struct attribute_group virtio_balloon_attribute_group = {
+	.name = NULL,		/* put in device directory */
+	.attrs = virtio_balloon_sysfs_entries,
+};
+
 static int virtballoon_probe(struct virtio_device *vdev)
 {
 	struct virtio_balloon *vb;
@@ -987,6 +1025,11 @@ static int virtballoon_probe(struct virtio_device *vdev)
 	if (err)
 		goto out_free_vb;
 
+	err = sysfs_create_group(&vdev->dev.kobj,
+				 &virtio_balloon_attribute_group);
+	if (err)
+		goto out_del_vqs;
+
 #ifdef CONFIG_BALLOON_COMPACTION
 	vb->vb_dev_info.migratepage = virtballoon_migratepage;
 #endif
@@ -997,13 +1040,13 @@ static int virtballoon_probe(struct virtio_device *vdev)
 		 */
 		if (virtqueue_get_vring_size(vb->free_page_vq) < 2) {
 			err = -ENOSPC;
-			goto out_del_vqs;
+			goto out_remove_sysfs;
 		}
 		vb->balloon_wq = alloc_workqueue("balloon-wq",
 					WQ_FREEZABLE | WQ_CPU_INTENSIVE, 0);
 		if (!vb->balloon_wq) {
 			err = -ENOMEM;
-			goto out_del_vqs;
+			goto out_remove_sysfs;
 		}
 		INIT_WORK(&vb->report_free_page_work, report_free_page_func);
 		vb->cmd_id_received_cache = VIRTIO_BALLOON_CMD_ID_STOP;
@@ -1108,6 +1151,8 @@ out_unregister_shrinker:
 out_del_balloon_wq:
 	if (virtio_has_feature(vdev, VIRTIO_BALLOON_F_FREE_PAGE_HINT))
 		destroy_workqueue(vb->balloon_wq);
+out_remove_sysfs:
+	sysfs_remove_group(&vdev->dev.kobj, &virtio_balloon_attribute_group);
 out_del_vqs:
 	vdev->config->del_vqs(vdev);
 out_free_vb:
@@ -1153,6 +1198,8 @@ static void virtballoon_remove(struct virtio_device *vdev)
 		cancel_work_sync(&vb->report_free_page_work);
 		destroy_workqueue(vb->balloon_wq);
 	}
+
+	sysfs_remove_group(&vdev->dev.kobj, &virtio_balloon_attribute_group);
 
 	remove_common(vb);
 	kfree(vb);
