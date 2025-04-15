@@ -90,8 +90,6 @@ static const char *drm_sched_fence_get_driver_name(struct dma_fence *fence)
 static const char *drm_sched_fence_get_timeline_name(struct dma_fence *f)
 {
 	struct drm_sched_fence *fence = to_drm_sched_fence(f);
-	if (!fence->sched || !fence->sched->name)
-		return "unknown";
 	return (const char *)fence->sched->name;
 }
 
