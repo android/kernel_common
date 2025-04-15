@@ -237,8 +237,186 @@
   __wake_up
   __warn_printk
 
+# required apsys_dvfs.ko
+  devfreq_update_status
+
+# required audio_codec.ko
+  iio_read_channel_raw
+  regulator_register
+
+# required audio_platform.ko
+  snd_pcm_rate_bit_to_rate
+
+# required haptic.ko
+  devm_led_classdev_unregister
+
+# required ims_bridge.ko
+  icmp6_send
+  inet_select_addr
+  ip6_find_1stfragopt
+  ip6_route_output_flags
+  ipv6_dev_get_saddr
+  ipv6_select_ident
+  nf_ct_get_tuplepr
+  nf_ct_invert_tuple
+  xfrm_state_afinfo_get_rcu
+
 # required inode_info.ko
   __traceiter_mm_filemap_delete_from_page_cache
   __traceiter_mm_filemap_add_to_page_cache
   __tracepoint_mm_filemap_delete_from_page_cache
   __tracepoint_mm_filemap_add_to_page_cache
+
+# required iolimit.ko
+  __traceiter_android_rvh_ctl_dirty_rate
+  __tracepoint_android_rvh_ctl_dirty_rate
+  blkcg_policy_register
+
+# required kprobe_dmverity_debug.ko
+  dm_bio_from_per_bio_data
+  dm_bufio_read
+
+# required mali_kbase.ko
+  devfreq_cooling_em_register
+  of_clk_get_parent_count
+
+# required mmc_swcq.ko
+  __blk_mq_end_request
+  blk_mq_run_hw_queues
+  blk_update_request
+  mmc_cqe_post_req
+  mmc_put_card
+
+# required pinctrl_sprd.ko
+  pinctrl_register
+  pinctrl_unregister
+  pinctrl_utils_add_map_configs
+  pinctrl_utils_add_map_mux
+  pinctrl_utils_reserve_map
+  pinconf_generic_parse_dt_config
+
+# required printk_cpuid.ko
+  __traceiter_android_vh_printk_ext_header
+  __tracepoint_android_vh_printk_ext_header
+
+# required regmap_hook.ko
+  __traceiter_android_vh_regmap_update
+  __tracepoint_android_vh_regmap_update
+
+# required sc8546_charger.ko
+  __regmap_init_i2c
+
+# required sensorhub.ko
+  iio_pollfunc_store_time
+
+# required sdhci_sprd.ko
+  __sdhci_read_caps
+  mmc_get_ext_csd
+  mmc_regulator_disable_vqmmc
+  mmc_regulator_enable_vqmmc
+  mmc_send_status
+  sdhci_enable_v4_mode
+  sdhci_request
+  sdhci_request_atomic
+
+# required sfp_core.ko
+  nf_conntrack_find_get
+  nf_ct_destroy
+  pskb_trim_rcsum_slow
+  rt6_lookup
+
+# required sipa_core.ko
+  alarm_start
+
+# required sprd_ase_driver.ko
+  alarm_forward
+
+# required sprd_charger_manager.ko
+  alarm_expires_remaining
+
+# required sprd_dma.ko
+  of_dma_simple_xlate
+
+# required sprd_drm.ko
+  drm_ioctl_kernel
+  drm_send_event_timestamp_locked
+  mipi_dsi_generic_read
+  mipi_dsi_set_maximum_return_packet_size
+  of_get_drm_display_mode
+
+# required sprd_pmic_adc.ko
+  nvmem_cell_read_u16
+
+# required sprd_soc_thm.ko
+  thermal_zone_device_critical
+
+# required sprd_tcpm.ko
+  typec_altmode_attention
+  typec_altmode_notify
+  typec_altmode_update_active
+  typec_altmode_vdm
+  typec_find_port_data_role
+  typec_find_port_power_role
+  typec_find_power_role
+  typec_match_altmode
+  typec_partner_register_altmode
+  typec_partner_set_identity
+  typec_partner_set_svdm_version
+  typec_port_register_altmode
+  typec_set_mode
+  typec_set_vconn_role
+  typec_unregister_altmode
+  usb_role_switch_get
+
+# required sprd_usb_f_rndis.ko
+  gether_cleanup
+  gether_connect
+  gether_disconnect
+  gether_get_dev_addr
+  gether_get_host_addr
+  gether_get_host_addr_u8
+  gether_get_ifname
+  gether_get_qmult
+  gether_register_netdev
+  gether_set_dev_addr
+  gether_set_gadget
+  gether_set_host_addr
+  gether_set_ifname
+  gether_set_qmult
+  gether_setup_name_default
+
+# required sysdump.ko
+  node_states
+
+# required trusty.ko
+  ksys_sync_helper
+
+# required ufs_sprd.ko
+  __scsi_add_device
+  blk_mq_wait_quiesce_done
+  scsi_test_unit_ready
+  ufshcd_link_recovery
+
+# required unisoc_last_kmsg.ko
+  vm_memory_committed
+
+# required unisoc_multi_control.ko
+  __show_mem
+  __traceiter_android_vh_cpufreq_fast_switch
+  __traceiter_android_vh_kmalloc_large_alloced
+  __traceiter_android_vh_slab_folio_alloced
+  __tracepoint_android_vh_cpufreq_fast_switch
+  __tracepoint_android_vh_kmalloc_large_alloced
+  __tracepoint_android_vh_slab_folio_alloced
+  refresh_frequency_limits
+
+# required unisoc_sched.ko
+  __traceiter_android_rvh_sched_balance_find_src_group
+  __tracepoint_android_rvh_sched_balance_find_src_group
+  tick_nohz_get_idle_calls_cpu
+
+# required unisoc_time_sync.ko
+  pvclock_gtod_register_notifier
+
+# required unisoc_ursp.ko
+  seq_open_private
