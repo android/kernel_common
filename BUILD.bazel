@@ -4,7 +4,6 @@
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
-load("@kernel_toolchain_info//:dict.bzl", "BRANCH")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_pkg//pkg:install.bzl", "pkg_install")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_filegroup", "pkg_files", "strip_prefix")
@@ -328,7 +327,7 @@ common_kernel(
     additional_kmi_symbol_lists = [":aarch64_additional_kmi_symbol_lists"],
     arch = "arm64",
     build_gki_artifacts = True,
-    clang_autofdo_profile = "//toolchain/pgo-profiles/kernel:aarch64/" + BRANCH + "/kernel.afdo",
+    clang_autofdo_profile = ":gki/aarch64/afdo/kernel.afdo",
     ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
     ddk_module_headers = [":all_headers_aarch64"],
     defconfig = "arch/arm64/configs/gki_defconfig",

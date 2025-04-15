@@ -13,7 +13,8 @@ gki
 |   |   +-- ...
 |   |-- protected_exports
 |   |-- abi.stg
-|   +-- abi.stg.allowed_breaks
+|   |-- abi.stg.allowed_breaks
+|   +-- afdo
 +-- ...
 ```
 
@@ -35,3 +36,4 @@ architecture. Within each such subdirectory:
    * e.g. `tools/bazel run //common:kernel_aarch64_abi_update`
 * `abi.stg.allowed_breaks` - a list of allowed ABI differences
    * for use by Gerrit ABI monitoring
+* `afdo` - [AutoFDO profile for building kernel for the architecture](aarch64/afdo/README.md)
