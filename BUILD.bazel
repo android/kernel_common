@@ -188,6 +188,7 @@ filegroup(
         "gki/aarch64/symbols/pixel",
         "gki/aarch64/symbols/qcom",
         "gki/aarch64/symbols/trusty",
+        "gki/aarch64/symbols/type_visibility",
         "gki/aarch64/symbols/unisoc",
         "gki/aarch64/symbols/virtual_device",
         "gki/aarch64/symbols/vivo",

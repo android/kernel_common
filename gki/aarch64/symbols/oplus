@@ -101,6 +101,7 @@
   lock_rename
   lookup_one_len_unlocked
   memcg_kmem_online_key
+  memcg_page_state
   mem_cgroup_from_id
   mem_cgroup_update_lru_size
   memory_cgrp_subsys
@@ -208,6 +209,7 @@
   __traceiter_android_rvh_post_init_entity_util_avg
   __traceiter_android_rvh_place_entity
   __traceiter_android_rvh_set_cpus_allowed_comm
+  __traceiter_android_rvh_set_balance_anon_file_reclaim
   __traceiter_android_rvh_try_to_wake_up_success
   __traceiter_android_vh_adjust_alloc_flags
   __traceiter_android_vh_adjust_kvmalloc_flags
@@ -342,6 +344,7 @@
   __tracepoint_android_rvh_place_entity
   __tracepoint_android_rvh_post_init_entity_util_avg
   __tracepoint_android_rvh_set_cpus_allowed_comm
+  __tracepoint_android_rvh_set_balance_anon_file_reclaim
   __tracepoint_android_rvh_try_to_wake_up_success
   __tracepoint_android_vh_adjust_alloc_flags
   __tracepoint_android_vh_adjust_kvmalloc_flags
