@@ -13,6 +13,7 @@
   free_hpage
   generic_file_read_iter
   generic_perform_write
+  get_pfnblock_flags_mask
   gpiod_cansleep
   gpio_device_find
   gpio_device_get_chip
