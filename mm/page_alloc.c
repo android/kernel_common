@@ -450,6 +450,7 @@ unsigned long get_pfnblock_flags_mask(const struct page *page,
 	word = READ_ONCE(bitmap[word_bitidx]);
 	return (word >> bitidx) & mask;
 }
+EXPORT_SYMBOL_GPL(get_pfnblock_flags_mask);
 
 static __always_inline int get_pfnblock_migratetype(const struct page *page,
 					unsigned long pfn)
