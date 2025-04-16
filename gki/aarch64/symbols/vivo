@@ -4,8 +4,16 @@
   apply_workqueue_attrs_locked
   bdev_file_open_by_dev
   bdev_fput
+  blk_bio_list_merge
+  blk_mq_debugfs_rq_show
+  blk_mq_run_hw_queue
+  blk_stat_disable_accounting
+  blk_stat_enable_accounting
   __brelse
   class_find_device
+  elevator_alloc
+  elv_register
+  elv_unregister
   end_buffer_read_sync
   end_buffer_write_sync
   free_workqueue_attrs
@@ -14,14 +22,31 @@
   mipi_dsi_dcs_write
   path_put
   proc_create_single_data
+  proc_mkdir_mode
   profile_event_register
   pfn_to_online_page
   put_device
   regulator_get_drvdata
   remove_proc_entry
+  sbitmap_add_wait_queue
+  sbitmap_any_bit_set
+  sbitmap_del_wait_queue
+  sbitmap_init_node
+  sbitmap_queue_clear
+  __sbitmap_queue_get
+  sbitmap_queue_init_node
+  sbitmap_queue_min_shallow_depth
+  sbitmap_queue_resize
+  sbitmap_queue_show
   set_blocksize
   submit_bh
   __set_task_comm
+  seq_file_path
+  seq_put_decimal_ll
+  seq_put_decimal_ull
+  seq_read_iter
+  set_task_ioprio
+  timer_reduce
   __traceiter_android_rvh_alloc_and_link_pwqs
   __traceiter_android_rvh_cpufreq_transition
   __traceiter_android_rvh_create_worker
