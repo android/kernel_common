@@ -136,18 +136,18 @@ extern bool pkvm_sym(pvmfw_present);
 extern phys_addr_t pkvm_sym(pvmfw_base);
 extern phys_addr_t pkvm_sym(pvmfw_size);
 
-PKVM_DECLARE(void, __pkvm_vmx_vmexit(void));
-PKVM_DECLARE(int, pkvm_main(struct kvm_vcpu *vcpu));
-PKVM_DECLARE(void, pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu));
-PKVM_DECLARE(int, init_pci(struct pkvm_hyp *pkvm));
+PKVM_DECLARE(void, __pkvm_vmx_vmexit, (void));
+PKVM_DECLARE(int, pkvm_main, (struct kvm_vcpu *vcpu));
+PKVM_DECLARE(void, pkvm_init_host_state_area, (struct pkvm_pcpu *pcpu, int cpu));
+PKVM_DECLARE(int, init_pci, (struct pkvm_hyp *pkvm));
 
-PKVM_DECLARE(void *, pkvm_early_alloc_contig(unsigned int nr_pages));
-PKVM_DECLARE(void *, pkvm_early_alloc_page(void));
-PKVM_DECLARE(void, pkvm_early_alloc_init(void *virt, unsigned long size));
+PKVM_DECLARE(void *, pkvm_early_alloc_contig, (unsigned int nr_pages));
+PKVM_DECLARE(void *, pkvm_early_alloc_page, (void));
+PKVM_DECLARE(void, pkvm_early_alloc_init, (void *virt, unsigned long size));
 
-PKVM_DECLARE(void, init_msr_emulation(struct vcpu_vmx *vmx));
+PKVM_DECLARE(void, init_msr_emulation, (struct vcpu_vmx *vmx));
 
-PKVM_DECLARE(void, noop_handler(void));
-PKVM_DECLARE(void, nmi_handler(void));
+PKVM_DECLARE(void, noop_handler, (void));
+PKVM_DECLARE(void, nmi_handler, (void));
 
 #endif

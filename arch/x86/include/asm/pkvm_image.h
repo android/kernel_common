@@ -7,11 +7,11 @@
 
 #if defined(CONFIG_PKVM_INTEL_DEBUG) || defined(__PKVM_HYP__)
 /* No prefix will be added */
-#define PKVM_DECLARE(type, f)	type f
+#define PKVM_DECLARE(type, f, params)	type f params
 #define pkvm_sym(sym)		sym
 #else
 /* prefix is added by Makefile */
-#define PKVM_DECLARE(type, f)	type __pkvm_##f
+#define PKVM_DECLARE(type, f, params)	type __pkvm_##f params
 #define pkvm_sym(sym)		__pkvm_##sym
 #endif
 
