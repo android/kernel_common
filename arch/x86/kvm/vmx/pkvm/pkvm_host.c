@@ -516,7 +516,7 @@ static __init void init_execution_control(struct pkvm_host_vcpu *vcpu,
 	vmcs_write64(IO_BITMAP_A, __pa(vcpu->io_bitmap));
 	vmcs_write64(IO_BITMAP_B, __pa(vcpu->io_bitmap) + PAGE_SIZE);
 
-	pkvm_sym(init_msr_emulation(vmx));
+	pkvm_sym(init_msr_emulation)(vmx);
 	vmcs_write64(MSR_BITMAP, __pa(vmx->vmcs01.msr_bitmap));
 
 	/*
