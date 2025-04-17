@@ -42,6 +42,7 @@ config DRM_XE
 	select WANT_DEV_COREDUMP
 	select AUXILIARY_BUS
 	select HMM_MIRROR
+	select TRACE_GPU_MEM
 	help
 	  Experimental driver for Intel Xe series GPUs
 
