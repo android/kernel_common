@@ -37,7 +37,7 @@ $(obj)/$(pkvm)/vmx/vmenter.pkvm.o: $(obj)/../../../kvm-asm-offsets.h
 $(obj)/../../../kvm-asm-offsets.h: $(obj)/../../../kvm-asm-offsets.s FORCE
 	$(call filechk,offsets,__KVM_ASM_OFFSETS_H__)
 
-targets += $(pkvm-obj) pkvm.tmp.o pkvm.lds $(obj)/../../../kvm-asm-offsets.h
+targets += $(pkvm-obj) pkvm.tmp.o pkvm.lds ../../../kvm-asm-offsets.h
 
 $(obj)/%.pkvm.o: $(src)/%.c FORCE
 	$(call if_changed_rule,cc_o_c)
