@@ -1674,6 +1674,11 @@ static unsigned long pkvm_vcpu_add_fpstate(struct pkvm_vcpu *pkvm_vcpu,
 
 	vcpu->arch.guest_fpu.fpstate = new;
 	pkvm_init_guest_fpu(&vcpu->arch.guest_fpu);
+	/*
+	 * As only the pVM will be here, set the fpstate confidential
+	 * unconditionally
+	 */
+	fpstate_set_confidential(&vcpu->arch.guest_fpu);
 
 	if (!old)
 		return INVALID_PAGE;

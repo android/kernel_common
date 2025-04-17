@@ -14,6 +14,8 @@
 #include <mmu.h>
 #include "fpu/fpu.h"
 
+#include <trace/events/kvm.h>
+
 #ifdef __PKVM_HYP__
 #undef module_param_named
 #define module_param_named(...)
@@ -2703,6 +2705,22 @@ int kvm_emulate_halt(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_halt);
 
+/* Swap (qemu) user FPU context for the guest FPU context. */
+static void kvm_load_guest_fpu(struct kvm_vcpu *vcpu)
+{
+	/* Exclude PKRU, it's restored separately immediately after VM-Exit. */
+	fpu_swap_kvm_fpstate(&vcpu->arch.guest_fpu, true);
+	trace_kvm_fpu(1);
+}
+
+/* When vcpu_run ends, restore user space FPU context. */
+static void kvm_put_guest_fpu(struct kvm_vcpu *vcpu)
+{
+	fpu_swap_kvm_fpstate(&vcpu->arch.guest_fpu, false);
+	++vcpu->stat.fpu_reload;
+	trace_kvm_fpu(0);
+}
+
 int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 {
 #ifdef __PKVM_HYP__
@@ -2721,6 +2739,9 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	vcpu->arch.pat = MSR_IA32_CR_PAT_DEFAULT;
 
 	pkvm_init_guest_fpu(&vcpu->arch.guest_fpu);
+
+	if (pkvm_is_protected_vcpu(vcpu))
+		fpstate_set_confidential(&vcpu->arch.guest_fpu);
 
 	return kvm_x86_call(vcpu_create)(vcpu);
 #else
@@ -3327,7 +3348,7 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 
 	vcpu->arch.last_vmentry_cpu = vcpu->cpu;
 
-	/* TODO: Save the host VMM fpu and load the guest fpu */
+	kvm_load_guest_fpu(vcpu);
 
 	/* Save the host debug registers */
 	get_debugreg(hvcpu->arch.dr7, 7);
@@ -3416,7 +3437,7 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 	for (i = 0; i < KVM_NR_DB_REGS; i++)
 		set_debugreg(hvcpu->arch.db[i], i);
 
-	/* TODO: Restore the host VMM fpu and save the guest fpu */
+	kvm_put_guest_fpu(vcpu);
 
 	kvm_restore_user_return_msr();
 
