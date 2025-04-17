@@ -261,7 +261,7 @@ static int host_initiate_donation(const struct pkvm_mem_transition *tx)
 	u64 addr = tx->initiator.host.addr;
 	u64 size = tx->size;
 
-	if (owner_id == OWNER_ID_INV)
+	if (owner_id == OWNER_ID_INV || hyp_page_count(__hyp_va(addr)))
 		return -EINVAL;
 	else
 		return host_ept_set_owner_locked(tx->initiator.host.pgt_override,

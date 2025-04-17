@@ -381,8 +381,11 @@ static int shadow_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, in
 			       void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {
 	struct pkvm_pgtable_map_data *data = arg;
+	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
+	struct hyp_page *old_page = NULL, *new_page = NULL;
 	unsigned long map_phys;
 	int ret = 0;
+	u64 old, new;
 
 	host_ept_lock();
 
@@ -392,11 +395,39 @@ static int shadow_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, in
 		goto out;
 	}
 
+	old = *(u64 *)ptep;
 	ret = pgtable_map_leaf(pgt, vaddr, level, ptep, flush_data, arg);
+	new = *(u64 *)ptep;
+
+	if (pgt_ops->pgt_entry_present(&old))
+		old_page = hyp_phys_to_page(pgt_ops->pgt_entry_to_phys(&old));
+
+	if (pgt_ops->pgt_entry_present(&new))
+		new_page = hyp_phys_to_page(pgt_ops->pgt_entry_to_phys(&new));
+
+	if (new_page == old_page)
+		goto out;
+
+	if (old_page)
+		hyp_page_ref_dec(old_page);
+
+	if (new_page)
+		hyp_page_ref_inc(new_page);
 
 out:
 	host_ept_unlock();
 	return ret;
+}
+
+static int shadow_pgt_unmap_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr,
+			      int level, void *ptep, struct pgt_flush_data *flush_data,
+			      void *const arg)
+{
+	if (pgt->pgt_ops->pgt_entry_present(ptep))
+		hyp_page_ref_dec(hyp_phys_to_page(pgt->pgt_ops
+					->pgt_entry_to_phys(ptep)));
+	pgtable_unmap_leaf(pgt, vaddr, level, ptep, flush_data, arg);
+	return 0;
 }
 
 /* used in legacy mode only */
@@ -420,10 +451,10 @@ static void sync_shadow_pgt(struct pkvm_ptdev *ptdev, struct shadow_pgt_sync_dat
 		ret = pkvm_pgtable_sync_map_range(&ptdev->vpgt, spgt,
 						  sdata->vaddr,
 						  sdata->vaddr_end - sdata->vaddr,
-						  NULL, shadow_pgt_map_leaf, NULL);
+						  NULL, shadow_pgt_map_leaf, shadow_pgt_unmap_leaf);
 	else
 		ret = pkvm_pgtable_sync_map(&ptdev->vpgt, spgt,
-					    NULL, shadow_pgt_map_leaf, NULL);
+					    NULL, shadow_pgt_map_leaf, shadow_pgt_unmap_leaf);
 	PKVM_ASSERT(ret == 0);
 
 	pkvm_put_host_iommu_spgt(spgt, ptdev->iommu_coherency);
