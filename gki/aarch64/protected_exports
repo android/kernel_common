@@ -154,6 +154,9 @@ hci_devcd_init
 hci_devcd_register
 hci_devcd_rx
 hci_devcd_timeout
+hci_drv_cmd_complete
+hci_drv_cmd_status
+hci_drv_process_cmd
 hci_free_dev
 hci_get_route
 hci_mgmt_chan_register

@@ -598,6 +598,8 @@
   gpiod_set_value_cansleep
   hci_cmd_sync_cancel
   hci_devcd_append_pattern
+  hci_drv_cmd_status
+  hci_drv_cmd_complete
   hci_recv_diag
   irq_modify_status
   of_irq_get_byname
