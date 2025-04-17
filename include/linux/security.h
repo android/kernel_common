@@ -2375,7 +2375,7 @@ static inline int security_uring_cmd(struct io_uring_cmd *ioucmd)
 {
 	return 0;
 }
-static inline int security_uring_allowed(void)
+extern int security_uring_allowed(void)
 {
 	return 0;
 }
