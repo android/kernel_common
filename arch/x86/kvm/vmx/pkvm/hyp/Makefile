@@ -44,7 +44,7 @@ quiet_cmd_pkvmcopy = PKVMPCOPY $@
 ifdef CONFIG_PKVM_INTEL_DEBUG
       cmd_pkvmcopy = $(OBJCOPY) --prefix-symbols= $< $@
 else
-      cmd_pkvmcopy = $(OBJCOPY) --prefix-symbols=__pkvm_ $< $@
+      cmd_pkvmcopy = $(NM) $< | awk '!seen[$$NF]++ {print $$NF, $$NF"__pkvm"}' > $<.syms && $(OBJCOPY) --redefine-syms=$<.syms $< $@ && rm -f $<.syms
 endif
 
 # Remove ftrace, Shadow Call Stack, and CFI CFLAGS.

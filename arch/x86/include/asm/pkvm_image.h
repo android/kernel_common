@@ -6,13 +6,13 @@
 #define __X86_INTEL_PKVM_IMAGE_H
 
 #if defined(CONFIG_PKVM_INTEL_DEBUG) || defined(__PKVM_HYP__)
-/* No prefix will be added */
+/* No suffix will be added */
 #define PKVM_DECLARE(type, f, params)	type f params
 #define pkvm_sym(sym)		sym
 #else
-/* prefix is added by Makefile */
-#define PKVM_DECLARE(type, f, params)	type __pkvm_##f params
-#define pkvm_sym(sym)		__pkvm_##sym
+/* suffix is added by Makefile */
+#define PKVM_DECLARE(type, f, params)	type f##__pkvm params
+#define pkvm_sym(sym)		sym##__pkvm
 #endif
 
 #define __PKVM_CONCAT(a, b)	a ## b
