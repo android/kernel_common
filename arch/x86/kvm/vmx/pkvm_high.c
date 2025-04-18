@@ -1290,6 +1290,17 @@ static void pkvm_set_gdt(struct kvm_vcpu *vcpu, struct desc_ptr *dt)
 	pkvm_access_idt_gdt(vcpu, dt, true, false);
 }
 
+static void pkvm_set_dr6(struct kvm_vcpu *vcpu, unsigned long val)
+{
+	/*
+	 * Just update the dr6 in vcpu structure if it is not. No need to set
+	 * the value to the physical DR6 register as the pkvm hypervisor will
+	 * do so before entering the guest.
+	 */
+	if (vcpu->arch.dr6 != val)
+		vcpu->arch.dr6 = val;
+}
+
 static void pkvm_set_dr7(struct kvm_vcpu *vcpu, unsigned long val)
 {
 	if (vcpu->arch.guest_state_protected)
@@ -1933,6 +1944,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.set_idt = pkvm_set_idt,
 	.get_gdt = pkvm_get_gdt,
 	.set_gdt = pkvm_set_gdt,
+	.set_dr6 = pkvm_set_dr6,
 	.set_dr7 = pkvm_set_dr7,
 	.sync_dirty_debug_regs = pkvm_sync_dirty_debug_regs,
 	.cache_reg = pkvm_cache_reg,
