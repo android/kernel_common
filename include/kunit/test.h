@@ -26,7 +26,6 @@
 #include <linux/spinlock.h>
 #include <linux/string.h>
 #include <linux/types.h>
-#include <linux/android_kabi.h>
 
 #include <asm/rwonce.h>
 #include <asm/sections.h>
@@ -84,8 +83,6 @@ enum kunit_speed {
 /* Holds attributes for each test case and suite */
 struct kunit_attributes {
 	enum kunit_speed speed;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -136,8 +133,6 @@ struct kunit_case {
 	enum kunit_status status;
 	char *module_name;
 	struct string_stream *log;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 static inline char *kunit_status_to_ok_not_ok(enum kunit_status status)
@@ -260,8 +255,6 @@ struct kunit_suite {
 	struct string_stream *log;
 	int suite_init_err;
 	bool is_init;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /* Stores an array of suites, end points one past the end */
@@ -311,8 +304,6 @@ struct kunit {
 	char status_comment[KUNIT_STATUS_COMMENT_SIZE];
 	/* Saves the last seen test. Useful to help with faults. */
 	struct kunit_loc last_seen;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 static inline void kunit_set_failure(struct kunit *test)

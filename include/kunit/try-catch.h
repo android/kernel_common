@@ -11,7 +11,6 @@
 #define _KUNIT_TRY_CATCH_H
 
 #include <linux/types.h>
-#include <linux/android_kabi.h>
 
 typedef void (*kunit_try_catch_func_t)(void *);
 
@@ -49,8 +48,6 @@ struct kunit_try_catch {
 	kunit_try_catch_func_t try;
 	kunit_try_catch_func_t catch;
 	void *context;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 void kunit_try_catch_run(struct kunit_try_catch *try_catch, void *context);
