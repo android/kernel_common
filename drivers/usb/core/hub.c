@@ -5677,6 +5677,32 @@ exit:
 	kfree(port_dev_path);
 }
 
+/* Handle notifying userspace about config error events */
+static void port_config_error_notify(struct usb_port *port_dev)
+{
+	char *envp[2] = { NULL, NULL };
+	struct device *hub_dev;
+	char *port_dev_path;
+
+	hub_dev = port_dev->dev.parent;
+	if (!hub_dev)
+		return;
+
+	port_dev_path = kobject_get_path(&port_dev->dev.kobj, GFP_KERNEL);
+	if (!port_dev_path)
+		return;
+
+	envp[0] = kasprintf(GFP_KERNEL, "CONFIG_ERROR_PORT=%s", port_dev_path);
+	if (!envp[0])
+		goto exit;
+
+	kobject_uevent_env(&hub_dev->kobj, KOBJ_CHANGE, envp);
+
+exit:
+	kfree(envp[0]);
+	kfree(port_dev_path);
+}
+
 static void port_event(struct usb_hub *hub, int port1)
 		__must_hold(&port_dev->status_lock)
 {
@@ -5749,6 +5775,7 @@ static void port_event(struct usb_hub *hub, int port1)
 				USB_PORT_FEAT_C_PORT_LINK_STATE);
 	}
 	if (portchange & USB_PORT_STAT_C_CONFIG_ERROR) {
+		port_config_error_notify(port_dev);
 		dev_warn(&port_dev->dev, "config error\n");
 		usb_clear_port_feature(hdev, port1,
 				USB_PORT_FEAT_C_PORT_CONFIG_ERROR);
