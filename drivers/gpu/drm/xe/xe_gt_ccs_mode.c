@@ -89,30 +89,30 @@ void xe_gt_apply_ccs_mode(struct xe_gt *gt)
 }
 
 static ssize_t
-num_cslices_show(struct device *kdev,
-		 struct device_attribute *attr, char *buf)
+num_cslices_show(struct kobject *kobj,
+		 struct kobj_attribute *attr, char *buf)
 {
-	struct xe_gt *gt = kobj_to_gt(&kdev->kobj);
+	struct xe_gt *gt = kobj_to_gt(kobj);
 
 	return sysfs_emit(buf, "%u\n", hweight32(CCS_MASK(gt)));
 }
 
-static DEVICE_ATTR_RO(num_cslices);
+static struct kobj_attribute attr_num_cslices = __ATTR_RO(num_cslices);
 
 static ssize_t
-ccs_mode_show(struct device *kdev,
-	      struct device_attribute *attr, char *buf)
+ccs_mode_show(struct kobject *kobj,
+	      struct kobj_attribute *attr, char *buf)
 {
-	struct xe_gt *gt = kobj_to_gt(&kdev->kobj);
+	struct xe_gt *gt = kobj_to_gt(kobj);
 
 	return sysfs_emit(buf, "%u\n", gt->ccs_mode);
 }
 
 static ssize_t
-ccs_mode_store(struct device *kdev, struct device_attribute *attr,
+ccs_mode_store(struct kobject *kobj, struct kobj_attribute *attr,
 	       const char *buff, size_t count)
 {
-	struct xe_gt *gt = kobj_to_gt(&kdev->kobj);
+	struct xe_gt *gt = kobj_to_gt(kobj);
 	struct xe_device *xe = gt_to_xe(gt);
 	u32 num_engines, num_slices;
 	int ret;
@@ -158,11 +158,11 @@ ccs_mode_store(struct device *kdev, struct device_attribute *attr,
 	return count;
 }
 
-static DEVICE_ATTR_RW(ccs_mode);
+static struct kobj_attribute attr_ccs_mode = __ATTR_RW(ccs_mode);
 
 static const struct attribute *gt_ccs_mode_attrs[] = {
-	&dev_attr_ccs_mode.attr,
-	&dev_attr_num_cslices.attr,
+	&attr_ccs_mode.attr,
+	&attr_num_cslices.attr,
 	NULL,
 };
 
