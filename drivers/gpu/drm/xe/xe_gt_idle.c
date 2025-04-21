@@ -27,10 +27,8 @@
  * device/gt#/gtidle/idle_status - Provides current idle state
  */
 
-static struct xe_gt_idle *dev_to_gtidle(struct device *dev)
+static struct xe_gt_idle *kobj_to_gtidle(struct kobject *kobj)
 {
-	struct kobject *kobj = &dev->kobj;
-
 	return &kobj_to_gt(kobj->parent)->gtidle;
 }
 
@@ -145,10 +143,10 @@ void xe_gt_idle_disable_pg(struct xe_gt *gt)
 	XE_WARN_ON(xe_force_wake_put(gt_to_fw(gt), XE_FW_GT));
 }
 
-static ssize_t name_show(struct device *dev,
-			 struct device_attribute *attr, char *buff)
+static ssize_t name_show(struct kobject *kobj,
+			 struct kobj_attribute *attr, char *buff)
 {
-	struct xe_gt_idle *gtidle = dev_to_gtidle(dev);
+	struct xe_gt_idle *gtidle = kobj_to_gtidle(kobj);
 	struct xe_guc_pc *pc = gtidle_to_pc(gtidle);
 	ssize_t ret;
 
@@ -158,12 +156,12 @@ static ssize_t name_show(struct device *dev,
 
 	return ret;
 }
-static DEVICE_ATTR_RO(name);
+static struct kobj_attribute attr_name = __ATTR_RO(name);
 
-static ssize_t idle_status_show(struct device *dev,
-				struct device_attribute *attr, char *buff)
+static ssize_t idle_status_show(struct kobject *kobj,
+				struct kobj_attribute *attr, char *buff)
 {
-	struct xe_gt_idle *gtidle = dev_to_gtidle(dev);
+	struct xe_gt_idle *gtidle = kobj_to_gtidle(kobj);
 	struct xe_guc_pc *pc = gtidle_to_pc(gtidle);
 	enum xe_gt_idle_state state;
 
@@ -173,12 +171,12 @@ static ssize_t idle_status_show(struct device *dev,
 
 	return sysfs_emit(buff, "%s\n", gt_idle_state_to_string(state));
 }
-static DEVICE_ATTR_RO(idle_status);
+static struct kobj_attribute attr_idle_status = __ATTR_RO(idle_status);
 
-static ssize_t idle_residency_ms_show(struct device *dev,
-				      struct device_attribute *attr, char *buff)
+static ssize_t idle_residency_ms_show(struct kobject *kobj,
+				      struct kobj_attribute *attr, char *buff)
 {
-	struct xe_gt_idle *gtidle = dev_to_gtidle(dev);
+	struct xe_gt_idle *gtidle = kobj_to_gtidle(kobj);
 	struct xe_guc_pc *pc = gtidle_to_pc(gtidle);
 	u64 residency;
 
@@ -188,12 +186,12 @@ static ssize_t idle_residency_ms_show(struct device *dev,
 
 	return sysfs_emit(buff, "%llu\n", get_residency_ms(gtidle, residency));
 }
-static DEVICE_ATTR_RO(idle_residency_ms);
+static struct kobj_attribute attr_idle_residency_ms = __ATTR_RO(idle_residency_ms);
 
 static const struct attribute *gt_idle_attrs[] = {
-	&dev_attr_name.attr,
-	&dev_attr_idle_status.attr,
-	&dev_attr_idle_residency_ms.attr,
+	&attr_name.attr,
+	&attr_idle_status.attr,
+	&attr_idle_residency_ms.attr,
 	NULL,
 };
 
