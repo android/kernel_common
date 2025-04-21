@@ -25,15 +25,15 @@
  *					configuration.
  */
 
-static struct xe_tile *dev_to_tile(struct device *dev)
+static struct xe_tile *kobj_parent_to_tile(struct kobject *kobj)
 {
-	return kobj_to_tile(dev->kobj.parent);
+	return kobj_to_tile(kobj->parent);
 }
 
-static ssize_t max_freq_show(struct device *dev, struct device_attribute *attr,
+static ssize_t max_freq_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
 {
-	struct xe_tile *tile = dev_to_tile(dev);
+	struct xe_tile *tile = kobj_parent_to_tile(kobj);
 	u32 val, mbox;
 	int err;
 
@@ -50,12 +50,12 @@ static ssize_t max_freq_show(struct device *dev, struct device_attribute *attr,
 
 	return sysfs_emit(buf, "%u\n", val);
 }
-static DEVICE_ATTR_RO(max_freq);
+static struct kobj_attribute attr_max_freq = __ATTR_RO(max_freq);
 
-static ssize_t min_freq_show(struct device *dev, struct device_attribute *attr,
+static ssize_t min_freq_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
 {
-	struct xe_tile *tile = dev_to_tile(dev);
+	struct xe_tile *tile = kobj_parent_to_tile(kobj);
 	u32 val, mbox;
 	int err;
 
@@ -72,11 +72,11 @@ static ssize_t min_freq_show(struct device *dev, struct device_attribute *attr,
 
 	return sysfs_emit(buf, "%u\n", val);
 }
-static DEVICE_ATTR_RO(min_freq);
+static struct kobj_attribute attr_min_freq = __ATTR_RO(min_freq);
 
 static struct attribute *freq_attrs[] = {
-	&dev_attr_max_freq.attr,
-	&dev_attr_min_freq.attr,
+	&attr_max_freq.attr,
+	&attr_min_freq.attr,
 	NULL
 };
 
