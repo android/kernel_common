@@ -24,12 +24,19 @@
  * which vram save/restore is permissible during runtime D3cold entry/exit.
  */
 
-static ssize_t
-vram_d3cold_threshold_show(struct device *dev,
-			   struct device_attribute *attr, char *buf)
+static struct xe_device *
+kobj_to_xe(struct kobject *kobj)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct xe_device *xe = pdev_to_xe_device(pdev);
+	struct device *dev = container_of(kobj, struct device, kobj);
+
+	return pdev_to_xe_device(to_pci_dev(dev));
+}
+
+static ssize_t
+vram_d3cold_threshold_show(struct kobject *kobj,
+			   struct kobj_attribute *attr, char *buf)
+{
+	struct xe_device *xe = kobj_to_xe(kobj);
 	int ret;
 
 	if (!xe)
@@ -43,11 +50,10 @@ vram_d3cold_threshold_show(struct device *dev,
 }
 
 static ssize_t
-vram_d3cold_threshold_store(struct device *dev, struct device_attribute *attr,
+vram_d3cold_threshold_store(struct kobject *kobj, struct kobj_attribute *attr,
 			    const char *buff, size_t count)
 {
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct xe_device *xe = pdev_to_xe_device(pdev);
+	struct xe_device *xe = kobj_to_xe(kobj);
 	u32 vram_d3cold_threshold;
 	int ret;
 
@@ -67,13 +73,13 @@ vram_d3cold_threshold_store(struct device *dev, struct device_attribute *attr,
 	return ret ?: count;
 }
 
-static DEVICE_ATTR_RW(vram_d3cold_threshold);
+static struct kobj_attribute attr_vram_d3cold_threshold = __ATTR_RW(vram_d3cold_threshold);
 
 static void xe_device_sysfs_fini(void *arg)
 {
 	struct xe_device *xe = arg;
 
-	sysfs_remove_file(&xe->drm.dev->kobj, &dev_attr_vram_d3cold_threshold.attr);
+	sysfs_remove_file(&xe->drm.dev->kobj, &attr_vram_d3cold_threshold.attr);
 }
 
 int xe_device_sysfs_init(struct xe_device *xe)
@@ -81,7 +87,7 @@ int xe_device_sysfs_init(struct xe_device *xe)
 	struct device *dev = xe->drm.dev;
 	int ret;
 
-	ret = sysfs_create_file(&dev->kobj, &dev_attr_vram_d3cold_threshold.attr);
+	ret = sysfs_create_file(&dev->kobj, &attr_vram_d3cold_threshold.attr);
 	if (ret)
 		return ret;
 
