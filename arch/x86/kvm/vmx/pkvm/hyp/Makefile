@@ -44,7 +44,7 @@ quiet_cmd_pkvmcopy = PKVMPCOPY $@
 ifdef CONFIG_PKVM_INTEL_DEBUG
       cmd_pkvmcopy = $(OBJCOPY) --prefix-symbols= $< $@
 else
-      cmd_pkvmcopy = $(OBJCOPY) --prefix-symbols=__pkvm_ --remove-section=.retpoline_sites --remove-section=.return_sites $< $@
+      cmd_pkvmcopy = $(OBJCOPY) --prefix-symbols=__pkvm_ $< $@
 endif
 
 # Remove ftrace, Shadow Call Stack, and CFI CFLAGS.
