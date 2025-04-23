@@ -55,7 +55,7 @@ $(obj)/pkvm.o: $(obj)/pkvm.tmp.o FORCE
 	$(call if_changed,pkvmcopy)
 
 quiet_cmd_pkvmcopy = PKVMPCOPY $@
-cmd_pkvmcopy = $(NM) $< | awk '!seen[$$NF]++ {print $$NF, $$NF"__pkvm"}' > $<.syms && $(OBJCOPY) --redefine-syms=$<.syms $< $@ && rm -f $<.syms
+cmd_pkvmcopy = $(NM) $< | awk '!seen[$$NF]++ {print $$NF}' | awk '{idx=index($$1,".");if(idx>0){print $$1, substr($$1, 1, idx-1)"__pkvm"substr($$1, idx)}else{print $$1, $$1"__pkvm"}}' > $<.syms && $(OBJCOPY) --redefine-syms=$<.syms $< $@ && rm -f $<.syms
 
 # Remove ftrace, Shadow Call Stack, and CFI CFLAGS.
 # This is equivalent to the 'notrace' and '__noscs' annotations.
