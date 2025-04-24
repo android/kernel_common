@@ -1721,6 +1721,10 @@ long kvm_arch_vcpu_ioctl(struct file *filp,
 		if (unlikely(!kvm_vcpu_initialized(vcpu)))
 			break;
 
+		r = -EPERM;
+		if (unlikely(vcpu_is_protected(vcpu) && vcpu_get_flag(vcpu, VCPU_PKVM_FINALIZED)))
+			break;
+
 		r = -EFAULT;
 		if (copy_from_user(&reg, argp, sizeof(reg)))
 			break;
