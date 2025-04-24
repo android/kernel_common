@@ -1759,6 +1759,8 @@ bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code)
 		return kvm_handle_pviommu_hvc(vcpu, exit_code);
 	case ARM_SMCCC_VENDOR_HYP_KVM_DEV_REQ_MMIO_FUNC_ID:
 		return pkvm_device_request_mmio(hyp_vcpu, exit_code);
+	case ARM_SMCCC_VENDOR_HYP_KVM_DEV_REQ_DMA_FUNC_ID:
+		return pkvm_device_request_dma(hyp_vcpu, exit_code);
 	default:
 		if (is_ffa_call(fn))
 			return kvm_guest_ffa_handler(hyp_vcpu, exit_code);

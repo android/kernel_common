@@ -48,6 +48,7 @@ int kvm_iommu_snapshot_host_stage2(struct kvm_hyp_iommu_domain *domain);
 int kvm_iommu_dev_block_dma(pkvm_handle_t iommu_id, u32 endpoint_id, bool host_to_guest);
 
 int kvm_iommu_force_free_domain(pkvm_handle_t domain_id, struct pkvm_hyp_vm *vm);
+int kvm_iommu_id_to_token(pkvm_handle_t smmu_id, u64 *out_token);
 
 struct kvm_iommu_ops {
 	int (*init)(void);
@@ -75,6 +76,7 @@ struct kvm_iommu_ops {
 	int (*resume)(struct kvm_hyp_iommu *iommu);
 	int (*dev_block_dma)(struct kvm_hyp_iommu *iommu, u32 endpoint_id,
 			     bool is_host_to_guest);
+	int (*get_iommu_token_by_id)(pkvm_handle_t smmu_id, u64 *out_token);
 	ANDROID_KABI_RESERVE(1);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);

@@ -778,3 +778,10 @@ int kvm_iommu_snapshot_host_stage2(struct kvm_hyp_iommu_domain *domain)
 
 	return ret;
 }
+
+int kvm_iommu_id_to_token(pkvm_handle_t id, u64 *out_token)
+{
+	if (!kvm_iommu_ops || !kvm_iommu_ops->get_iommu_token_by_id)
+		return -ENODEV;
+	return kvm_iommu_ops->get_iommu_token_by_id(id, out_token);
+}

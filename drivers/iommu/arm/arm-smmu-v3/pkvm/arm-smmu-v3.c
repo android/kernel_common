@@ -1546,6 +1546,16 @@ static bool smmu_dabt_device(struct hyp_arm_smmu_v3_device *smmu,
 	return true;
 }
 
+static int smmu_id_to_token(pkvm_handle_t smmu_id, u64 *out_token)
+{
+	if (smmu_id >= kvm_hyp_arm_smmu_v3_count)
+		return -EINVAL;
+
+	smmu_id = array_index_nospec(smmu_id, kvm_hyp_arm_smmu_v3_count);
+	*out_token = kvm_hyp_arm_smmu_v3_smmus[smmu_id].mmio_addr;
+	return 0;
+}
+
 static int smmu_dev_block_dma(struct kvm_hyp_iommu *iommu, u32 sid, bool is_host2guest)
 {
 	struct hyp_arm_smmu_v3_device *smmu = to_smmu(iommu);
@@ -1730,4 +1740,5 @@ struct kvm_iommu_ops smmu_ops = {
 	.resume				= smmu_resume,
 	.host_stage2_idmap		= smmu_host_stage2_idmap,
 	.dev_block_dma			= smmu_dev_block_dma,
+	.get_iommu_token_by_id		= smmu_id_to_token,
 };
