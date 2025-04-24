@@ -1167,6 +1167,26 @@ struct kvm_vfio_iommu_info {
 };
 #define  KVM_DEV_VFIO_PVIOMMU_GET_INFO			2
 
+/* pvIOMMU fd IOCTLs. */
+
+/**
+ * struct kvm_vfio_iommu_info
+ * @size: sizeof(struct kvm_vfio_iommu_info)
+ * @device_fd: File descriptor for VFIO device
+ * @sid_idx: Index of sid (within number from KVM_DEV_VFIO_PVIOMMU_GET_INFO)
+ * @vsid: virtual SID visible to guest for this SID
+ * @__reserved: Must be 0
+ * Configure KVM guest virtual view for a device IOMMU endpoints.
+ */
+struct kvm_vfio_iommu_config {
+	__u32 size;
+	__s32 device_fd;
+	__u32 sid_idx;
+	__u32 vsid;
+	__u32 __reserved;
+};
+#define KVM_PVIOMMU_SET_CONFIG                 _IOWR(KVMIO, 0x1, struct kvm_vfio_iommu_config)
+
 enum kvm_device_type {
 	KVM_DEV_TYPE_FSL_MPIC_20	= 1,
 #define KVM_DEV_TYPE_FSL_MPIC_20	KVM_DEV_TYPE_FSL_MPIC_20
