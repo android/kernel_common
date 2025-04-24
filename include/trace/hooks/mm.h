@@ -419,6 +419,22 @@ DECLARE_HOOK(android_vh_kmalloc_slab,
 DECLARE_HOOK(android_vh_init_adjust_zone_wmark,
 	TP_PROTO(struct zone *zone, u64 interval),
 	TP_ARGS(zone, interval));
+
+DECLARE_HOOK(android_vh_lock_folio_drop_mmap_start,
+	TP_PROTO(struct task_struct **tsk, struct vm_fault *vmf,
+		struct folio *folio, struct file *file),
+	TP_ARGS(tsk, vmf, folio, file));
+
+DECLARE_HOOK(android_vh_lock_folio_drop_mmap_end,
+	TP_PROTO(bool success, struct task_struct **tsk, struct vm_fault *vmf,
+		struct folio *folio, struct file *file),
+	TP_ARGS(success, tsk, vmf, folio, file));
+
+DECLARE_HOOK(android_vh_filemap_update_page,
+	TP_PROTO(struct address_space *mapping, struct folio *folio,
+		struct file *file),
+	TP_ARGS(mapping, folio, file));
+
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
