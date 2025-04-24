@@ -14,6 +14,8 @@
 
 /* Used in alloc_domain type argument. */
 #define KVM_IOMMU_DOMAIN_IDMAP_TYPE		0
+/* Typically used for guests, as they don't know IOMMU topology. */
+#define KVM_IOMMU_DOMAIN_ANY_TYPE		1
 
 #define KVM_IOMMU_DOMAIN_NR_START		(KVM_IOMMU_DOMAIN_IDMAP_ID + 1)
 
