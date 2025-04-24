@@ -295,6 +295,7 @@ struct kvm_protected_vm {
 	pkvm_handle_t handle;
 	struct kvm_hyp_memcache stage2_teardown_mc;
 	struct rb_root_cached pinned_pages;
+	struct kvm_hyp_memcache teardown_iommu_mc;
 	gpa_t pvmfw_load_addr;
 	bool enabled;
 };

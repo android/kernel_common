@@ -2362,9 +2362,9 @@ void destroy_hyp_vm_pgt(struct pkvm_hyp_vm *vm)
 	guest_unlock_component(vm);
 }
 
-void drain_hyp_pool(struct pkvm_hyp_vm *vm, struct kvm_hyp_memcache *mc)
+void drain_hyp_pool(struct hyp_pool *pool, struct kvm_hyp_memcache *mc)
 {
-	WARN_ON(reclaim_hyp_pool(&vm->pool, mc, INT_MAX) != -ENOMEM);
+	WARN_ON(reclaim_hyp_pool(pool, mc, INT_MAX) != -ENOMEM);
 }
 
 int __pkvm_host_reclaim_page(struct pkvm_hyp_vm *vm, u64 pfn, u64 ipa, u8 order)

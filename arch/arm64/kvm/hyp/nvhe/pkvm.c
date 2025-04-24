@@ -373,7 +373,7 @@ int __pkvm_reclaim_dying_guest_page(pkvm_handle_t handle, u64 pfn, u64 gfn, u8 o
 	if (ret)
 		goto unlock;
 
-	drain_hyp_pool(hyp_vm, &hyp_vm->host_kvm->arch.pkvm.stage2_teardown_mc);
+	drain_hyp_pool(&hyp_vm->pool, &hyp_vm->host_kvm->arch.pkvm.stage2_teardown_mc);
 unlock:
 	hyp_read_unlock(&vm_table_lock);
 
@@ -1012,6 +1012,13 @@ int __pkvm_finalize_teardown_vm(pkvm_handle_t handle)
 	pkvm_pviommu_teardown(hyp_vm);
 
 	/*
+	 * At this point all page tables are destroyed and should be pushed to the pool
+	 * the only place that might still have memory is the mc, which would be drained
+	 * from host as it hasn't been donated yet.
+	 */
+	drain_hyp_pool(&hyp_vm->iommu_pool, &host_kvm->arch.pkvm.teardown_iommu_mc);
+
+	/*
 	 * At this point, the VM has been detached from the VM table and
 	 * has a refcount of 0 so we're free to tear it down without
 	 * worrying about anybody else.
@@ -1019,7 +1026,7 @@ int __pkvm_finalize_teardown_vm(pkvm_handle_t handle)
 
 	mc = &host_kvm->arch.pkvm.stage2_teardown_mc;
 	destroy_hyp_vm_pgt(hyp_vm);
-	drain_hyp_pool(hyp_vm, mc);
+	drain_hyp_pool(&hyp_vm->pool, mc);
 	unpin_host_vcpus(hyp_vm->vcpus, hyp_vm->kvm.created_vcpus);
 
 	/* Push the metadata pages to the teardown memcache */

@@ -425,6 +425,8 @@ out_free:
 		     &host_kvm->stat.protected_hyp_mem);
 	free_hyp_memcache(&host_kvm->arch.pkvm.stage2_teardown_mc);
 
+	kvm_iommu_guest_free_mc(&host_kvm->arch.pkvm.teardown_iommu_mc);
+
 	kvm_for_each_vcpu(idx, host_vcpu, host_kvm) {
 		struct kvm_hyp_req *hyp_reqs = host_vcpu->arch.hyp_reqs;
 

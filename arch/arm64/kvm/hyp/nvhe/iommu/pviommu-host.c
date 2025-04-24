@@ -98,6 +98,11 @@ int pkvm_pviommu_add_vsid(struct kvm *host_kvm, int pviommu,
 int pkvm_pviommu_finalise(struct pkvm_hyp_vm *hyp_vm)
 {
 	int i;
+	int ret;
+
+	ret = hyp_pool_init_empty(&hyp_vm->iommu_pool, 64);
+	if (ret)
+		return ret;
 
 	hyp_spin_lock(&host_pviommu_lock);
 	INIT_LIST_HEAD(&hyp_vm->pviommus);
