@@ -50,7 +50,12 @@ static inline void set_inode_index(struct page *page, unsigned long index)
 
 static inline struct gcma_inode *get_inode_mapping(struct page *page)
 {
-	return (struct gcma_inode *)page->mapping;
+	/*
+	 * We do not cast into struct gcma_inode* directly to avoid
+	 * "casting from randomized structure pointer type" error when
+	 * CONFIG_RANDSTRUCT is enabled.
+	 */
+	return (void *)page->mapping;
 }
 
 static inline void set_inode_mapping(struct page *page,
