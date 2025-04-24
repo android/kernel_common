@@ -65,6 +65,9 @@ struct pkvm_hyp_vm {
 	struct hyp_pool pool;
 	hyp_spinlock_t pgtable_lock;
 
+	/* pvIOMMUs attached. */
+	struct list_head pviommus;
+
 	/* Primary vCPU pending entry to the pvmfw */
 	struct pkvm_hyp_vcpu *pvmfw_entry_vcpu;
 
