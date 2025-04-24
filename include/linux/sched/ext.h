@@ -9,6 +9,7 @@
 #ifndef _LINUX_SCHED_EXT_H
 #define _LINUX_SCHED_EXT_H
 
+#ifdef CONFIG_SCHED_CLASS_EXT
 
 #include <linux/llist.h>
 #include <linux/rhashtable-types.h>
@@ -195,11 +196,11 @@ struct sched_ext_entity {
 	bool			disallow;	/* reject switching into SCX */
 
 	/* cold fields */
+#ifdef CONFIG_EXT_GROUP_SCHED
 	struct cgroup		*cgrp_moving_from;
+#endif
 	struct list_head	tasks_node;
 };
-
-#ifdef CONFIG_SCHED_CLASS_EXT
 
 void sched_ext_free(struct task_struct *p);
 void print_scx_info(const char *log_lvl, struct task_struct *p);
