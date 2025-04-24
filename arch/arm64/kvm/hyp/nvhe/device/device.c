@@ -267,29 +267,6 @@ out_ret:
 	return ret;
 }
 
-static int pkvm_get_device_pa(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa, u64 *pa, u64 *exit_code)
-{
-	struct kvm_hyp_req *req;
-	int ret;
-	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(hyp_vcpu);
-
-	ret = __pkvm_guest_get_valid_phys_page(vm, pa, ipa);
-	if (ret == -ENOENT) {
-		/* Page not mapped, create a request*/
-		req = pkvm_hyp_req_reserve(hyp_vcpu, KVM_HYP_REQ_TYPE_MAP);
-		if (!req)
-			return -ENOMEM;
-
-		req->map.guest_ipa = ipa;
-		req->map.size = PAGE_SIZE;
-		*exit_code = ARM_EXCEPTION_HYP_REQ;
-		/* Repeat next time. */
-		write_sysreg_el2(read_sysreg_el2(SYS_ELR) - 4, SYS_ELR);
-	}
-
-	return ret;
-}
-
 bool pkvm_device_request_mmio(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
 {
 	int i, j, ret;
@@ -297,16 +274,21 @@ bool pkvm_device_request_mmio(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(hyp_vcpu);
 	u64 ipa = smccc_get_arg1(vcpu);
 	u64 token;
+	s8 level;
 
 	/* arg2 and arg3 reserved for future use. */
 	if (smccc_get_arg2(vcpu) || smccc_get_arg3(vcpu) || !PAGE_ALIGNED(ipa))
 		goto out_inval;
 
-	ret = pkvm_get_device_pa(hyp_vcpu, ipa, &token, exit_code);
+	ret = pkvm_get_guest_pa_request(hyp_vcpu, ipa, PAGE_SIZE,
+					&token, &level, exit_code);
 	if (ret == -ENOENT)
 		return false;
 	else if (ret)
 		goto out_inval;
+
+	/* It's expected the address is mapped as page for MMIO */
+	WARN_ON(level != KVM_PGTABLE_LAST_LEVEL);
 
 	hyp_spin_lock(&device_spinlock);
 	for (i = 0 ; i < registered_devices_nr ; ++i) {

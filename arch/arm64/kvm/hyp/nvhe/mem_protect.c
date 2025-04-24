@@ -2105,18 +2105,6 @@ static int guest_get_valid_pte(struct pkvm_hyp_vm *vm, u64 *phys, u64 ipa, u8 or
 	return 0;
 }
 
-int __pkvm_guest_get_valid_phys_page(struct pkvm_hyp_vm *vm, u64 *phys, u64 ipa)
-{
-	kvm_pte_t pte;
-	int ret;
-
-	guest_lock_component(vm);
-	ret = guest_get_valid_pte(vm, phys, ipa, 0, &pte);
-	guest_unlock_component(vm);
-
-	return ret;
-}
-
 int __pkvm_host_relax_perms_guest(u64 gfn, struct pkvm_hyp_vcpu *vcpu, enum kvm_pgtable_prot prot)
 {
 	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(vcpu);
@@ -2741,6 +2729,42 @@ u64 __pkvm_ptdump_walk_range(pkvm_handle_t handle, struct pkvm_ptdump_log_hdr *l
 teardown:
 	pkvm_ptdump_teardown_log(log, NULL);
 	return ret;
+}
+
+/* Return PA for an owned guest IPA or request it, and repeat the guest HVC */
+int pkvm_get_guest_pa_request(struct pkvm_hyp_vcpu *hyp_vcpu, u64 ipa,
+			      size_t ipa_size_request, u64 *out_pa, s8 *out_level,
+			      u64 *exit_code)
+{
+	struct kvm_hyp_req *req;
+	kvm_pte_t pte;
+	enum pkvm_page_state state;
+	struct pkvm_hyp_vm *vm = pkvm_hyp_vcpu_to_hyp_vm(hyp_vcpu);
+
+	guest_lock_component(vm);
+	WARN_ON(kvm_pgtable_get_leaf(&vm->pgt, ipa, &pte, out_level));
+	guest_unlock_component(vm);
+	if (!kvm_pte_valid(pte)) {
+		/* Page not mapped, create a request*/
+		req = pkvm_hyp_req_reserve(hyp_vcpu, KVM_HYP_REQ_TYPE_MAP);
+		if (!req)
+			return -ENOMEM;
+
+		req->map.guest_ipa = ipa;
+		req->map.size = ipa_size_request;
+		*exit_code = ARM_EXCEPTION_HYP_REQ;
+		/* Repeat next time. */
+		write_sysreg_el2(read_sysreg_el2(SYS_ELR) - 4, SYS_ELR);
+		return -ENOENT;
+	}
+
+	state = pkvm_getstate(kvm_pgtable_stage2_pte_prot(pte));
+	if (state != PKVM_PAGE_OWNED)
+		return -EPERM;
+
+	*out_pa = kvm_pte_to_phys(pte);
+	*out_pa |= (ipa & kvm_granule_size(*out_level) - 1) & PAGE_MASK;
+	return 0;
 }
 
 #ifdef CONFIG_PKVM_SELFTESTS
