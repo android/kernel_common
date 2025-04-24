@@ -3,6 +3,7 @@
  * Copyright (C) 2023 Google LLC
  * Author: Mostafa Saleh <smostafa@google.com>
  */
+#include <nvhe/pviommu.h>
 #include <nvhe/pviommu-host.h>
 
 struct pviommu_host pviommus[MAX_NR_PVIOMMU];
@@ -106,6 +107,7 @@ int pkvm_pviommu_finalise(struct pkvm_hyp_vm *hyp_vm)
 
 	hyp_spin_lock(&host_pviommu_lock);
 	INIT_LIST_HEAD(&hyp_vm->pviommus);
+	INIT_LIST_HEAD(&hyp_vm->domains);
 	for (i = 0; i < MAX_NR_PVIOMMU ; ++i) {
 		struct pviommu_host *ph = &pviommus[i];
 
@@ -133,6 +135,7 @@ void pkvm_pviommu_teardown(struct pkvm_hyp_vm *hyp_vm)
 		ph->nr_entries = 0;
 		ph->finalized = false;
 	}
+	kvm_iommu_teardown_guest_domains(hyp_vm);
 	hyp_spin_unlock(&host_pviommu_lock);
 }
 

@@ -368,6 +368,23 @@ out_unlock:
 	return ret;
 }
 
+int kvm_iommu_force_free_domain(pkvm_handle_t domain_id, struct pkvm_hyp_vm *vm)
+{
+	struct kvm_hyp_iommu_domain *domain = handle_to_domain(domain_id);
+
+	BUG_ON(!domain);
+	cur_context = vm->vcpus[0];
+
+	hyp_spin_lock(&kvm_iommu_domain_lock);
+	atomic_set(&domain->refs, 0);
+	kvm_iommu_ops->free_domain(domain);
+	memset(domain, 0, sizeof(*domain));
+	hyp_spin_unlock(&kvm_iommu_domain_lock);
+	cur_context = NULL;
+
+	return 0;
+}
+
 int kvm_iommu_attach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
 			 u32 endpoint_id, u32 pasid, u32 pasid_bits)
 {
