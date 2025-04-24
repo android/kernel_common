@@ -265,6 +265,7 @@
   __traceiter_android_vh_freq_qos_add_request
   __traceiter_android_vh_freq_qos_remove_request
   __traceiter_android_vh_freq_qos_update_request
+  __traceiter_android_vh_fsnotify_open
   __traceiter_android_vh_futex_sleep_start
   __traceiter_android_vh_futex_wait_end
   __traceiter_android_vh_futex_wait_start
@@ -272,6 +273,7 @@
   __traceiter_android_vh_futex_wake_traverse_plist
   __traceiter_android_vh_futex_wake_up_q_finish
   __traceiter_android_vh_get_page_wmark
+  __traceiter_android_vh_init_adjust_zone_wmark
   __traceiter_android_vh_irqtime_account_process_tick
   __traceiter_android_vh_kmalloc_slab
   __traceiter_android_vh_kvmalloc_node_use_vmalloc
@@ -330,6 +332,7 @@
   __traceiter_netif_receive_skb
   __traceiter_netif_rx
   __traceiter_mm_vmscan_kswapd_wake
+  __traceiter_mm_vmscan_direct_reclaim_begin
   __traceiter_sched_stat_blocked
   __traceiter_sched_stat_iowait
   __traceiter_sched_stat_runtime
@@ -406,7 +409,9 @@
   __tracepoint_android_vh_futex_wake_this
   __tracepoint_android_vh_futex_wake_traverse_plist
   __tracepoint_android_vh_futex_wake_up_q_finish
+  __tracepoint_android_vh_fsnotify_open
   __tracepoint_android_vh_get_page_wmark
+  __tracepoint_android_vh_init_adjust_zone_wmark
   __tracepoint_android_vh_irqtime_account_process_tick
   __tracepoint_android_vh_kmalloc_slab
   __tracepoint_android_vh_kvmalloc_node_use_vmalloc
@@ -464,6 +469,7 @@
   __tracepoint_net_dev_start_xmit
   __tracepoint_netif_receive_skb
   __tracepoint_netif_rx
+  __tracepoint_mm_vmscan_direct_reclaim_begin
   __tracepoint_mm_vmscan_kswapd_wake
   __tracepoint_sched_stat_blocked
   __tracepoint_sched_stat_iowait
@@ -501,6 +507,7 @@
   vfs_statfs
   vfs_unlink
   vma_set_file
+  __vmalloc_array_noprof
   wait_for_completion_io_timeout
   wait_for_completion_killable_timeout
   wakeup_source_remove
