@@ -537,4 +537,10 @@ config PKVM_PVIOMMU
 
 	  Say Y here if you intend to run this kernel as a guest.
 
+config PKVM_PVIOMMU_SELFTEST
+	bool "pKVM pvIOMMU selftest"
+	depends on PKVM_PVIOMMU
+	help
+	  Basic test for PKVM_PVIOMMU
+
 endif # IOMMU_SUPPORT

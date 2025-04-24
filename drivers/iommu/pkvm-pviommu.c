@@ -11,6 +11,15 @@
 #include <linux/platform_device.h>
 #include <linux/xarray.h>
 
+#define ASSERT(cond)							\
+	do {								\
+		if (!(cond)) {						\
+			pr_err("line %d: assertion failed: %s\n",	\
+			       __LINE__, #cond);			\
+			return -1;					\
+		}							\
+	} while (0)
+
 static DEFINE_XARRAY(pviommu_groups);
 
 struct pviommu_domain {
@@ -446,6 +455,45 @@ static struct platform_driver pkvm_pviommu_driver = {
 		.of_match_table = pviommu_of_match,
 	},
 };
+
+#if IS_ENABLED(CONFIG_PKVM_PVIOMMU_SELFTEST) && !defined(MODULE)
+/* Mainly test iova_to_phys and not hypervisor interface. */
+int __init __pviommu_selftest(void)
+{
+	struct pviommu_domain domain;
+
+	pr_info("pviommu selftest starting\n");
+
+	mt_init(&domain.mappings);
+
+	pviommu_domain_insert_map(&domain, 0x10000, 0xFEFFF, 0xE0000, GFP_KERNEL);
+	pviommu_domain_insert_map(&domain, 0xFFF0000, 0x1EDBFFFF, 0xDEAD0000, GFP_KERNEL);
+	ASSERT(pviommu_domain_find(&domain, 0x10000) == 0xE0000);
+	ASSERT(pviommu_domain_find(&domain, 0x10F00) == 0xE0F00);
+	ASSERT(pviommu_domain_find(&domain, 0x1EDBFFFF) == 0xED89FFFF);
+	ASSERT(pviommu_domain_find(&domain, 0x10000000) == 0xDEAE0000);
+	ASSERT(pviommu_domain_find(&domain, 0x1FF000) == 0);
+	pviommu_domain_remove_map(&domain, 0x12000, 0x19FFF);
+	ASSERT(pviommu_domain_find(&domain, 0x11000) == 0xE1000);
+	ASSERT(pviommu_domain_find(&domain, 0x1B000) == 0xEB000);
+	ASSERT(pviommu_domain_find(&domain, 0x14000) == 0);
+
+	pviommu_domain_insert_map(&domain, 0xC00000, 0xCFFFFF, 0xABCD000, GFP_KERNEL);
+	pviommu_domain_insert_map(&domain, 0xD00000, 0xDFFFFF, 0x1000, GFP_KERNEL);
+	pviommu_domain_insert_map(&domain, 0xE00000, 0xEFFFFF, 0xC0FE00000, GFP_KERNEL);
+	ASSERT(pviommu_domain_find(&domain, 0xD00000) == 0x1000);
+	pviommu_domain_remove_map(&domain, 0xC50000, 0xE5FFFF);
+	ASSERT(pviommu_domain_find(&domain, 0xC50000) == 0);
+	ASSERT(pviommu_domain_find(&domain, 0xD10000) == 0);
+	ASSERT(pviommu_domain_find(&domain, 0xE60000) == 0xC0FE60000);
+	ASSERT(pviommu_domain_find(&domain, 0xC10000) == 0xABDD000);
+
+	mtree_destroy(&domain.mappings);
+	return 0;
+}
+
+subsys_initcall(__pviommu_selftest);
+#endif
 
 module_platform_driver(pkvm_pviommu_driver);
 
