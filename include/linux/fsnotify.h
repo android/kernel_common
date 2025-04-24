@@ -17,6 +17,9 @@
 #include <linux/slab.h>
 #include <linux/bug.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/fsnotify.h>
+
 /* Are there any inode/mount/sb objects watched with priority prio or above? */
 static inline bool fsnotify_sb_has_priority_watchers(struct super_block *sb,
 						     int prio)
@@ -423,6 +426,7 @@ static inline void fsnotify_open(struct file *file)
 	if (file->f_flags & __FMODE_EXEC)
 		mask |= FS_OPEN_EXEC;
 
+	trace_android_vh_fsnotify_open(file, &mask);
 	fsnotify_file(file, mask);
 }
 
