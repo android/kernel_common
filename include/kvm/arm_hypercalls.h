@@ -28,6 +28,21 @@ static inline unsigned long smccc_get_arg3(struct kvm_vcpu *vcpu)
 	return vcpu_get_reg(vcpu, 3);
 }
 
+static inline unsigned long smccc_get_arg4(struct kvm_vcpu *vcpu)
+{
+	return vcpu_get_reg(vcpu, 4);
+}
+
+static inline unsigned long smccc_get_arg5(struct kvm_vcpu *vcpu)
+{
+	return vcpu_get_reg(vcpu, 5);
+}
+
+static inline unsigned long smccc_get_arg6(struct kvm_vcpu *vcpu)
+{
+	return vcpu_get_reg(vcpu, 6);
+}
+
 static inline void smccc_set_retval(struct kvm_vcpu *vcpu,
 				    unsigned long a0,
 				    unsigned long a1,
