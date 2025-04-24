@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: GPL-2.0-only
+%YAML 1.2
+---
+title: pKVM pvIOMMU
+
+maintainers:
+  - Mostafa Saleh <smostafa@google.org>
+
+description: |+
+  pvIOMMU is a paravirtual IOMMU implemented through arm64 hypercalls (HVC).
+  What distinguishes it from other paravirtual IOMMUs (virtio-iommu)
+  is that it has very simple transport which makes it easy for
+  hypervisors with a small TCB as in confidential computing to implement
+  it without complexity and with lower performance overhead.
+  pvIOMMU was initially developed for protected KVM (pKVM), but it has no
+  KVM specific interface, so it can be implemented by other hypervisors
+  also.
+
+properties:
+  $nodename:
+    pattern: "^iommu@[0-9a-f]*"
+  compatible:
+    const: pkvm,pviommu
+
+  id:
+    maxItems: 1
+
+  '#iommu-cells':
+    const: 1
+
+required:
+  - compatible
+  - id
+  - '#iommu-cells'
+
+additionalProperties: false
+
+examples:
+  - |+
+    iommu@55 {
+            compatible = "pkvm,pviommu";
+            id = <0x55>;
+            #iommu-cells = <1>;
+    };
