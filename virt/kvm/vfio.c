@@ -6,6 +6,7 @@
  *     Author: Alex Williamson <alex.williamson@redhat.com>
  */
 
+#include <linux/anon_inodes.h>
 #include <linux/errno.h>
 #include <linux/file.h>
 #include <linux/kvm_host.h>
@@ -34,6 +35,13 @@ struct kvm_vfio {
 	struct mutex lock;
 	bool noncoherent;
 };
+
+#ifdef CONFIG_VFIO_PKVM_IOMMU
+struct kvm_pviommu {
+	struct kvm_device *dev;
+	int fd;
+};
+#endif
 
 static void kvm_vfio_file_set_kvm(struct file *file, struct kvm *kvm)
 {
@@ -369,6 +377,120 @@ static int kvm_vfio_set_file(struct kvm_device *dev, long attr,
 	return -ENXIO;
 }
 
+#ifdef CONFIG_VFIO_PKVM_IOMMU
+static long pviommufd_ioctl(struct file *filp, unsigned int ioctl,
+			    unsigned long arg)
+{
+	return -ENXIO;
+}
+
+static int pviommufd_release(struct inode *i, struct file *filp)
+{
+	struct kvm_pviommu *pviommu = filp->private_data;
+
+	kfree(pviommu);
+	return 0;
+}
+
+static const struct file_operations pviommu_fops = {
+	.unlocked_ioctl = pviommufd_ioctl,
+	.release = pviommufd_release,
+};
+
+static int kvm_vfio_pviommu_attach(struct kvm_device *dev)
+{
+	int ret;
+	struct kvm_pviommu *pviommu;
+	struct file *filep;
+	int fdno;
+
+	pviommu = kmalloc(sizeof(*pviommu), GFP_KERNEL);
+	if (!pviommu)
+		return -ENOMEM;
+
+	pviommu->dev = dev;
+
+	filep = anon_inode_getfile("kvm-pviommu", &pviommu_fops, pviommu, O_CLOEXEC);
+	if (IS_ERR(filep)) {
+		ret = PTR_ERR(filep);
+		goto out_free;
+	}
+
+	fdno = get_unused_fd_flags(O_CLOEXEC);
+	if (fdno < 0) {
+		ret = fdno;
+		goto out_fput;
+	}
+
+	/* Create pvIOMMU with this ID. */
+	ret = kvm_call_hyp_nvhe(__pkvm_pviommu_attach, dev->kvm, fdno);
+	if (ret)
+		goto out_err;
+
+	pviommu->fd = fdno;
+	fd_install(fdno, filep);
+	return pviommu->fd;
+out_err:
+	put_unused_fd(fdno);
+out_fput:
+	fput(filep);
+out_free:
+	kfree(pviommu);
+	return ret;
+}
+
+static int kvm_vfio_pviommu_get_info(struct kvm_device *dev,
+				     struct kvm_vfio_iommu_info *info)
+{
+	int vfio_dev_fd = info->device_fd;
+	int ret = 0;
+	struct file *filp;
+	struct device *device;
+
+	filp = fget(vfio_dev_fd);
+	if (!filp)
+		return -EBADF;
+
+	device = kvm_vfio_file_get_device(filp);
+	if (!device) {
+		ret = -ENODEV;
+		goto err_fput;
+	}
+
+	info->out_nr_sids = kvm_iommu_device_num_ids(device);
+err_fput:
+	fput(filp);
+	return ret;
+}
+
+static int kvm_vfio_pviommu(struct kvm_device *dev, long attr,
+			    void __user *arg)
+{
+	int32_t __user *argp = arg;
+	struct kvm_vfio_iommu_info info;
+	int ret;
+	__u32 usize;
+
+	switch (attr) {
+	case KVM_DEV_VFIO_PVIOMMU_ATTACH:
+		return kvm_vfio_pviommu_attach(dev);
+	case KVM_DEV_VFIO_PVIOMMU_GET_INFO:
+		if (copy_from_user(&usize, arg, sizeof(usize)))
+			return -EFAULT;
+		if (usize < offsetofend(struct kvm_vfio_iommu_info, __reserved))
+			return -EINVAL;
+		if (copy_struct_from_user(&info, sizeof(info), argp, usize))
+			return -EFAULT;
+
+		ret = kvm_vfio_pviommu_get_info(dev, &info);
+		if (ret)
+			return ret;
+		return copy_to_user(arg, &info, usize);
+	}
+	return -ENXIO;
+}
+#endif
+
 static int kvm_vfio_set_attr(struct kvm_device *dev,
 			     struct kvm_device_attr *attr)
 {
@@ -376,6 +498,11 @@ static int kvm_vfio_set_attr(struct kvm_device *dev,
 	case KVM_DEV_VFIO_FILE:
 		return kvm_vfio_set_file(dev, attr->attr,
 					 u64_to_user_ptr(attr->addr));
+#ifdef CONFIG_VFIO_PKVM_IOMMU
+	case KVM_DEV_VFIO_PVIOMMU:
+		return kvm_vfio_pviommu(dev, attr->attr,
+					u64_to_user_ptr(attr->addr));
+#endif
 	}
 
 	return -ENXIO;
@@ -395,6 +522,15 @@ static int kvm_vfio_has_attr(struct kvm_device *dev,
 			return 0;
 		}
 
+		break;
+#ifdef CONFIG_VFIO_PKVM_IOMMU
+	case KVM_DEV_VFIO_PVIOMMU:
+		switch (attr->attr) {
+		case KVM_DEV_VFIO_PVIOMMU_ATTACH:
+		case KVM_DEV_VFIO_PVIOMMU_GET_INFO:
+			return 0;
+		}
+#endif
 		break;
 	}
 

@@ -1145,6 +1145,28 @@ struct kvm_device_attr {
 #define   KVM_DEV_VFIO_GROUP_DEL	KVM_DEV_VFIO_FILE_DEL
 #define   KVM_DEV_VFIO_GROUP_SET_SPAPR_TCE		3
 
+/* PVIOMMU for guests. */
+#define KVM_DEV_VFIO_PVIOMMU				5
+#define  KVM_DEV_VFIO_PVIOMMU_ATTACH			1
+
+/**
+ * struct kvm_vfio_iommu_info
+ * @size: sizeof(struct kvm_vfio_iommu_info)
+ * @device_fd: File descriptor for VFIO device
+ * @out_nr_sids: Number of IOMMU endpoints for this device (returned)
+ * @__reserved: Must be 0
+ * Probe IOMMU information for a VFIO device so it can be
+ * configured from userspace to have a virtual toplogy for
+ * KVM guests.
+ */
+struct kvm_vfio_iommu_info {
+	__u32 size;
+	__s32 device_fd;
+	__u32 out_nr_sids;
+	__u32 __reserved;
+};
+#define  KVM_DEV_VFIO_PVIOMMU_GET_INFO			2
+
 enum kvm_device_type {
 	KVM_DEV_TYPE_FSL_MPIC_20	= 1,
 #define KVM_DEV_TYPE_FSL_MPIC_20	KVM_DEV_TYPE_FSL_MPIC_20
