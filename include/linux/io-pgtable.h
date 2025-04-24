@@ -35,6 +35,7 @@ enum io_pgtable_fmt {
  *                  operations efficiently will typically issue them here, but
  *                  others may decide to update the iommu_iotlb_gather structure
  *                  and defer the invalidation until iommu_iotlb_sync() instead.
+ * @free_leaf:      Called when a valid leaf is removed when page table is freed.
  *
  * Note that these can all be called in atomic context and must therefore
  * not block.
@@ -45,6 +46,7 @@ struct iommu_flush_ops {
 			       void *cookie);
 	void (*tlb_add_page)(struct iommu_iotlb_gather *gather,
 			     unsigned long iova, size_t granule, void *cookie);
+	void (*free_leaf)(unsigned long phys, size_t granule, void *cookie);
 };
 
 /**
@@ -320,6 +322,13 @@ io_pgtable_tlb_add_page(struct io_pgtable *iop,
 {
 	if (iop->cfg.tlb && iop->cfg.tlb->tlb_add_page)
 		iop->cfg.tlb->tlb_add_page(gather, iova, granule, iop->cookie);
+}
+
+static inline void
+io_pgtable_free_leaf(struct io_pgtable *iop, unsigned long phys, size_t granule)
+{
+	if (iop->cfg.tlb && iop->cfg.tlb->free_leaf)
+		iop->cfg.tlb->free_leaf(phys, granule, iop->cookie);
 }
 
 /**

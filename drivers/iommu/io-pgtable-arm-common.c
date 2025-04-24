@@ -351,20 +351,20 @@ void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
 		table_size = ARM_LPAE_GRANULE(data);
 
 	start = ptep;
-
-	/* Only leaf entries at the last level */
-	if (lvl == ARM_LPAE_MAX_LEVELS - 1)
-		end = ptep;
-	else
-		end = (void *)ptep + table_size;
+	end = (void *)ptep + table_size;
 
 	while (ptep != end) {
 		arm_lpae_iopte pte = *ptep++;
 
-		if (!iopte_valid(pte) || iopte_leaf(pte, lvl, data->iop.fmt))
+		if (iopte_leaf(pte, lvl, data->iop.fmt)) {
+			io_pgtable_free_leaf(&data->iop, iopte_to_paddr(pte, data),
+					     ARM_LPAE_BLOCK_SIZE(lvl, data));
 			continue;
+		}
 
-		__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data));
+		/* Only leaf entries at the last level */
+		if ((lvl != ARM_LPAE_MAX_LEVELS - 1) && iopte_valid(pte))
+			__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data));
 	}
 
 	__arm_lpae_free_pages(start, table_size, &data->iop.cfg, data->iop.cookie);

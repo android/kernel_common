@@ -908,25 +908,8 @@ static void smmu_tlb_flush_walk(unsigned long iova, size_t size,
 				size_t granule, void *cookie)
 {
 	struct kvm_hyp_iommu_domain *domain = cookie;
-	struct hyp_arm_smmu_v3_domain *smmu_domain = domain->priv;
-	struct io_pgtable *pgtable = smmu_domain->pgtable;
-	struct arm_lpae_io_pgtable *data = io_pgtable_to_data(pgtable);
-	struct arm_lpae_io_pgtable_walk_data wd = {
-		.cookie = data,
-	};
-	struct io_pgtable_walk_common walk_data = {
-		.visit_leaf = smmu_unmap_visit_leaf,
-		.data = &wd,
-	};
 
 	smmu_tlb_inv_range(domain, iova, size, granule, false);
-
-	/* idmapped domains doesn't elevate refcounts. */
-	if (data->idmapped)
-		return;
-
-	/* We need to walk the table to make sure all leafs un-tracked. */
-	pgtable->ops.pgtable_walk(&pgtable->ops, iova, size, &walk_data);
 }
 
 static void smmu_tlb_add_page(struct iommu_iotlb_gather *gather,
@@ -939,10 +922,16 @@ static void smmu_tlb_add_page(struct iommu_iotlb_gather *gather,
 		smmu_tlb_inv_range(cookie, iova, granule, granule, true);
 }
 
+static void smmu_free_leaf(unsigned long phys, size_t granule, void *cookie)
+{
+	WARN_ON(iommu_pkvm_unuse_dma(phys, granule));
+}
+
 static const struct iommu_flush_ops smmu_tlb_ops = {
 	.tlb_flush_all	= smmu_tlb_flush_all,
 	.tlb_flush_walk = smmu_tlb_flush_walk,
 	.tlb_add_page	= smmu_tlb_add_page,
+	.free_leaf	= smmu_free_leaf,
 };
 
 static void smmu_iotlb_sync(struct kvm_hyp_iommu_domain *domain,
