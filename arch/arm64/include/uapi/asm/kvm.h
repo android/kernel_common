@@ -480,10 +480,13 @@ enum {
 /* Protected KVM */
 #define KVM_CAP_ARM_PROTECTED_VM_FLAGS_SET_FW_IPA	0
 #define KVM_CAP_ARM_PROTECTED_VM_FLAGS_INFO		1
+#define KVM_CAP_ARM_PROTECTED_VM_FLAGS_SET_FFA		2
 
 struct kvm_protected_vm_info {
 	__u64 firmware_size;
-	__u64 __reserved[7];
+	__u32 ffa_version;
+	__u32 pad;
+	__u64 __reserved[6];
 };
 
 /* arm64-specific kvm_run::system_event flags */
