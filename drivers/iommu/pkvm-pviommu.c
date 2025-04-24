@@ -185,9 +185,10 @@ static void pviommu_domain_free(struct iommu_domain *domain)
 	kfree(pv_domain);
 }
 
-static void pviommu_detach_dev(struct pviommu_master *master)
+static void pviommu_remove_dev_pasid(struct device *dev, ioasid_t pasid,
+				     struct iommu_domain *domain)
 {
-	struct device *dev = master->dev;
+	struct pviommu_master *master = dev_iommu_priv_get(dev);
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct pviommu *pv = master->iommu;
 	struct pviommu_domain *pv_domain = master->domain;
@@ -202,15 +203,23 @@ static void pviommu_detach_dev(struct pviommu_master *master)
 		sid = fwspec->ids[i];
 		arm_smccc_1_1_hvc(ARM_SMCCC_VENDOR_HYP_KVM_PVIOMMU_OP_FUNC_ID,
 				  KVM_PVIOMMU_OP_DETACH_DEV,
-				  pv->id, sid, 0, pv_domain->id, 0, &res);
+				  pv->id, sid, pasid, pv_domain->id, 0, &res);
 		if (res.a0 != SMCCC_RET_SUCCESS)
 			dev_err(dev, "Failed to detach_dev sid %d, err %ld\n", sid, res.a0);
 	}
 
-	master->domain = NULL;
+	if (!pasid)
+		master->domain = NULL;
 }
 
-static int pviommu_attach_dev(struct iommu_domain *domain, struct device *dev)
+static void pviommu_detach_dev(struct pviommu_master *master)
+{
+	if (master->domain)
+		pviommu_remove_dev_pasid(master->dev, 0, &master->domain->domain);
+}
+
+static int pviommu_set_dev_pasid(struct iommu_domain *domain,
+				 struct device *dev, ioasid_t pasid)
 {
 	int ret = 0, i;
 	struct arm_smccc_res res;
@@ -223,14 +232,16 @@ static int pviommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	if (!fwspec)
 		return -ENOENT;
 
-	if (master->domain)
+	if (!pasid && master->domain) {
 		pviommu_detach_dev(master);
+		master->domain = pv_domain;
+	}
 
 	for (i = 0; i < fwspec->num_ids; i++) {
 		sid = fwspec->ids[i];
 		arm_smccc_1_1_hvc(ARM_SMCCC_VENDOR_HYP_KVM_PVIOMMU_OP_FUNC_ID,
 				  KVM_PVIOMMU_OP_ATTACH_DEV,
-				  pv->id, sid, 0 /* PASID */,
+				  pv->id, sid, pasid,
 				  pv_domain->id, master->ssid_bits, &res);
 		if (res.a0) {
 			ret = smccc_to_linux_ret(res.a0);
@@ -242,14 +253,17 @@ static int pviommu_attach_dev(struct iommu_domain *domain, struct device *dev)
 		while (i--) {
 			arm_smccc_1_1_hvc(ARM_SMCCC_VENDOR_HYP_KVM_PVIOMMU_OP_FUNC_ID,
 					  KVM_PVIOMMU_OP_DETACH_DEV,
-					  pv->id, sid, 0 /* PASID */,
+					  pv->id, sid, pasid,
 					  pv_domain->id, 0, &res);
 		}
-	} else {
-		master->domain = pv_domain;
 	}
 
 	return ret;
+}
+
+static int pviommu_attach_dev(struct iommu_domain *domain, struct device *dev)
+{
+	return pviommu_set_dev_pasid(domain, dev, 0);
 }
 
 static struct iommu_domain *pviommu_domain_alloc(unsigned int type)
@@ -342,12 +356,14 @@ static struct iommu_ops pviommu_ops = {
 	.probe_device		= pviommu_probe_device,
 	.release_device		= pviommu_release_device,
 	.domain_alloc		= pviommu_domain_alloc,
+	.remove_dev_pasid	= pviommu_remove_dev_pasid,
 	.owner			= THIS_MODULE,
 	.default_domain_ops = &(const struct iommu_domain_ops) {
 		.attach_dev	= pviommu_attach_dev,
 		.map_pages	= pviommu_map_pages,
 		.unmap_pages	= pviommu_unmap_pages,
 		.iova_to_phys	= pviommu_iova_to_phys,
+		.set_dev_pasid	= pviommu_set_dev_pasid,
 		.free		= pviommu_domain_free,
 	}
 };
