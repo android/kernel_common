@@ -434,6 +434,8 @@ out_free:
 		kvm_unshare_hyp(hyp_reqs, hyp_reqs + 1);
 		host_vcpu->arch.hyp_reqs = NULL;
 		free_page((unsigned long)hyp_reqs);
+
+		kvm_iommu_guest_free_mc(&host_vcpu->arch.iommu_mc);
 	}
 }
 

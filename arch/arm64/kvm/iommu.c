@@ -142,3 +142,24 @@ int kvm_iommu_device_id(struct device *dev, u32 idx,
 	return -ENODEV;
 }
 EXPORT_SYMBOL_GPL(kvm_iommu_device_id);
+
+int kvm_iommu_guest_alloc_mc(struct kvm_hyp_memcache *mc, u32 pgsize, u32 nr_pages)
+{
+	u8 order = get_order(pgsize);
+
+	/* Driver might have dedicated allocator especially if it needs large pages. */
+	if (iommu_driver && iommu_driver->guest_alloc && iommu_driver->guest_free)
+		return __topup_hyp_memcache(mc, nr_pages, iommu_driver->guest_alloc,
+					    kvm_host_pa, 0, order);
+
+	return topup_hyp_memcache(mc, nr_pages, order);
+}
+
+void kvm_iommu_guest_free_mc(struct kvm_hyp_memcache *mc)
+{
+	if (iommu_driver && iommu_driver->guest_alloc && iommu_driver->guest_free)
+		__free_hyp_memcache(mc, iommu_driver->guest_free,
+				    kvm_host_va, 0);
+	else
+		free_hyp_memcache(mc);
+}

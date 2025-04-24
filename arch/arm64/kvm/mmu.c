@@ -280,16 +280,6 @@ static int kvm_host_page_count(void *addr)
 	return page_count(virt_to_page(addr));
 }
 
-static phys_addr_t kvm_host_pa(void *addr)
-{
-	return __pa(addr);
-}
-
-static void *kvm_host_va(phys_addr_t phys)
-{
-	return __va(phys);
-}
-
 static void clean_dcache_guest_page(void *va, size_t size)
 {
 	__clean_dcache_guest_page(va, size);
