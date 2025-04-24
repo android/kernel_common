@@ -5,8 +5,45 @@
   walk_page_range
   vm_normal_page
   pmd_clear_bad
+  bio_alloc_bioset
+  bio_add_page
+  bio_associate_blkg
+  bio_put
+  bitmap_parselist
+  contpte_ptep_test_and_clear_young
+  file_path
+  filp_close
+  filp_open_block
+  folio_mapping
+  folios_put_refs
+  fs_bio_set
+  I_BDEV
+  is_dma_buf_file
+  is_vmalloc_or_module_addr
+  kernfs_path_from_node
+  lookup_bdev
+  lruvec_page_state
+  mem_cgroup_from_id
+  mem_cgroup_update_lru_size
+  memory_cgrp_subsys_enabled_key
+  cgroup_add_legacy_cftypes
+  nsec_to_clock_t
+  root_mem_cgroup
+  shrink_slab
+  submit_bio
+  try_to_free_mem_cgroup_pages
+  vm_normal_page
+  walk_page_range
+  si_swapinfo
+  folio_referenced
+  reclaim_pages
+  percpu_ref_is_zero
+  __mod_lruvec_state
+  __mod_zone_page_state
+  __pte_offset_map_lock
   __pmd_trans_huge_lock
   __pte_offset_map_lock
+  __show_mem
   __traceiter_android_vh_slab_alloc_node
   __tracepoint_android_vh_slab_alloc_node
   __traceiter_android_vh_slab_free
@@ -29,8 +66,116 @@
   __tracepoint_android_vh_binder_data_preset
   __traceiter_android_rvh_init_binder_logs
   __tracepoint_android_rvh_init_binder_logs
+  __traceiter_android_rvh_vfree_bypass
+  __traceiter_android_rvh_vmalloc_node_bypass
+  __traceiter_android_vh_adjust_alloc_flags
+  __traceiter_android_vh_async_psi_bypass
+  __traceiter_android_vh_check_folio_look_around_ref
+  __traceiter_android_vh_cma_alloc_retry
+  __traceiter_android_vh_get_page_wmark
+  __traceiter_android_vh_killed_process
+  __traceiter_android_vh_kvmalloc_node_use_vmalloc
+  __traceiter_android_vh_mem_cgroup_alloc
+  __traceiter_android_vh_mem_cgroup_css_offline
+  __traceiter_android_vh_mem_cgroup_css_online
+  __traceiter_android_vh_mem_cgroup_free
+  __traceiter_android_vh_mem_cgroup_id_remove
+  __traceiter_android_vh_meminfo_proc_show
+  __traceiter_android_vh_page_add_new_anon_rmap
+  __traceiter_android_vh_process_madvise
+  __traceiter_android_vh_process_madvise_begin
+  __traceiter_android_vh_process_madvise_iter
+  __traceiter_android_vh_should_fault_around
+  __traceiter_android_vh_show_mem
+  __traceiter_android_vh_shrink_slab_bypass
+  __traceiter_android_vh_tune_swappiness
+  __traceiter_mm_vmscan_kswapd_wake
+  __tracepoint_android_rvh_vfree_bypass
+  __tracepoint_android_rvh_vmalloc_node_bypass
+  __tracepoint_android_vh_adjust_alloc_flags
+  __tracepoint_android_vh_async_psi_bypass
+  __tracepoint_android_vh_check_folio_look_around_ref
+  __tracepoint_android_vh_cma_alloc_retry
+  __tracepoint_android_vh_get_page_wmark
+  __tracepoint_android_vh_killed_process
+  __tracepoint_android_vh_kvmalloc_node_use_vmalloc
+  __tracepoint_android_vh_mem_cgroup_alloc
+  __tracepoint_android_vh_mem_cgroup_css_online
+  __tracepoint_android_vh_mem_cgroup_css_offline
+  __tracepoint_android_vh_mem_cgroup_id_remove
+  __tracepoint_android_vh_mem_cgroup_free
+  __tracepoint_android_vh_meminfo_proc_show
+  __tracepoint_android_vh_page_add_new_anon_rmap
+  __tracepoint_android_vh_process_madvise
+  __tracepoint_android_vh_process_madvise_begin
+  __tracepoint_android_vh_process_madvise_iter
+  __tracepoint_android_vh_show_mem
+  __tracepoint_android_vh_should_fault_around
+  __tracepoint_android_vh_shrink_slab_bypass
+  __tracepoint_android_vh_tune_swappiness
+  __tracepoint_mm_vmscan_kswapd_wake
   __traceiter_android_vh_add_lazyfree_bypass
   __tracepoint_android_vh_add_lazyfree_bypass
+  __traceiter_android_vh_mglru_should_abort_scan
+  __tracepoint_android_vh_mglru_should_abort_scan
+  __traceiter_android_vh_do_shrink_slab
+  __tracepoint_android_vh_do_shrink_slab
+  __traceiter_android_vh_modify_scan_control
+  __tracepoint_android_vh_modify_scan_control
+  __traceiter_android_vh_should_continue_reclaim
+  __tracepoint_android_vh_should_continue_reclaim
+  __traceiter_android_vh_meminfo_cache_adjust
+  __tracepoint_android_vh_meminfo_cache_adjust
+  __traceiter_android_vh_si_mem_available_adjust
+  __tracepoint_android_vh_si_mem_available_adjust
+  __traceiter_android_vh_si_meminfo_adjust
+  __tracepoint_android_vh_si_meminfo_adjust
+  __traceiter_android_vh_exit_mm
+  __tracepoint_android_vh_exit_mm
+  __traceiter_android_vh_print_slabinfo_header
+  __tracepoint_android_vh_print_slabinfo_header
+  __traceiter_android_vh_cache_show
+  __tracepoint_android_vh_cache_show
+  __traceiter_android_rvh_dma_buf_stats_teardown
+  __tracepoint_android_rvh_dma_buf_stats_teardown
+  __traceiter_android_vh_process_madvise_begin
+  __tracepoint_android_vh_process_madvise_begin
+  __traceiter_android_vh_process_madvise_iter
+  __tracepoint_android_vh_process_madvise_iter
+  __traceiter_android_vh_process_madvise
+  __tracepoint_android_vh_process_madvise
+  __traceiter_android_vh_madvise_swapin_walk_pmd_entry
+  __tracepoint_android_vh_madvise_swapin_walk_pmd_entry
+  __traceiter_android_vh_look_around
+  __tracepoint_android_vh_look_around
+  __traceiter_android_vh_look_around_migrate_folio
+  __tracepoint_android_vh_look_around_migrate_folio
+  __traceiter_android_vh_test_clear_look_around_ref
+  __tracepoint_android_vh_test_clear_look_around_ref
+  __traceiter_android_vh_free_unref_page_bypass
+  __tracepoint_android_vh_free_unref_page_bypass
+  __traceiter_android_vh_should_alloc_pages_retry
+  __tracepoint_android_vh_should_alloc_pages_retry
+  __traceiter_android_vh_unreserve_highatomic_bypass
+  __tracepoint_android_vh_unreserve_highatomic_bypass
+  __traceiter_android_vh_rmqueue_bulk_bypass
+  __tracepoint_android_vh_rmqueue_bulk_bypass
+  __traceiter_android_vh_should_memcg_bypass
+  __tracepoint_android_vh_should_memcg_bypass
+  __traceiter_android_vh_rmqueue_smallest_bypass
+  __tracepoint_android_vh_rmqueue_smallest_bypass
+  __traceiter_android_vh_free_one_page_bypass
+  __tracepoint_android_vh_free_one_page_bypass
+  __traceiter_android_vh_reserve_highatomic_bypass
+  __tracepoint_android_vh_reserve_highatomic_bypass
+  __traceiter_android_vh_migration_target_bypass
+  __tracepoint_android_vh_migration_target_bypass
+  __traceiter_android_vh_watermark_fast_ok
+  __tracepoint_android_vh_watermark_fast_ok
+  __traceiter_android_vh_pagetypeinfo_show
+  __tracepoint_android_vh_pagetypeinfo_show
+  __traceiter_android_vh_drain_all_pages_bypass
+  __tracepoint_android_vh_drain_all_pages_bypass
   netdev_get_name
   tcp_send_active_reset
   __traceiter_android_vh_tcp_write_timeout_estab_retrans
