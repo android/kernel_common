@@ -219,6 +219,8 @@ struct gendisk {
 	 * devices that do not have multiple independent access ranges.
 	 */
 	struct blk_independent_access_ranges *ia_ranges;
+
+	ANDROID_OEM_DATA(1);
 };
 
 /**
