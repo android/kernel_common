@@ -125,3 +125,20 @@ int kvm_iommu_unshare_hyp_sg(struct kvm_iommu_sg *sg, unsigned int nents)
 	return 0;
 }
 EXPORT_SYMBOL(kvm_iommu_unshare_hyp_sg);
+
+int kvm_iommu_device_num_ids(struct device *dev)
+{
+	if (iommu_driver->get_device_iommu_num_ids)
+		return iommu_driver->get_device_iommu_num_ids(dev);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(kvm_iommu_device_num_ids);
+
+int kvm_iommu_device_id(struct device *dev, u32 idx,
+			pkvm_handle_t *out_iommu, u32 *out_sid)
+{
+	if (iommu_driver->get_device_iommu_id)
+		return iommu_driver->get_device_iommu_id(dev, idx, out_iommu, out_sid);
+	return -ENODEV;
+}
+EXPORT_SYMBOL_GPL(kvm_iommu_device_id);

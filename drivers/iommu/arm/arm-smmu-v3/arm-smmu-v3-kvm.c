@@ -1217,10 +1217,38 @@ static pkvm_handle_t kvm_arm_v3_id_by_of(struct device_node *np)
 	return kvm_arm_smmu_v3_id(dev);
 }
 
+static int kvm_arm_smmu_v3_num_ids(struct device *dev)
+{
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+
+	if (!fwspec)
+		return -ENODEV;
+
+	return fwspec->num_ids;
+}
+
+static int kvm_arm_smmu_v3_device_id(struct device *dev, u32 idx,
+				     pkvm_handle_t *out_iommu, u32 *out_sid)
+{
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	struct kvm_arm_smmu_master *master = dev_iommu_priv_get(dev);
+
+	if (!fwspec || !master)
+		return -ENODEV;
+	if (idx >= fwspec->num_ids)
+		return -ENOENT;
+	*out_sid = fwspec->ids[idx];
+	*out_iommu = kvm_arm_smmu_v3_id(master->smmu->dev);
+
+	return 0;
+}
+
 struct kvm_iommu_driver kvm_smmu_v3_ops = {
 	.init_driver = kvm_arm_smmu_v3_init_drv,
 	.remove_driver = kvm_arm_smmu_v3_remove_drv,
 	.get_iommu_id_by_of = kvm_arm_v3_id_by_of,
+	.get_device_iommu_num_ids = kvm_arm_smmu_v3_num_ids,
+	.get_device_iommu_id = kvm_arm_smmu_v3_device_id,
 };
 
 static int kvm_arm_smmu_v3_register(void)
