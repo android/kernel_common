@@ -452,8 +452,8 @@ DECLARE_HOOK(android_vh_sched_setaffinity_early,
 	TP_ARGS(p, new_mask, retval));
 
 DECLARE_HOOK(android_vh_reweight_entity,
-	TP_PROTO(struct sched_entity *se),
-	TP_ARGS(se));
+	TP_PROTO(struct sched_entity *se, unsigned long *weight),
+	TP_ARGS(se, weight));
 
 struct cgroup_subsys_state;
 DECLARE_HOOK(android_vh_sched_move_task,
