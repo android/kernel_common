@@ -1564,8 +1564,28 @@ static int smmu_dev_block_dma(struct kvm_hyp_iommu *iommu, u32 sid, bool is_host
 	 * and the device might be translating, so we have to actually block
 	 * the device and clean the STE/CD.
 	 */
-	if (dst->data[0])
-		ret = -EINVAL;
+	if (dst->data[0]) {
+		if (is_host2guest) {
+			ret = -EINVAL;
+		} else {
+			int i = 0;
+			u32 cfg = FIELD_GET(STRTAB_STE_0_CFG, dst->data[0]);
+
+			if (cfg == STRTAB_STE_0_CFG_S1_TRANS) {
+				size_t nr_entries, cd_sz;
+				u64 cd_table;
+
+				cd_table = (dst->data[0] & STRTAB_STE_0_S1CTXPTR_MASK);
+				nr_entries = 1 << FIELD_GET(STRTAB_STE_0_S1CDMAX, dst->data[0]);
+				cd_sz = (1 << nr_entries) * (CTXDESC_CD_DWORDS << 3);
+				kvm_iommu_reclaim_pages(hyp_phys_to_virt(cd_table), get_order(cd_sz));
+			}
+			/* zap zippity zop. */
+			for (i = 0; i < STRTAB_STE_DWORDS; i++)
+				dst->data[i] = 0;
+			ret = smmu_sync_ste(smmu, sid);
+		}
+	}
 
 	kvm_iommu_unlock(iommu);
 	return ret;
