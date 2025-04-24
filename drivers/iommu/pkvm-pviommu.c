@@ -6,12 +6,14 @@
 #include <linux/of_platform.h>
 #include <linux/arm-smccc.h>
 #include <linux/iommu.h>
+#include <linux/maple_tree.h>
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 
 struct pviommu_domain {
 	struct iommu_domain		domain;
 	unsigned long			id; /* pKVM domain ID. */
+	struct maple_tree		mappings; /* IOVA -> IPA */
 };
 
 struct pviommu {
@@ -62,6 +64,53 @@ static u64 __linux_prot_smccc(int iommu_prot)
 	return prot;
 }
 
+/* Ranges are inclusive for all functions. */
+static void pviommu_domain_insert_map(struct pviommu_domain *pv_domain,
+				      u64 start, u64 end, u64 val, gfp_t gfp)
+{
+	if (end < start)
+		return;
+
+	mtree_store_range(&pv_domain->mappings, start, end, xa_mk_value(val), gfp);
+}
+
+static void pviommu_domain_remove_map(struct pviommu_domain *pv_domain,
+				      u64 start, u64 end)
+{
+	/* Range can cover multiple entries. */
+	while (start < end) {
+		MA_STATE(mas, &pv_domain->mappings, start, end);
+		u64 entry = xa_to_value(mas_find(&mas, start));
+		u64 old_start, old_end;
+
+		old_start = mas.index;
+		old_end = mas.last;
+		mas_erase(&mas);
+		/* Insert the rest if not removed. */
+		if (start > old_start)
+			mtree_store_range(&pv_domain->mappings, old_start, start - 1,
+					  xa_mk_value(entry), GFP_KERNEL);
+
+		if (old_end > end)
+			mtree_store_range(&pv_domain->mappings, end + 1, old_end,
+					  xa_mk_value(entry + end - old_start + 1), GFP_KERNEL);
+
+		start = old_end + 1;
+	}
+}
+
+static u64 pviommu_domain_find(struct pviommu_domain *pv_domain, u64 key)
+{
+	MA_STATE(mas, &pv_domain->mappings, key, key);
+	void *entry = mas_find(&mas, key);
+
+	/* No entry. */
+	if (!xa_is_value(entry))
+		return 0;
+
+	return (key - mas.index) + (u64)xa_to_value(entry);
+}
+
 static int pviommu_map_pages(struct iommu_domain *domain, unsigned long iova,
 			     phys_addr_t paddr, size_t pgsize, size_t pgcount,
 			     int prot, gfp_t gfp, size_t *mapped)
@@ -82,6 +131,11 @@ static int pviommu_map_pages(struct iommu_domain *domain, unsigned long iova,
 		iova += cur_mapped;
 		paddr += cur_mapped;
 	}
+
+	if (*mapped)
+		pviommu_domain_insert_map(pv_domain, iova - *mapped, iova - 1,
+					  paddr - *mapped, gfp);
+
 	return smccc_to_linux_ret(res.a0);
 }
 
@@ -103,12 +157,18 @@ static size_t pviommu_unmap_pages(struct iommu_domain *domain, unsigned long iov
 			break;
 		iova += unmapped;
 	}
+
+	if (total_unmapped)
+		pviommu_domain_remove_map(pv_domain, iova - total_unmapped, iova - 1);
+
 	return total_unmapped;
 }
 
 static phys_addr_t pviommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova)
 {
-	return 0;
+	struct pviommu_domain *pv_domain = container_of(domain, struct pviommu_domain, domain);
+
+	return pviommu_domain_find(pv_domain, iova);
 }
 
 static void pviommu_domain_free(struct iommu_domain *domain)
@@ -120,6 +180,8 @@ static void pviommu_domain_free(struct iommu_domain *domain)
 			  KVM_PVIOMMU_OP_FREE_DOMAIN, pv_domain->id, 0, 0, 0, 0, &res);
 	if (res.a0 != SMCCC_RET_SUCCESS)
 		pr_err("Failed to free domain %ld\n", res.a0);
+
+	mtree_destroy(&pv_domain->mappings);
 	kfree(pv_domain);
 }
 
@@ -202,6 +264,8 @@ static struct iommu_domain *pviommu_domain_alloc(unsigned int type)
 	pv_domain = kzalloc(sizeof(*pv_domain), GFP_KERNEL);
 	if (!pv_domain)
 		return ERR_PTR(-ENOMEM);
+
+	mt_init(&pv_domain->mappings);
 
 	arm_smccc_1_1_hvc(ARM_SMCCC_VENDOR_HYP_KVM_PVIOMMU_OP_FUNC_ID,
 			  KVM_PVIOMMU_OP_ALLOC_DOMAIN, 0, 0, 0, 0, 0, &res);
