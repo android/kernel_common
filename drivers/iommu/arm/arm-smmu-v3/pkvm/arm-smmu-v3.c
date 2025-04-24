@@ -1231,6 +1231,31 @@ static void smmu_put_ref_domain(struct hyp_arm_smmu_v3_device *smmu,
 	}
 }
 
+static int smmu_fix_up_domains(struct hyp_arm_smmu_v3_device *smmu,
+			       struct hyp_arm_smmu_v3_domain *smmu_domain)
+{
+	/*
+	 * BYPASS domains only supported on stage-2 instances, that is over restrictive
+	 * but for now as stage-1 is limited to VA_BITS to match the kernel, it might
+	 * not cover the ia bits, we don't support it.
+	 */
+	if (smmu_domain->type == KVM_ARM_SMMU_DOMAIN_BYPASS) {
+		if (smmu->features & ARM_SMMU_FEAT_TRANS_S2)
+			smmu_domain->type = KVM_ARM_SMMU_DOMAIN_S2;
+		else
+			return -EINVAL;
+	} else if (smmu_domain->type == KVM_ARM_SMMU_DOMAIN_ANY) {
+		/* Any domain defaults to S1 as we don't know if the guest needs pasid. */
+		if (smmu->features & ARM_SMMU_FEAT_TRANS_S1) {
+			smmu_domain->type = KVM_ARM_SMMU_DOMAIN_S1;
+		} else {
+			smmu_domain->type = KVM_ARM_SMMU_DOMAIN_S2;
+		}
+	}
+
+	return 0;
+}
+
 static int smmu_attach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_domain *domain,
 			   u32 sid, u32 pasid, u32 pasid_bits)
 {
@@ -1251,20 +1276,10 @@ static int smmu_attach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 		goto out_unlock;
 	}
 
-
-	/*
-	 * BYPASS domains only supported on stage-2 instances, that is over restrictive
-	 * but for now as stage-1 is limited to VA_BITS to match the kernel, it might
-	 * not cover the ia bits, we don't support it.
-	 */
-	if (smmu_domain->type == KVM_ARM_SMMU_DOMAIN_BYPASS) {
-		if (smmu->features & ARM_SMMU_FEAT_TRANS_S2) {
-			smmu_domain->type = KVM_ARM_SMMU_DOMAIN_S2;
-		} else {
-			ret = -EINVAL;
-			goto out_unlock;
-		}
-	}
+	/* Map domain type to an SMMUv3 stage. */
+	ret = smmu_fix_up_domains(smmu, smmu_domain);
+	if (ret)
+		goto out_unlock;
 
 	if (!smmu_existing_in_domain(smmu, smmu_domain)) {
 		if (!smmu_domain_compat(smmu, smmu_domain)) {

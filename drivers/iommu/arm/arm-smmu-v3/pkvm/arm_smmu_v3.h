@@ -39,6 +39,7 @@ extern struct hyp_arm_smmu_v3_device *kvm_nvhe_sym(kvm_hyp_arm_smmu_v3_smmus);
 
 enum kvm_arm_smmu_domain_type {
 	KVM_ARM_SMMU_DOMAIN_BYPASS = KVM_IOMMU_DOMAIN_IDMAP_TYPE,
+	KVM_ARM_SMMU_DOMAIN_ANY = KVM_IOMMU_DOMAIN_ANY_TYPE,
 	KVM_ARM_SMMU_DOMAIN_S1,
 	KVM_ARM_SMMU_DOMAIN_S2,
 	KVM_ARM_SMMU_DOMAIN_MAX,
