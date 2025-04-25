@@ -11,6 +11,16 @@
 #include "core.h"
 
 static const struct pmc_bit_map ptl_pcdp_pfear_map[] = {
+/* PMC SSRAM PMT Telemetry GUIDS */
+#define PCDP_LPM_REQ_GUID 0x23674402
+
+/*
+* Die Mapping to Product.
+* Product PCDDie
+* PTL-H   PCD-H
+* PTL-P   PCD-P
+* PTL-U   PCD-P
+*/
 	{"PMC_0",               BIT(0)},
 	{"FUSE_OSSE",           BIT(1)},
 	{"ESPISPI",             BIT(2)},

@@ -28,6 +28,7 @@
 #include <asm/tsc.h>
 
 #include "core.h"
+#include "ssram_telemetry.h"
 #include "../pmt/telemetry.h"
 
 /* Maximum number of modes supported by platfoms that has low power mode capability */
@@ -1353,7 +1354,7 @@ static u32 pmc_core_find_guid(struct pmc_info *list, const struct pmc_reg_map *m
 	return 0;
 }
 
-static int pmc_core_get_lpm_req(struct pmc_dev *pmcdev, struct pmc *pmc)
+static int pmc_core_get_lpm_req(struct pmc_dev *pmcdev, struct pmc *pmc, struct pci_dev *pcidev)
 {
 	struct telem_endpoint *ep;
 	const u8 *lpm_indices;
@@ -1370,7 +1371,7 @@ static int pmc_core_get_lpm_req(struct pmc_dev *pmcdev, struct pmc *pmc)
 	if (!guid)
 		return -ENXIO;
 
-	ep = pmt_telem_find_and_register_endpoint(pmcdev->ssram_pcidev, guid, 0);
+	ep = pmt_telem_find_and_register_endpoint(pcidev, guid, 0);
 	if (IS_ERR(ep)) {
 		dev_dbg(&pmcdev->pdev->dev, "couldn't get telem endpoint %ld",
 			PTR_ERR(ep));
@@ -1454,19 +1455,21 @@ unregister_ep:
 	return ret;
 }
 
-static int pmc_core_ssram_get_lpm_reqs(struct pmc_dev *pmcdev)
+static int pmc_core_ssram_get_lpm_reqs(struct pmc_dev *pmcdev, int func)
 {
+	struct pci_dev *pcidev __free(pci_dev_put) = NULL;
 	unsigned int i;
 	int ret;
 
-	if (!pmcdev->ssram_pcidev)
+	pcidev = pci_get_domain_bus_and_slot(0, 0, PCI_DEVFN(20, func));
+	if (!pcidev)
 		return -ENODEV;
 
 	for (i = 0; i < ARRAY_SIZE(pmcdev->pmcs); ++i) {
 		if (!pmcdev->pmcs[i])
 			continue;
 
-		ret = pmc_core_get_lpm_req(pmcdev, pmcdev->pmcs[i]);
+		ret = pmc_core_get_lpm_req(pmcdev, pmcdev->pmcs[i], pcidev);
 		if (ret)
 			return ret;
 	}
@@ -1474,7 +1477,7 @@ static int pmc_core_ssram_get_lpm_reqs(struct pmc_dev *pmcdev)
 	return 0;
 }
 
-const struct pmc_reg_map *pmc_core_find_regmap(struct pmc_info *list, u16 devid)
+static const struct pmc_reg_map *pmc_core_find_regmap(struct pmc_info *list, u16 devid)
 {
 	for (; list->map; ++list)
 		if (devid == list->devid)
@@ -1483,23 +1486,32 @@ const struct pmc_reg_map *pmc_core_find_regmap(struct pmc_info *list, u16 devid)
 	return NULL;
 }
 
-int pmc_core_pmc_add(struct pmc_dev *pmcdev, u64 pwrm_base,
-		     const struct pmc_reg_map *reg_map, unsigned int pmc_index)
-{
-	struct pmc *pmc = pmcdev->pmcs[pmc_index];
+static int pmc_core_pmc_add(struct pmc_dev *pmcdev, unsigned int pmc_index)
 
-	if (!pwrm_base)
+{
+	struct pmc_ssram_telemetry pmc_ssram_telemetry;
+	const struct pmc_reg_map *map;
+	struct pmc *pmc;
+	int ret;
+
+	ret = pmc_ssram_telemetry_get_pmc_info(pmc_index, &pmc_ssram_telemetry);
+	if (ret)
+		return ret;
+
+	map = pmc_core_find_regmap(pmcdev->regmap_list, pmc_ssram_telemetry.devid);
+	if (!map)
 		return -ENODEV;
 
-	/* Memory for primary PMC has been allocated in core.c */
+	pmc = pmcdev->pmcs[pmc_index];
+	/* Memory for primary PMC has been allocated */
 	if (!pmc) {
 		pmc = devm_kzalloc(&pmcdev->pdev->dev, sizeof(*pmc), GFP_KERNEL);
 		if (!pmc)
 			return -ENOMEM;
 	}
 
-	pmc->map = reg_map;
-	pmc->base_addr = pwrm_base;
+	pmc->map = map;
+	pmc->base_addr = pmc_ssram_telemetry.base_addr;
 	pmc->regbase = ioremap(pmc->base_addr, pmc->map->regmap_length);
 
 	if (!pmc->regbase) {
@@ -1508,6 +1520,20 @@ int pmc_core_pmc_add(struct pmc_dev *pmcdev, u64 pwrm_base,
 	}
 
 	pmcdev->pmcs[pmc_index] = pmc;
+
+	return 0;
+}
+
+static int pmc_core_ssram_get_reg_base(struct pmc_dev *pmcdev)
+{
+	int ret;
+
+	ret = pmc_core_pmc_add(pmcdev, PMC_IDX_MAIN);
+	if (ret)
+		return ret;
+
+	pmc_core_pmc_add(pmcdev, PMC_IDX_IOE);
+	pmc_core_pmc_add(pmcdev, PMC_IDX_PCH);
 
 	return 0;
 }
@@ -1529,10 +1555,18 @@ int generic_core_init(struct pmc_dev *pmcdev, struct pmc_dev_info *pmc_dev_info)
 	ssram = pmc_dev_info->regmap_list != NULL;
 	if (ssram) {
 		pmcdev->regmap_list = pmc_dev_info->regmap_list;
-		ret = pmc_core_ssram_init(pmcdev, pmc_dev_info->pci_func);
+		ret = pmc_core_ssram_get_reg_base(pmcdev);
+		/*
+		 * EAGAIN error code indicates Intel PMC SSRAM Telemetry driver
+		 * has not finished probe and PMC info is not available yet. Try
+		 * again later.
+		 */
+		if (ret == -EAGAIN)
+			return -EPROBE_DEFER;
+
 		if (ret) {
 			dev_warn(&pmcdev->pdev->dev,
-				 "ssram init failed, %d, using legacy init\n", ret);
+				 "Failed to get PMC info from SSRAM, %d, using legacy init\n", ret);
 			ssram = false;
 		}
 	}
@@ -1549,7 +1583,7 @@ int generic_core_init(struct pmc_dev *pmcdev, struct pmc_dev_info *pmc_dev_info)
 		pmc_core_punit_pmt_init(pmcdev, pmc_dev_info->dmu_guid);
 
 	if (ssram)
-		return pmc_core_ssram_get_lpm_reqs(pmcdev);
+		return pmc_core_ssram_get_lpm_reqs(pmcdev, pmc_dev_info->pci_func);
 
 	return 0;
 }
@@ -1638,13 +1672,8 @@ static void pmc_core_clean_structure(struct platform_device *pdev)
 	for (i = 0; i < ARRAY_SIZE(pmcdev->pmcs); ++i) {
 		struct pmc *pmc = pmcdev->pmcs[i];
 
-		if (pmc)
+		if (pmc && pmc->regbase)
 			iounmap(pmc->regbase);
-	}
-
-	if (pmcdev->ssram_pcidev) {
-		pci_dev_put(pmcdev->ssram_pcidev);
-		pci_disable_device(pmcdev->ssram_pcidev);
 	}
 
 	if (pmcdev->punit_ep)
