@@ -1,3 +1,3 @@
 /kvm-asm-offsets.s
-/kvm-asm-offsets.h
+kvm-asm-offsets.h
 pkvm_constants.h
