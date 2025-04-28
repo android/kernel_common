@@ -902,7 +902,6 @@ static noinline int local_deprivilege_cpu(struct pkvm_host_vcpu *hvcpu)
 		: "=m"(ret)
 		: "i"(GUEST_RIP), "i"(-EINVAL), "i"(GUEST_RFLAGS), "i"(GUEST_RSP)
 		: "rax", "rdx", "memory");
-	printk(KERN_INFO "pKVM: Deprivileged ret=%x vcpu=%px\n", ret, hvcpu);
 
 	return ret;
 }
