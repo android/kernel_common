@@ -7862,6 +7862,8 @@ static void share_nonprotected_vcpu_state(struct kvm_vcpu *vcpu,
 	if (pkvm_is_protected_vcpu(vcpu))
 		return;
 
+	shared_vcpu->arch.event_exit_inst_len = 0;
+
 	switch (to_vmx(vcpu)->exit_reason.basic) {
 	case EXIT_REASON_EXCEPTION_NMI:
 		if ((vmx_get_intr_info(vcpu) & INTR_INFO_VECTOR_MASK) == DB_VECTOR) {
@@ -7872,6 +7874,15 @@ static void share_nonprotected_vcpu_state(struct kvm_vcpu *vcpu,
 	case EXIT_REASON_EPT_MISCONFIG:
 	case EXIT_REASON_EPT_VIOLATION:
 		to_vmx(shared_vcpu)->exit_gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
+		fallthrough;
+	case EXIT_REASON_IO_INSTRUCTION:
+	case EXIT_REASON_MSR_READ:
+	case EXIT_REASON_MSR_WRITE:
+	case EXIT_REASON_VMCALL:
+		/* The host will skip the instruction for certain vmexit reasons */
+		shared_vcpu->arch.event_exit_inst_len = vmcs_read32(VM_EXIT_INSTRUCTION_LEN);
+		break;
+	default:
 		break;
 	}
 }
