@@ -36,6 +36,7 @@
   log_post_write_mmio
   log_read_mmio
   log_write_mmio
+  mem_alloc_profiling_key
   memcpy
   memset
   module_layout

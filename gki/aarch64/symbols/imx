@@ -1415,6 +1415,7 @@
   media_graph_walk_next
   media_graph_walk_start
   media_pad_remote_pad_first
+  mem_alloc_profiling_key
   memchr
   memchr_inv
   memcmp

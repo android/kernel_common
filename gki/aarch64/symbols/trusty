@@ -45,6 +45,7 @@
   kstrtoull
   __list_add_valid_or_report
   __list_del_entry_valid_or_report
+  mem_alloc_profiling_key
   memcpy
   memset
   memstart_addr

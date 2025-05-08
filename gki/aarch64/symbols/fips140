@@ -105,6 +105,7 @@
   __list_del_entry_valid_or_report
   lskcipher_alloc_instance_simple
   lskcipher_register_instance
+  mem_alloc_profiling_key
   memcpy
   memset
   __mutex_init

@@ -475,6 +475,7 @@
   mbox_free_channel
   mbox_request_channel
   mbox_send_message
+  mem_alloc_profiling_key
   memcpy
   memcpy_and_pad
   __memcpy_fromio

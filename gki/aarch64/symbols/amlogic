@@ -1312,6 +1312,7 @@
   media_entity_pads_init
   media_pipeline_start
   media_pipeline_stop
+  mem_alloc_profiling_key
   memchr
   memcmp
   memcpy

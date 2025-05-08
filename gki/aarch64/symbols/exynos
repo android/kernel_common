@@ -482,6 +482,7 @@
   log_read_mmio
   log_write_mmio
   loops_per_jiffy
+  mem_alloc_profiling_key
   memchr
   memcpy
   __memcpy_fromio
