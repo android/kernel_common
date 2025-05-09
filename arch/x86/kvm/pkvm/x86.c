@@ -12,6 +12,7 @@
 #include <pmu.h>
 #include "pkvm.h"
 #include <mmu.h>
+#include "fpu/fpu.h"
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -2718,6 +2719,8 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	vcpu->arch.mmu = &vcpu->arch.root_mmu;
 
 	vcpu->arch.pat = MSR_IA32_CR_PAT_DEFAULT;
+
+	pkvm_init_guest_fpu(&vcpu->arch.guest_fpu);
 
 	return kvm_x86_call(vcpu_create)(vcpu);
 #else

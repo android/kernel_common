@@ -216,7 +216,9 @@ static inline void os_xsave(struct fpstate *fpstate)
 	u32 hmask = mask >> 32;
 	int err;
 
+#ifndef __PKVM_HYP__
 	WARN_ON_FPU(!alternatives_patched);
+#endif
 	xfd_validate_state(fpstate, mask, false);
 
 	XSTATE_XSAVE(&fpstate->regs.xsave, lmask, hmask, err);
