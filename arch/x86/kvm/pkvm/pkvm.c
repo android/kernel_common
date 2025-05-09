@@ -660,6 +660,7 @@ static bool is_kvm_vcpu_accessible(struct kvm_vcpu *vcpu, unsigned long fn)
 	case __pkvm__post_set_cr3:
 	case __pkvm__cache_reg:
 	case __pkvm__update_exception_bitmap:
+	case __pkvm__vcpu_add_fpstate:
 		/*
 		 * As the host needs to pre-configure the pVM's vcpu state for
 		 * booting, the protection is only enforced by the pkvm hypervisor
@@ -1640,6 +1641,62 @@ static void pkvm_update_exception_bitmap(struct pkvm_vcpu *pkvm_vcpu)
 	kvm_x86_call(update_exception_bitmap)(vcpu);
 }
 
+static unsigned long pkvm_vcpu_add_fpstate(struct pkvm_vcpu *pkvm_vcpu,
+					   unsigned long gpa, size_t size)
+{
+	struct fpstate *new, *old;
+	struct kvm_vcpu *vcpu;
+
+	if (WARN_ON_ONCE(!pkvm_vcpu))
+		return gpa;
+
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+	/* Expect the host to use this PV interface for pVM only. */
+	if (!pkvm_is_protected_vcpu(vcpu))
+		return gpa;
+
+	old = vcpu->arch.guest_fpu.fpstate;
+	/*
+	 * Reuse the existing fpstate memory if it's sufficiently large. At this
+	 * stage, we can't determine whether the new fpstate size matches the
+	 * vCPUID or not, because that check only occurs when the host calls
+	 * __pkvm__vcpu_after_set_cpuid to update the vCPUID. If the new fpstate
+	 * size is smaller than what the new vCPUID requires, the vCPUID won't
+	 * be updated. Therefore, ensuring the new fpstate size is at least as
+	 * large as the previous one allows continued support for this scenario.
+	 */
+	if (old && old->size >= size)
+		return gpa;
+
+	new = donate_fpu(gpa, size);
+	if (!new)
+		return gpa;
+
+	vcpu->arch.guest_fpu.fpstate = new;
+	pkvm_init_guest_fpu(&vcpu->arch.guest_fpu);
+
+	if (!old)
+		return INVALID_PAGE;
+
+	size = old->size;
+	/*
+	 * Store the size in the beginning of the memory page to be freed, which
+	 * the host will use to determine how much memory to free.
+	 */
+	*(size_t *)old = size;
+
+	/*
+	 * Undonate the physical pages which are going to be freed by the host.
+	 * There is no need to clear these pages for npVM. For pVM, it is also
+	 * not necessary as this is the point before the pVM begins execution.
+	 * So the FPU state of pVM is not stored in these memory pages yet.
+	 * Meanwhile the size is stored in the memory, so also cannot be cleared.
+	 */
+	__pkvm_hyp_donate_host(__pkvm_pa(old), size, false);
+
+	return __pkvm_pa(old);
+}
+
 static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 					       struct kvm_vcpu *shared_vcpu,
 					       unsigned long p2, unsigned  long p3)
@@ -1808,6 +1865,9 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		break;
 	case __pkvm__update_exception_bitmap:
 		pkvm_update_exception_bitmap(pkvm_vcpu);
+		break;
+	case __pkvm__vcpu_add_fpstate:
+		ret = pkvm_vcpu_add_fpstate(pkvm_vcpu, p2, (size_t)p3);
 		break;
 	default:
 		ret = -EINVAL;
