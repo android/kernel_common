@@ -387,6 +387,17 @@ void hda_codec_device_remove(struct snd_sof_dev *sdev)
 }
 EXPORT_SYMBOL_NS_GPL(hda_codec_device_remove, SND_SOC_SOF_HDA_AUDIO_CODEC);
 
+/* Load snd_hda_codec_realtek before sof_intel_hda. This is needed for
+ * audio to work on the Lenovo T14, and potentially other devices.
+ *
+ * Normally this would be handled by calling request_module, but that is
+ * not currently allowed on Android.
+ *
+ * This is a temporary workaround until a better solution for module
+ * loading is implemented. See b/374919978.
+ */
+MODULE_SOFTDEP("pre: snd_hda_codec_realtek");
+
 #endif /* CONFIG_SND_SOC_SOF_HDA_AUDIO_CODEC */
 
 #if IS_ENABLED(CONFIG_SND_SOC_SOF_HDA_AUDIO_CODEC) && IS_ENABLED(CONFIG_SND_HDA_CODEC_HDMI)

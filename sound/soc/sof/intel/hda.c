@@ -1877,6 +1877,18 @@ void hda_unregister_clients(struct snd_sof_dev *sdev)
 	hda_probes_unregister(sdev);
 }
 
+/* Load snd_ctl_led before snd_sof_intel_hda_common. This is needed for
+ * audio to work on the Lenovo T14, and potentially other devices.
+ *
+ * Normally this would be handled by calling request_module in
+ * snd_sof_load_topology, but that is not currently allowed on Android
+ * which causes snd_sof_load_topology to fail.
+ *
+ * This is a temporary workaround until a better solution for module
+ * loading is implemented. See b/374919978.
+ */
+MODULE_SOFTDEP("pre: snd_ctl_led");
+
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_IMPORT_NS(SND_SOC_SOF_PCI_DEV);
 MODULE_IMPORT_NS(SND_SOC_SOF_HDA_AUDIO_CODEC);
