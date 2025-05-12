@@ -33,6 +33,7 @@
 #include <asm/tlb.h>
 #include <asm/io_bitmap.h>
 #include <asm/gsseg.h>
+#include <asm/pci_x86.h>
 
 /*
  * nop stub, which must not clobber anything *including the stack* to
@@ -326,6 +327,12 @@ struct paravirt_patch_template pv_ops = {
 	.mmio.raw_writeq		= raw_writeq,
 	.mmio.raw_writeq_relaxed	= raw_writeq_relaxed,
 #endif
+	.mmio.pci_mmcfg_readb		= pci_mmcfg_readb,
+	.mmio.pci_mmcfg_readw		= pci_mmcfg_readw,
+	.mmio.pci_mmcfg_readl		= pci_mmcfg_readl,
+	.mmio.pci_mmcfg_writeb		= pci_mmcfg_writeb,
+	.mmio.pci_mmcfg_writew		= pci_mmcfg_writew,
+	.mmio.pci_mmcfg_writel		= pci_mmcfg_writel,
 };
 
 #ifdef CONFIG_PARAVIRT_XXL

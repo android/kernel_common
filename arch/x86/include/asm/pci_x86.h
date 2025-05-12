@@ -199,41 +199,103 @@ extern struct list_head pci_mmcfg_list;
  * Guide (BKDG) For AMD Family 10h Processors", rev. 3.48, sec 2.11.1,
  * "MMIO Configuration Coding Requirements".
  */
-static inline unsigned char mmio_config_readb(void __iomem *pos)
+static inline unsigned char pci_mmcfg_readb(const volatile void __iomem *pos)
 {
 	u8 val;
 	asm volatile("movb (%1),%%al" : "=a" (val) : "r" (pos));
 	return val;
 }
 
-static inline unsigned short mmio_config_readw(void __iomem *pos)
+static inline unsigned short pci_mmcfg_readw(const volatile void __iomem *pos)
 {
 	u16 val;
 	asm volatile("movw (%1),%%ax" : "=a" (val) : "r" (pos));
 	return val;
 }
 
-static inline unsigned int mmio_config_readl(void __iomem *pos)
+static inline unsigned int pci_mmcfg_readl(const volatile void __iomem *pos)
 {
 	u32 val;
 	asm volatile("movl (%1),%%eax" : "=a" (val) : "r" (pos));
 	return val;
 }
 
-static inline void mmio_config_writeb(void __iomem *pos, u8 val)
+static inline void pci_mmcfg_writeb(unsigned char val, volatile void __iomem *pos)
 {
 	asm volatile("movb %%al,(%1)" : : "a" (val), "r" (pos) : "memory");
 }
 
-static inline void mmio_config_writew(void __iomem *pos, u16 val)
+static inline void pci_mmcfg_writew(unsigned short val, volatile void __iomem *pos)
 {
 	asm volatile("movw %%ax,(%1)" : : "a" (val), "r" (pos) : "memory");
 }
 
-static inline void mmio_config_writel(void __iomem *pos, u32 val)
+static inline void pci_mmcfg_writel(unsigned int val, volatile void __iomem *pos)
 {
 	asm volatile("movl %%eax,(%1)" : : "a" (val), "r" (pos) : "memory");
 }
+
+#ifdef CONFIG_PARAVIRT
+static inline unsigned char mmio_config_readb(void __iomem *pos)
+{
+	return pv_pci_mmcfg_readb(pos);
+}
+
+static inline unsigned short mmio_config_readw(void __iomem *pos)
+{
+	return pv_pci_mmcfg_readw(pos);
+}
+
+static inline unsigned int mmio_config_readl(void __iomem *pos)
+{
+	return pv_pci_mmcfg_readl(pos);
+}
+
+static inline void mmio_config_writeb(void __iomem *pos, u8 val)
+{
+	pv_pci_mmcfg_writeb(val, pos);
+}
+
+static inline void mmio_config_writew(void __iomem *pos, u16 val)
+{
+	pv_pci_mmcfg_writew(val, pos);
+}
+
+static inline void mmio_config_writel(void __iomem *pos, u32 val)
+{
+	pv_pci_mmcfg_writel(val, pos);
+}
+#else
+static inline unsigned char mmio_config_readb(void __iomem *pos)
+{
+	return pci_mmcfg_readb(pos);
+}
+
+static inline unsigned short mmio_config_readw(void __iomem *pos)
+{
+	return pci_mmcfg_readw(pos);
+}
+
+static inline unsigned int mmio_config_readl(void __iomem *pos)
+{
+	return pci_mmcfg_readl(pos);
+}
+
+static inline void mmio_config_writeb(void __iomem *pos, u8 val)
+{
+	pci_mmcfg_writeb(val, pos);
+}
+
+static inline void mmio_config_writew(void __iomem *pos, u16 val)
+{
+	pci_mmcfg_writew(val, pos);
+}
+
+static inline void mmio_config_writel(void __iomem *pos, u32 val)
+{
+	pci_mmcfg_writel(val, pos);
+}
+#endif
 
 #ifdef CONFIG_PCI
 # ifdef CONFIG_ACPI
