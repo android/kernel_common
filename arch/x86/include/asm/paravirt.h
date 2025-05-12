@@ -790,6 +790,36 @@ static __always_inline void pv_writeq_relaxed(u64 val, volatile void __iomem *ad
 }
 #endif
 
+static __always_inline unsigned char pv_pci_mmcfg_readb(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(unsigned char, mmio.pci_mmcfg_readb, addr);
+}
+
+static __always_inline unsigned short pv_pci_mmcfg_readw(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(unsigned short, mmio.pci_mmcfg_readw, addr);
+}
+
+static __always_inline unsigned int pv_pci_mmcfg_readl(const volatile void __iomem *addr)
+{
+	return PVOP_CALL1(unsigned int, mmio.pci_mmcfg_readl, addr);
+}
+
+static __always_inline void pv_pci_mmcfg_writeb(unsigned char val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.pci_mmcfg_writeb, val, addr);
+}
+
+static __always_inline void pv_pci_mmcfg_writew(unsigned short val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.pci_mmcfg_writew, val, addr);
+}
+
+static __always_inline void pv_pci_mmcfg_writel(unsigned int val, volatile void __iomem *addr)
+{
+	PVOP_VCALL2(mmio.pci_mmcfg_writel, val, addr);
+}
+
 /* Make sure as little as possible of this mess escapes. */
 #undef PARAVIRT_CALL
 #undef __PVOP_CALL
