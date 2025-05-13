@@ -138,6 +138,10 @@
   __tracepoint_android_vh_cache_show
   __traceiter_android_rvh_dma_buf_stats_teardown
   __tracepoint_android_rvh_dma_buf_stats_teardown
+  __traceiter_android_vh_dma_buf_attr_show_start
+  __tracepoint_android_vh_dma_buf_attr_show_start
+  __traceiter_android_vh_dma_buf_attr_show_end
+  __tracepoint_android_vh_dma_buf_attr_show_end
   __traceiter_android_vh_process_madvise_begin
   __tracepoint_android_vh_process_madvise_begin
   __traceiter_android_vh_process_madvise_iter
