@@ -282,9 +282,9 @@ static bool pkvm_guest_iommu_map(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
 			break;
 		}
 
-		mapped = kvm_iommu_map_pages(domain, iova, paddr,
-					     PAGE_SIZE, min(size, kvm_granule_size(level)) / PAGE_SIZE,
-					     __smccc_prot_linux(prot));
+		kvm_iommu_map_pages(domain, iova, paddr,
+				    PAGE_SIZE, min(size, kvm_granule_size(level)) / PAGE_SIZE,
+				    __smccc_prot_linux(prot), &mapped);
 		WARN_ON(__pkvm_unuse_dma(paddr, kvm_granule_size(level), hyp_vcpu));
 		if (!mapped) {
 			if (!__need_req(vcpu)) {

@@ -464,29 +464,32 @@ out_unlock:
 
 size_t kvm_iommu_map_pages(pkvm_handle_t domain_id,
 			   unsigned long iova, phys_addr_t paddr, size_t pgsize,
-			   size_t pgcount, int prot)
+			   size_t pgcount, int prot, unsigned long *mapped)
 {
 	size_t size;
 	int ret;
 	size_t total_mapped = 0;
 	struct kvm_hyp_iommu_domain *domain;
 
+	*mapped = 0;
+
 	if (prot & ~IOMMU_PROT_MASK)
-		return 0;
+		return -EOPNOTSUPP;
 
 	if (__builtin_mul_overflow(pgsize, pgcount, &size) ||
 	    iova + size < iova || paddr + size < paddr)
-		return 0;
+		return -E2BIG;
 
 	domain = handle_to_domain(domain_id);
 	if (!domain || domain_get(domain))
-		return 0;
+		return -ENOENT;
 
 	ret = __pkvm_use_dma(paddr, size, __get_vcpu());
 	if (ret)
 		goto out_put_domain;
 
-	kvm_iommu_ops->map_pages(domain, iova, paddr, pgsize, pgcount, prot, &total_mapped);
+	ret = kvm_iommu_ops->map_pages(domain, iova, paddr, pgsize, pgcount,
+				       prot, &total_mapped);
 
 	pgcount -= total_mapped / pgsize;
 	/*
@@ -497,9 +500,12 @@ size_t kvm_iommu_map_pages(pkvm_handle_t domain_id,
 	if (pgcount)
 		__pkvm_unuse_dma(paddr + total_mapped, pgcount * pgsize, __get_vcpu());
 
+	*mapped = total_mapped;
+
 out_put_domain:
 	domain_put(domain);
-	return total_mapped;
+	/* Mask -ENOMEM, as it's passed as a request. */
+	return ret == -ENOMEM ? 0 : ret;
 }
 
 static inline void kvm_iommu_iotlb_sync(struct kvm_hyp_iommu_domain *domain,
