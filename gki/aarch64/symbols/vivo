@@ -103,6 +103,7 @@
   __traceiter_android_vh_do_send_sig_info
   __traceiter_android_vh_clear_rwsem_reader_owned
   __traceiter_android_vh_clear_rwsem_writer_owned
+  __traceiter_android_vh_do_new_mount_fc
   __traceiter_android_vh_dup_task_struct
   __traceiter_android_vh_filemap_update_page
   __traceiter_android_vh_free_task
@@ -181,6 +182,7 @@
   __tracepoint_android_vh_do_send_sig_info
   __tracepoint_android_vh_clear_rwsem_reader_owned
   __tracepoint_android_vh_clear_rwsem_writer_owned
+  __tracepoint_android_vh_do_new_mount_fc
   __tracepoint_android_vh_dup_task_struct
   __tracepoint_android_vh_filemap_update_page
   __tracepoint_android_vh_free_task
