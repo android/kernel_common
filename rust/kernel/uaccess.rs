@@ -294,6 +294,19 @@ impl UserSliceReader {
         unsafe { buf.set_len(buf.len() + len) };
         Ok(())
     }
+
+    /// Reads a nul-terminated string into the provided buffer and returns the length.
+    pub fn strncpy_from_user(self, buf: &mut [u8]) -> Result<usize> {
+        let max = usize::min(self.length, buf.len()) as isize;
+        // SAFETY: `buf` is valid for writing `buf.len()` bytes.
+        let res =
+            unsafe { bindings::strncpy_from_user(buf.as_mut_ptr(), self.ptr as *const u8, max) };
+        if res >= 0 {
+            Ok(res as usize)
+        } else {
+            Err(Error::from_errno(res as i32))
+        }
+    }
 }
 
 /// A writer for [`UserSlice`].
