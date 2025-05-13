@@ -32,6 +32,7 @@
   dget_parent
   d_invalidate
   down_write_killable
+  do_traversal_all_lruvec
   arm64_mismatched_32bit_el0
   d_rehash
   drm_crtc_vblank_waitqueue
