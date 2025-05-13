@@ -1281,6 +1281,7 @@
   gro_cells_destroy
   gro_cells_init
   gro_cells_receive
+  gunyah_get_info
   gunyah_qtvm_register_notifier
   gunyah_qtvm_unregister_notifier
   gunyah_rm_call
