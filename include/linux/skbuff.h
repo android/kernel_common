@@ -38,6 +38,7 @@
 #include <net/net_debug.h>
 #include <net/dropreason-core.h>
 #include <net/netmem.h>
+#include <linux/android_vendor.h>
 
 /**
  * DOC: skb checksums
@@ -612,6 +613,8 @@ struct skb_shared_info {
 	/* Intermediate layers must ensure that destructor_arg
 	 * remains valid until skb destructor */
 	void *		destructor_arg;
+
+	ANDROID_OEM_DATA_ARRAY(1, 3);
 
 	/* must be last field, see pskb_expand_head() */
 	skb_frag_t	frags[MAX_SKB_FRAGS];
