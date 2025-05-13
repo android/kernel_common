@@ -2385,6 +2385,48 @@
   kthread_complete_and_exit
   usb_speed_string
 
+# required by vendor-zram.ko
+  bio_endio
+  bio_end_io_acct_remapped
+  bio_start_io_acct
+  __blk_alloc_disk
+  copy_page
+  __cpuhp_state_add_instance
+  __cpuhp_state_remove_instance
+  del_gendisk
+  device_add_disk
+  flush_dcache_page
+  LZ4_compress_fast
+  LZ4_compress_fast_continue
+  LZ4_decompress_safe
+  LZ4_decompress_safe_continue
+  LZ4_loadDict
+  LZ4_setStreamDecode
+  lzo1x_1_compress
+  lzo1x_decompress_safe
+  lzorle1x_1_compress
+  memparse
+  memset64
+  next_arg
+  put_disk
+  read_comp_algo_dictionary
+  __register_blkdev
+  set_capacity
+  set_capacity_and_notify
+  skip_spaces
+  sync_blockdev
+  unregister_blkdev
+  zs_compact
+  zs_create_pool
+  zs_destroy_pool
+  zs_free
+  zs_get_total_pages
+  zs_huge_class_size
+  zs_malloc
+  zs_map_object
+  zs_pool_stats
+  zs_unmap_object
+
 # required by xperf.ko
   cpufreq_quick_get_max
   stpcpy
