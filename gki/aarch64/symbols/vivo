@@ -66,10 +66,13 @@
   __traceiter_android_vh_check_nanosleep_syscall
   __traceiter_android_vh_do_send_sig_info
   __traceiter_android_vh_dup_task_struct
+  __traceiter_android_vh_filemap_update_page
   __traceiter_android_vh_free_task
   __traceiter_android_vh_irqtime_account_process_tick
   __traceiter_android_vh_inode_lru_isolate
   __traceiter_android_vh_invalidate_mapping_pagevec
+  __traceiter_android_vh_lock_folio_drop_mmap_end
+  __traceiter_android_vh_lock_folio_drop_mmap_start
   __traceiter_android_vh_mutex_unlock_slowpath
   __traceiter_android_vh_mutex_wait_finish
   __traceiter_android_vh_mutex_wait_start
@@ -112,10 +115,13 @@
   __tracepoint_android_vh_check_nanosleep_syscall
   __tracepoint_android_vh_do_send_sig_info
   __tracepoint_android_vh_dup_task_struct
+  __tracepoint_android_vh_filemap_update_page
   __tracepoint_android_vh_free_task
   __tracepoint_android_vh_inode_lru_isolate
   __tracepoint_android_vh_invalidate_mapping_pagevec
   __tracepoint_android_vh_irqtime_account_process_tick
+  __tracepoint_android_vh_lock_folio_drop_mmap_end
+  __tracepoint_android_vh_lock_folio_drop_mmap_start
   __tracepoint_android_vh_mutex_unlock_slowpath
   __tracepoint_android_vh_mutex_wait_finish
   __tracepoint_android_vh_mutex_wait_start
