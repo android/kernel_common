@@ -272,7 +272,8 @@ int kvm_iommu_init(struct kvm_iommu_ops *ops,
 	if (!ops ||
 	    !ops->init ||
 	    !ops->alloc_domain ||
-	    !ops->free_domain)
+	    !ops->free_domain ||
+	    !ops->get_iommu_by_id)
 		return 0;
 
 	ret = hyp_pool_init_empty(&iommu_host_pool, 64);
@@ -394,6 +395,9 @@ int kvm_iommu_attach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
 	struct pkvm_hyp_vcpu *hyp_vcpu = __get_vcpu();
 	struct pkvm_hyp_vm *vm = NULL;
 
+	if (!kvm_iommu_ops || !kvm_iommu_ops->attach_dev)
+		return -ENODEV;
+
 	iommu = kvm_iommu_ops->get_iommu_by_id(iommu_id);
 	if (!iommu)
 		return -EINVAL;
@@ -430,6 +434,9 @@ int kvm_iommu_detach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
 	struct kvm_hyp_iommu_domain *domain;
 	struct pkvm_hyp_vcpu *hyp_vcpu = __get_vcpu();
 	struct pkvm_hyp_vm *vm = NULL;
+
+	if (!kvm_iommu_ops || !kvm_iommu_ops->detach_dev)
+		return -ENODEV;
 
 	iommu = kvm_iommu_ops->get_iommu_by_id(iommu_id);
 	if (!iommu)
@@ -470,6 +477,9 @@ size_t kvm_iommu_map_pages(pkvm_handle_t domain_id,
 	int ret;
 	size_t total_mapped = 0;
 	struct kvm_hyp_iommu_domain *domain;
+
+	if (!kvm_iommu_ops || !kvm_iommu_ops->map_pages)
+		return -ENODEV;
 
 	*mapped = 0;
 
@@ -533,6 +543,9 @@ size_t kvm_iommu_unmap_pages(pkvm_handle_t domain_id, unsigned long iova,
 	struct kvm_hyp_iommu_domain *domain;
 	struct iommu_iotlb_gather iotlb_gather;
 
+	if (!kvm_iommu_ops || !kvm_iommu_ops->unmap_pages)
+		return -ENODEV;
+
 	if (!pgsize || !pgcount)
 		return 0;
 
@@ -567,6 +580,9 @@ phys_addr_t kvm_iommu_iova_to_phys(pkvm_handle_t domain_id, unsigned long iova)
 {
 	phys_addr_t phys = 0;
 	struct kvm_hyp_iommu_domain *domain;
+
+	if (!kvm_iommu_ops || !kvm_iommu_ops->iova_to_phys)
+		return -ENODEV;
 
 	domain = handle_to_domain( domain_id);
 
