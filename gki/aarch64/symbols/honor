@@ -190,6 +190,10 @@
   __tracepoint_android_vh_pagetypeinfo_show
   __traceiter_android_vh_drain_all_pages_bypass
   __tracepoint_android_vh_drain_all_pages_bypass
+  __traceiter_android_vh_madvise_cold_or_pageout_abort
+  __traceiter_android_vh_compact_finished
+  __tracepoint_android_vh_madvise_cold_or_pageout_abort
+  __tracepoint_android_vh_compact_finished
   netdev_get_name
   tcp_send_active_reset
   __traceiter_android_vh_tcp_write_timeout_estab_retrans
