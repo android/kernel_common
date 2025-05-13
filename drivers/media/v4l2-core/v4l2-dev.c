@@ -31,7 +31,7 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
 
-#define VIDEO_NUM_DEVICES	256
+#define VIDEO_NUM_DEVICES	512
 #define VIDEO_NAME              "video4linux"
 
 #define dprintk(fmt, arg...) do {					\
