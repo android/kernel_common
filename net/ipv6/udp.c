@@ -494,6 +494,8 @@ try_again:
 	if (flags & MSG_TRUNC)
 		err = ulen;
 
+	trace_android_rvh_udpv6_recvmsg(sk, msg, len, flags, addr_len);
+
 	skb_consume_udp(sk, skb, peeking ? -err : err);
 	return err;
 
@@ -1400,6 +1402,8 @@ int udpv6_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	int err;
 	int is_udplite = IS_UDPLITE(sk);
 	int (*getfrag)(void *, char *, int, int, int, struct sk_buff *);
+
+	trace_android_rvh_udpv6_sendmsg(sk, msg, len);
 
 	ipcm6_init(&ipc6);
 	ipc6.gso_size = READ_ONCE(up->gso_size);

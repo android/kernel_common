@@ -1135,6 +1135,8 @@ int udp_sendmsg(struct sock *sk, struct msghdr *msg, size_t len)
 	struct ip_options_data opt_copy;
 	int uc_index;
 
+	trace_android_rvh_udp_sendmsg(sk, msg, len);
+
 	if (len > 0xFFFF)
 		return -EMSGSIZE;
 
@@ -1957,6 +1959,8 @@ try_again:
 	err = copied;
 	if (flags & MSG_TRUNC)
 		err = ulen;
+
+	trace_android_rvh_udp_recvmsg(sk, msg, len, flags, addr_len);
 
 	skb_consume_udp(sk, skb, peeking ? -err : err);
 	return err;

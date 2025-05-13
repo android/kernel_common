@@ -93,6 +93,26 @@ DECLARE_HOOK(android_vh_dc_receive,
 	TP_PROTO(struct sk_buff *skb, int *flag), TP_ARGS(skb, flag));
 DECLARE_HOOK(android_vh_tcp_rcv_rtt_update,
 	TP_PROTO(struct tcp_sock *tp, u32 sample, int win_dep), TP_ARGS(tp, sample, win_dep));
+struct msghdr;
+DECLARE_RESTRICTED_HOOK(android_rvh_tcp_sendmsg,
+	TP_PROTO(struct sock *sk, struct msghdr *msg, size_t len),
+	TP_ARGS(sk, msg, len), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_tcp_recvmsg,
+	TP_PROTO(struct sock *sk, struct msghdr *msg, size_t len, int flags, int *addr_len),
+	TP_ARGS(sk, msg, len, flags, addr_len), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_udp_sendmsg,
+	TP_PROTO(struct sock *sk, struct msghdr *msg, size_t len),
+	TP_ARGS(sk, msg, len), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_udp_recvmsg,
+	TP_PROTO(struct sock *sk, struct msghdr *msg, size_t len, int flags, int *addr_len),
+	TP_ARGS(sk, msg, len, flags, addr_len), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_udpv6_sendmsg,
+	TP_PROTO(struct sock *sk, struct msghdr *msg, size_t len),
+	TP_ARGS(sk, msg, len), 1);
+DECLARE_RESTRICTED_HOOK(android_rvh_udpv6_recvmsg,
+	TP_PROTO(struct sock *sk, struct msghdr *msg, size_t len, int flags, int *addr_len),
+	TP_ARGS(sk, msg, len, flags, addr_len), 1);
+
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_NET_VH_H */

@@ -1356,6 +1356,7 @@ int tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 {
 	int ret;
 
+	trace_android_rvh_tcp_sendmsg(sk, msg, size);
 	lock_sock(sk);
 	ret = tcp_sendmsg_locked(sk, msg, size);
 	release_sock(sk);
@@ -2877,6 +2878,9 @@ int tcp_recvmsg(struct sock *sk, struct msghdr *msg, size_t len, int flags,
 					 sizeof(msg->msg_inq), &msg->msg_inq);
 		}
 	}
+
+	trace_android_rvh_tcp_recvmsg(sk, msg, len, flags, addr_len);
+
 	return ret;
 }
 EXPORT_SYMBOL(tcp_recvmsg);
