@@ -3021,6 +3021,8 @@
   __traceiter_android_vh_binder_restore_priority
   __traceiter_android_vh_binder_set_priority
   __traceiter_android_vh_binder_transaction_init
+  __traceiter_android_vh_compaction_exit
+  __traceiter_android_vh_compaction_try_to_compact_exit
   __traceiter_android_vh_cgroup_attach
   __traceiter_android_vh_cgroup_set_task
   __traceiter_android_vh_check_bpf_syscall
@@ -3036,6 +3038,9 @@
   __traceiter_android_vh_iommu_iovad_alloc_iova
   __traceiter_android_vh_iommu_iovad_free_iova
   __traceiter_android_vh_is_fpsimd_save
+  __traceiter_android_vh_mm_direct_reclaim_enter
+  __traceiter_android_vh_mm_direct_reclaim_exit
+  __traceiter_android_vh_mm_may_oom_exit
   __traceiter_android_vh_rwsem_init
   __traceiter_android_vh_rwsem_read_wait_finish
   __traceiter_android_vh_rwsem_read_wait_start
@@ -3138,6 +3143,8 @@
   __tracepoint_android_vh_binder_restore_priority
   __tracepoint_android_vh_binder_set_priority
   __tracepoint_android_vh_binder_transaction_init
+  __tracepoint_android_vh_compaction_exit
+  __tracepoint_android_vh_compaction_try_to_compact_exit
   __tracepoint_android_vh_cgroup_attach
   __tracepoint_android_vh_cgroup_set_task
   __tracepoint_android_vh_check_bpf_syscall
@@ -3153,6 +3160,9 @@
   __tracepoint_android_vh_iommu_iovad_alloc_iova
   __tracepoint_android_vh_iommu_iovad_free_iova
   __tracepoint_android_vh_is_fpsimd_save
+  __tracepoint_android_vh_mm_direct_reclaim_enter
+  __tracepoint_android_vh_mm_direct_reclaim_exit
+  __tracepoint_android_vh_mm_may_oom_exit
   __tracepoint_android_vh_rwsem_init
   __tracepoint_android_vh_rwsem_read_wait_finish
   __tracepoint_android_vh_rwsem_read_wait_start
