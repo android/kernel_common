@@ -143,6 +143,7 @@
   __traceiter_sched_switch
   __traceiter_sched_waking
   __traceiter_task_rename
+  __traceiter_sys_exit
   __traceiter_tcp_retransmit_skb
   __traceiter_workqueue_execute_end
   __traceiter_workqueue_execute_start
@@ -222,6 +223,7 @@
   __tracepoint_sched_switch
   __tracepoint_sched_waking
   __tracepoint_task_rename
+  __tracepoint_sys_exit
   __tracepoint_tcp_retransmit_skb
   __tracepoint_workqueue_execute_end
   __tracepoint_workqueue_execute_start
