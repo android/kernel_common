@@ -484,7 +484,7 @@ size_t kvm_iommu_map_pages(pkvm_handle_t domain_id,
 
 	ret = __pkvm_use_dma(paddr, size, __get_vcpu());
 	if (ret)
-		return 0;
+		goto out_put_domain;
 
 	kvm_iommu_ops->map_pages(domain, iova, paddr, pgsize, pgcount, prot, &total_mapped);
 
@@ -497,6 +497,7 @@ size_t kvm_iommu_map_pages(pkvm_handle_t domain_id,
 	if (pgcount)
 		__pkvm_unuse_dma(paddr + total_mapped, pgcount * pgsize, __get_vcpu());
 
+out_put_domain:
 	domain_put(domain);
 	return total_mapped;
 }
