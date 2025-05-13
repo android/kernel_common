@@ -2490,6 +2490,7 @@
   __traceiter_clock_set_rate
   __traceiter_cma_alloc_finish
   __traceiter_cma_alloc_start
+  __traceiter_cpu_idle
   __traceiter_device_pm_callback_end
   __traceiter_device_pm_callback_start
   __traceiter_gpu_mem_total
@@ -2501,6 +2502,9 @@
   __traceiter_mm_vmscan_direct_reclaim_begin
   __traceiter_mm_vmscan_direct_reclaim_end
   __traceiter_sched_switch
+  __traceiter_sched_wakeup
+  __traceiter_softirq_entry
+  __traceiter_softirq_exit
   __traceiter_suspend_resume
   __traceiter_workqueue_execute_end
   __traceiter_workqueue_execute_start
@@ -2544,6 +2548,7 @@
   __tracepoint_clock_set_rate
   __tracepoint_cma_alloc_finish
   __tracepoint_cma_alloc_start
+  __tracepoint_cpu_idle
   __tracepoint_device_pm_callback_end
   __tracepoint_device_pm_callback_start
   __tracepoint_gpu_mem_total
@@ -2557,6 +2562,9 @@
   tracepoint_probe_register
   tracepoint_probe_unregister
   __tracepoint_sched_switch
+  __tracepoint_sched_wakeup
+  __tracepoint_softirq_entry
+  __tracepoint_softirq_exit
   __tracepoint_suspend_resume
   __tracepoint_workqueue_execute_end
   __tracepoint_workqueue_execute_start
