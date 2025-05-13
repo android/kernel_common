@@ -555,7 +555,8 @@ void futex_q_unlock(struct futex_hash_bucket *hb)
 	futex_hb_waiters_dec(hb);
 }
 
-void __futex_queue(struct futex_q *q, struct futex_hash_bucket *hb)
+void __futex_queue(struct futex_q *q, struct futex_hash_bucket *hb,
+		   struct task_struct *task)
 {
 	int prio;
 	bool already_on_hb = false;
@@ -574,7 +575,7 @@ void __futex_queue(struct futex_q *q, struct futex_hash_bucket *hb)
 	trace_android_vh_alter_futex_plist_add(&q->list, &hb->chain, &already_on_hb);
 	if (!already_on_hb)
 		plist_add(&q->list, &hb->chain);
-	q->task = current;
+	q->task = task;
 }
 
 /**
