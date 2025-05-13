@@ -183,7 +183,10 @@
   skb_dump
   snd_pcm_hw_constraint_mask64
   snd_soc_find_dai
+  snd_usb_register_platform_ops
+  snd_usb_unregister_platform_ops
   spi_bus_type
+  shmem_mapping
   shrink_slab
   stack_depot_print
   stack_trace_save_tsk
