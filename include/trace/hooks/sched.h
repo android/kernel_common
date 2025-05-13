@@ -476,6 +476,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_dequeue_entity_delayed,
 DECLARE_HOOK(android_vh_tick_nohz_idle_stop_tick,
 	TP_PROTO(void *unused),
 	TP_ARGS(unused));
+DECLARE_HOOK(android_vh_mmput,
+	TP_PROTO(struct mm_struct *mm),
+	TP_ARGS(mm));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */
