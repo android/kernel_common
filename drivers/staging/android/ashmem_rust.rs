@@ -313,13 +313,13 @@ impl Ashmem {
         let name = asma.name.as_deref().unwrap_or(b"dev/ashmem");
         let len = name.len();
         let len_with_nul = len + 1;
-        if local_name.len() <= len_with_nul {
+        if local_name.len() < len_with_nul {
             // This shouldn't happen in practice since `set_name` will refuse to store a string
             // that is too long.
             return Err(EINVAL);
         }
         local_name[..len].copy_from_slice(name);
-        local_name[len_with_nul] = 0;
+        local_name[len] = 0;
         drop(asma);
 
         writer.write_slice(&local_name[..len_with_nul])?;
