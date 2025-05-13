@@ -612,33 +612,36 @@ static void cgroup_force_idle_show(struct seq_file *seq, struct cgroup_base_stat
 void cgroup_base_stat_cputime_show(struct seq_file *seq)
 {
 	struct cgroup *cgrp = seq_css(seq)->cgroup;
-	struct cgroup_base_stat bstat;
+	u64 usage, utime, stime, ntime;
 
 	if (cgroup_parent(cgrp)) {
 		cgroup_rstat_flush_hold(cgrp);
-		bstat = cgrp->bstat;
+		usage = cgrp->bstat.cputime.sum_exec_runtime;
 		cputime_adjust(&cgrp->bstat.cputime, &cgrp->prev_cputime,
-			       &bstat.cputime.utime, &bstat.cputime.stime);
+			       &utime, &stime);
+		ntime = cgrp->bstat.ntime;
 		cgroup_rstat_flush_release(cgrp);
 	} else {
-		root_cgroup_cputime(&bstat);
+		/* cgrp->bstat of root is not actually used, reuse it */
+		root_cgroup_cputime(&cgrp->bstat);
+		usage = cgrp->bstat.cputime.sum_exec_runtime;
+		utime = cgrp->bstat.cputime.utime;
+		stime = cgrp->bstat.cputime.stime;
+		ntime = cgrp->bstat.ntime;
 	}
 
-	do_div(bstat.cputime.sum_exec_runtime, NSEC_PER_USEC);
-	do_div(bstat.cputime.utime, NSEC_PER_USEC);
-	do_div(bstat.cputime.stime, NSEC_PER_USEC);
-	do_div(bstat.ntime, NSEC_PER_USEC);
+	do_div(usage, NSEC_PER_USEC);
+	do_div(utime, NSEC_PER_USEC);
+	do_div(stime, NSEC_PER_USEC);
+	do_div(ntime, NSEC_PER_USEC);
 
 	seq_printf(seq, "usage_usec %llu\n"
 			"user_usec %llu\n"
 			"system_usec %llu\n"
 			"nice_usec %llu\n",
-			bstat.cputime.sum_exec_runtime,
-			bstat.cputime.utime,
-			bstat.cputime.stime,
-			bstat.ntime);
+			usage, utime, stime, ntime);
 
-	cgroup_force_idle_show(seq, &bstat);
+	cgroup_force_idle_show(seq, &cgrp->bstat);
 }
 
 /* Add bpf kfuncs for cgroup_rstat_updated() and cgroup_rstat_flush() */
