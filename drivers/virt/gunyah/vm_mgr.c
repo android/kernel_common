@@ -13,6 +13,7 @@
 #include <linux/xarray.h>
 
 #include <uapi/linux/gunyah.h>
+#include <trace/hooks/gunyah.h>
 
 #include "rsc_mgr.h"
 #include "vm_mgr.h"
@@ -1190,6 +1191,7 @@ static int gunyah_vm_release(struct inode *inode, struct file *filp)
 {
 	struct gunyah_vm *ghvm = filp->private_data;
 
+	trace_android_rvh_gh_vm_release(ghvm->vmid, ghvm);
 	gunyah_vm_put(ghvm);
 	return 0;
 }

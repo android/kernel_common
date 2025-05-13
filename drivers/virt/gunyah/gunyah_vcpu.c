@@ -368,6 +368,7 @@ static int gunyah_vcpu_release(struct inode *inode, struct file *filp)
 {
 	struct gunyah_vcpu *vcpu = filp->private_data;
 
+	trace_android_rvh_gh_vcpu_release(vcpu->ghvm->vmid, vcpu);
 	gunyah_vm_put(vcpu->ghvm);
 	kref_put(&vcpu->kref, vcpu_release);
 	return 0;
