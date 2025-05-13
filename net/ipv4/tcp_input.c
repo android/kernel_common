@@ -881,6 +881,8 @@ static void tcp_rtt_estimator(struct sock *sk, long mrtt_us)
 	long m = mrtt_us; /* RTT */
 	u32 srtt = tp->srtt_us;
 
+	trace_android_vh_tcp_rtt_estimator(sk, mrtt_us);
+
 	/*	The following amusing code comes from Jacobson's
 	 *	article in SIGCOMM '88.  Note that rtt and mdev
 	 *	are scaled versions of rtt and mean deviation.

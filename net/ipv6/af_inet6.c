@@ -70,6 +70,8 @@
 #include <linux/mroute6.h>
 #include <trace/hooks/net.h>
 
+#include <trace/hooks/net.h>
+
 #include "ip6_offload.h"
 
 MODULE_AUTHOR("Cast of dozens");
@@ -267,6 +269,9 @@ lookup_protocol:
 		if (err)
 			goto out_sk_release;
 	}
+
+	trace_android_rvh_inet_sock_create(sk);
+
 out:
 	trace_android_vh_inet_create(sk, err);
 	return err;

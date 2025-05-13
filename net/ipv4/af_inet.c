@@ -392,6 +392,9 @@ lookup_protocol:
 		if (err)
 			goto out_sk_release;
 	}
+
+	trace_android_rvh_inet_sock_create(sk);
+
 out:
 	trace_android_vh_inet_create(sk, err);
 	return err;
@@ -419,6 +422,8 @@ int inet_release(struct socket *sock)
 
 		if (!sk->sk_kern_sock)
 			BPF_CGROUP_RUN_PROG_INET_SOCK_RELEASE(sk);
+
+		trace_android_rvh_inet_sock_release(sk);
 
 		/* Applications forget to leave groups before exiting */
 		ip_mc_drop_socket(sk);

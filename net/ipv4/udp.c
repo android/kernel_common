@@ -1581,6 +1581,8 @@ int __udp_enqueue_schedule_skb(struct sock *sk, struct sk_buff *skb)
 	spinlock_t *busy = NULL;
 	int size, rcvbuf;
 
+	trace_android_vh_udp_enqueue_schedule_skb(sk, skb);
+
 	/* Immediately drop when the receive queue is full.
 	 * Always allow at least one packet.
 	 */
