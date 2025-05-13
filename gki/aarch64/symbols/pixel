@@ -2462,6 +2462,8 @@
   __traceiter_android_rvh_reclaim_folio_list
   __traceiter_android_rvh_vmscan_kswapd_done
   __traceiter_android_rvh_vmscan_kswapd_wake
+  __traceiter_android_trigger_vendor_lmk_kill
+  __traceiter_android_vh_calculate_totalreserve_pages
   __traceiter_android_vh_check_new_page
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
@@ -2520,6 +2522,8 @@
   __tracepoint_android_rvh_reclaim_folio_list
   __tracepoint_android_rvh_vmscan_kswapd_done
   __tracepoint_android_rvh_vmscan_kswapd_wake
+  __tracepoint_android_trigger_vendor_lmk_kill
+  __tracepoint_android_vh_calculate_totalreserve_pages
   __tracepoint_android_vh_check_new_page
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
