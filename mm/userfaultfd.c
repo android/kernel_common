@@ -1387,7 +1387,8 @@ retry:
 			}
 		}
 		err = move_swap_pte(mm, dst_vma, dst_addr, src_addr, dst_pte, src_pte,
-				orig_dst_pte, orig_src_pte, dst_ptl, src_ptl, src_folio);
+				orig_dst_pte, orig_src_pte,
+				dst_ptl, src_ptl, src_folio);
 	}
 
 out:
