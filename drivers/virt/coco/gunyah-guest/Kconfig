@@ -1,0 +1,12 @@
+config GUNYAH_GUEST
+	bool "Gunyah protected guest driver"
+	depends on ARM64
+	select ARCH_HAS_MEM_RELINQUISH
+	select GUNYAH_HYPERCALLS
+	help
+	  Protected guests running under the Gunyah hypervisor
+	  are isolated from the host and must issue hypercalls to enable
+	  interaction with virtual devices. This driver implements
+	  support for probing and issuing these hypercalls.
+
+	  If unsure, say 'N'.

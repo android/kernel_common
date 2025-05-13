@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: GPL-2.0
+menu "Android"
+
+config ANDROID_STAGING
+	bool
+
+config ASHMEM
+	bool "Enable the Anonymous Shared Memory Subsystem"
+	depends on SHMEM
+	select ANDROID_STAGING
+	help
+	  The ashmem subsystem is a new shared memory allocator, similar to
+	  POSIX SHM but with different behavior and sporting a simpler
+	  file-based API.
+
+	  It is, in theory, a good memory allocator for low-memory devices,
+	  because it can discard shared memory units when under memory pressure.
+
+config ASHMEM_RUST
+	bool "Use the Rust implementation of Ashmem"
+	depends on ASHMEM && RUST
+
+config ASHMEM_C
+	def_bool ASHMEM && !ASHMEM_RUST
+
+endmenu

@@ -1,0 +1,331 @@
+#!/bin/sh -e
+# SPDX-License-Identifier: GPL-2.0-only
+
+# hyp-trace-test - Tracefs for pKVM hypervisor test
+#
+# Copyright (C) 2024 - Google LLC
+# Author: Vincent Donnefort <vdonnefort@google.com>
+#
+
+log_and_die()
+{
+    echo "$1"
+
+    exit 1
+}
+
+host_clock()
+{
+    # BOOTTIME clock
+    awk '/now/ { printf "%.6f\n", $3 / 1000000000 }' /proc/timer_list
+}
+
+page_size()
+{
+    echo "$(awk '/KernelPageSize/ {print $2; exit}' /proc/self/smaps) * 1024" | bc
+}
+
+goto_hyp_trace()
+{
+    if [ -d "/sys/kernel/debug/tracing/hypervisor" ]; then
+        cd /sys/kernel/debug/tracing/hypervisor
+        return
+    fi
+
+    if [ -d "/sys/kernel/tracing/hypervisor" ]; then
+        cd /sys/kernel/tracing/hypervisor
+        return
+    fi
+
+    echo "ERROR: hyp tracing folder not found!"
+
+    exit 1
+}
+
+reset_hyp_trace()
+{
+    echo 0 > tracing_on
+    echo 0 > trace
+    for event in events/hypervisor/*; do
+        echo 0 > $event/enable
+    done
+}
+
+setup_hyp_trace()
+{
+    reset_hyp_trace
+
+    echo 16 > buffer_size_kb
+    echo 1 > events/hypervisor/selftest/enable
+    echo 1 > tracing_on
+}
+
+stop_hyp_trace()
+{
+    echo 0 > tracing_on
+}
+
+hyp_trace_loaded()
+{
+    grep -q "(loaded)" buffer_size_kb
+}
+
+write_events()
+{
+    local num="$1"
+    local func="$2"
+
+    for i in $(seq 1 $num); do
+        echo 1 > selftest_event
+        [ -z "$func" -o $i -eq $num ] || eval $func
+    done
+}
+
+consuming_read()
+{
+    local output=$1
+
+    cat trace_pipe > $output &
+
+    echo $!
+}
+
+run_test_consuming()
+{
+    local nr_events=$1
+    local func=$2
+    local tmp="$(mktemp)"
+    local start_ts=0
+    local end_ts=0
+    local pid=0
+
+    echo "Output trace file: $tmp"
+
+    setup_hyp_trace
+    pid=$(consuming_read $tmp)
+
+    start_ts=$(host_clock)
+    write_events $nr_events $func
+    stop_hyp_trace
+    end_ts=$(host_clock)
+
+    kill $pid
+    validate_test $tmp $nr_events $start_ts $end_ts
+
+    rm $tmp
+}
+
+validate_test()
+{
+    local output=$1
+    local expected_events=$2
+    local start_ts=$3
+    local end_ts=$4
+    local prev_ts=$3
+    local ts=0
+    local num_events=0
+
+    IFS=$'\n'
+    for line in $(cat $output); do
+        echo "$line" | grep -q -E "^# " && continue
+        ts=$(echo "$line" | awk '{print $2}' | cut -d ':' -f1)
+        if [ $(echo "$ts<$prev_ts" | bc) -eq 1 ]; then
+            log_and_die "Error event @$ts < $prev_ts"
+        fi
+        prev_ts=$ts
+        num_events=$((num_events + 1))
+    done
+
+    if [ $(echo "$ts>$end_ts" | bc) -eq 1 ]; then
+        log_and_die "Error event @$ts > $end_ts"
+    fi
+
+    if [ $num_events -ne $expected_events ]; then
+        log_and_die "Expected $expected_events events, got $num_events"
+    fi
+}
+
+test_ts()
+{
+    echo "Test Timestamps..."
+
+    run_test_consuming 1000
+
+    echo "done."
+}
+
+test_extended_ts()
+{
+    echo "Test Extended Timestamps..."
+
+    run_test_consuming 1000 "sleep 0.1"
+
+    echo "done."
+}
+
+assert_loaded()
+{
+    hyp_trace_loaded || log_and_die "Expected loaded buffer"
+}
+
+assert_unloaded()
+{
+    ! hyp_trace_loaded || log_and_die "Expected unloaded buffer"
+}
+
+test_unloading()
+{
+    local tmp="$(mktemp)"
+
+    echo "Test unloading..."
+
+    setup_hyp_trace
+    assert_loaded
+
+    echo 0 > tracing_on
+    assert_unloaded
+
+    pid=$(consuming_read $tmp)
+    sleep 1
+    assert_loaded
+    kill $pid
+    assert_unloaded
+
+    echo 1 > tracing_on
+    write_events 1
+    echo 0 > trace
+    assert_loaded
+    echo 0 > tracing_on
+    assert_unloaded
+
+    echo "done."
+}
+
+test_reset()
+{
+    local tmp="$(mktemp)"
+
+    echo "Test Reset..."
+
+    setup_hyp_trace
+    write_events 1000
+    echo 0 > trace
+    clock_before=$(host_clock)
+    write_events 5
+
+    pid=$(consuming_read $tmp)
+    sleep 1
+    stop_hyp_trace
+    kill $pid
+
+    validate_test $tmp 5 $clock_before $(host_clock)
+
+    rm $tmp
+
+    echo "done."
+}
+
+test_big_bpacking()
+{
+    local hyp_buffer_page_size=48
+    local page_size=$(page_size)
+    local min_buf_size=$(echo "$page_size * $page_size / ($hyp_buffer_page_size * $(nproc))" | bc)
+
+    min_buf_size=$(echo "$min_buf_size * 2 / 1024" | bc)
+
+    echo "Test loading $min_buf_size kB buffer..."
+
+    reset_hyp_trace
+    echo $min_buf_size > buffer_size_kb
+    echo 1 > tracing_on
+
+    stop_hyp_trace
+
+    echo "done."
+}
+
+validate_event()
+{
+    local line="$1"
+    local expect_event="$2"
+    local expect_arg="$3"
+    local event="$(echo "$line" | awk '{print $3}')"
+    local arg="$(echo "$line" | awk '{print $4}')"
+
+    [ $event == $expect_event ] || log_and_die "Expected event '$expect_event', got: '$event'"
+    [ $arg == $expect_arg ] || log_and_die "Expected arg '$expect_arg', got: '$arg'"
+}
+
+setup_hyp_ftrace()
+{
+    reset_hyp_trace
+    echo 1 > events/hypervisor/func/enable
+    echo 1 > events/hypervisor/func_ret/enable
+}
+
+run_test_ftrace()
+{
+    local output="$2"
+
+    setup_hyp_ftrace
+
+    echo 1 > tracing_on
+    write_events 1
+    echo 0 > tracing_on
+
+    pid=$(consuming_read $tmp)
+    sleep 1
+    kill $pid
+
+}
+
+test_ftrace_nofilter()
+{
+    local func="__kvm_nvhe_handle___pkvm_selftest_event"
+    local tmp="$(mktemp)"
+
+    echo "Test ftrace..."
+
+    echo "*" > set_ftrace_filter
+
+    run_test_ftrace $tmp
+
+    grep -qE "func *$func" $tmp || \
+        log_and_die "Couldn't find 'func' event with arg '$func'"
+    grep -q "func_ret $func" $tmp || \
+        log_and_die "Couldn't find 'func_ret' event with arg '$func'"
+
+    rm $tmp
+}
+
+test_ftrace_filter()
+{
+    local func="__kvm_nvhe_handle___pkvm_selftest_event"
+    local tmp="$(mktemp)"
+
+    echo "Test ftrace filtering..."
+
+    echo "$func" > set_ftrace_filter
+
+    [ "$(cat set_ftrace_filter)" == "$func" ] || \
+        log_and_die "Failed to set set_ftrace_filter"
+
+    run_test_ftrace $tmp
+
+    validate_event "$(awk 'NR==1 {print}' $tmp)" "func" "$func"
+    validate_event "$(awk 'NR==2 {print}' $tmp)" "func_ret" "$func"
+
+    rm $tmp
+}
+
+goto_hyp_trace
+
+test_reset
+test_unloading
+test_big_bpacking
+test_ts
+test_extended_ts
+test_ftrace_nofilter
+test_ftrace_filter
+
+exit 0

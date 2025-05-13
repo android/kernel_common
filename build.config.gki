@@ -1,0 +1,5 @@
+echo "WARNING: Do not source build.config.gki.
+    Use kernel_build.defconfig and kernel_build.check_defconfig instead." >&2
+
+DEFCONFIG=gki_defconfig
+POST_DEFCONFIG_CMDS="check_defconfig"

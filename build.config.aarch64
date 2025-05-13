@@ -1,0 +1,7 @@
+echo 'WARNING: Do not source build.config.aarch64.
+    Instead, set kernel_build.make_goals.' >&2
+
+MAKE_GOALS="
+Image
+modules
+"

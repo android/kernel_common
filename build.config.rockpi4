@@ -1,0 +1,3 @@
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.constants
+
+DTC_INCLUDE=${ROOT_DIR}/${KERNEL_DIR}/arch/arm64/boot/dts/rockchip

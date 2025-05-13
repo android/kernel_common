@@ -1,0 +1,10 @@
+echo 'WARNING: Do not source build.config.common. Instead:
+    - If you need -D__ANDROID_COMMON_KERNEL__ in KCFLAGS, set kernel_build.kcflags.
+    - If you still have build configs, use:
+        . ${ROOT_DIR}/${KERNEL_DIR}/build.config.constants
+    - If you do not have any build configs, delete kernel_build.build_config entirely.
+' >&2
+
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.constants
+
+KCFLAGS="${KCFLAGS} -D__ANDROID_COMMON_KERNEL__"

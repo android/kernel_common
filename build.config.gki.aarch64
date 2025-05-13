@@ -1,0 +1,15 @@
+# Note: This file is no longer used by the GKI to build. The file is kept
+# here because of external usages.
+# TODO(b/236012223): Deprecate and remove this file once build-config-less
+#   builds are fully supported.
+
+echo 'WARNING: Do not source build.config.gki.aarch64. See warnings below for details.' >&2
+
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.aarch64
+. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki
+
+if [ -n "${GKI_BUILD_CONFIG_FRAGMENT}" ]; then
+    echo "ERROR: GKI_BUILD_CONFIG_FRAGMENT is deprecated; use --gki_build_config_fragment instead.">&2
+    exit 1
+fi
