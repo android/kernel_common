@@ -210,4 +210,10 @@ __init void pkvm_guest_init_coco(void)
 	pv_ops.mmio.raw_writeq = pkvm_mmio_writeq;
 	pv_ops.mmio.raw_writeq_relaxed = pkvm_mmio_writeq;
 #endif
+	pv_ops.mmio.pci_mmcfg_readb = pkvm_mmio_readb;
+	pv_ops.mmio.pci_mmcfg_readw = pkvm_mmio_readw;
+	pv_ops.mmio.pci_mmcfg_readl = pkvm_mmio_readl;
+	pv_ops.mmio.pci_mmcfg_writeb = pkvm_mmio_writeb;
+	pv_ops.mmio.pci_mmcfg_writew = pkvm_mmio_writew;
+	pv_ops.mmio.pci_mmcfg_writel = pkvm_mmio_writel;
 }
