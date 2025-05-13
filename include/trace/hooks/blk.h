@@ -17,6 +17,13 @@ DECLARE_HOOK(android_vh_bd_link_disk_holder,
 	TP_PROTO(struct block_device *bdev, struct gendisk *disk),
 	TP_ARGS(bdev, disk));
 
+struct path;
+struct vfsmount;
+
+DECLARE_HOOK(android_vh_do_new_mount_fc,
+	TP_PROTO(struct path *mountpoint, struct vfsmount *mnt),
+	TP_ARGS(mountpoint, mnt));
+
 struct blk_mq_hw_ctx;
 struct request_queue;
 
