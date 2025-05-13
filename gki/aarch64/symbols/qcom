@@ -3050,7 +3050,9 @@
   snd_usb_hw_free
   snd_usb_hw_params
   snd_usb_lock_shutdown
+  snd_usb_register_platform_ops
   snd_usb_unlock_shutdown
+  snd_usb_unregister_platform_ops
   snprintf
   soc_device_register
   soc_device_unregister
