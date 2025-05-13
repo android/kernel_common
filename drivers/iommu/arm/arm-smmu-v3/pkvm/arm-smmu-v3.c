@@ -1425,7 +1425,7 @@ static int smmu_map_pages(struct kvm_hyp_iommu_domain *domain, unsigned long iov
 {
 	size_t mapped;
 	size_t granule;
-	int ret;
+	int ret = 0;
 	struct hyp_arm_smmu_v3_domain *smmu_domain = domain->priv;
 	struct io_pgtable *pgtable = smmu_domain->pgtable;
 
@@ -1437,7 +1437,7 @@ static int smmu_map_pages(struct kvm_hyp_iommu_domain *domain, unsigned long iov
 		return -EINVAL;
 
 	hyp_spin_lock(&smmu_domain->pgt_lock);
-	while (pgcount && !ret) {
+	while (pgcount) {
 		mapped = 0;
 		ret = pgtable->ops.map_pages(&pgtable->ops, iova, paddr,
 					     pgsize, pgcount, prot, 0, &mapped);
@@ -1453,7 +1453,7 @@ static int smmu_map_pages(struct kvm_hyp_iommu_domain *domain, unsigned long iov
 	}
 	hyp_spin_unlock(&smmu_domain->pgt_lock);
 
-	return 0;
+	return ret;
 }
 
 static size_t smmu_unmap_pages(struct kvm_hyp_iommu_domain *domain, unsigned long iova,
