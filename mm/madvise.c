@@ -447,6 +447,7 @@ restart:
 	flush_tlb_batched_pending(mm);
 	arch_enter_lazy_mmu_mode();
 	for (; addr < end; pte += nr, addr += nr * PAGE_SIZE) {
+		bool need_skip = false;
 		nr = 1;
 		ptent = ptep_get(pte);
 
@@ -468,6 +469,12 @@ restart:
 
 		folio = vm_normal_folio(vma, addr, ptent);
 		if (!folio || folio_is_zone_device(folio))
+			continue;
+
+		trace_android_vh_madvise_cold_pageout_skip(vma, folio, pageout,
+			&need_skip);
+
+		if (need_skip)
 			continue;
 
 		/*
