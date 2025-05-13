@@ -222,6 +222,11 @@ static bool sched_is_eas_possible(const struct cpumask *cpu_mask)
 	struct cpufreq_policy *policy;
 	struct cpufreq_governor *gov;
 	int i;
+	bool eas_check = false;
+
+	trace_android_rvh_build_perf_domains(&eas_check);
+	if (eas_check)
+		return true;
 
 	/* EAS is enabled for asymmetric CPU capacity topologies. */
 	for_each_cpu(i, cpu_mask) {
@@ -432,12 +437,11 @@ static bool build_perf_domains(const struct cpumask *cpu_map)
 	struct perf_domain *pd = NULL, *tmp;
 	int cpu = cpumask_first(cpu_map);
 	struct root_domain *rd = cpu_rq(cpu)->rd;
-	bool eas_check = false;
 
 	if (!sysctl_sched_energy_aware)
 		goto free;
-	trace_android_rvh_build_perf_domains(&eas_check);
-	if (!sched_is_eas_possible(cpu_map) && !eas_check)
+
+	if (!sched_is_eas_possible(cpu_map))
 		goto free;
 
 	for_each_cpu(i, cpu_map) {
