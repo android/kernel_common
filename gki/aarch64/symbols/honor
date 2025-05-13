@@ -531,4 +531,8 @@
   __traceiter_android_vh_dc_send_copy
   __tracepoint_android_vh_dc_receive
   __traceiter_android_vh_dc_receive
+  __tracepoint_android_vh_update_uid_stats
+  __tracepoint_android_vh_append_total_power
+  __traceiter_android_vh_update_uid_stats
+  __traceiter_android_vh_append_total_power
 
