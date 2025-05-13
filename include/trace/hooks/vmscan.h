@@ -98,6 +98,9 @@ DECLARE_HOOK(android_vh_direct_reclaim_begin,
 DECLARE_HOOK(android_vh_direct_reclaim_end,
 	TP_PROTO(int prio),
 	TP_ARGS(prio));
+DECLARE_HOOK(android_vh_throttle_direct_reclaim_bypass,
+	TP_PROTO(bool *bypass),
+	TP_ARGS(bypass));
 
 #endif /* _TRACE_HOOK_VMSCAN_H */
 /* This part must be outside protection */
