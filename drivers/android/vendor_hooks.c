@@ -70,6 +70,7 @@
 #include <trace/events/android_vendor_lmk.h>
 #include <trace/hooks/blk.h>
 #include <trace/hooks/fsnotify.h>
+#include <trace/hooks/fuse.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -365,6 +366,8 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_flush_wq_wait_start);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_flush_wq_wait_finish);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_flush_work_wait_start);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_flush_work_wait_finish);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_fuse_request_send);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_fuse_request_end);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tcp_sock_error);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tcp_fastsyn);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tcp_state_change);

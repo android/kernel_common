@@ -22,6 +22,7 @@
 #include <linux/swap.h>
 #include <linux/splice.h>
 #include <linux/sched.h>
+#include <trace/hooks/fuse.h>
 
 #define CREATE_TRACE_POINTS
 #include "fuse_trace.h"
@@ -402,6 +403,7 @@ void fuse_request_end(struct fuse_req *req)
 	} else {
 		/* Wake up waiter sleeping in request_wait_answer() */
 		wake_up(&req->waitq);
+		trace_android_vh_fuse_request_end(current);
 	}
 
 	if (test_bit(FR_ASYNC, &req->flags))
@@ -476,6 +478,7 @@ static void __fuse_request_send(struct fuse_req *req)
 
 	BUG_ON(test_bit(FR_BACKGROUND, &req->flags));
 
+	trace_android_vh_fuse_request_send(&fiq->waitq);
 	/* acquire extra reference, since request is still needed after
 	   fuse_request_end() */
 	__fuse_get_request(req);
