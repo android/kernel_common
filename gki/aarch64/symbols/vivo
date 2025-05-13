@@ -121,6 +121,7 @@
   __traceiter_android_vh_rwsem_wake_finish
   __traceiter_android_vh_rwsem_write_wait_finish
   __traceiter_android_vh_rwsem_write_wait_start
+  __traceiter_android_vh_rwsem_read_trylock_failed
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_shrink_folio_list
   __traceiter_android_vh_shrink_node_memcgs_bypass
@@ -193,6 +194,7 @@
   __tracepoint_android_vh_rwsem_wake_finish
   __tracepoint_android_vh_rwsem_write_wait_finish
   __tracepoint_android_vh_rwsem_write_wait_start
+  __tracepoint_android_vh_rwsem_read_trylock_failed
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_shrink_folio_list
   __tracepoint_android_vh_shrink_node_memcgs_bypass
