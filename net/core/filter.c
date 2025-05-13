@@ -91,6 +91,8 @@
 /* Keep the struct bpf_fib_lookup small so that it fits into a cacheline */
 static_assert(sizeof(struct bpf_fib_lookup) == 64, "struct bpf_fib_lookup size check");
 
+#include <trace/hooks/net.h>
+
 static const struct bpf_func_proto *
 bpf_sk_base_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog);
 
@@ -1758,6 +1760,12 @@ BPF_CALL_4(bpf_skb_load_bytes, const struct sk_buff *, skb, u32, offset,
 	   void *, to, u32, len)
 {
 	void *ptr;
+	int handled = 0;
+	int err = 0;
+
+	trace_android_rvh_bpf_skb_load_bytes(skb, offset, to, len, &handled, &err);
+	if (handled)
+		return err;
 
 	if (unlikely(offset > INT_MAX))
 		goto err_clear;
