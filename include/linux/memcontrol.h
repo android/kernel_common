@@ -367,6 +367,11 @@ enum objext_flags {
 
 static inline bool folio_memcg_kmem(struct folio *folio);
 
+void do_traversal_all_lruvec(int (*callback)(struct mem_cgroup *memcg,
+					     struct lruvec *lruvec,
+					     void *private),
+			     void *private);
+
 /*
  * After the initialization objcg->memcg is always pointing at
  * a valid memcg, but can be atomically swapped to the parent memcg.
