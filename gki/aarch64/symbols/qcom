@@ -630,11 +630,14 @@
   devm_of_icc_get
   devm_of_iomap
   devm_of_led_get
+  devm_of_phy_get
+  devm_of_phy_optional_get
   __devm_of_phy_provider_register
   devm_of_platform_populate
   devm_pci_alloc_host_bridge
   devm_phy_create
   devm_phy_get
+  devm_phy_optional_get
   devm_phy_package_join
   devm_pinctrl_get
   devm_pinctrl_put
@@ -2287,6 +2290,10 @@
   phy_init
   phy_init_eee
   phy_init_hw
+  phy_pm_runtime_get
+  phy_pm_runtime_get_sync
+  phy_pm_runtime_put
+  phy_pm_runtime_put_sync
   phylink_connect_phy
   phylink_create
   phylink_destroy
