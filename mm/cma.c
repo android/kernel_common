@@ -415,7 +415,7 @@ static void cma_debug_show_areas(struct cma *cma)
 	spin_unlock_irq(&cma->lock);
 }
 
-struct page *__cma_alloc(struct cma *cma, unsigned long count,
+static struct page *__cma_alloc(struct cma *cma, unsigned long count,
 				unsigned int align, gfp_t gfp)
 {
 	unsigned long mask, offset;
@@ -428,10 +428,6 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 	const char *name = cma ? cma->name : NULL;
 	int num_attempts = 0;
 	int max_retries = 5;
-
-	if (WARN_ON_ONCE((gfp & GFP_KERNEL) == 0 ||
-		(gfp & ~(GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY)) != 0))
-		goto out;
 
 	trace_cma_alloc_start(name, count, align);
 
@@ -461,8 +457,7 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 			if ((num_attempts < max_retries) && (ret == -EBUSY)) {
 				spin_unlock_irq(&cma->lock);
 
-				if (fatal_signal_pending(current) ||
-				    (gfp & __GFP_NORETRY))
+				if (fatal_signal_pending(current))
 					break;
 
 				/*
@@ -540,7 +535,6 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 
 	return page;
 }
-EXPORT_SYMBOL_GPL(__cma_alloc);
 
 /**
  * cma_alloc() - allocate pages from contiguous area
