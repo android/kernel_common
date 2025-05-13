@@ -929,28 +929,35 @@ out_handled:
 static void do_ffa_guest_features(struct arm_smccc_res *res, struct kvm_cpu_context *ctxt)
 {
 	DECLARE_REG(u32, id, ctxt, 1);
+	u64 prop = 0;
+	int ret;
 
 	switch (id) {
 	case FFA_MEM_SHARE:
 	case FFA_FN64_MEM_SHARE:
 	case FFA_MEM_LEND:
 	case FFA_FN64_MEM_LEND:
-		res->a0 = FFA_RET_SUCCESS;
-		break;
+		ret = FFA_RET_SUCCESS;
+		goto out_handled;
 	case FFA_RXTX_MAP:
-		res->a0 = FFA_RET_SUCCESS;
+	case FFA_FN64_RXTX_MAP:
+		ret = FFA_RET_SUCCESS;
 		if (PAGE_SIZE == SZ_4K)
-			res->a2 = FFA_FEAT_RXTX_MIN_SZ_4K;
+			prop = FFA_FEAT_RXTX_MIN_SZ_4K;
 		else if (PAGE_SIZE == SZ_64K)
-			res->a2 = FFA_FEAT_RXTX_MIN_SZ_64K;
+			prop = FFA_FEAT_RXTX_MIN_SZ_64K;
 		else if (PAGE_SIZE == SZ_16K)
-			res->a2 = FFA_FEAT_RXTX_MIN_SZ_16K;
-		else
-			res->a2 = 3;
-		break;
+			prop = FFA_FEAT_RXTX_MIN_SZ_16K;
+		else	/* prop == b'11 is reserved per DEN0077A v1.3 ALP1 */
+			ret = FFA_RET_NOT_SUPPORTED;
+		goto out_handled;
 	default:
-		ffa_to_smccc_error(res, FFA_RET_NOT_SUPPORTED);
+		ret = FFA_RET_NOT_SUPPORTED;
+		goto out_handled;
 	}
+
+out_handled:
+	ffa_to_smccc_res_prop(res, ret, prop);
 }
 
 static int hyp_ffa_post_init(void)
