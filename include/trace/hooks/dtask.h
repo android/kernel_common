@@ -117,6 +117,9 @@ DECLARE_HOOK(android_vh_alter_mutex_list_add,
 DECLARE_HOOK(android_vh_mutex_unlock_slowpath,
 	TP_PROTO(struct mutex *lock),
 	TP_ARGS(lock));
+DECLARE_HOOK(android_vh_mutex_unlock_slowpath_before_wakeq,
+	TP_PROTO(struct mutex *lock),
+	TP_ARGS(lock));
 
 DECLARE_HOOK(android_vh_record_mutex_lock_starttime,
 	TP_PROTO(struct mutex *lock, unsigned long settime_jiffies),
