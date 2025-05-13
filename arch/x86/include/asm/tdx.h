@@ -41,7 +41,7 @@ void __init tdx_early_init(void);
 
 void tdx_get_ve_info(struct ve_info *ve);
 
-void tdx_safe_halt(void);
+void tdx_halt(void);
 
 bool tdx_early_handle_ve(struct pt_regs *regs);
 
@@ -52,7 +52,7 @@ u64 tdx_hcall_get_quote(u8 *buf, size_t size);
 #else
 
 static inline void tdx_early_init(void) { };
-static inline void tdx_safe_halt(void) { };
+static inline void tdx_halt(void) { };
 
 static inline bool tdx_early_handle_ve(struct pt_regs *regs) { return false; }
 
