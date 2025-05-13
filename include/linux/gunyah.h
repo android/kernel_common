@@ -539,6 +539,57 @@ enum {
 	GUNYAH_ADDRSPACE_VMMIO_ACTION_FAULT = 2,
 };
 
+/**
+ * struct gunyah_vcpu - Track an instance of gunyah vCPU
+ * @f: Function instance (how we get associated with the main VM)
+ * @rsc: Pointer to the Gunyah vCPU resource, will be NULL until VM starts
+ * @run_lock: One userspace thread at a time should run the vCPU
+ * @ghvm: Pointer to the main VM struct; quicker look up than going through
+ *        @f->ghvm
+ * @vcpu_run: Pointer to page shared with userspace to communicate vCPU state
+ * @state: Our copy of the state of the vCPU, since userspace could trick
+ *         kernel to behave incorrectly if we relied on @vcpu_run
+ * @mmio_read_len: Our copy of @vcpu_run->mmio.len; see also @state
+ * @mmio_addr: Our copy of @vcpu_run->mmio.phys_addr; see also @state
+ * @ready: if vCPU goes to sleep, hypervisor reports to us that it's sleeping
+ *         and will signal interrupt (from @rsc) when it's time to wake up.
+ *         This completion signals that we can run vCPU again.
+ * @nb: When VM exits, the status of VM is reported via @vcpu_run->status.
+ *      We need to track overall VM status, and the nb gives us the updates from
+ *      Resource Manager.
+ * @ticket: resource ticket to claim vCPU# for the VM
+ * @kref: Reference counter
+ */
+struct gunyah_vcpu {
+	struct gunyah_vm_function_instance *f;
+	struct gunyah_resource *rsc;
+	struct mutex run_lock;
+	struct gunyah_vm *ghvm;
+
+	struct gunyah_vcpu_run *vcpu_run;
+
+	/**
+	 * Track why the vcpu_run hypercall returned. This mirrors the vcpu_run
+	 * structure shared with userspace, except is used internally to avoid
+	 * trusting userspace to not modify the vcpu_run structure.
+	 */
+	enum {
+		GUNYAH_VCPU_RUN_STATE_UNKNOWN = 0,
+		GUNYAH_VCPU_RUN_STATE_READY,
+		GUNYAH_VCPU_RUN_STATE_MMIO_READ,
+		GUNYAH_VCPU_RUN_STATE_MMIO_WRITE,
+		GUNYAH_VCPU_RUN_STATE_SYSTEM_DOWN,
+	} state;
+	u8 mmio_read_len;
+	u64 mmio_addr;
+
+	struct completion ready;
+
+	struct notifier_block nb;
+	struct gunyah_vm_resource_ticket ticket;
+	struct kref kref;
+};
+
 enum gunyah_error
 gunyah_hypercall_vcpu_run(u64 capid, unsigned long *resume_data,
 			  struct gunyah_hypercall_vcpu_run_resp *resp);
