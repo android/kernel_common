@@ -69,6 +69,7 @@
   __traceiter_android_rvh_alloc_and_link_pwqs
   __traceiter_android_rvh_alloc_pages_reclaim_cycle_end
   __traceiter_android_rvh_alloc_pages_reclaim_start
+  __traceiter_android_rvh_bpf_skb_load_bytes
   __traceiter_android_rvh_cpufreq_transition
   __traceiter_android_rvh_create_worker
   __traceiter_android_rvh_dequeue_task_fair
@@ -133,6 +134,7 @@
   __tracepoint_android_rvh_alloc_and_link_pwqs
   __tracepoint_android_rvh_alloc_pages_reclaim_cycle_end
   __tracepoint_android_rvh_alloc_pages_reclaim_start
+  __tracepoint_android_rvh_bpf_skb_load_bytes
   __tracepoint_android_rvh_cpufreq_transition
   __tracepoint_android_rvh_create_worker
   __tracepoint_android_rvh_dequeue_task_fair
