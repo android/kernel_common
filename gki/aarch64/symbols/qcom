@@ -102,12 +102,14 @@
   blk_mq_alloc_request
   blk_mq_alloc_tag_set
   blk_mq_complete_request
+  blk_mq_complete_request_remote
   blk_mq_end_request
   blk_mq_end_request_batch
   blk_mq_free_request
   blk_mq_free_tag_set
   blk_mq_map_queues
   blk_mq_quiesce_queue
+  blk_mq_quiesce_queue_nowait
   blk_mq_requeue_request
   blk_mq_rq_cpu
   blk_mq_start_request
@@ -118,6 +120,7 @@
   blk_put_queue
   blk_queue_flag_clear
   blk_queue_flag_set
+  blk_revalidate_disk_zones
   blk_rq_map_kern
   __blk_rq_map_sg
   blk_rq_map_user_io
@@ -962,6 +965,7 @@
   drm_gem_object_init
   drm_gem_object_lookup
   drm_gem_object_release
+  drm_gem_prime_export
   drm_gem_prime_fd_to_handle
   drm_gem_prime_handle_to_fd
   drm_gem_private_object_init
@@ -2508,6 +2512,7 @@
   qcom_smem_state_unregister
   qcom_smem_state_update_bits
   queue_delayed_work_on
+  queue_limits_commit_update
   queue_work_on
   radix_tree_delete
   radix_tree_delete_item
