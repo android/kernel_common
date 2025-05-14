@@ -3863,6 +3863,7 @@
   v4l2_m2m_release
   v4l2_m2m_request_queue
   v4l2_m2m_unregister_media_controller
+  v4l2_s_ctrl
   v4l2_src_change_event_subscribe
   v4l2_subdev_call_wrappers
   v4l2_subdev_init
