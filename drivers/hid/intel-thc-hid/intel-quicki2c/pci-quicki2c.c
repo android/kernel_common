@@ -328,6 +328,7 @@ exit:
  * quicki2c_dev_init - Initialize QuickI2C device
  * @pdev: Pointer to the THC PCI device
  * @mem_addr: The Pointer of MMIO memory address
+ * @ddata: Point to quicki2c_ddata structure
  *
  * Alloc quicki2c_device structure and initialized THC device,
  * then configure THC to HIDI2C mode.
@@ -337,7 +338,8 @@ exit:
  * Return: Pointer to the quicki2c_device structure if success
  * or NULL on failure.
  */
-static struct quicki2c_device *quicki2c_dev_init(struct pci_dev *pdev, void __iomem *mem_addr)
+static struct quicki2c_device *quicki2c_dev_init(struct pci_dev *pdev, void __iomem *mem_addr,
+						 const struct quicki2c_ddata *ddata)
 {
 	struct device *dev = &pdev->dev;
 	struct quicki2c_device *qcdev;
@@ -351,6 +353,7 @@ static struct quicki2c_device *quicki2c_dev_init(struct pci_dev *pdev, void __io
 	qcdev->dev = dev;
 	qcdev->mem_addr = mem_addr;
 	qcdev->state = QUICKI2C_DISABLED;
+	qcdev->ddata = ddata;
 
 	init_waitqueue_head(&qcdev->reset_ack_wq);
 
@@ -534,9 +537,9 @@ static int quicki2c_alloc_report_buf(struct quicki2c_device *qcdev)
  *
  * Return 0 if success or error code on failure.
  */
-static int quicki2c_probe(struct pci_dev *pdev,
-			  const struct pci_device_id *id)
+static int quicki2c_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
+	const struct quicki2c_ddata *ddata = (const struct quicki2c_ddata *)id->driver_data;
 	struct quicki2c_device *qcdev;
 	void __iomem *mem_addr;
 	int ret;
@@ -574,7 +577,7 @@ static int quicki2c_probe(struct pci_dev *pdev,
 
 	pdev->irq = pci_irq_vector(pdev, 0);
 
-	qcdev = quicki2c_dev_init(pdev, mem_addr);
+	qcdev = quicki2c_dev_init(pdev, mem_addr, ddata);
 	if (IS_ERR(qcdev)) {
 		dev_err_once(&pdev->dev, "QuickI2C device init failed\n");
 		ret = PTR_ERR(qcdev);
@@ -924,13 +927,13 @@ static const struct dev_pm_ops quicki2c_pm_ops = {
 };
 
 static const struct pci_device_id quicki2c_pci_tbl[] = {
-	{PCI_VDEVICE(INTEL, THC_LNL_DEVICE_ID_I2C_PORT1), },
-	{PCI_VDEVICE(INTEL, THC_LNL_DEVICE_ID_I2C_PORT2), },
-	{PCI_VDEVICE(INTEL, THC_PTL_H_DEVICE_ID_I2C_PORT1), },
-	{PCI_VDEVICE(INTEL, THC_PTL_H_DEVICE_ID_I2C_PORT2), },
-	{PCI_VDEVICE(INTEL, THC_PTL_U_DEVICE_ID_I2C_PORT1), },
-	{PCI_VDEVICE(INTEL, THC_PTL_U_DEVICE_ID_I2C_PORT2), },
-	{}
+	{ PCI_DEVICE_DATA(INTEL, THC_LNL_DEVICE_ID_I2C_PORT1, NULL) },
+	{ PCI_DEVICE_DATA(INTEL, THC_LNL_DEVICE_ID_I2C_PORT2, NULL) },
+	{ PCI_DEVICE_DATA(INTEL, THC_PTL_H_DEVICE_ID_I2C_PORT1, NULL) },
+	{ PCI_DEVICE_DATA(INTEL, THC_PTL_H_DEVICE_ID_I2C_PORT2, NULL) },
+	{ PCI_DEVICE_DATA(INTEL, THC_PTL_U_DEVICE_ID_I2C_PORT1, NULL) },
+	{ PCI_DEVICE_DATA(INTEL, THC_PTL_U_DEVICE_ID_I2C_PORT2, NULL) },
+	{ }
 };
 MODULE_DEVICE_TABLE(pci, quicki2c_pci_tbl);
 
