@@ -421,3 +421,13 @@ reuseport_alloc
 reuseport_detach_sock
 reuseport_select_sock
 
+#required by mi_mempool.ko
+__traceiter_android_vh_mmput
+__tracepoint_android_vh_mmput
+__traceiter_android_vh_madvise_cold_pageout_skip
+__tracepoint_android_vh_madvise_cold_pageout_skip
+
+#required by speed_ui.ko
+__tracepoint_android_rvh_update_cpus_allowed
+__traceiter_android_rvh_update_cpus_allowed
+
