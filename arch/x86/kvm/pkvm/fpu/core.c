@@ -3,9 +3,15 @@
 #include <asm/fpu/types.h>
 #include <asm/cpufeatures.h>
 #include <asm/cpufeature.h>
+#include <asm/msr.h>
 
 #include "internal.h"
 #include "xstate.h"
+
+#ifdef CONFIG_X86_64
+DEFINE_STATIC_KEY_FALSE(__fpu_state_size_dynamic);
+DEFINE_PER_CPU(u64, xfd_state);
+#endif
 
 /* The FPU state configuration data for kernel and user space */
 struct fpu_state_config fpu_kernel_cfg __ro_after_init;
@@ -49,3 +55,27 @@ void fpstate_init_user(struct fpstate *fpstate)
 	else
 		fpstate_init_fstate(fpstate);
 }
+
+/*
+ * fpu_enable_guest_xfd_features - Check xfeatures against guest perm and enable
+ * @guest_fpu:         Pointer to the guest FPU container
+ * @xfeatures:         Features requested by guest CPUID
+ *
+ * Enable all dynamic xfeatures according to guest perm and requested CPUID.
+ *
+ * Return: 0 on success, error code otherwise
+ */
+int fpu_enable_guest_xfd_features(struct fpu_guest *guest_fpu, u64 xfeatures)
+{
+#ifndef __PKVM_HYP__
+	lockdep_assert_preemption_enabled();
+#endif
+
+	/* Nothing to do if all requested features are already enabled. */
+	xfeatures &= ~guest_fpu->xfeatures;
+	if (!xfeatures)
+		return 0;
+
+	return __xfd_enable_feature(xfeatures, guest_fpu);
+}
+EXPORT_SYMBOL_GPL(fpu_enable_guest_xfd_features);

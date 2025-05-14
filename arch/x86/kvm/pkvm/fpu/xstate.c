@@ -3,6 +3,7 @@
 #include <asm/fpu/xstate.h>
 
 #include "internal.h"
+#include "xstate.h"
 #include "fpu.h"
 
 #define for_each_extended_xfeature(bit, mask)				\
@@ -18,10 +19,44 @@ static unsigned int xstate_sizes[XFEATURE_MAX] __ro_after_init = {
 static unsigned int xstate_flags[XFEATURE_MAX] __ro_after_init;
 
 #define XSTATE_FLAG_SUPERVISOR	BIT(0)
+#define XSTATE_FLAG_ALIGNED64	BIT(1)
+
+static bool xfeature_is_aligned64(int xfeature_nr)
+{
+	return xstate_flags[xfeature_nr] & XSTATE_FLAG_ALIGNED64;
+}
 
 static bool xfeature_is_supervisor(int xfeature_nr)
 {
 	return xstate_flags[xfeature_nr] & XSTATE_FLAG_SUPERVISOR;
+}
+
+static unsigned int xfeature_get_offset(u64 xcomp_bv, int xfeature)
+{
+	unsigned int offs, i;
+
+	/*
+	 * Non-compacted format and legacy features use the cached fixed
+	 * offsets.
+	 */
+	if (!cpu_feature_enabled(X86_FEATURE_XCOMPACTED) ||
+	    xfeature <= XFEATURE_SSE)
+		return xstate_offsets[xfeature];
+
+	/*
+	 * Compacted format offsets depend on the actual content of the
+	 * compacted xsave area which is determined by the xcomp_bv header
+	 * field.
+	 */
+	offs = FXSAVE_SIZE + XSAVE_HDR_SIZE;
+	for_each_extended_xfeature(i, xcomp_bv) {
+		if (xfeature_is_aligned64(i))
+			offs = ALIGN(offs, 64);
+		if (i == xfeature)
+			break;
+		offs += xstate_sizes[i];
+	}
+	return offs;
 }
 
 /*
@@ -73,6 +108,98 @@ static void __init setup_xstate_cache(void)
 		last_good_offset = xstate_offsets[i];
 	}
 }
+
+static unsigned int xstate_calculate_size(u64 xfeatures, bool compacted)
+{
+	unsigned int topmost = fls64(xfeatures) -  1;
+	unsigned int offset = xstate_offsets[topmost];
+
+	if (topmost <= XFEATURE_SSE)
+		return sizeof(struct xregs_state);
+
+	if (compacted)
+		offset = xfeature_get_offset(xfeatures, topmost);
+	return offset + xstate_sizes[topmost];
+}
+
+#ifdef CONFIG_X86_64
+int __xfd_enable_feature(u64 xfd_err, struct fpu_guest *guest_fpu)
+{
+	u64 xfd_event = xfd_err & XFEATURE_MASK_USER_DYNAMIC;
+#ifdef __PKVM_HYP__
+	struct fpstate *fps;
+	unsigned int ksize;
+
+	if (!xfd_event)
+		return 0;
+
+	if (WARN_ON_ONCE(!guest_fpu))
+		return -EINVAL;
+
+	if ((xstate_get_group_perm(!!guest_fpu) & xfd_event) != xfd_event)
+		return -EPERM;
+
+	fps = guest_fpu->fpstate;
+	ksize = xstate_calculate_size(fps->xfeatures | xfd_event,
+				      cpu_feature_enabled(X86_FEATURE_XCOMPACTED));
+	if (fps->size < ksize) {
+		/* State size is insufficient. */
+		return -ENOMEM;
+	}
+
+	guest_fpu->xfeatures |= xfd_event;
+	fps->xfeatures |= xfd_event;
+	fps->user_xfeatures |= xfd_event;
+	fps->xfd &= ~xfd_event;
+
+	xstate_init_xcomp_bv(&fps->regs.xsave, fps->xfeatures);
+	if (fps->in_use)
+		xfd_update_state(fps);
+
+	return 0;
+#else
+	struct fpu_state_perm *perm;
+	unsigned int ksize, usize;
+	struct fpu *fpu;
+
+	if (!xfd_event) {
+		if (!guest_fpu)
+			pr_err_once("XFD: Invalid xfd error: %016llx\n", xfd_err);
+		return 0;
+	}
+
+	/* Protect against concurrent modifications */
+	spin_lock_irq(&current->sighand->siglock);
+
+	/* If not permitted let it die */
+	if ((xstate_get_group_perm(!!guest_fpu) & xfd_event) != xfd_event) {
+		spin_unlock_irq(&current->sighand->siglock);
+		return -EPERM;
+	}
+
+	fpu = &current->group_leader->thread.fpu;
+	perm = guest_fpu ? &fpu->guest_perm : &fpu->perm;
+	ksize = perm->__state_size;
+	usize = perm->__user_state_size;
+
+	/*
+	 * The feature is permitted. State size is sufficient.  Dropping
+	 * the lock is safe here even if more features are added from
+	 * another task, the retrieved buffer sizes are valid for the
+	 * currently requested feature(s).
+	 */
+	spin_unlock_irq(&current->sighand->siglock);
+
+	/*
+	 * Try to allocate a new fpstate. If that fails there is no way
+	 * out.
+	 */
+	if (fpstate_realloc(xfd_event, ksize, usize, guest_fpu))
+		return -EFAULT;
+	return 0;
+#endif
+}
+#endif
 
 #ifdef __PKVM_HYP__
 void pkvm_setup_xstate_cache(void)

@@ -141,6 +141,9 @@ extern phys_addr_t pkvm_sym(pvmfw_size);
 
 extern struct fpu_state_config pkvm_sym(fpu_kernel_cfg);
 extern struct fpu_state_config pkvm_sym(fpu_user_cfg);
+#ifdef CONFIG_X86_64
+DECLARE_STATIC_KEY_FALSE(pkvm_sym(__fpu_state_size_dynamic));
+#endif
 
 PKVM_DECLARE(void, __pkvm_vmexit_entry, (void));
 PKVM_DECLARE(void, pkvm_init_host_state_area, (struct pkvm_pcpu *pcpu, int cpu));
