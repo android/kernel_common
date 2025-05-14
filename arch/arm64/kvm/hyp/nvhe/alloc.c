@@ -523,7 +523,7 @@ static struct chunk_hdr *
 get_free_chunk(struct hyp_allocator *allocator, size_t size)
 {
 	struct chunk_hdr *chunk, *best_chunk = NULL;
-	size_t best_available_size = allocator->size;
+	size_t best_available_size = SIZE_MAX;
 
 	list_for_each_entry(chunk, &allocator->chunks, node) {
 		size_t available_size = chunk->mapped_size +
@@ -533,11 +533,6 @@ get_free_chunk(struct hyp_allocator *allocator, size_t size)
 
 		if (chunk_size(size) > available_size)
 			continue;
-
-		if (!best_chunk) {
-			best_chunk = chunk;
-			continue;
-		}
 
 		if (best_available_size <= available_size)
 			continue;
