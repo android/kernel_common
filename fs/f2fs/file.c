@@ -35,6 +35,9 @@
 #include <trace/events/f2fs.h>
 #include <uapi/linux/f2fs.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/fs.h>
+
 static vm_fault_t f2fs_filemap_fault(struct vm_fault *vmf)
 {
 	struct inode *inode = file_inode(vmf->vma->vm_file);
@@ -604,6 +607,8 @@ static int f2fs_file_open(struct inode *inode, struct file *filp)
 
 	filp->f_mode |= FMODE_NOWAIT;
 	filp->f_mode |= FMODE_CAN_ODIRECT;
+
+	trace_android_vh_f2fs_file_open(inode, filp);
 
 	err = dquot_file_open(inode, filp);
 	if (err)

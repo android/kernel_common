@@ -64,6 +64,11 @@ DECLARE_HOOK(android_vh_vfs_fsync_range,
 DECLARE_RESTRICTED_HOOK(android_rvh_do_fcntl,
 	TP_PROTO(struct file *filp, unsigned int cmd, unsigned long arg, long *err),
 	TP_ARGS(filp, cmd, arg, err), 1);
+
+DECLARE_HOOK(android_vh_f2fs_file_open,
+	TP_PROTO(struct inode *inode, struct file *filp),
+	TP_ARGS(inode, filp));
+
 #endif /* _TRACE_HOOK_FS_H */
 
 /* This part must be outside protection */
