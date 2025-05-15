@@ -496,9 +496,7 @@ int fuse_copy_file_range_backing(struct fuse_bpf_args *fa, struct file *file_in,
 	if (backing_file_out)
 		return vfs_copy_file_range(backing_file_in, fci->off_in, backing_file_out,
 					   fci->off_out, fci->len, fci->flags);
-	else
-		return vfs_copy_file_range(file_in, pos_in, file_out, pos_out, len,
-					       flags);
+	return -EXDEV;
 }
 
 void *fuse_copy_file_range_finalize(struct fuse_bpf_args *fa, struct file *file_in, loff_t pos_in,

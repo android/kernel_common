@@ -553,3 +553,29 @@ int mkdirremovebpf_test(struct fuse_bpf_args *fa)
 		return FUSE_BPF_BACKING;
 	}
 }
+
+SEC("copy_file_range_test")
+int copy_file_range_test_filter(struct fuse_bpf_args *fa)
+{
+	switch (fa->opcode) {
+	case FUSE_LOOKUP | FUSE_PREFILTER:
+		return FUSE_BPF_BACKING | FUSE_BPF_POST_FILTER;
+
+	case FUSE_LOOKUP | FUSE_POSTFILTER: {
+		struct fuse_entry_bpf_out *febo = fa->out_args[1].value;
+		const char *name = fa->in_args[0].value;
+
+		bpf_printk("lookup postfilter %s %d", name, fa->error_in);
+		if (strcmp(name, "user") == 0) {
+			bpf_printk("lookup postfilter user");
+			febo->bpf_action = FUSE_ACTION_REMOVE;
+			febo->backing_action = FUSE_ACTION_REMOVE;
+		}
+
+		return 0;
+	}
+
+	default:
+		return FUSE_BPF_BACKING;
+	}
+}
