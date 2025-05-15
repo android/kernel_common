@@ -1622,6 +1622,18 @@ static inline struct pglist_data *NODE_DATA(int nid)
 extern struct pglist_data *first_online_pgdat(void);
 extern struct pglist_data *next_online_pgdat(struct pglist_data *pgdat);
 extern struct zone *next_zone(struct zone *zone);
+extern int isolate_anon_lru_page(struct page *page);
+
+#ifdef CONFIG_COMPACTION
+extern unsigned long isolate_and_split_free_page(struct page *page,
+			struct list_head *list);
+#else
+static inline unsigned long isolate_and_split_free_page(struct page *page,
+				struct list_head *list)
+{
+	return 0;
+}
+#endif /* CONFIG_COMPACTION */
 
 /**
  * for_each_online_pgdat - helper macro to iterate over all online nodes

@@ -452,6 +452,23 @@ unsigned long get_pfnblock_flags_mask(const struct page *page,
 }
 EXPORT_SYMBOL_GPL(get_pfnblock_flags_mask);
 
+int isolate_anon_lru_page(struct page *page)
+{
+	int ret;
+
+	if (!PageLRU(page) || !PageAnon(page))
+		return -EINVAL;
+
+	if (!get_page_unless_zero(page))
+		return -EINVAL;
+
+	ret = folio_isolate_lru(page_folio(page));
+	put_page(page);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(isolate_anon_lru_page);
+
 static __always_inline int get_pfnblock_migratetype(const struct page *page,
 					unsigned long pfn)
 {
@@ -6918,6 +6935,31 @@ static void split_free_pages(struct list_head *list)
 		}
 	}
 }
+
+#ifdef CONFIG_COMPACTION
+unsigned long isolate_and_split_free_page(struct page *page,
+		struct list_head *list)
+{
+	unsigned long isolated;
+	unsigned int order;
+
+	if (!PageBuddy(page))
+		return 0;
+
+	order = buddy_order(page);
+	isolated = __isolate_free_page(page, order);
+	if (!isolated)
+		return 0;
+
+	set_page_private(page, order);
+	list_add(&page->lru, &list[order]);
+
+	split_free_pages(list);
+
+	return isolated;
+}
+EXPORT_SYMBOL_GPL(isolate_and_split_free_page);
+#endif
 
 /**
  * alloc_contig_range() -- tries to allocate given range of pages
