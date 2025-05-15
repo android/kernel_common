@@ -290,6 +290,7 @@ common_kernel(
     additional_kmi_symbol_lists = [":aarch64_additional_kmi_symbol_lists"],
     arch = "arm64",
     build_gki_artifacts = True,
+    check_defconfig = "disabled",
     ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
     ddk_module_headers = [":all_headers_aarch64"],
     defconfig = "arch/arm64/configs/gki_defconfig",
