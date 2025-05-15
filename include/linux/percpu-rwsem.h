@@ -18,6 +18,7 @@ struct percpu_rw_semaphore {
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map	dep_map;
 #endif
+	ANDROID_OEM_DATA(1);
 };
 
 void _trace_android_vh_record_pcpu_rwsem_starttime(
