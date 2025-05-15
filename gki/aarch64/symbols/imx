@@ -1377,6 +1377,7 @@
   mctrl_gpio_init
   mctrl_gpio_set
   mdiobus_alloc_size
+  mdiobus_c45_modify
   mdiobus_c45_modify_changed
   mdiobus_c45_read
   mdiobus_c45_write
@@ -1623,6 +1624,7 @@
   of_get_next_child
   of_get_next_parent
   of_get_parent
+  of_get_pci_domain_nr
   of_get_phy_mode
   of_get_property
   of_get_regulator_init_data
@@ -1632,6 +1634,7 @@
   of_graph_get_next_endpoint
   of_graph_get_port_by_id
   of_graph_get_port_parent
+  of_graph_get_remote_endpoint
   of_graph_get_remote_node
   of_graph_get_remote_port
   of_graph_get_remote_port_parent
@@ -2450,6 +2453,7 @@
   snprintf
   soc_device_match
   soc_device_register
+  soc_device_unregister
   __sock_create
   sock_queue_err_skb
   sock_release
@@ -2827,6 +2831,7 @@
   __v4l2_subdev_next_active_route
   v4l2_subdev_routing_find_opposite_end
   v4l2_subdev_routing_validate
+  v4l2_subdev_set_routing
   v4l2_subdev_set_routing_with_fmt
   v4l2_subdev_s_stream_helper
   __v4l2_subdev_state_get_compose
@@ -2964,6 +2969,7 @@
   xdp_rxq_info_unreg_mem_model
   xdp_warn
   xp_alloc
+  xp_alloc_batch
   xp_dma_map
   xp_dma_unmap
   xp_free
@@ -2976,5 +2982,7 @@
   xsk_set_tx_need_wakeup
   xsk_tx_completed
   xsk_tx_peek_desc
+  xsk_tx_peek_release_desc_batch
   xsk_tx_release
   xsk_uses_need_wakeup
+  zap_vma_ptes
