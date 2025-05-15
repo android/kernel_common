@@ -1642,6 +1642,8 @@
   irq_work_queue_on
   irq_work_sync
   is_vmalloc_addr
+  isolate_and_split_free_page
+  isolate_anon_lru_page
   iterate_fd
   jiffies
   jiffies_to_msecs
@@ -1899,6 +1901,7 @@
   memunmap
   metadata_dst_alloc
   metadata_dst_free
+  migrate_pages
   migrate_swap
   __migrate_task
   mipi_dsi_create_packet
@@ -2497,6 +2500,7 @@
   put_device
   put_disk
   put_iova_domain
+  putback_movable_pages
   __put_net
   put_pid
   put_sg_io_hdr
