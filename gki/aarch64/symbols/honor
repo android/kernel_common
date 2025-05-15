@@ -60,6 +60,18 @@
   __tracepoint_android_rvh_do_el1_bti
   __traceiter_android_rvh_panic_unhandled
   __tracepoint_android_rvh_panic_unhandled
+  __traceiter_android_vh_mutex_init
+  __tracepoint_android_vh_mutex_init
+  __traceiter_android_vh_rwsem_write_finished
+  __tracepoint_android_vh_rwsem_write_finished
+  __traceiter_rpm_idle
+  __tracepoint_rpm_idle
+  __traceiter_rpm_resume
+  __tracepoint_rpm_resume
+  __traceiter_rpm_return_int
+  __tracepoint_rpm_return_int
+  __traceiter_rpm_suspend
+  __tracepoint_rpm_suspend
   __traceiter_android_vh_binder_transaction_record
   __tracepoint_android_vh_binder_transaction_record
   __traceiter_android_vh_binder_data_preset
