@@ -178,7 +178,7 @@ void *kvm_iommu_donate_pages_atomic(u8 order)
 
 void kvm_iommu_reclaim_pages_atomic(void *p, u8 order)
 {
-	__kvm_iommu_reclaim_pages(&iommu_atomic_pool, p, order);
+	hyp_put_page(&iommu_atomic_pool, p);
 }
 
 static struct kvm_hyp_iommu_domain *
