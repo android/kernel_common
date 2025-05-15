@@ -31,6 +31,9 @@ int pkvm_init_devices(void)
 	size_t dev_sz;
 	int ret;
 
+	if (!registered_devices_nr)
+		return 0;
+
 	registered_devices = kern_hyp_va(registered_devices);
 	dev_sz = PAGE_ALIGN(size_mul(sizeof(struct pkvm_device),
 				     registered_devices_nr));
