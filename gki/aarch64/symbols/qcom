@@ -2195,9 +2195,11 @@
   page_ext_get
   page_ext_put
   page_is_ram
+  page_pool_alloc_frag
   page_pool_alloc_pages
   page_pool_create
   page_pool_destroy
+  page_pool_put_unrefed_page
   panic
   panic_notifier_list
   panic_timeout
