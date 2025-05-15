@@ -18,7 +18,8 @@ void kvm_iommu_reclaim_pages_atomic(void *p, u8 order);
 int kvm_iommu_alloc_domain(pkvm_handle_t domain_id, int type);
 int kvm_iommu_free_domain(pkvm_handle_t domain_id);
 int kvm_iommu_attach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
-			 u32 endpoint_id, u32 pasid, u32 pasid_bits);
+			 u32 endpoint_id, u32 pasid, u32 pasid_bits,
+			 unsigned long flags);
 int kvm_iommu_detach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
 			 u32 endpoint_id, u32 pasid);
 size_t kvm_iommu_map_pages(pkvm_handle_t domain_id,
@@ -56,7 +57,7 @@ struct kvm_iommu_ops {
 	void (*free_domain)(struct kvm_hyp_iommu_domain *domain);
 	struct kvm_hyp_iommu *(*get_iommu_by_id)(pkvm_handle_t iommu_id);
 	int (*attach_dev)(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_domain *domain,
-			  u32 endpoint_id, u32 pasid, u32 pasid_bits);
+			  u32 endpoint_id, u32 pasid, u32 pasid_bits, unsigned long flags);
 	int (*detach_dev)(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_domain *domain,
 			  u32 endpoint_id, u32 pasid);
 	int (*map_pages)(struct kvm_hyp_iommu_domain *domain, unsigned long iova,

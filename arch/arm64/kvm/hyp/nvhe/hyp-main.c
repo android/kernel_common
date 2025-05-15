@@ -1724,9 +1724,10 @@ static void handle___pkvm_host_iommu_attach_dev(struct kvm_cpu_context *host_ctx
 	DECLARE_REG(unsigned int, endpoint, host_ctxt, 3);
 	DECLARE_REG(unsigned int, pasid, host_ctxt, 4);
 	DECLARE_REG(unsigned int, pasid_bits, host_ctxt, 5);
+	DECLARE_REG(unsigned long, flags, host_ctxt, 6);
 
 	ret = kvm_iommu_attach_dev(iommu, domain, endpoint,
-				   pasid, pasid_bits);
+				   pasid, pasid_bits, flags);
 	hyp_reqs_smccc_encode(ret, host_ctxt, this_cpu_ptr(&host_hyp_reqs));
 }
 

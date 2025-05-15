@@ -1246,7 +1246,7 @@ static int smmu_fix_up_domains(struct hyp_arm_smmu_v3_device *smmu,
 }
 
 static int smmu_attach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_domain *domain,
-			   u32 sid, u32 pasid, u32 pasid_bits)
+			   u32 sid, u32 pasid, u32 pasid_bits, unsigned long flags)
 {
 	int i;
 	int ret;

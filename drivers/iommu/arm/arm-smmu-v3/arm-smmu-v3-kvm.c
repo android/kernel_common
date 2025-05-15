@@ -324,7 +324,7 @@ static int kvm_arm_smmu_set_dev_pasid(struct iommu_domain *domain,
 		int sid = fwspec->ids[i];
 
 		ret = kvm_iommu_attach_dev(host_smmu->id, kvm_smmu_domain->id,
-					   sid, pasid, master->ssid_bits);
+					   sid, pasid, master->ssid_bits, 0);
 		if (ret) {
 			dev_err(smmu->dev, "cannot attach device %s (0x%x): %d\n",
 				dev_name(dev), sid, ret);

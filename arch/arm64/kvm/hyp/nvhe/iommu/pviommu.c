@@ -86,7 +86,7 @@ static bool pkvm_guest_iommu_attach_dev(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exi
 	iommu_id = route.iommu;
 	sid = route.sid;
 
-	ret = kvm_iommu_attach_dev(iommu_id, domain_id, sid, pasid, pasid_bits);
+	ret = kvm_iommu_attach_dev(iommu_id, domain_id, sid, pasid, pasid_bits, 0);
 	if (ret == -ENOMEM) {
 		/*
 		 * The driver will request memory when returning -ENOMEM, so go back to host to

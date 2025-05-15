@@ -209,10 +209,10 @@ void kvm_iommu_guest_free_mc(struct kvm_hyp_memcache *mc)
 /* Hypercall abstractions exposed to kernel IOMMU drivers */
 int kvm_iommu_attach_dev(pkvm_handle_t iommu_id, pkvm_handle_t domain_id,
 			 unsigned int endpoint, unsigned int pasid,
-			 unsigned int ssid_bits)
+			 unsigned int ssid_bits, unsigned long flags)
 {
 	return kvm_call_hyp_nvhe_mc(__pkvm_host_iommu_attach_dev, iommu_id, domain_id,
-				    endpoint, pasid, ssid_bits);
+				    endpoint, pasid, ssid_bits, flags);
 }
 EXPORT_SYMBOL(kvm_iommu_attach_dev);
 
