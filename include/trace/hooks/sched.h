@@ -485,6 +485,15 @@ DECLARE_HOOK(android_vh_tick_nohz_idle_stop_tick,
 DECLARE_HOOK(android_vh_mmput,
 	TP_PROTO(struct mm_struct *mm),
 	TP_ARGS(mm));
+
+DECLARE_HOOK(android_vh_prio_inheritance,
+	TP_PROTO(struct task_struct *p, int *saved_prio, bool *prio_inherited),
+	TP_ARGS(p, saved_prio, prio_inherited));
+
+DECLARE_HOOK(android_vh_prio_restore,
+	TP_PROTO(int saved_prio),
+	TP_ARGS(saved_prio));
+
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */
