@@ -285,6 +285,7 @@
   clk_hw_is_prepared
   clk_hw_register
   clk_hw_round_rate
+  clk_hw_set_rate_range
   clk_hw_unregister
   __clk_is_enabled
   clk_is_match
@@ -296,6 +297,7 @@
   clk_register
   clk_restore_context
   clk_round_rate
+  clk_save_context
   clk_set_parent
   clk_set_rate
   clk_sync_state
@@ -697,8 +699,10 @@
   dev_pm_genpd_add_notifier
   dev_pm_genpd_get_next_hrtimer
   dev_pm_genpd_remove_notifier
+  dev_pm_genpd_resume
   dev_pm_genpd_set_next_wakeup
   dev_pm_genpd_set_performance_state
+  dev_pm_genpd_suspend
   dev_pm_opp_add_dynamic
   dev_pm_opp_adjust_voltage
   dev_pm_opp_clear_config
@@ -2089,6 +2093,7 @@
   of_clk_del_provider
   of_clk_get_from_provider
   of_clk_get_parent_name
+  of_clk_hw_onecell_get
   of_clk_hw_simple_get
   of_clk_src_onecell_get
   of_clk_src_simple_get
