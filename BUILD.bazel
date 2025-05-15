@@ -303,7 +303,7 @@ common_kernel(
     # We don't guarantee ABI stability for TV target
     kmi_enforced = False,
     kmi_symbol_list = "gki/aarch64/symbols/base",
-    kmi_symbol_list_strict_mode = True,
+    kmi_symbol_list_strict_mode = False,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
