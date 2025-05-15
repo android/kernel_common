@@ -51,6 +51,14 @@ enum pkvm_psci_notification {
  *				new mapping is visible.
  * @fixmap_unmap:		Unmap a page from the hypervisor fixmap. This
  * 				call is required between each @fixmap_map().
+ * @fixblock_map:		Map a PMD-size large page into a CPU-shared
+ *				fixmap. This can be used to replace and speed-up
+ *				a set of @fixmap_map. @fixblock_unmap must be
+ *				called between each mappings to do cache
+ *				maintenance and ensure the new mapping is visible.
+ * @fixblock_unmap:		Unmap a PMD-size large page from the hypervisor
+ *				fixmap. This call is required between each
+ *				@fixblock_map.
  * @linear_map_early:		Map a large portion of memory into the
  *				hypervisor linear VA space. This is intended to
  *				be used only for module bootstrap and must be
@@ -197,6 +205,8 @@ struct pkvm_module_ops {
 	void (*putx64)(u64 x);
 	void *(*fixmap_map)(phys_addr_t phys);
 	void (*fixmap_unmap)(void);
+	void *(*fixblock_map)(phys_addr_t phys);
+	void (*fixblock_unmap)(void);
 	void *(*linear_map_early)(phys_addr_t phys, size_t size, enum kvm_pgtable_prot prot);
 	void (*linear_unmap_early)(void *addr, size_t size);
 	void (*flush_dcache_to_poc)(void *addr, size_t size);
