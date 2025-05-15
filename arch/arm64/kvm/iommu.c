@@ -84,7 +84,7 @@ int kvm_iommu_init_driver(void)
 {
 	if (!smp_load_acquire(&iommu_driver) || !iommu_driver->get_iommu_id_by_of) {
 		kvm_err("pKVM enabled without an IOMMU driver, do not run confidential workloads in virtual machines\n");
-		return 0;
+		return -ENODEV;
 	}
 
 	kvm_hyp_iommu_domains = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO,
