@@ -1898,8 +1898,16 @@ static int __pkvm_use_dma_locked(phys_addr_t phys_addr, size_t size,
 	} else {
 		/* For VMs, we know if we reach this point the VM has access to the page. */
 		if (!hyp_vcpu) {
-			ret = ___host_check_page_state_range(phys_addr, size,
-							     PKVM_PAGE_OWNED, reg, false);
+			for (i = 0; i < nr_pages; i++) {
+				enum pkvm_page_state state;
+				phys_addr_t this_addr = phys_addr + i * PAGE_SIZE;
+
+				state = hyp_phys_to_page(this_addr)->host_state;
+				if (state != PKVM_PAGE_OWNED) {
+					ret = -EPERM;
+					break;
+				}
+			}
 			if (ret)
 				return ret;
 		}
