@@ -74,6 +74,10 @@
   __tracepoint_rpm_suspend
   __traceiter_android_vh_binder_transaction_record
   __tracepoint_android_vh_binder_transaction_record
+  __traceiter_android_vh_prio_inheritance
+  __tracepoint_android_vh_prio_inheritance
+  __traceiter_android_vh_prio_restore
+  __tracepoint_android_vh_prio_restore
   __traceiter_android_vh_binder_data_preset
   __tracepoint_android_vh_binder_data_preset
   __traceiter_android_rvh_init_binder_logs
