@@ -237,6 +237,8 @@ impl<T: Operations> OperationsVTable<T> {
         map_queues: None,
         #[cfg(CONFIG_BLK_DEBUG_FS)]
         show_rq: None,
+        // SAFETY: Allow all zeros because of Android KABI members
+        ..unsafe { core::mem::MaybeUninit::zeroed().assume_init() }
     };
 
     pub(crate) const fn build() -> &'static bindings::blk_mq_ops {

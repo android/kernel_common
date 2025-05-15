@@ -134,6 +134,8 @@ impl GenDiskBuilder {
             pr_ops: core::ptr::null_mut(),
             free_disk: None,
             poll_bio: None,
+            // SAFETY: Allow all zeros because of Android KABI members
+            ..unsafe { core::mem::MaybeUninit::zeroed().assume_init() }
         };
 
         // SAFETY: `gendisk` is a valid pointer as we initialized it above
