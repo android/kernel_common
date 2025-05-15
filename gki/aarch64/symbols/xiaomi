@@ -387,6 +387,8 @@ reclaim_pages
 # required by launch_boost driver
 __traceiter_android_vh_filemap_read
 __tracepoint_android_vh_filemap_read
+__traceiter_android_vh_filemap_map_pages
+__tracepoint_android_vh_filemap_map_pages
 
 #required by xiaomi network protocol
 __percpu_counter_init_many
