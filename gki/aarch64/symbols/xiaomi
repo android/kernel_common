@@ -429,6 +429,12 @@ __tracepoint_android_vh_mmput
 __traceiter_android_vh_madvise_cold_pageout_skip
 __tracepoint_android_vh_madvise_cold_pageout_skip
 
+# required by pte preread
+read_swap_cache_async
+unuse_swap_pte
+__pte_offset_map
+vfs_fadvise
+
 #required by speed_ui.ko
 __tracepoint_android_rvh_update_cpus_allowed
 __traceiter_android_rvh_update_cpus_allowed
