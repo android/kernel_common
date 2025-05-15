@@ -3041,6 +3041,7 @@
   __traceiter_android_vh_mm_direct_reclaim_enter
   __traceiter_android_vh_mm_direct_reclaim_exit
   __traceiter_android_vh_mm_may_oom_exit
+  __traceiter_android_vh_rmqueue_pcplist_override_batch
   __traceiter_android_vh_rwsem_init
   __traceiter_android_vh_rwsem_read_wait_finish
   __traceiter_android_vh_rwsem_read_wait_start
@@ -3164,6 +3165,7 @@
   __tracepoint_android_vh_mm_direct_reclaim_enter
   __tracepoint_android_vh_mm_direct_reclaim_exit
   __tracepoint_android_vh_mm_may_oom_exit
+  __tracepoint_android_vh_rmqueue_pcplist_override_batch
   __tracepoint_android_vh_rwsem_init
   __tracepoint_android_vh_rwsem_read_wait_finish
   __tracepoint_android_vh_rwsem_read_wait_start
