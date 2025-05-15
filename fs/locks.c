@@ -1642,7 +1642,7 @@ free_lock:
 	locks_free_lease(new_fl);
 	return error;
 }
-EXPORT_SYMBOL(__break_lease);
+EXPORT_SYMBOL_NS(__break_lease, ANDROID_GKI_VFS_EXPORT_ONLY);
 
 /**
  *	lease_get_mtime - update modified time of an inode with exclusive lease
