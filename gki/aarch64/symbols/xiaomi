@@ -374,6 +374,16 @@
   filp_close
   bio_init
   __bio_add_page
+  lruvec_page_state
+  bio_crypt_set_ctx
+  submit_bio_wait
+  alloc_pages_bulk_noprof
+  __xa_cmpxchg
+  blk_crypto_evict_key
+  lookup_user_key
+  blk_crypto_init_key
+  filp_open_block
+  blk_crypto_start_using_key
 
 #required by mem_reclaim_ctl.ko
 __traceiter_android_vh_page_should_be_protected
