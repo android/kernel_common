@@ -2021,6 +2021,7 @@
   regulator_put
   regulator_set_active_discharge_regmap
   regulator_set_load
+  regulator_set_mode
   regulator_set_voltage
   regulator_set_voltage_sel_regmap
   regulator_set_voltage_time_sel
@@ -2457,6 +2458,7 @@
   trace_event_reg
   trace_handle_return
   __traceiter_android_rvh_do_read_fault
+  __traceiter_android_rvh_hw_protection_shutdown
   __traceiter_android_rvh_iommu_alloc_insert_iova
   __traceiter_android_rvh_iommu_iovad_init_alloc_algo
   __traceiter_android_rvh_iommu_limit_align_shift
@@ -2465,6 +2467,8 @@
   __traceiter_android_rvh_mapping_shrinkable
   __traceiter_android_rvh_meminfo_proc_show
   __traceiter_android_rvh_reclaim_folio_list
+  __traceiter_android_rvh_ufs_complete_init
+  __traceiter_android_rvh_ufs_reprogram_all_keys
   __traceiter_android_rvh_vmscan_kswapd_done
   __traceiter_android_rvh_vmscan_kswapd_wake
   __traceiter_android_trigger_vendor_lmk_kill
@@ -2517,6 +2521,7 @@
   __traceiter_workqueue_execute_start
   trace_output_call
   __tracepoint_android_rvh_do_read_fault
+  __tracepoint_android_rvh_hw_protection_shutdown
   __tracepoint_android_rvh_iommu_alloc_insert_iova
   __tracepoint_android_rvh_iommu_iovad_init_alloc_algo
   __tracepoint_android_rvh_iommu_limit_align_shift
@@ -2525,6 +2530,8 @@
   __tracepoint_android_rvh_mapping_shrinkable
   __tracepoint_android_rvh_meminfo_proc_show
   __tracepoint_android_rvh_reclaim_folio_list
+  __tracepoint_android_rvh_ufs_complete_init
+  __tracepoint_android_rvh_ufs_reprogram_all_keys
   __tracepoint_android_rvh_vmscan_kswapd_done
   __tracepoint_android_rvh_vmscan_kswapd_wake
   __tracepoint_android_trigger_vendor_lmk_kill
