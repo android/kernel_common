@@ -425,6 +425,7 @@ int sdei_event_enable(u32 event_num)
 
 	return err;
 }
+EXPORT_SYMBOL_GPL(sdei_event_enable);
 
 static int sdei_api_event_disable(u32 event_num)
 {
@@ -466,6 +467,7 @@ int sdei_event_disable(u32 event_num)
 
 	return err;
 }
+EXPORT_SYMBOL_GPL(sdei_event_disable);
 
 static int sdei_api_event_unregister(u32 event_num)
 {
@@ -518,6 +520,7 @@ unlock:
 
 	return err;
 }
+EXPORT_SYMBOL_GPL(sdei_event_unregister);
 
 /*
  * unregister events, but don't destroy them as they are re-registered by
@@ -614,6 +617,7 @@ unlock:
 	mutex_unlock(&sdei_events_lock);
 	return err;
 }
+EXPORT_SYMBOL_GPL(sdei_event_register);
 
 static int sdei_reregister_shared(void)
 {
