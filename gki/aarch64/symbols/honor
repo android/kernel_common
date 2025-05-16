@@ -569,4 +569,6 @@
   __tracepoint_android_vh_append_total_power
   __traceiter_android_vh_update_uid_stats
   __traceiter_android_vh_append_total_power
+  __traceiter_android_rvh_dpm_prepare
+  __tracepoint_android_rvh_dpm_prepare
 
