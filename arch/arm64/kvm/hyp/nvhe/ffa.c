@@ -27,6 +27,7 @@
  */
 
 #include <linux/arm_ffa.h>
+#include <asm/kvm_hypevents.h>
 #include <asm/kvm_pkvm.h>
 #include <kvm/arm_hypercalls.h>
 
@@ -1107,8 +1108,7 @@ out_unlock:
 	hyp_spin_unlock(&kvm_ffa_hyp_lock);
 }
 
-static void do_ffa_direct_msg(struct arm_smccc_res *res,
-			      struct kvm_cpu_context *ctxt,
+static void do_ffa_direct_msg(struct kvm_cpu_context *ctxt,
 			      u64 vm_handle)
 {
 	DECLARE_REG(u32, func_id, ctxt, 0);
@@ -1120,14 +1120,38 @@ static void do_ffa_direct_msg(struct arm_smccc_res *res,
 	DECLARE_REG(u32, w6, ctxt, 6);
 	DECLARE_REG(u32, w7, ctxt, 7);
 
+	struct arm_smccc_1_2_regs req, resp;
+
 	if (FIELD_GET(FFA_SRC_ENDPOINT_MASK, endp) != vm_handle) {
-		ffa_to_smccc_res(res, FFA_RET_INVALID_PARAMETERS);
+		resp = (struct arm_smccc_1_2_regs) {
+			.a0	= FFA_ERROR,
+			.a2	= FFA_RET_INVALID_PARAMETERS,
+		};
 		return;
 	}
 
-	arm_smccc_1_1_smc(func_id, endp, msg_flags, w3,
-			  w4, w5, w6, w7,
-			  res);
+	req = (struct arm_smccc_1_2_regs) {
+		.a0	= func_id,
+		.a1	= endp,
+		.a2	= msg_flags,
+		.a3	= w3,
+		.a4	= w4,
+		.a5	= w5,
+		.a6	= w6,
+		.a7	= w7,
+	};
+
+	/*
+	 * In case SMCCC 1.2 is not supported we should preserve the
+	 * host registers.
+	 */
+	memcpy(&resp, &ctxt->regs.regs[0], sizeof(resp));
+
+	__hyp_exit();
+	arm_smccc_1_2_smc(&req, &resp);
+	__hyp_enter();
+
+	memcpy(&ctxt->regs.regs[0], &resp, sizeof(resp));
 }
 
 bool kvm_host_ffa_handler(struct kvm_cpu_context *host_ctxt, u32 func_id)
@@ -1198,8 +1222,8 @@ bool kvm_host_ffa_handler(struct kvm_cpu_context *host_ctxt, u32 func_id)
 		goto out_handled;
 	case FFA_MSG_SEND_DIRECT_REQ:
 	case FFA_FN64_MSG_SEND_DIRECT_REQ:
-		do_ffa_direct_msg(&res, host_ctxt, HOST_FFA_ID);
-		goto out_handled;
+		do_ffa_direct_msg(host_ctxt, HOST_FFA_ID);
+		return true;
 	}
 
 	if (ffa_call_supported(func_id))
@@ -1273,8 +1297,8 @@ bool kvm_guest_ffa_handler(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
 		goto out_guest;
 	case FFA_MSG_SEND_DIRECT_REQ:
 	case FFA_FN64_MSG_SEND_DIRECT_REQ:
-		do_ffa_direct_msg(&res, ctxt, hyp_vcpu_to_ffa_handle(hyp_vcpu));
-		goto out_guest;
+		do_ffa_direct_msg(ctxt, hyp_vcpu_to_ffa_handle(hyp_vcpu));
+		return true;
 	default:
 		ret = -EOPNOTSUPP;
 		break;
