@@ -450,6 +450,8 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 
 	trace_android_vh_cma_alloc_bypass(cma, count, align, gfp,
 				&page, &bypass);
+	trace_android_vh_cma_alloc_start(cma);
+
 	if (bypass)
 		return page;
 
@@ -536,7 +538,7 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 
 		pr_debug("%s(): memory range at pfn 0x%lx %p is busy, retrying\n",
 			 __func__, pfn, pfn_to_page(pfn));
-
+		trace_android_vh_cma_alloc_busy_info(&pfn);
 		trace_cma_alloc_busy_retry(cma->name, pfn, pfn_to_page(pfn),
 					   count, align);
 		/* try again with a bit different memory target */
@@ -562,6 +564,8 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 
 	pr_debug("%s(): returned %p\n", __func__, page);
 	trace_cma_alloc_finish(name, pfn, page, count, align, ret);
+	trace_android_vh_cma_alloc_finish(cma);
+
 	if (page) {
 		count_vm_event(CMA_ALLOC_SUCCESS);
 		cma_sysfs_account_success_pages(cma, count);

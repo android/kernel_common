@@ -95,6 +95,18 @@ DECLARE_HOOK(android_vh_cma_alloc_bypass,
 		gfp_t gfp_mask, struct page **page, bool *bypass),
 	TP_ARGS(cma, count, align, gfp_mask, page, bypass));
 
+DECLARE_HOOK(android_vh_cma_alloc_start,
+	TP_PROTO(struct cma *cma),
+	TP_ARGS(cma));
+
+DECLARE_HOOK(android_vh_cma_alloc_finish,
+	TP_PROTO(struct cma *cma),
+	TP_ARGS(cma));
+
+DECLARE_HOOK(android_vh_cma_alloc_busy_info,
+	TP_PROTO(unsigned long *failed_pfn),
+	TP_ARGS(failed_pfn));
+
 struct compact_control;
 DECLARE_HOOK(android_vh_isolate_freepages,
 	TP_PROTO(struct compact_control *cc, struct page *page, bool *bypass),
