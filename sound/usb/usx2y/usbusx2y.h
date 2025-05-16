@@ -3,10 +3,36 @@
 #define USBUSX2Y_H
 #include "../usbaudio.h"
 #include "../midi.h"
-#include "usbus428ctldefs.h" 
+#include "usbus428ctldefs.h"
 
-#define NRURBS	        2	
+#define NRURBS	        2
 
+/* Default value used for nr of packs per urb.
+ * 1 to 4 have been tested ok on uhci.
+ * To use 3 on ohci, you'd need a patch:
+ * look for "0000425-linux-2.6.9-rc4-mm1_ohci-hcd.patch.gz" on
+ * "https://bugtrack.alsa-project.org/alsa-bug/bug_view_page.php?bug_id=0000425"
+ *
+ * 1, 2 and 4 work out of the box on ohci, if I recall correctly.
+ * Bigger is safer operation, smaller gives lower latencies.
+ */
+#define USX2Y_NRPACKS 4
+
+#define USX2Y_NRPACKS_MAX 1024
+
+/* If your system works ok with this module's parameter
+ * nrpacks set to 1, you might as well comment
+ * this define out, and thereby produce smaller, faster code.
+ * You'd also set USX2Y_NRPACKS to 1 then.
+ */
+#define USX2Y_NRPACKS_VARIABLE 1
+
+#ifdef USX2Y_NRPACKS_VARIABLE
+extern int nrpacks;
+#define nr_of_packs() nrpacks
+#else
+#define nr_of_packs() USX2Y_NRPACKS
+#endif
 
 #define URBS_ASYNC_SEQ 10
 #define URB_DATA_LEN_ASYNC_SEQ 32
@@ -30,7 +56,7 @@ struct usx2ydev {
 	struct urb		*in04_urb;
 	void			*in04_buf;
 	char			in04_last[24];
-	unsigned		in04_int_calls;
+	unsigned int		in04_int_calls;
 	struct snd_usx2y_urb_seq	*us04;
 	wait_queue_head_t	in04_wait_queue;
 	struct snd_usx2y_async_seq	as04;
@@ -55,7 +81,7 @@ struct snd_usx2y_substream {
 	struct usx2ydev	*usx2y;
 	struct snd_pcm_substream *pcm_substream;
 
-	int			endpoint;		
+	int			endpoint;
 	unsigned int		maxpacksize;		/* max packet size in bytes */
 
 	atomic_t		state;
