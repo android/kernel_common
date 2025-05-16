@@ -163,6 +163,7 @@
   _raw_read_trylock
   _raw_write_trylock
   reciprocal_value
+  register_btf_kfunc_id_set
   register_tcf_proto_ops
   regulator_map_voltage_linear_range
   remove_proc_subtree
@@ -180,6 +181,8 @@
   send_sig
   send_sig_info
   set_blocksize
+  __scx_ops_enabled
+  __scx_switched_all
   __skb_checksum_complete
   skb_dump
   snd_pcm_hw_constraint_mask64
