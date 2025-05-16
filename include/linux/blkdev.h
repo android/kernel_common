@@ -1547,6 +1547,13 @@ unsigned long bio_start_io_acct(struct bio *bio);
 void bio_end_io_acct_remapped(struct bio *bio, unsigned long start_time,
 		struct block_device *orig_bdev);
 
+/* Check whether @sector is a multiple of the zone size. */
+static inline bool bdev_is_zone_aligned(struct block_device *bdev,
+					sector_t sector)
+{
+	return bdev_is_zone_start(bdev, sector);
+}
+
 /**
  * bio_end_io_acct - end I/O accounting for bio based drivers
  * @bio:	bio to end account for
