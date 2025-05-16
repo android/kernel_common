@@ -407,15 +407,15 @@ DECLARE_HOOK(android_vh_mm_kcompactd_cpu_online,
 DECLARE_HOOK(android_vh_adjust_swap_info_flags,
 	TP_PROTO(unsigned long *flags),
 	TP_ARGS(flags));
-DECLARE_HOOK(android_rvh_alloc_pages_reclaim_start,
+DECLARE_RESTRICTED_HOOK(android_rvh_alloc_pages_reclaim_start,
 	TP_PROTO(gfp_t gfp_mask, int order, int *alloc_flags),
-	TP_ARGS(gfp_mask, order, alloc_flags));
-DECLARE_HOOK(android_rvh_alloc_pages_reclaim_cycle_end,
+	TP_ARGS(gfp_mask, order, alloc_flags), 3);
+DECLARE_RESTRICTED_HOOK(android_rvh_alloc_pages_reclaim_cycle_end,
 	TP_PROTO(gfp_t gfp_mask, int order, int *alloc_flags,
 	unsigned long *did_some_progress, int *no_progress_loops,
 	unsigned long direct_reclaim_retries),
 	TP_ARGS(gfp_mask, order, alloc_flags, did_some_progress,
-	no_progress_loops, direct_reclaim_retries));
+	no_progress_loops, direct_reclaim_retries), 6);
 DECLARE_HOOK(android_vh_kmalloc_slab,
 	TP_PROTO(unsigned int index, gfp_t flags, struct kmem_cache **s),
 	TP_ARGS(index, flags, s));
