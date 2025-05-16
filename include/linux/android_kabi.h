@@ -70,7 +70,7 @@
 
 #endif /* __GENKSYMS__ */
 
-#define _ANDROID_KABI_RESERVE(n)		u64 android_kabi_reserved##n
+#define _ANDROID_KABI_RESERVE(n)		u64 __kabi_reserved##n
 
 
 /*
