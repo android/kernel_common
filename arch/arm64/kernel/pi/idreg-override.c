@@ -399,17 +399,6 @@ void __init init_feature_override(u64 boot_status, const void *fdt,
 
 	parse_cmdline(fdt, chosen);
 
-	/*
-	 * ANDROID: Forcefully disable SME at runtime until it is fixed
-	 * upstream (b/393087661). We prefer this to disabling
-	 * CONFIG_ARM64_SME so that the impact of the fixes on KMI is
-	 * minimised.
-	 */
-	id_aa64pfr1_override.mask |= ID_AA64PFR1_EL1_SME;
-	id_aa64pfr1_override.val &= ~ID_AA64PFR1_EL1_SME;
-	id_aa64smfr0_override.mask = GENMASK(63, 0);
-	id_aa64smfr0_override.val = 0;
-
 	for (i = 0; i < ARRAY_SIZE(regs); i++) {
 		reg = prel64_pointer(regs[i].reg);
 		override = prel64_pointer(reg->override);
