@@ -647,6 +647,7 @@
   __sw_hweight32
   __sw_hweight64
   __sw_hweight8
+  sync_blockdev
   sync_file_create
   synchronize_irq
   synchronize_net
@@ -1209,7 +1210,6 @@
   simple_rename_timestamp
   submit_bio
   submit_bio_wait
-  sync_blockdev
   sync_dirty_buffer
   sync_filesystem
   sync_inode_metadata
@@ -1448,6 +1448,21 @@
 # required by rtk_chip.ko
   soc_device_register
   soc_device_unregister
+
+# required by rtk_cma_accelerator.ko
+  copy_from_kernel_nofault
+  folio_mapping
+  I_BDEV
+  __traceiter_android_vh_calc_alloc_flags
+  __traceiter_android_vh_cma_alloc_busy_info
+  __traceiter_android_vh_cma_alloc_finish
+  __traceiter_android_vh_cma_alloc_start
+  __tracepoint_android_vh_calc_alloc_flags
+  __tracepoint_android_vh_cma_alloc_busy_info
+  __tracepoint_android_vh_cma_alloc_finish
+  __tracepoint_android_vh_cma_alloc_start
+  tracepoint_probe_register
+  vm_node_stat
 
 # required by rtk_drm.ko
   cec_notifier_conn_register
