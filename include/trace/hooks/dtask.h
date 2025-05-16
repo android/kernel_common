@@ -146,6 +146,10 @@ DECLARE_HOOK(android_vh_record_pcpu_rwsem_starttime,
 DECLARE_HOOK(android_vh_exit_check,
 	TP_PROTO(struct task_struct *p),
 	TP_ARGS(p));
+
+DECLARE_RESTRICTED_HOOK(android_rvh_dpm_prepare,
+	TP_PROTO(int flag),
+	TP_ARGS(flag), 1);
 #endif /* _TRACE_HOOK_DTASK_H */
 
 /* This part must be outside protection */

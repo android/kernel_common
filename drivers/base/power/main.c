@@ -1869,7 +1869,9 @@ int dpm_prepare(pm_message_t state)
 	 * disable probing of devices. This sync point is important at least
 	 * at boot time + hibernation restore.
 	 */
+	trace_android_rvh_dpm_prepare(0);
 	wait_for_device_probe();
+	trace_android_rvh_dpm_prepare(1);
 	/*
 	 * It is unsafe if probing of devices will happen during suspend or
 	 * hibernation and system behavior will be unpredictable in this case.
