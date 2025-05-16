@@ -1252,6 +1252,7 @@ static void setup_return(struct pt_regs *regs, struct k_sigaction *ka,
 		}
 
 		current->thread.svcr &= ~(SVCR_ZA_MASK | SVCR_SM_MASK);
+		write_sysreg_s(0, SYS_TPIDR2_EL0);
 	}
 
 	if (ka->sa.sa_flags & SA_RESTORER)
