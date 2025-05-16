@@ -2,7 +2,7 @@
 /*
  * android_kabi.h - Android kernel abi abstraction header
  *
- * Copyright (C) 2020 Google, Inc.
+ * Copyright (C) 2020-2025 Google, Inc.
  *
  * Heavily influenced by rh_kabi.h which came from the RHEL/CENTOS kernel and
  * was:
@@ -29,48 +29,48 @@
  *    If a field is added to a structure, the padding fields can be used to add
  *    the new field in a "safe" way.
  */
+
 #ifndef _ANDROID_KABI_H
 #define _ANDROID_KABI_H
 
+#include <linux/args.h>
 #include <linux/compiler.h>
+#include <linux/compiler_attributes.h>
 #include <linux/stringify.h>
 
 /*
  * Worker macros, don't use these, use the ones without a leading '_'
  */
 
-#define __ANDROID_KABI_CHECK_SIZE_ALIGN(_orig, _new)				\
-	union {									\
-		_Static_assert(sizeof(struct{_new;}) <= sizeof(struct{_orig;}),	\
-			       __FILE__ ":" __stringify(__LINE__) ": "		\
-			       __stringify(_new)				\
-			       " is larger than "				\
-			       __stringify(_orig) );				\
-		_Static_assert(__alignof__(struct{_new;}) <= __alignof__(struct{_orig;}),	\
-			       __FILE__ ":" __stringify(__LINE__) ": "		\
-			       __stringify(_orig)				\
-			       " is not aligned the same as "			\
-			       __stringify(_new) );				\
+#define _ANDROID_KABI_RULE(hint, target, value)				 \
+	static const char CONCATENATE(__gendwarfksyms_rule_,		 \
+				      __COUNTER__)[] __used __aligned(1) \
+		__section(".discard.gendwarfksyms.kabi_rules") =	 \
+			"1\0" #hint "\0" #target "\0" #value
+
+#define _ANDROID_KABI_NORMAL_SIZE_ALIGN(_orig, _new)			\
+	union {								\
+		_Static_assert(						\
+			sizeof(struct { _new; }) <=			\
+				sizeof(struct { _orig; }),		\
+			FILE_LINE ": " __stringify(_new)		\
+				" is larger than " __stringify(_orig));	\
+		_Static_assert(						\
+			__alignof__(struct { _new; }) <=		\
+				__alignof__(struct { _orig; }),		\
+			FILE_LINE ": " __stringify(_orig)		\
+				" is not aligned the same as "		\
+				__stringify(_new));			\
 	}
 
-#ifdef __GENKSYMS__
-
-#define _ANDROID_KABI_REPLACE(_orig, _new)		_orig
-
-#else
-
-#define _ANDROID_KABI_REPLACE(_orig, _new)			\
-	union {							\
-		_new;						\
-		struct {					\
-			_orig;					\
-		};						\
-		__ANDROID_KABI_CHECK_SIZE_ALIGN(_orig, _new);	\
+#define _ANDROID_KABI_REPLACE(_orig, _new)		      \
+	union {						      \
+		_new;					      \
+		struct {				      \
+			_orig;				      \
+		};					      \
+		_ANDROID_KABI_NORMAL_SIZE_ALIGN(_orig, _new); \
 	}
-
-#endif /* __GENKSYMS__ */
-
-#define _ANDROID_KABI_RESERVE(n)		u64 __kabi_reserved##n
 
 
 /*
@@ -84,24 +84,52 @@
  *   number: the "number" of the padding variable in the structure.  Start with
  *   1 and go up.
  */
-#ifdef CONFIG_ANDROID_KABI_RESERVE
-#define ANDROID_KABI_RESERVE(number)	_ANDROID_KABI_RESERVE(number)
-#else
-#define ANDROID_KABI_RESERVE(number)
-#endif
-
-/*
- * ANDROID_KABI_BACKPORT_OK
- *   Used to allow padding originally reserved with ANDROID_KABI_RESERVE
- *   to be used for backports of non-LTS patches by partners. These
- *   fields can by used by replacing with ANDROID_KABI_BACKPORT_USE()
- *   for partner backports.
- */
-#define ANDROID_KABI_BACKPORT_OK(number) ANDROID_KABI_RESERVE(number)
+#define ANDROID_KABI_RESERVE(number)	u64 __kabi_reserved##number
 
 /*
  * Macros to use _after_ the ABI is frozen
  */
+
+/*
+ * ANDROID_KABI_DECLONLY(fqn)
+ *   Treat the struct/union/enum fqn as a declaration, i.e. even if
+ *   a definition is available, don't expand the contents.
+ */
+#define ANDROID_KABI_DECLONLY(fqn)	_ANDROID_KABI_RULE(declonly, fqn, /**/)
+
+/*
+ * ANDROID_KABI_ENUMERATOR_IGNORE(fqn, field)
+ *   When expanding enum fqn, skip the provided field. This makes it
+ *   possible to hide added enum fields from versioning.
+ */
+#define ANDROID_KABI_ENUMERATOR_IGNORE(fqn, field) \
+	_ANDROID_KABI_RULE(enumerator_ignore, fqn field, /**/)
+
+/*
+ * ANDROID_KABI_ENUMERATOR_VALUE(fqn, field, value)
+ *   When expanding enum fqn, use the provided value for the
+ *   specified field. This makes it possible to override enumerator
+ *   values when calculating versions.
+ */
+#define ANDROID_KABI_ENUMERATOR_VALUE(fqn, field, value) \
+	_ANDROID_KABI_RULE(enumerator_value, fqn field, value)
+
+/*
+ * ANDROID_KABI_IGNORE
+ *   Add a new field that's ignored in versioning.
+ */
+#define ANDROID_KABI_IGNORE(n, _new)		 \
+	union {					 \
+		_new;				 \
+		unsigned char __kabi_ignored##n; \
+	}
+
+/*
+ * ANDROID_KABI_REPLACE
+ *   Replace a field with a compatible new field.
+ */
+#define ANDROID_KABI_REPLACE(_oldtype, _oldname, _new) \
+	_ANDROID_KABI_REPLACE(_oldtype __kabi_renamed##_oldname, struct { _new; })
 
 /*
  * ANDROID_KABI_USE(number, _new)
@@ -109,19 +137,8 @@
  *   number: the previous "number" of the padding variable
  *   _new: the variable to use now instead of the padding variable
  */
-#define ANDROID_KABI_USE(number, _new)		\
-	_ANDROID_KABI_REPLACE(_ANDROID_KABI_RESERVE(number), _new)
-
-/*
- * ANDROID_KABI_BACKPORT_USE(number, _new)
- *   Use a previous padding entry that was defined with
- *   ANDROID_KABI_BACKPORT_OK(). This is functionally identical
- *   to ANDROID_KABI_USE() except that it differentiates the
- *   normal use of KABI fields for LTS from KABI fields that
- *   were released for use with other backports from upstream.
- */
-#define ANDROID_KABI_BACKPORT_USE(number, _new) \
-	ANDROID_KABI_USE(number, _new)
+#define ANDROID_KABI_USE(number, _new) \
+	_ANDROID_KABI_REPLACE(ANDROID_KABI_RESERVE(number), _new)
 
 /*
  * ANDROID_KABI_USE2(number, _new1, _new2)
@@ -130,8 +147,8 @@
  *   want to "burn" a 64bit padding variable for a smaller variable size if not
  *   needed.
  */
-#define ANDROID_KABI_USE2(number, _new1, _new2)			\
-	_ANDROID_KABI_REPLACE(_ANDROID_KABI_RESERVE(number), struct{ _new1; _new2; })
+#define ANDROID_KABI_USE2(number, _new1, _new2) \
+	_ANDROID_KABI_REPLACE(ANDROID_KABI_RESERVE(number), struct{ _new1; _new2; })
 
 
 #endif /* _ANDROID_KABI_H */
