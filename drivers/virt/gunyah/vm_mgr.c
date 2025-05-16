@@ -812,16 +812,15 @@ static int gunyah_vm_start(struct gunyah_vm *ghvm)
 		vmid = ret;
 
 	ret = gunyah_rm_alloc_vmid(ghvm->rm, vmid);
-	if (ret < 0) {
-		gunyah_rm_notifier_unregister(ghvm->rm, &ghvm->nb);
-		goto err;
-	}
+	if (ret < 0)
+		goto err_rm_notifier_unregister;
+
 	ghvm->vmid = vmid ? vmid : ret;
 	gunyah_uevent_notify_change(GUNYAH_EVENT_CREATE_VM, ghvm);
 
 	ret = gunyah_vm_pre_vm_configure(ghvm);
 	if (ret)
-		goto err;
+		goto err_dealloc_vmid;
 
 	if (ghvm->fw.config.size > 0) {
 		ghvm->fw.parcel.start = gunyah_gpa_to_gfn(ghvm->fw.config.guest_phys_addr);
@@ -832,7 +831,7 @@ static int gunyah_vm_start(struct gunyah_vm *ghvm)
 		if (ret) {
 			dev_warn(ghvm->parent,
 				"Failed to share parcel for the fw: %d\n", ret);
-			goto err;
+			goto err_dealloc_vmid;
 		}
 	}
 
@@ -916,6 +915,13 @@ static int gunyah_vm_start(struct gunyah_vm *ghvm)
 	ghvm->vm_status = GUNYAH_RM_VM_STATUS_RUNNING;
 	up_write(&ghvm->status_lock);
 	return ret;
+err_dealloc_vmid:
+	ret = gunyah_rm_dealloc_vmid(ghvm->rm, ghvm->vmid);
+	if (ret)
+		dev_warn(ghvm->parent,
+			 "Failed to deallocate vmid: %d\n", ret);
+err_rm_notifier_unregister:
+	gunyah_rm_notifier_unregister(ghvm->rm, &ghvm->nb);
 err:
 	/* gunyah_vm_free will handle releasing resources and reclaiming memory */
 	gunyah_vm_start_fail(ghvm);
