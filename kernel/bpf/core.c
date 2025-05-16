@@ -68,27 +68,25 @@
 struct bpf_mem_alloc bpf_global_ma;
 bool bpf_global_ma_set;
 
-/*
- * No hurry in this branch
+/* No hurry in this branch
  *
  * Exported for the bpf jit load helper.
  */
-void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb,
-		int k, unsigned int size, void *buf)
+void *bpf_internal_load_pointer_neg_helper(const struct sk_buff *skb, int k, unsigned int size)
 {
-	int offset;
+	u8 *ptr = NULL;
 
 	if (k >= SKF_NET_OFF) {
-		offset = skb->network_header - skb_headroom(skb) + k - SKF_NET_OFF;
+		ptr = skb_network_header(skb) + k - SKF_NET_OFF;
 	} else if (k >= SKF_LL_OFF) {
 		if (unlikely(!skb_mac_header_was_set(skb)))
 			return NULL;
-		offset = skb->mac_header - skb_headroom(skb) + k - SKF_LL_OFF;
-	} else {
-		return NULL;
+		ptr = skb_mac_header(skb) + k - SKF_LL_OFF;
 	}
+	if (ptr >= skb->head && ptr + size <= skb_tail_pointer(skb))
+		return ptr;
 
-	return skb_header_pointer(skb, offset, size, buf);
+	return NULL;
 }
 
 /* tell bpf programs that include vmlinux.h kernel's PAGE_SIZE */
