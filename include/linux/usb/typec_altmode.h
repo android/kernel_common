@@ -221,4 +221,18 @@ void typec_altmode_unregister_driver(struct typec_altmode_driver *drv);
 	module_driver(__typec_altmode_driver, typec_altmode_register_driver, \
 		      typec_altmode_unregister_driver)
 
+/**
+ * typec_altmode_entry_complete - Complete an alternate mode entry request
+ * @altmode: Handle to the alternate mode.
+ * @result: Result of the entry operation.
+ *
+ * This function should be called by a driver to report the final result of
+ * an asynchronous alternate mode entry request.
+ */
+void typec_altmode_entry_complete(struct typec_altmode *altmode,
+				const int result);
+int typec_mode_selection_start(struct typec_partner *partner,
+	const unsigned int delay, const unsigned int timeout);
+void typec_mode_selection_delete(struct typec_partner *partner);
+
 #endif /* __USB_TYPEC_ALTMODE_H */
