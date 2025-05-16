@@ -197,6 +197,9 @@
   static_key_enable
   stpcpy
   strncmp
+  css_task_iter_end
+  css_task_iter_next
+  css_task_iter_start
   tcf_action_exec
   tcf_block_get
   tcf_block_put
