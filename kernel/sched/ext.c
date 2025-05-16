@@ -860,6 +860,7 @@ static LIST_HEAD(scx_tasks);
 static struct kthread_worker *scx_ops_helper;
 static DEFINE_MUTEX(scx_ops_enable_mutex);
 DEFINE_STATIC_KEY_FALSE(__scx_ops_enabled);
+EXPORT_SYMBOL_GPL(__scx_ops_enabled);
 DEFINE_STATIC_PERCPU_RWSEM(scx_fork_rwsem);
 static atomic_t scx_ops_enable_state_var = ATOMIC_INIT(SCX_OPS_DISABLED);
 static int scx_ops_bypass_depth;
@@ -867,7 +868,7 @@ static DEFINE_RAW_SPINLOCK(__scx_ops_bypass_lock);
 static bool scx_ops_init_task_enabled;
 static bool scx_switching_all;
 DEFINE_STATIC_KEY_FALSE(__scx_switched_all);
-
+EXPORT_SYMBOL_GPL(__scx_switched_all);
 static struct sched_ext_ops scx_ops;
 static bool scx_warned_zero_slice;
 
