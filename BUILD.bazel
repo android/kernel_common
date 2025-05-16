@@ -66,12 +66,6 @@ _GKI_X86_64_BOOT_IMAGE_SIZES = {
     "": "67108864",
 }
 
-# Extra generated headers below $OUT_DIR for external modules.
-_GENERATED_HEADERS_FOR_MODULE = [
-    "security/selinux/flask.h",
-    "security/selinux/av_permissions.h",
-]
-
 checkpatch(
     name = "checkpatch",
     checkpatch_pl = "scripts/checkpatch.pl",
@@ -212,7 +206,6 @@ common_kernel(
         ":test_mappings_zip",
         ":tests_zip_arm64",
     ],
-    generated_headers_for_module = _GENERATED_HEADERS_FOR_MODULE,
     gki_boot_img_sizes = _GKI_AARCH64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
     kcflags = COMMON_KCFLAGS,
@@ -247,7 +240,6 @@ common_kernel(
         ":test_mappings_zip",
         ":tests_zip_arm64",
     ],
-    generated_headers_for_module = _GENERATED_HEADERS_FOR_MODULE,
     gki_boot_img_sizes = _GKI_AARCH64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
     kcflags = COMMON_KCFLAGS,
@@ -288,7 +280,6 @@ common_kernel(
         ":test_mappings_zip",
         ":tests_zip_x86_64",
     ],
-    generated_headers_for_module = _GENERATED_HEADERS_FOR_MODULE,
     gki_boot_img_sizes = _GKI_X86_64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_x86_64",
     kcflags = COMMON_KCFLAGS,
