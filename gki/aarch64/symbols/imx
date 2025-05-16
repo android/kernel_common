@@ -966,6 +966,7 @@
   free_percpu_irq
   freezer_active
   freezing_slow_path
+  fw_devlink_purge_absent_suppliers
   fwnode_device_is_available
   fwnode_find_reference
   fwnode_get_named_child_node
