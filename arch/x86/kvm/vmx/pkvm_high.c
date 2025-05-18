@@ -783,7 +783,7 @@ static int pkvm_vm_init(struct kvm *kvm)
 
 	INIT_LIST_HEAD(&pkvm->pinned_pages);
 	spin_lock_init(&pkvm->pinned_page_lock);
-	pkvm->pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
+	pkvm->pvmfw_load_addr = INVALID_GPA;
 
 	pkvm_vm_sz = PAGE_ALIGN(PKVM_SHADOW_VM_SIZE);
 	pkvm_vm = alloc_pages_exact(pkvm_vm_sz, GFP_KERNEL_ACCOUNT);

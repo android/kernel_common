@@ -90,7 +90,7 @@ struct pkvm_shadow_vm {
 
 	/*
 	 * Address where the pvmfw is loaded in a protected VM memory
-	 * or PVMFW_INVALID_LOAD_ADDR if the VM is running without pvmfw
+	 * or INVALID_GPA if the VM is running without pvmfw
 	 */
 	gpa_t pvmfw_load_addr;
 

@@ -54,7 +54,7 @@ static inline bool gpa_range_has_pvmfw(struct pkvm_shadow_vm *vm, u64 gpa_start,
 	if (!pvmfw_present)
 		return false;
 
-	if (vm->pvmfw_load_addr == PVMFW_INVALID_LOAD_ADDR)
+	if (vm->pvmfw_load_addr == INVALID_GPA)
 		return false;
 
 	return gpa_end > vm->pvmfw_load_addr && gpa_start < pvmfw_load_end;

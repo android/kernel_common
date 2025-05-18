@@ -41,7 +41,7 @@ int __pkvm_finalize_shadow_vm(int shadow_vm_handle, int primary_vcpu_handle,
 		goto unlock;
 	}
 
-	if (pvmfw_load_addr != PVMFW_INVALID_LOAD_ADDR) {
+	if (pvmfw_load_addr != INVALID_GPA) {
 		if (!pvmfw_present) {
 			ret = -EINVAL;
 			goto unlock;
@@ -63,7 +63,7 @@ int __pkvm_finalize_shadow_vm(int shadow_vm_handle, int primary_vcpu_handle,
 
 		shadow_vcpu = kvm_vcpu_to_shadow(to_kvm_vcpu(pkvm_vcpu));
 		if (pkvm_vcpu->vcpu_idx == primary_vcpu_handle &&
-		    vm->pvmfw_load_addr != PVMFW_INVALID_LOAD_ADDR) {
+		    vm->pvmfw_load_addr != INVALID_GPA) {
 			/*
 			 * If a protected VM is running with pvmfw, enforce the pvmfw
 			 * as the VM entry point on its primary vCPU.
@@ -172,7 +172,7 @@ int pkvm_init_shadow_vm(struct kvm *kvm)
 	pkvm_spin_lock_init(&vm->lock);
 	INIT_LIST_HEAD(&vm->ptdev_head);
 	vm->vm_type = kvm->arch.vm_type;
-	vm->pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
+	vm->pvmfw_load_addr = INVALID_GPA;
 	vm->finalized = !shadow_vm_is_protected(vm);
 
 	ret = pkvm_pgstate_pgt_init(vm);
