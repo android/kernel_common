@@ -160,4 +160,14 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3);
 void pkvm_x86_ops_init(struct pkvm_x86_ops *ops);
 
+static inline bool pkvm_vm_has_pvmfw(struct kvm *kvm)
+{
+	return kvm->arch.pkvm.pvmfw_load_addr != INVALID_GPA;
+}
+
+static inline bool pkvm_vcpu_is_pvmfw_bsp(struct kvm_vcpu *vcpu)
+{
+	return kvm_vcpu_is_reset_bsp(vcpu) && pkvm_vm_has_pvmfw(vcpu->kvm);
+}
+
 #endif /* __PKVM_X86_PKVM_H */

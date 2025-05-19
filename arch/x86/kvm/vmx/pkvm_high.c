@@ -1372,6 +1372,20 @@ static void pkvm_flush_tlb_guest(struct kvm_vcpu *vcpu)
 
 void vmx_do_nmi_irqoff(void);
 
+static int pkvm_vcpu_pre_run(struct kvm_vcpu *vcpu)
+{
+	int ret;
+
+	if (unlikely(pkvm_is_protected_vcpu(vcpu) && !kvm_vcpu_has_run(vcpu) &&
+		     kvm_vcpu_is_reset_bsp(vcpu))) {
+		ret = kvm_call_pkvm(vm_finalize, vcpu->kvm->arch.pkvm.pkvm_vm_handle);
+		if (ret < 0)
+			return ret;
+	}
+
+	return 1;
+}
+
 static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
@@ -1961,7 +1975,7 @@ struct kvm_x86_ops pkvm_host_x86_ops __initdata = {
 	.flush_tlb_gva = pkvm_flush_tlb_gva,
 	.flush_tlb_guest = pkvm_flush_tlb_guest,
 
-	.vcpu_pre_run = vmx_vcpu_pre_run,
+	.vcpu_pre_run = pkvm_vcpu_pre_run,
 	.vcpu_run = pkvm_vcpu_run,
 	.handle_exit = pkvm_handle_exit,
 	.skip_emulated_instruction = pkvm_skip_emulated_instruction,

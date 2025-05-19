@@ -2715,6 +2715,7 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	vcpu->arch.regs_avail = ~0;
 	vcpu->arch.regs_dirty = ~0;
 
+	vcpu->arch.mp_state = KVM_MP_STATE_UNINITIALIZED;
 	vcpu->arch.pat = MSR_IA32_CR_PAT_DEFAULT;
 
 	return kvm_x86_call(vcpu_create)(vcpu);
@@ -3088,6 +3089,11 @@ void kvm_arch_disable_virtualization_cpu(void)
 #endif
 }
 
+bool kvm_vcpu_is_reset_bsp(struct kvm_vcpu *vcpu)
+{
+	return vcpu->kvm->arch.bsp_vcpu_id == vcpu->vcpu_id;
+}
+
 int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 {
 #ifdef __PKVM_HYP__
@@ -3095,6 +3101,8 @@ int kvm_arch_init_vm(struct kvm *kvm, unsigned long type)
 		return -EINVAL;
 
 	kvm->arch.vm_type = type;
+	kvm->arch.pkvm.pvmfw_load_addr = INVALID_GPA;
+
 	return kvm_x86_call(vm_init)(kvm);
 #else
 	int ret;

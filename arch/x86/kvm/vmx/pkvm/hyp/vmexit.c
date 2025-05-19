@@ -99,9 +99,6 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	case PKVM_HC_INIT_FINALISE:
 		__pkvm_init_finalise(vcpu, (struct pkvm_section *)a0, a1);
 		break;
-	case PKVM_HC_FINALIZE_SHADOW_VM:
-		ret = __pkvm_finalize_shadow_vm(a0, a1, a2);
-		break;
 	case PKVM_HC_MMIO_ACCESS:
 		ret = pkvm_access_iommu(a0, a1, a2, a3);
 		break;

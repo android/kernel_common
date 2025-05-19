@@ -5449,26 +5449,6 @@ int vmx_vcpu_pre_run(struct kvm_vcpu *vcpu)
 #endif
 		return 0;
 	}
-#ifdef __PKVM_HYP__
-	if (pkvm_is_protected_vcpu(vcpu)) {
-		struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
-
-		if (!READ_ONCE(shadow_vcpu->allowed_to_run))
-			return 0;
-
-		/*
-		 * Ensure that pvmfw_entry_pending and pvmfw_load_addr are read
-		 * after allowed_to_run, so they are read with up-to-date values.
-		 * Paired with __smp_wmb() in __pkvm_finalize_shadow_vm().
-		 */
-		__smp_rmb();
-
-		if (shadow_vcpu->pvmfw_entry_pending) {
-			kvm_rip_write(vcpu, shadow_vcpu->vm->pvmfw_load_addr);
-			shadow_vcpu->pvmfw_entry_pending = false;
-		}
-	}
-#endif
 
 	return 1;
 }

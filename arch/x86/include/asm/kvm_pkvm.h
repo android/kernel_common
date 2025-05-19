@@ -237,7 +237,6 @@ static inline bool pkvm_is_protected_vcpu(struct kvm_vcpu *vcpu)
 	return pkvm_is_protected_vm(vcpu->kvm);
 }
 
-int pkvm_finalize_shadow_vm(struct kvm *kvm, struct kvm_vcpu *vcpu);
 int pkvm_tlb_remote_flush(struct kvm *kvm);
 int pkvm_tlb_remote_flush_with_range(struct kvm *kvm,
 				     gfn_t gfn, gfn_t nr_pages);
@@ -247,7 +246,6 @@ int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_cap *cap);
 static inline void kvm_hyp_reserve(void) {}
 static inline bool pkvm_is_protected_vm(struct kvm *kvm) { return false; }
 static inline bool pkvm_is_protected_vcpu(struct kvm_vcpu *vcpu) { return false; }
-static inline int pkvm_finalize_shadow_vm(struct kvm *kvm, struct kvm_vcpu *vcpu) { return 0; }
 static inline int pkvm_set_mmio_ve(struct kvm_vcpu *vcpu, unsigned long gfn) { return 0; }
 static inline int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_cap *cap)
 { return -EINVAL; }
@@ -258,6 +256,7 @@ enum pkvm_fn {
 	__pkvm__disable_virtualization_cpu,
 	__pkvm__check_processor_compatibility,
 	__pkvm__vm_init,
+	__pkvm__vm_finalize,
 	__pkvm__vm_destroy,
 	__pkvm__vcpu_create,
 	__pkvm__vcpu_reset,

@@ -21,80 +21,6 @@ struct pkvm_hyp *pkvm_hyp;
 #define to_shadow_vm_handle(vcpu_handle)	((s64)(vcpu_handle) >> SHADOW_VM_HANDLE_SHIFT)
 #define to_shadow_vcpu_idx(vcpu_handle)		((s64)(vcpu_handle) & SHADOW_VCPU_INDEX_MASK)
 
-int __pkvm_finalize_shadow_vm(int shadow_vm_handle, int primary_vcpu_handle,
-			      gpa_t pvmfw_load_addr)
-{
-	struct pkvm_shadow_vm *vm;
-	struct pkvm_vm *pkvm_vm;
-	int idx;
-	int ret = 0;
-
-	pkvm_vm = get_pkvm_vm(shadow_vm_handle);
-	if (!pkvm_vm)
-		return -EINVAL;
-
-	vm = kvm_to_shadow(to_kvm(pkvm_vm));
-	pkvm_spin_lock(&vm->lock);
-
-	if (vm->finalized) {
-		ret = -EBUSY;
-		goto unlock;
-	}
-
-	if (pvmfw_load_addr != INVALID_GPA) {
-		if (!pvmfw_present) {
-			ret = -EINVAL;
-			goto unlock;
-		}
-		if (!shadow_vm_is_protected(vm)) {
-			ret = -EPERM;
-			goto unlock;
-		}
-
-		vm->pvmfw_load_addr = pvmfw_load_addr;
-	}
-
-	for (idx = 0; idx < to_kvm(pkvm_vm)->created_vcpus; idx++) {
-		struct pkvm_vcpu *pkvm_vcpu = get_pkvm_vcpu(shadow_vm_handle, idx);
-		struct shadow_vcpu_state *shadow_vcpu;
-
-		if (!pkvm_vcpu)
-			continue;
-
-		shadow_vcpu = kvm_vcpu_to_shadow(to_kvm_vcpu(pkvm_vcpu));
-		if (pkvm_vcpu->vcpu_idx == primary_vcpu_handle &&
-		    vm->pvmfw_load_addr != INVALID_GPA) {
-			/*
-			 * If a protected VM is running with pvmfw, enforce the pvmfw
-			 * as the VM entry point on its primary vCPU.
-			 *
-			 * TODO: also need to prevent running secondary vCPUs
-			 * until the VM itself allows it (probably via a hypercall
-			 * to pKVM) at the moment when it boots a secondary vCPU.
-			 */
-			shadow_vcpu->pvmfw_entry_pending = true;
-		}
-
-		/*
-		 * Make sure to update pvmfw_entry_pending and pvmfw_load_addr
-		 * before allowing primary vCPU to run. Paired with __smp_rmb()
-		 * in nested_vmx_run().
-		 */
-		__smp_wmb();
-		WRITE_ONCE(shadow_vcpu->allowed_to_run, true);
-
-		put_pkvm_vcpu(pkvm_vcpu);
-	}
-
-	vm->finalized = true;
-
-unlock:
-	pkvm_spin_unlock(&vm->lock);
-
-	put_pkvm_vm(pkvm_vm);
-	return ret;
-}
-
 void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
 			       struct list_head *node, bool coherency)
 {
@@ -151,7 +77,7 @@ int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid)
 
 int pkvm_load_pvmfw_pages(struct pkvm_shadow_vm *vm, u64 gpa, u64 phys, u64 size)
 {
-	u64 offset = gpa - vm->pvmfw_load_addr;
+	u64 offset = gpa - shadow_to_kvm(vm)->arch.pkvm.pvmfw_load_addr;
 
 	if (offset >= pvmfw_size)
 		return -EINVAL;
@@ -172,8 +98,6 @@ int pkvm_init_shadow_vm(struct kvm *kvm)
 	pkvm_spin_lock_init(&vm->lock);
 	INIT_LIST_HEAD(&vm->ptdev_head);
 	vm->vm_type = kvm->arch.vm_type;
-	vm->pvmfw_load_addr = INVALID_GPA;
-	vm->finalized = !shadow_vm_is_protected(vm);
 
 	ret = pkvm_pgstate_pgt_init(vm);
 	if (ret)
@@ -218,9 +142,6 @@ int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
 	vcpu->arch.root_mmu.root_role.level = sept_desc->sept.level;
 	vcpu->arch.root_mmu.root.hpa = sept_desc->sept.root_pa;
 	vcpu->arch.mmu = &vcpu->arch.root_mmu;
-
-	if (!shadow_vm_is_protected(shadow_vcpu->vm))
-		shadow_vcpu->allowed_to_run = true;
 
 	return 0;
 }

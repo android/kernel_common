@@ -8,6 +8,7 @@
 #include <asm/kvm_pkvm.h>
 #include "pkvm_hyp_types.h"
 #include <pkvm.h>
+#include <pkvm/vmx/vmx.h>
 
 #define SHADOW_VM_HANDLE_SHIFT		32
 #define SHADOW_VCPU_INDEX_MASK		((1UL << SHADOW_VM_HANDLE_SHIFT) - 1)
@@ -23,8 +24,6 @@
 
 #define pgstate_pgt_to_shadow_vm(_pgt) container_of(_pgt, struct pkvm_shadow_vm, pgstate_pgt)
 
-int __pkvm_finalize_shadow_vm(int shadow_vm_handle, int primary_vcpu_handle,
-			      gpa_t pvmfw_load_addr);
 void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
 			       struct list_head *node, bool coherency);
 void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,
@@ -49,15 +48,16 @@ static inline bool shadow_vcpu_is_protected(struct shadow_vcpu_state *shadow_vcp
 
 static inline bool gpa_range_has_pvmfw(struct pkvm_shadow_vm *vm, u64 gpa_start, u64 gpa_end)
 {
-	u64 pvmfw_load_end = vm->pvmfw_load_addr + pvmfw_size;
+	struct kvm_protected_vm *pkvm = &shadow_to_kvm(vm)->arch.pkvm;
+	u64 pvmfw_load_end = pkvm->pvmfw_load_addr + pvmfw_size;
 
 	if (!pvmfw_present)
 		return false;
 
-	if (vm->pvmfw_load_addr == INVALID_GPA)
+	if (pkvm->pvmfw_load_addr == INVALID_GPA)
 		return false;
 
-	return gpa_end > vm->pvmfw_load_addr && gpa_start < pvmfw_load_end;
+	return gpa_end > pkvm->pvmfw_load_addr && gpa_start < pvmfw_load_end;
 }
 
 int pkvm_init_shadow_vm(struct kvm *kvm);

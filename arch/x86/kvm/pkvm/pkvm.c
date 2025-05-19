@@ -8,6 +8,7 @@
 //FIXME: clean up the header files
 #include <vmx/pkvm/hyp/mem_protect.h>
 #include <vmx/pkvm/hyp/memory.h>
+#include <pkvm.h>
 
 struct cpuinfo_x86 boot_cpu_data;
 unsigned int tsc_khz;
@@ -319,6 +320,73 @@ undonate:
 	return ret;
 }
 
+static int pkvm_vm_finalize(int handle)
+{
+	struct kvm *kvm, *shared_kvm;
+	struct pkvm_vm *pkvm_vm;
+	u64 pvmfw_load_addr;
+	int ret = 0, i;
+
+	pkvm_vm = get_pkvm_vm(handle);
+	if (!pkvm_vm)
+		return -EINVAL;
+
+	kvm = to_kvm(pkvm_vm);
+	shared_kvm = pkvm_vm->shared_kvm;
+
+	if (!pkvm_is_protected_vm(kvm)) {
+		ret = -EINVAL;
+		goto put_pkvm_vm;
+	}
+
+	pkvm_spin_lock(&pkvm_vm->lock);
+
+	if (kvm->arch.pkvm.finalized) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	pvmfw_load_addr = READ_ONCE(shared_kvm->arch.pkvm.pvmfw_load_addr);
+	if (pvmfw_load_addr != INVALID_GPA) {
+		if (!pvmfw_present) {
+			ret = -EINVAL;
+			goto unlock;
+		}
+		kvm->arch.pkvm.pvmfw_load_addr = pvmfw_load_addr;
+	}
+
+	kvm->arch.bsp_vcpu_id = shared_kvm->arch.bsp_vcpu_id;
+
+	/*
+	 * Make sure to update pvmfw_load_addr and bsp_vcpu_id values before
+	 * updating the primary vCPU's mp_state, i.e. before allowing the
+	 * primary vCPU to run. Paired with smp_rmb() in pkvm_vcpu_run().
+	 */
+	smp_wmb();
+
+	for (i = 0; i < kvm->created_vcpus; i++) {
+		struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vm->vcpus[i]);
+
+		if (vcpu->vcpu_id == kvm->arch.bsp_vcpu_id)
+			WRITE_ONCE(vcpu->arch.mp_state, KVM_MP_STATE_RUNNABLE);
+
+		/*
+		 * FIXME: temporarily allow secondary vCPUs to run as well
+		 * until we implement a guest PV mechanism to let the pVM itself
+		 * allow a vCPU to run.
+		 */
+		WRITE_ONCE(vcpu->arch.mp_state, KVM_MP_STATE_RUNNABLE);
+	}
+
+	kvm->arch.pkvm.finalized = true;
+	shared_kvm->arch.pkvm.finalized = true;
+unlock:
+	pkvm_spin_unlock(&pkvm_vm->lock);
+put_pkvm_vm:
+	put_pkvm_vm(pkvm_vm);
+	return ret;
+}
+
 static void pkvm_vm_destroy(int handle)
 {
 	struct kvm_protected_vm *shared_pkvm;
@@ -603,7 +671,8 @@ static void pkvm_vcpu_update_state_from_host(struct pkvm_vcpu *pkvm_vcpu)
 			kvm_rsp_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RSP]);
 		kvm_rsi_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RSI]);
 		/* Pass the guest boot entry address in RIP */
-		if (kvm_register_is_dirty(shared_vcpu, VCPU_REGS_RIP))
+		if (!pkvm_vcpu_is_pvmfw_bsp(vcpu) &&
+		    kvm_register_is_dirty(shared_vcpu, VCPU_REGS_RIP))
 			kvm_rip_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RIP]);
 		/*
 		 * FIXME: Pass pVM payload entry address to pVM firmware by RDI.
@@ -674,14 +743,32 @@ static void pkvm_vcpu_share_state_to_host(struct pkvm_vcpu *pkvm_vcpu)
 
 static unsigned long pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immediate_exit)
 {
+	struct kvm_vcpu *vcpu;
 	unsigned long reqs;
 
 	if (WARN_ON_ONCE(!pkvm_vcpu))
 		return 0;
 
+	vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+	if (unlikely(pkvm_is_protected_vcpu(vcpu) && !kvm_vcpu_has_run(vcpu))) {
+		if (READ_ONCE(vcpu->arch.mp_state) != KVM_MP_STATE_RUNNABLE)
+			return 0;
+
+		/*
+		 * Ensure that pvmfw_load_addr and bsp_vcpu_id are read after
+		 * mp_state, so they are read with up-to-date values.
+		 * Paired with smp_wmb() in pkvm_vm_finalize().
+		 */
+		smp_rmb();
+
+		if (pkvm_vcpu_is_pvmfw_bsp(vcpu))
+			kvm_rip_write(vcpu, vcpu->kvm->arch.pkvm.pvmfw_load_addr);
+	}
+
 	pkvm_vcpu_update_state_from_host(pkvm_vcpu);
 
-	reqs = kvm_vcpu_enter_guest(to_kvm_vcpu(pkvm_vcpu), force_immediate_exit);
+	reqs = kvm_vcpu_enter_guest(vcpu, force_immediate_exit);
 
 	pkvm_vcpu_share_state_to_host(pkvm_vcpu);
 
@@ -1485,6 +1572,9 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 		break;
 	case __pkvm__vm_init:
 		ret = pkvm_vm_init((struct kvm *)kern_pkvm_va((void *)p1), p2);
+		break;
+	case __pkvm__vm_finalize:
+		ret = pkvm_vm_finalize((int)p1);
 		break;
 	case __pkvm__vm_destroy:
 		pkvm_vm_destroy((int)p1);

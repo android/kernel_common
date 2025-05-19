@@ -11537,17 +11537,6 @@ static void kvm_put_guest_fpu(struct kvm_vcpu *vcpu)
 	trace_kvm_fpu(0);
 }
 
-/* Copied from arm64. TODO: move to common code. */
-#define vcpu_has_run_once(vcpu) !!rcu_access_pointer((vcpu)->pid)
-
-int kvm_arch_vcpu_run_pid_change(struct kvm_vcpu *vcpu)
-{
-	if (likely(vcpu_has_run_once(vcpu)))
-		return 0;
-
-	return pkvm_finalize_shadow_vm(vcpu->kvm, vcpu);
-}
-
 int kvm_arch_vcpu_ioctl_run(struct kvm_vcpu *vcpu)
 {
 	struct kvm_queued_exception *ex = &vcpu->arch.exception;

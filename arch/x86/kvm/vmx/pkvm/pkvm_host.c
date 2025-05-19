@@ -1116,25 +1116,6 @@ int kvm_arch_add_device_to_pkvm(struct kvm *kvm, struct iommu_group *grp)
 	return ret;
 }
 
-int pkvm_finalize_shadow_vm(struct kvm *kvm, struct kvm_vcpu *vcpu)
-{
-	struct kvm_protected_vm *pkvm = &kvm->arch.pkvm;
-
-	if (!enable_pkvm)
-		return 0;
-
-	if (!pkvm_is_protected_vm(kvm))
-		return 0;
-
-	/* Make sure this is the primary vCPU. */
-	if (!kvm_vcpu_is_reset_bsp(vcpu))
-		return 0;
-
-	return kvm_hypercall3(PKVM_HC_FINALIZE_SHADOW_VM, pkvm->pkvm_vm_handle,
-			      vcpu->arch.pkvm_vcpu_handle,
-			      smp_load_acquire(&pkvm->pvmfw_load_addr));
-}
-
 static int __pkvm_tlb_remote_flush_with_range(struct kvm *kvm,
 					      struct pkvm_tlb_range *range)
 {

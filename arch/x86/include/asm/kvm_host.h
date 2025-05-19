@@ -1355,6 +1355,7 @@ struct kvm_protected_vm {
 	spinlock_t pinned_page_lock;
 
 	gpa_t pvmfw_load_addr;
+	bool finalized;
 };
 #endif /* CONFIG_PKVM_INTEL */
 
