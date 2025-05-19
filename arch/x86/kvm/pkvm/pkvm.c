@@ -615,6 +615,66 @@ static void pkvm_vcpu_put(struct pkvm_vcpu *pkvm_vcpu)
 	put_pkvm_vm(pkvm_vcpu->pkvm_vm);
 }
 
+static void pkvm_vcpu_pvmfw_entry_init(struct kvm_vcpu *vcpu)
+{
+	struct kvm_segment seg;
+	struct desc_ptr dt;
+	unsigned long cr0;
+
+	/* pvmfw entry point is at the beginning of the pvmfw image. */
+	kvm_rip_write(vcpu, vcpu->kvm->arch.pkvm.pvmfw_load_addr);
+
+	/* pvmfw starts in 32-bit protected mode with paging disabled. */
+	cr0 = kvm_read_cr0(vcpu);
+	cr0 |= X86_CR0_PE;
+	cr0 &= ~X86_CR0_PG;
+	kvm_x86_call(set_cr0)(vcpu, cr0);
+
+	/* Set up flat 4GB segments. */
+	memset(&seg, 0, sizeof(seg));
+	seg.limit = 0xffffffff;
+	seg.type = 0xb;
+	seg.present = 1;
+	seg.db = 1;	/* 32-bit segment */
+	seg.s = 1;
+	seg.g = 1;
+	kvm_x86_call(set_segment)(vcpu, &seg, VCPU_SREG_CS);
+	seg.type = 0x3;
+	kvm_x86_call(set_segment)(vcpu, &seg, VCPU_SREG_DS);
+	kvm_x86_call(set_segment)(vcpu, &seg, VCPU_SREG_ES);
+	kvm_x86_call(set_segment)(vcpu, &seg, VCPU_SREG_FS);
+	kvm_x86_call(set_segment)(vcpu, &seg, VCPU_SREG_GS);
+	kvm_x86_call(set_segment)(vcpu, &seg, VCPU_SREG_SS);
+
+	memset(&dt, 0, sizeof(dt));
+
+	/*
+	 * Initially hardware will use the cached segment descriptors we've set up
+	 * above, so GDT in memory does not matter, until the guest reloads
+	 * a segment register. Set the initial GDTR to an invalid GDT, so that
+	 * if pvmfw accidentally reloads a segment register before it has set up
+	 * its own GDT, it generates a #GP.
+	 */
+	kvm_x86_call(set_gdt)(vcpu, &dt);
+
+	/* Similarly for TSS */
+	memset(&seg, 0, sizeof(seg));
+	seg.type = 0xb;
+	seg.present = 1;
+	kvm_x86_call(set_segment)(vcpu, &seg, VCPU_SREG_TR);
+
+	/* ...and LDT */
+	memset(&seg, 0, sizeof(seg));
+	seg.unusable = 1;
+	kvm_x86_call(set_segment)(vcpu, &seg, VCPU_SREG_LDTR);
+
+	/*
+	 * Set the initial IDTR to an invalid IDT, so that any early exception
+	 * (before pvmfw sets up its own IDT) results in a triple fault.
+	 */
+	kvm_x86_call(set_idt)(vcpu, &dt);
+}
+
 static void pkvm_vcpu_update_state_from_host(struct pkvm_vcpu *pkvm_vcpu)
 {
 	struct kvm_vcpu *shared_vcpu = pkvm_vcpu->shared_vcpu;
@@ -763,7 +823,7 @@ static unsigned long pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immed
 		smp_rmb();
 
 		if (pkvm_vcpu_is_pvmfw_bsp(vcpu))
-			kvm_rip_write(vcpu, vcpu->kvm->arch.pkvm.pvmfw_load_addr);
+			pkvm_vcpu_pvmfw_entry_init(vcpu);
 	}
 
 	pkvm_vcpu_update_state_from_host(pkvm_vcpu);
