@@ -612,4 +612,6 @@ int kvm_sev_es_string_io(struct kvm_vcpu *vcpu, unsigned int size,
 			 unsigned int port, void *data,  unsigned int count,
 			 int in);
 
+#define KVM_MAX_MCE_BANKS 32
+
 #endif

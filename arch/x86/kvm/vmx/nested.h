@@ -31,6 +31,8 @@ static inline bool nested_vmx_reflect_vmexit(struct kvm_vcpu *vcpu) { return fal
 static inline void nested_vmx_vmexit(struct kvm_vcpu *vcpu, u32 vm_exit_reason,
 				     u32 exit_intr_info, unsigned long exit_qualification) {}
 static inline void nested_sync_vmcs12_to_shadow(struct kvm_vcpu *vcpu) {}
+static inline int vmx_set_vmx_msr(struct kvm_vcpu *vcpu, u32 msr_index, u64 data) { return 1; }
+static inline int vmx_get_vmx_msr(struct nested_vmx_msrs *msrs, u32 msr_index, u64 *pdata) { return 1; }
 static inline void nested_mark_vmcs12_pages_dirty(struct kvm_vcpu *vcpu) {}
 #else
 void vmx_leave_nested(struct kvm_vcpu *vcpu);

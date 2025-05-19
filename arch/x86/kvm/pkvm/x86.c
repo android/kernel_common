@@ -1014,6 +1014,106 @@ int kvm_emulate_rdpmc(struct kvm_vcpu *vcpu)
 }
 EXPORT_SYMBOL_GPL(kvm_emulate_rdpmc);
 
+/*
+ * Some IA32_ARCH_CAPABILITIES bits have dependencies on MSRs that KVM
+ * does not yet virtualize. These include:
+ *   10 - MISC_PACKAGE_CTRLS
+ *   11 - ENERGY_FILTERING_CTL
+ *   12 - DOITM
+ *   18 - FB_CLEAR_CTRL
+ *   21 - XAPIC_DISABLE_STATUS
+ *   23 - OVERCLOCKING_STATUS
+ */
+
+#define KVM_SUPPORTED_ARCH_CAP \
+	(ARCH_CAP_RDCL_NO | ARCH_CAP_IBRS_ALL | ARCH_CAP_RSBA | \
+	 ARCH_CAP_SKIP_VMENTRY_L1DFLUSH | ARCH_CAP_SSB_NO | ARCH_CAP_MDS_NO | \
+	 ARCH_CAP_PSCHANGE_MC_NO | ARCH_CAP_TSX_CTRL_MSR | ARCH_CAP_TAA_NO | \
+	 ARCH_CAP_SBDR_SSDP_NO | ARCH_CAP_FBSDP_NO | ARCH_CAP_PSDP_NO | \
+	 ARCH_CAP_FB_CLEAR | ARCH_CAP_RRSBA | ARCH_CAP_PBRSB_NO | ARCH_CAP_GDS_NO | \
+	 ARCH_CAP_RFDS_NO | ARCH_CAP_RFDS_CLEAR | ARCH_CAP_BHI_NO)
+
+static u64 kvm_get_arch_capabilities(void)
+{
+	u64 data = kvm_host.arch_capabilities & KVM_SUPPORTED_ARCH_CAP;
+
+	/*
+	 * If nx_huge_pages is enabled, KVM's shadow paging will ensure that
+	 * the nested hypervisor runs with NX huge pages.  If it is not,
+	 * L1 is anyway vulnerable to ITLB_MULTIHIT exploits from other
+	 * L1 guests, so it need not worry about its own (L2) guests.
+	 */
+	data |= ARCH_CAP_PSCHANGE_MC_NO;
+
+#ifndef __PKVM_HYP__
+	/*
+	 * If we're doing cache flushes (either "always" or "cond")
+	 * we will do one whenever the guest does a vmlaunch/vmresume.
+	 * If an outer hypervisor is doing the cache flush for us
+	 * (ARCH_CAP_SKIP_VMENTRY_L1DFLUSH), we can safely pass that
+	 * capability to the guest too, and if EPT is disabled we're not
+	 * vulnerable.  Overall, only VMENTER_L1D_FLUSH_NEVER will
+	 * require a nested hypervisor to do a flush of its own.
+	 */
+	if (l1tf_vmx_mitigation != VMENTER_L1D_FLUSH_NEVER)
+		data |= ARCH_CAP_SKIP_VMENTRY_L1DFLUSH;
+#else
+	/*
+	 * The CPU which can run the pKVM hypervisor doesn't have L1TF CPU
+	 * bugs. This is guaranteed by pkvm_has_unmitigated_cpu_bugs() which
+	 * doesn't currently mitigate L1TF and thus would fail pKVM
+	 * initialization if L1TF was present, so we can set
+	 * ARCH_CAP_SKIP_VMENTRY_L1DFLUSH for guest. As the pKVM hypervisor
+	 * doesn't support nest, passing this cap to the guest is not necessary.
+	 * But in case nest is supported in the future, passing this cap anyway.
+	 */
+	data |= ARCH_CAP_SKIP_VMENTRY_L1DFLUSH;
+#endif
+
+	if (!boot_cpu_has_bug(X86_BUG_CPU_MELTDOWN))
+		data |= ARCH_CAP_RDCL_NO;
+	if (!boot_cpu_has_bug(X86_BUG_SPEC_STORE_BYPASS))
+		data |= ARCH_CAP_SSB_NO;
+	if (!boot_cpu_has_bug(X86_BUG_MDS))
+		data |= ARCH_CAP_MDS_NO;
+	if (!boot_cpu_has_bug(X86_BUG_RFDS))
+		data |= ARCH_CAP_RFDS_NO;
+
+	if (!boot_cpu_has(X86_FEATURE_RTM)) {
+		/*
+		 * If RTM=0 because the kernel has disabled TSX, the host might
+		 * have TAA_NO or TSX_CTRL.  Clear TAA_NO (the guest sees RTM=0
+		 * and therefore knows that there cannot be TAA) but keep
+		 * TSX_CTRL: some buggy userspaces leave it set on tsx=on hosts,
+		 * and we want to allow migrating those guests to tsx=off hosts.
+		 */
+		data &= ~ARCH_CAP_TAA_NO;
+	} else if (!boot_cpu_has_bug(X86_BUG_TAA)) {
+		data |= ARCH_CAP_TAA_NO;
+	} else {
+		/*
+		 * Nothing to do here; we emulate TSX_CTRL if present on the
+		 * host so the guest can choose between disabling TSX or
+		 * using VERW to clear CPU buffers.
+		 */
+	}
+
+#ifndef __PKVM_HYP__
+	if (!boot_cpu_has_bug(X86_BUG_GDS) || gds_ucode_mitigated())
+		data |= ARCH_CAP_GDS_NO;
+#else
+	/*
+	 * The CPU which can run the pKVM hypervisor doesn't have GDS bug. This
+	 * is guaranteed by pkvm_has_unmitigated_cpu_bugs() which doesn't
+	 * currently mitigate GDS and thus would fail pKVM initialization if GDS
+	 * was present, so we can set ARCH_CAP_GDS_NO.
+	 */
+	data |= ARCH_CAP_GDS_NO;
+#endif
+
+	return data;
+}
+
 static bool __kvm_valid_efer(struct kvm_vcpu *vcpu, u64 efer)
 {
 	if (efer & EFER_AUTOIBRS && !guest_cpuid_has(vcpu, X86_FEATURE_AUTOIBRS))
@@ -1405,6 +1505,64 @@ static inline void kvm_vcpu_flush_tlb_current(struct kvm_vcpu *vcpu)
 	kvm_x86_call(flush_tlb_current)(vcpu);
 }
 
+#ifdef __PKVM_HYP__
+static bool pkvm_host_can_emulate_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info, bool set)
+{
+	u32 msr = msr_info->index;
+
+	switch (msr) {
+	case MSR_IA32_TSC_ADJUST:
+		if (!guest_cpuid_has(vcpu, X86_FEATURE_TSC_ADJUST))
+			return false;
+		fallthrough;
+	case MSR_IA32_TSC:
+		/*
+		 * pKVM does not provide secure TSC for pVM yet. Current pVM use
+		 * cases treat the TSC as untrusted and rely on different
+		 * sources of secure time. So still allow the host to access the
+		 * TSC_ADJUST and TSC MSRs, so does for writing the TSC offset
+		 * and multiplier via the PV interfaces __pkvm__write_tsc_offset
+		 * and __pkvm__write_tsc_multiplier.
+		 */
+		return true;
+	case MSR_MTRRcap:
+		/* MTRRcap MSR is read-only */
+		if (set)
+			break;
+		fallthrough;
+	case MTRRphysBase_MSR(0) ... MSR_MTRRfix4K_F8000:
+	case MSR_MTRRdefType:
+		if (guest_cpuid_has(vcpu, X86_FEATURE_MTRR))
+			return true;
+		break;
+	case MSR_IA32_APICBASE:
+	case APIC_BASE_MSR ... APIC_BASE_MSR + 0xff:
+	case MSR_IA32_TSC_DEADLINE:
+	case MSR_IA32_P5_MC_ADDR:
+	case MSR_IA32_P5_MC_TYPE:
+		return true;
+	case MSR_IA32_MCG_CAP:
+		/* MCG_CAP MSR is read-only */
+		if (set)
+			break;
+		fallthrough;
+	case MSR_IA32_MCG_CTL:
+	case MSR_IA32_MCG_STATUS:
+	case MSR_IA32_MC0_CTL ... MSR_IA32_MCx_CTL(KVM_MAX_MCE_BANKS) - 1:
+	case MSR_IA32_MC0_CTL2 ... MSR_IA32_MCx_CTL2(KVM_MAX_MCE_BANKS) - 1:
+		if (guest_cpuid_has(vcpu, X86_FEATURE_MCA))
+			return true;
+		break;
+	default:
+		if (!pkvm_is_protected_vcpu(vcpu))
+			return true;
+		break;
+	}
+
+	return false;
+}
+#endif
+
 int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 {
 	u32 msr = msr_info->index;
@@ -1426,7 +1584,6 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_F15H_EX_CFG:
 		break;
 
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_IA32_UCODE_REV:
 		if (msr_info->host_initiated)
 			vcpu->arch.microcode_version = data;
@@ -1451,7 +1608,13 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			break;
 
 		vcpu->arch.perf_capabilities = data;
+		/*
+		 * The pKVM hypervisor doesn't provide X86_FEATURE_PDCM to the
+		 * guest thus no need to do PMU refresh.
+		 */
+#ifndef __PKVM_HYP__
 		kvm_pmu_refresh(vcpu);
+#endif
 		break;
 	case MSR_IA32_PRED_CMD: {
 		u64 reserved_bits = ~(PRED_CMD_IBPB | PRED_CMD_SBPB);
@@ -1495,10 +1658,8 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 
 		wrmsrl(MSR_IA32_FLUSH_CMD, L1D_FLUSH);
 		break;
-#endif
 	case MSR_EFER:
 		return set_efer(vcpu, msr_info);
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_K7_HWCR:
 		data &= ~(u64)0x40;	/* ignore flush filter disable */
 		data &= ~(u64)0x100;	/* ignore ignne emulation enable */
@@ -1521,7 +1682,6 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			return 1;
 		}
 		break;
-#endif
 	case MSR_IA32_CR_PAT:
 		if (!kvm_pat_valid(data))
 			return 1;
@@ -1577,7 +1737,6 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		}
 		break;
 	}
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_IA32_SMBASE:
 		if (!IS_ENABLED(CONFIG_KVM_SMM) || !msr_info->host_initiated)
 			return 1;
@@ -1586,6 +1745,7 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_IA32_POWER_CTL:
 		vcpu->arch.msr_ia32_power_ctl = data;
 		break;
+#ifndef __PKVM_HYP__
 	case MSR_IA32_TSC:
 		if (msr_info->host_initiated) {
 			kvm_synchronize_tsc(vcpu, &data);
@@ -1610,12 +1770,12 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		vcpu->arch.ia32_xss = data;
 		kvm_update_cpuid_runtime(vcpu);
 		break;
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_SMI_COUNT:
 		if (!msr_info->host_initiated)
 			return 1;
 		vcpu->arch.smi_count = data;
 		break;
+#ifndef __PKVM_HYP__
 	case MSR_KVM_WALL_CLOCK_NEW:
 		if (!guest_pv_has(vcpu, KVM_FEATURE_CLOCKSOURCE2))
 			return 1;
@@ -1706,14 +1866,15 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_IA32_MC0_CTL ... MSR_IA32_MCx_CTL(KVM_MAX_MCE_BANKS) - 1:
 	case MSR_IA32_MC0_CTL2 ... MSR_IA32_MCx_CTL2(KVM_MAX_MCE_BANKS) - 1:
 		return set_msr_mce(vcpu, msr_info);
-
+#endif
 	case MSR_K7_PERFCTR0 ... MSR_K7_PERFCTR3:
 	case MSR_P6_PERFCTR0 ... MSR_P6_PERFCTR1:
 	case MSR_K7_EVNTSEL0 ... MSR_K7_EVNTSEL3:
 	case MSR_P6_EVNTSEL0 ... MSR_P6_EVNTSEL1:
+#ifndef __PKVM_HYP__
 		if (kvm_pmu_is_valid_msr(vcpu, msr))
 			return kvm_pmu_set_msr(vcpu, msr_info);
-
+#endif
 		if (data)
 			kvm_pr_unimpl_wrmsr(vcpu, msr, data);
 		break;
@@ -1727,7 +1888,7 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		 * the need to ignore the workaround.
 		 */
 		break;
-#ifdef CONFIG_KVM_HYPERV
+#if defined(CONFIG_KVM_HYPERV) && !defined(__PKVM_HYP__)
 	case HV_X64_MSR_GUEST_OS_ID ... HV_X64_MSR_SINT15:
 	case HV_X64_MSR_SYNDBG_CONTROL ... HV_X64_MSR_SYNDBG_PENDING_BUFFER:
 	case HV_X64_MSR_SYNDBG_OPTIONS:
@@ -1771,7 +1932,6 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			return 1;
 		vcpu->arch.msr_misc_features_enables = data;
 		break;
-#endif
 #ifdef CONFIG_X86_64
 	case MSR_IA32_XFD:
 		if (!msr_info->host_initiated &&
@@ -1795,11 +1955,13 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		break;
 #endif
 	default:
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
+#ifndef __PKVM_HYP__
 		if (kvm_pmu_is_valid_msr(vcpu, msr))
 			return kvm_pmu_set_msr(vcpu, msr_info);
+#else
+		if (!pkvm_host_can_emulate_msr(vcpu, msr_info, true))
+			return 1;
 #endif
-
 		return KVM_MSR_RET_UNSUPPORTED;
 	}
 	return 0;
@@ -1840,13 +2002,14 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_DRAM_ENERGY_STATUS:	/* DRAM controller */
 		msr_info->data = 0;
 		break;
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_K7_EVNTSEL0 ... MSR_K7_EVNTSEL3:
 	case MSR_K7_PERFCTR0 ... MSR_K7_PERFCTR3:
 	case MSR_P6_PERFCTR0 ... MSR_P6_PERFCTR1:
 	case MSR_P6_EVNTSEL0 ... MSR_P6_EVNTSEL1:
+#ifndef __PKVM_HYP__
 		if (kvm_pmu_is_valid_msr(vcpu, msr_info->index))
 			return kvm_pmu_get_msr(vcpu, msr_info);
+#endif
 		msr_info->data = 0;
 		break;
 	case MSR_IA32_UCODE_REV:
@@ -1867,6 +2030,7 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_IA32_POWER_CTL:
 		msr_info->data = vcpu->arch.msr_ia32_power_ctl;
 		break;
+#ifndef __PKVM_HYP__
 	case MSR_IA32_TSC: {
 		/*
 		 * Intel SDM states that MSR_IA32_TSC read adds the TSC offset
@@ -1899,6 +2063,7 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MTRRphysBase_MSR(0) ... MSR_MTRRfix4K_F8000:
 	case MSR_MTRRdefType:
 		return kvm_mtrr_get_msr(vcpu, msr_info->index, &msr_info->data);
+#endif
 	case 0xcd: /* fsb frequency */
 		msr_info->data = 3;
 		break;
@@ -1916,6 +2081,7 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_EBC_FREQUENCY_ID:
 		msr_info->data = 1 << 24;
 		break;
+#ifndef __PKVM_HYP__
 	case MSR_IA32_APICBASE:
 		msr_info->data = vcpu->arch.apic_base;
 		break;
@@ -1931,7 +2097,6 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_IA32_MISC_ENABLE:
 		msr_info->data = vcpu->arch.ia32_misc_enable_msr;
 		break;
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_IA32_SMBASE:
 		if (!IS_ENABLED(CONFIG_KVM_SMM) || !msr_info->host_initiated)
 			return 1;
@@ -1946,11 +2111,10 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		/* CPU multiplier */
 		msr_info->data |= (((uint64_t)4ULL) << 40);
 		break;
-#endif
 	case MSR_EFER:
 		msr_info->data = vcpu->arch.efer;
 		break;
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
+#ifndef __PKVM_HYP__
 	case MSR_KVM_WALL_CLOCK:
 		if (!guest_pv_has(vcpu, KVM_FEATURE_CLOCKSOURCE))
 			return 1;
@@ -2027,7 +2191,6 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 			return 1;
 		msr_info->data = vcpu->arch.ia32_xss;
 		break;
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_K7_CLK_CTL:
 		/*
 		 * Provide expected ramp-up count for K7. All other
@@ -2040,7 +2203,7 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		 */
 		msr_info->data = 0x20000000;
 		break;
-#ifdef CONFIG_KVM_HYPERV
+#if defined(CONFIG_KVM_HYPERV) && !defined(__PKVM_HYP__)
 	case HV_X64_MSR_GUEST_OS_ID ... HV_X64_MSR_SINT15:
 	case HV_X64_MSR_SYNDBG_CONTROL ... HV_X64_MSR_SYNDBG_PENDING_BUFFER:
 	case HV_X64_MSR_SYNDBG_OPTIONS:
@@ -2090,7 +2253,6 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_K7_HWCR:
 		msr_info->data = vcpu->arch.msr_hwcr;
 		break;
-#endif
 #ifdef CONFIG_X86_64
 	case MSR_IA32_XFD:
 		if (!msr_info->host_initiated &&
@@ -2108,11 +2270,13 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		break;
 #endif
 	default:
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
+#ifndef __PKVM_HYP__
 		if (kvm_pmu_is_valid_msr(vcpu, msr_info->index))
 			return kvm_pmu_get_msr(vcpu, msr_info);
+#else
+		if (!pkvm_host_can_emulate_msr(vcpu, msr_info, false))
+			return 1;
 #endif
-
 		return KVM_MSR_RET_UNSUPPORTED;
 	}
 	return 0;
@@ -2756,6 +2920,8 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	vcpu->arch.mmu = &vcpu->arch.root_mmu;
 
 	vcpu->arch.pat = MSR_IA32_CR_PAT_DEFAULT;
+	vcpu->arch.arch_capabilities = kvm_get_arch_capabilities();
+	vcpu->arch.msr_platform_info = MSR_PLATFORM_INFO_CPUID_FAULT;
 
 	pkvm_init_guest_fpu(&vcpu->arch.guest_fpu);
 

@@ -164,44 +164,6 @@ static void pkvm_cache_segment(struct vcpu_vmx *vmx, struct kvm_segment *var, in
 	pkvm_segment_cache_set(vmx, seg, SEG_FIELD_AR);
 }
 
-static bool pkvm_hyp_emulated_msr(u32 msr)
-{
-	switch (msr) {
-	case MSR_EFER:
-	case MSR_TSC_AUX:
-	case MSR_STAR:
-#ifdef CONFIG_X86_64
-	case MSR_LSTAR:
-	case MSR_CSTAR:
-	case MSR_SYSCALL_MASK:
-	case MSR_FS_BASE:
-	case MSR_GS_BASE:
-	case MSR_KERNEL_GS_BASE:
-	case MSR_IA32_XFD:
-	case MSR_IA32_XFD_ERR:
-#endif
-	case MSR_IA32_SYSENTER_CS:
-	case MSR_IA32_SYSENTER_EIP:
-	case MSR_IA32_SYSENTER_ESP:
-	case MSR_IA32_DEBUGCTLMSR:
-	case MSR_IA32_BNDCFGS:
-	case MSR_IA32_UMWAIT_CONTROL:
-	case MSR_IA32_SPEC_CTRL:
-	case MSR_IA32_TSX_CTRL:
-	case MSR_IA32_CR_PAT:
-	case MSR_IA32_MCG_EXT_CTL:
-	case MSR_IA32_FEAT_CTL:
-	case MSR_IA32_SGXLEPUBKEYHASH0 ... MSR_IA32_SGXLEPUBKEYHASH3:
-	case MSR_IA32_XSS:
-	case MSR_IA32_MISC_ENABLE:
-		return true;
-	default:
-		break;
-	}
-
-	return false;
-}
-
 static fastpath_t pkvm_exit_handlers_fastpath(struct kvm_vcpu *vcpu)
 {
 	switch (to_vmx(vcpu)->exit_reason.basic) {
@@ -755,21 +717,41 @@ static void pkvm_emergency_disable_virtualization_cpu(void) { /* TODO */ }
 static bool pkvm_has_emulated_msr(struct kvm *kvm, u32 index)
 {
 	switch (index) {
-	case MSR_IA32_SMBASE:
-		/* The guest SMM mode is not supported. */
-	case KVM_FIRST_EMULATED_VMX_MSR ... KVM_LAST_EMULATED_VMX_MSR:
-		/* The guest VMX feature is not supported */
-	case MSR_AMD64_VIRT_SPEC_CTRL:
-	case MSR_AMD64_TSC_RATIO:
-		/* This is AMD only.  */
-		return false;
+	case MSR_KVM_WALL_CLOCK:
+	case MSR_KVM_WALL_CLOCK_NEW:
+	case MSR_KVM_SYSTEM_TIME:
+	case MSR_KVM_SYSTEM_TIME_NEW:
+	case MSR_KVM_ASYNC_PF_EN:
+	case MSR_KVM_ASYNC_PF_INT:
+	case MSR_KVM_ASYNC_PF_ACK:
+	case MSR_KVM_STEAL_TIME:
+	case MSR_KVM_PV_EOI_EN:
+	case MSR_KVM_POLL_CONTROL:
+	case MSR_IA32_TSC_ADJUST:
+	case MSR_IA32_TSC:
+	case MSR_MTRRcap:
+	case MTRRphysBase_MSR(0) ... MSR_MTRRfix4K_F8000:
+	case MSR_MTRRdefType:
+	case MSR_IA32_APICBASE:
+	case APIC_BASE_MSR ... APIC_BASE_MSR + 0xff:
+	case MSR_IA32_TSC_DEADLINE:
+	case MSR_IA32_P5_MC_ADDR:
+	case MSR_IA32_P5_MC_TYPE:
+	case MSR_IA32_MCG_CAP:
+	case MSR_IA32_MCG_CTL:
+	case MSR_IA32_MCG_STATUS:
+	case MSR_IA32_MC0_CTL ... MSR_IA32_MCx_CTL(KVM_MAX_MCE_BANKS) - 1:
+	case MSR_IA32_MC0_CTL2 ... MSR_IA32_MCx_CTL2(KVM_MAX_MCE_BANKS) - 1:
+		return true;
 	default:
 		/*
-		 * The MSR not emulated by the pkvm hypervisor can be emualted
-		 * by the host.
+		 * All other emulated MSRs are directly emulated by the pKVM
+		 * hypervisor.
 		 */
-		return !pkvm_hyp_emulated_msr(index);
+		break;
 	}
+
+	return false;
 }
 
 static int pkvm_vm_init(struct kvm *kvm)
@@ -1022,47 +1004,41 @@ static int pkvm_get_feature_msr(u32 msr, u64 *data)
 
 static int pkvm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 {
-	/* Use PV interface to get the MSR emulated by the pkvm hypervisor */
-	if (pkvm_hyp_emulated_msr(msr_info->index)) {
-		if (!vcpu->arch.guest_state_protected) {
-			struct msr_data *msr = get_this_pv_param(msr);
-			int ret;
+	if (pkvm_has_emulated_msr(vcpu->kvm, msr_info->index))
+		return kvm_get_msr_common(vcpu, msr_info);
 
-			*msr = *msr_info;
-			ret = kvm_call_pkvm(get_msr, vcpu, msr);
-			msr_info->data = msr->data;
-			put_this_pv_param(msr);
+	if (!vcpu->arch.guest_state_protected) {
+		struct msr_data *msr = get_this_pv_param(msr);
+		int ret;
 
-			return ret;
-		} else {
-			return -EINVAL;
-		}
+		*msr = *msr_info;
+		ret = kvm_call_pkvm(get_msr, vcpu, msr);
+		msr_info->data = msr->data;
+		put_this_pv_param(msr);
+
+		return ret;
 	}
 
-	/* Otherwise handle by the host VMM itself */
-	return kvm_get_msr_common(vcpu, msr_info);
+	return 1;
 }
 
 static int pkvm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 {
-	/* Use PV interface to set the MSR emulated by the pkvm hypervisor */
-	if (pkvm_hyp_emulated_msr(msr_info->index)) {
-		if (!vcpu->arch.guest_state_protected) {
-			struct msr_data *msr = get_this_pv_param(msr);
-			int ret;
+	if (pkvm_has_emulated_msr(vcpu->kvm, msr_info->index))
+		return kvm_set_msr_common(vcpu, msr_info);
 
-			*msr = *msr_info;
-			ret = kvm_call_pkvm(set_msr, vcpu, msr);
-			put_this_pv_param(msr);
+	if (!vcpu->arch.guest_state_protected) {
+		struct msr_data *msr = get_this_pv_param(msr);
+		int ret;
 
-			return ret;
-		} else {
-			return -EINVAL;
-		}
+		*msr = *msr_info;
+		ret = kvm_call_pkvm(set_msr, vcpu, msr);
+		put_this_pv_param(msr);
+
+		return ret;
 	}
 
-	/* Otherwise handle by the host VMM itself */
-	return kvm_set_msr_common(vcpu, msr_info);
+	return 1;
 }
 
 static u64 pkvm_get_segment_base(struct kvm_vcpu *vcpu, int seg)
