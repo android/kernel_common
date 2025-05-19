@@ -3307,9 +3307,6 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 
 	pkvm_reset_reqs_to_host(vcpu);
 
-	if (kvm_x86_call(vcpu_pre_run)(vcpu) <= 0)
-		return 0;
-
 	vcpu->arch.last_vmentry_cpu = vcpu->cpu;
 
 	/* TODO: Save the host VMM fpu and load the guest fpu */

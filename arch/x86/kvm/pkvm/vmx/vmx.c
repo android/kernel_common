@@ -5433,26 +5433,6 @@ static int handle_invalid_guest_state(struct kvm_vcpu *vcpu)
 #endif
 }
 
-static bool vmx_emulation_required_with_pending_exception(struct kvm_vcpu *vcpu)
-{
-	struct vcpu_vmx *vmx = to_vmx(vcpu);
-
-	return vmx->emulation_required && !vmx->rmode.vm86_active &&
-	       (kvm_is_exception_pending(vcpu) || vcpu->arch.exception.injected);
-}
-
-int vmx_vcpu_pre_run(struct kvm_vcpu *vcpu)
-{
-	if (vmx_emulation_required_with_pending_exception(vcpu)) {
-#ifndef __PKVM_HYP__
-		kvm_prepare_emulation_failure_exit(vcpu);
-#endif
-		return 0;
-	}
-
-	return 1;
-}
-
 /*
  * Indicate a busy-waiting vcpu in spinlock. We do not enable the PAUSE
  * exiting, so only get here on cpu with PAUSE-Loop-Exiting.
@@ -7968,7 +7948,6 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.flush_tlb_gva = vmx_flush_tlb_gva,
 	.flush_tlb_guest = vmx_flush_tlb_guest,
 
-	.vcpu_pre_run = vmx_vcpu_pre_run,
 	.vcpu_run = vmx_vcpu_run,
 	.handle_exit = vmx_handle_exit,
 	.skip_emulated_instruction = vmx_skip_emulated_instruction,
