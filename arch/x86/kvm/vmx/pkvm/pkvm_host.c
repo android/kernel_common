@@ -1166,11 +1166,21 @@ int pkvm_set_mmio_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 
 static int pkvm_vm_ioctl_set_fw_gpa(struct kvm *kvm, u64 gpa)
 {
+	struct kvm_protected_vm *pkvm = &kvm->arch.pkvm;
+	int ret = 0;
+
 	if (!cmdline_pvmfw_present)
 		return -EINVAL;
 
-	smp_store_release(&kvm->arch.pkvm.pvmfw_load_addr, gpa);
-	return 0;
+	mutex_lock(&pkvm->finalized_lock);
+	if (pkvm->finalized) {
+		ret = -EBUSY;
+		goto out;
+	}
+	pkvm->pvmfw_load_addr = gpa;
+out:
+	mutex_unlock(&pkvm->finalized_lock);
+	return ret;
 }
 
 static int pkvm_vm_ioctl_info(struct kvm *kvm,

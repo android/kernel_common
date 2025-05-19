@@ -783,6 +783,7 @@ static int pkvm_vm_init(struct kvm *kvm)
 
 	INIT_LIST_HEAD(&pkvm->pinned_pages);
 	spin_lock_init(&pkvm->pinned_page_lock);
+	mutex_init(&pkvm->finalized_lock);
 	pkvm->pvmfw_load_addr = INVALID_GPA;
 
 	pkvm_vm_sz = PAGE_ALIGN(PKVM_SHADOW_VM_SIZE);
@@ -1374,11 +1375,14 @@ void vmx_do_nmi_irqoff(void);
 
 static int pkvm_vcpu_pre_run(struct kvm_vcpu *vcpu)
 {
+	struct kvm_protected_vm *pkvm = &vcpu->kvm->arch.pkvm;
 	int ret;
 
 	if (unlikely(pkvm_is_protected_vcpu(vcpu) && !kvm_vcpu_has_run(vcpu) &&
 		     kvm_vcpu_is_reset_bsp(vcpu))) {
-		ret = kvm_call_pkvm(vm_finalize, vcpu->kvm->arch.pkvm.pkvm_vm_handle);
+		mutex_lock(&pkvm->finalized_lock);
+		ret = kvm_call_pkvm(vm_finalize, pkvm->pkvm_vm_handle);
+		mutex_unlock(&pkvm->finalized_lock);
 		if (ret < 0)
 			return ret;
 	}
