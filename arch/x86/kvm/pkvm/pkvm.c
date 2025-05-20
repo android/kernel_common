@@ -495,34 +495,10 @@ static void unload_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
 	put_pkvm_vcpu(pkvm_vcpu);
 }
 
-static void set_pkvm_vcpu_inuse(struct pkvm_vcpu *pkvm_vcpu)
-{
-	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
-	int cpu = raw_smp_processor_id();
-
-	if (vcpu->cpu != -1)
-		/* Already inuse */
-		return;
-
-	get_pkvm_vm(vcpu->kvm->arch.pkvm.pkvm_vm_handle);
-	vcpu->cpu = cpu;
-}
-
-static void set_pkvm_vcpu_free(struct pkvm_vcpu *pkvm_vcpu)
-{
-	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
-
-	if (vcpu->cpu != raw_smp_processor_id())
-		/* Not inuse in this CPU */
-		return;
-
-	vcpu->cpu = -1;
-	put_pkvm_vm(pkvm_vcpu->pkvm_vm);
-}
-
 static void pkvm_vcpu_load(struct pkvm_vcpu *pkvm_vcpu, int cpu)
 {
 	struct kvm_vcpu *vcpu;
+	int loaded_cpu;
 
 	if (WARN_ON_ONCE(!pkvm_vcpu))
 		return;
@@ -531,35 +507,35 @@ static void pkvm_vcpu_load(struct pkvm_vcpu *pkvm_vcpu, int cpu)
 		return;
 
 	vcpu = to_kvm_vcpu(pkvm_vcpu);
-
-	/*
-	 * Loading vcpu on a new CPU without putting it from the previous one
-	 * is not supported.
-	 */
-	if (WARN_ON_ONCE(vcpu->cpu != -1 && vcpu->cpu != cpu))
+	loaded_cpu = cmpxchg(&vcpu->cpu, -1, cpu);
+	if (loaded_cpu == -1) {
+		/* Not loaded yet */
+		get_pkvm_vm(vcpu->kvm->arch.pkvm.pkvm_vm_handle);
+	} else if (WARN_ON_ONCE(loaded_cpu != cpu)) {
+		/* Already loaded on another CPU */
 		return;
+	}
 
 	kvm_x86_call(vcpu_load)(vcpu, cpu);
-
-	set_pkvm_vcpu_inuse(pkvm_vcpu);
 }
 
 static void pkvm_vcpu_put(struct pkvm_vcpu *pkvm_vcpu)
 {
+	int cpu = raw_smp_processor_id(), loaded_cpu;
 	struct kvm_vcpu *vcpu;
 
 	if (WARN_ON_ONCE(!pkvm_vcpu))
 		return;
 
 	vcpu = to_kvm_vcpu(pkvm_vcpu);
-
+	loaded_cpu = cmpxchg(&vcpu->cpu, cpu, -1);
 	/* Only the CPU which has loaded this vcpu can do a put */
-	if (WARN_ON_ONCE(vcpu->cpu != raw_smp_processor_id()))
+	if (WARN_ON_ONCE(loaded_cpu != cpu))
 		return;
 
 	kvm_x86_call(vcpu_put)(vcpu);
 
-	set_pkvm_vcpu_free(pkvm_vcpu);
+	put_pkvm_vm(pkvm_vcpu->pkvm_vm);
 }
 
 static void pkvm_vcpu_update_state_from_host(struct pkvm_vcpu *pkvm_vcpu)
