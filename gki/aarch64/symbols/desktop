@@ -556,6 +556,7 @@
   __mdiobus_register
   mdiobus_unregister
   mdiobus_write
+  mem_alloc_profiling_key
   memcpy
   __memcpy_fromio
   memdup_user
