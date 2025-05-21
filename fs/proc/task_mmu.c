@@ -345,9 +345,7 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
 	start = vma->vm_start;
 	end = vma->vm_end;
 
-	/* Skip page size fixup VMAs */
-	if (flags & __VM_NO_COMPAT)
-		return;
+	__fold_filemap_fixup_entry(&((struct proc_maps_private *)m->private)->iter, &end);
 
 	show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
 

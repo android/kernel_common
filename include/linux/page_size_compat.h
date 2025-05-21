@@ -161,6 +161,7 @@ static __always_inline void __filemap_fixup(unsigned long addr, unsigned long pr
 		___filemap_fixup(addr, prot, old_len, new_len);
 }
 
+extern void __fold_filemap_fixup_entry(struct vma_iterator *iter, unsigned long *end);
 #endif /* !__ASSEMBLY__ */
 
 #endif /* __LINUX_PAGE_SIZE_COMPAT_H */
