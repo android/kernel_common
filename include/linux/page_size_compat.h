@@ -174,6 +174,20 @@ static inline bool __is_emulated_pagemap_file(struct file *file)
 }
 #endif
 
+static __always_inline void __adjust_cachestat_counters(struct cachestat *cs)
+{
+	unsigned int nr_sub_pages = __PAGE_SIZE / PAGE_SIZE;
+
+	if (nr_sub_pages <= 1)
+		return;
+
+	cs->nr_cache /= nr_sub_pages;
+	cs->nr_dirty /= nr_sub_pages;
+	cs->nr_writeback /= nr_sub_pages;
+	cs->nr_evicted /= nr_sub_pages;
+	cs->nr_recently_evicted /= nr_sub_pages;
+}
+
 #endif /* !__ASSEMBLY__ */
 
 #endif /* __LINUX_PAGE_SIZE_COMPAT_H */
