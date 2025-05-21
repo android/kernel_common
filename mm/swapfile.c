@@ -16,6 +16,7 @@
 #include <linux/kernel_stat.h>
 #include <linux/swap.h>
 #include <linux/vmalloc.h>
+#include <linux/page_size_compat.h>
 #include <linux/pagemap.h>
 #include <linux/namei.h>
 #include <linux/shmem_fs.h>
@@ -3458,6 +3459,13 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 		error = -EINVAL;
 		goto bad_swap_unlock_inode;
 	}
+
+	error = __fixup_swap_header(swap_file, mapping);
+	if (error) {
+		pgcompat_err("Failed __fixup_swap_header");
+		goto bad_swap_unlock_inode;
+	}
+
 	folio = read_mapping_folio(mapping, 0, swap_file);
 	if (IS_ERR(folio)) {
 		error = PTR_ERR(folio);
