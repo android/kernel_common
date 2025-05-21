@@ -753,6 +753,25 @@ void pkvm_host_reclaim_page(struct kvm *host_kvm, phys_addr_t ipa)
 	kfree(ppage);
 }
 
+int pkvm_enable_smc_forwarding(struct file *kvm_file)
+{
+	struct kvm *host_kvm;
+
+	if (!file_is_kvm(kvm_file))
+		return -EINVAL;
+
+	if (!kvm_get_kvm_safe(kvm_file->private_data))
+		return -EINVAL;
+
+	host_kvm = kvm_file->private_data;
+	if (!host_kvm)
+		return -EINVAL;
+
+	host_kvm->arch.pkvm.smc_forwarded = true;
+
+	return 0;
+}
+
 static int __init pkvm_firmware_rmem_err(struct reserved_mem *rmem,
 					 const char *reason)
 {
