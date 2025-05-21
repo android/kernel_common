@@ -703,6 +703,11 @@ enum ufshcd_quirks {
 	UFSHCD_QUIRK_BROKEN_LSDBS_CAP			= 1 << 25,
 };
 
+enum ufshcd_android_quirks {
+	/* Set IID to one. */
+	UFSHCD_ANDROID_QUIRK_SET_IID_TO_ONE		= 1 << 0,
+};
+
 enum ufshcd_caps {
 	/* Allow dynamic clk gating */
 	UFSHCD_CAP_CLK_GATING				= 1 << 0,
@@ -1036,6 +1041,8 @@ struct ufs_hba {
 	enum ufs_ref_clk_freq dev_ref_clk_freq;
 
 	unsigned int quirks;	/* Deviations from standard UFSHCI spec. */
+
+	unsigned int android_quirks; /* for UFSHCD_ANDROID_QUIRK_* flags */
 
 	/* Device deviations from standard UFS device spec. */
 	unsigned int dev_quirks;
