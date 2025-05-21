@@ -8,6 +8,7 @@
 #ifndef _LINUX_CGROUP_DEFS_H
 #define _LINUX_CGROUP_DEFS_H
 
+#include <linux/android_kabi.h>
 #include <linux/limits.h>
 #include <linux/list.h>
 #include <linux/idr.h>
@@ -219,6 +220,8 @@ struct cgroup_subsys_state {
 	 * Protected by cgroup_mutex.
 	 */
 	int nr_descendants;
+
+	ANDROID_BACKPORT_RESERVE(1);
 };
 
 /*
@@ -316,6 +319,8 @@ struct css_set {
 
 	/* For RCU-protected deletion */
 	struct rcu_head rcu_head;
+
+	ANDROID_BACKPORT_RESERVE(1);
 };
 
 struct cgroup_base_stat {
@@ -565,6 +570,8 @@ struct cgroup {
 	struct bpf_local_storage __rcu  *bpf_cgrp_storage;
 #endif
 
+	ANDROID_BACKPORT_RESERVE(1);
+
 	/* All ancestors including self */
 	struct cgroup *ancestors[];
 };
@@ -608,6 +615,8 @@ struct cgroup_root {
 
 	/* The name for this hierarchy - may be empty */
 	char name[MAX_CGROUP_ROOT_NAMELEN];
+
+	ANDROID_BACKPORT_RESERVE(1);
 };
 
 /*
@@ -790,6 +799,8 @@ struct cgroup_subsys {
 	 * specifies the mask of subsystems that this one depends on.
 	 */
 	unsigned int depends_on;
+
+	ANDROID_BACKPORT_RESERVE(1);
 };
 
 extern struct percpu_rw_semaphore cgroup_threadgroup_rwsem;
