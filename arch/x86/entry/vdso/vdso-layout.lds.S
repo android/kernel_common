@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 #include <asm/vdso.h>
 
+#include <linux/page_size_compat.h>
+
 /*
  * Linker script for vDSO.  This is an ELF shared object prelinked to
  * its virtual address, and with only one read-only segment.
@@ -16,7 +18,7 @@ SECTIONS
 	 * segment.
 	 */
 
-	vvar_start = . - 4 * PAGE_SIZE;
+	vvar_start = . - 4 * __MAX_PAGE_SIZE;
 	vvar_page  = vvar_start;
 
 	/* Place all vvars at the offsets in asm/vvar.h. */
@@ -24,9 +26,9 @@ SECTIONS
 #include <asm/vvar.h>
 #undef EMIT_VVAR
 
-	pvclock_page = vvar_start + PAGE_SIZE;
-	hvclock_page = vvar_start + 2 * PAGE_SIZE;
-	timens_page  = vvar_start + 3 * PAGE_SIZE;
+	pvclock_page = vvar_start + __MAX_PAGE_SIZE;
+	hvclock_page = vvar_start + 2 * __MAX_PAGE_SIZE;
+	timens_page  = vvar_start + 3 * __MAX_PAGE_SIZE;
 
 #undef _ASM_X86_VVAR_H
 	/* Place all vvars in timens too at the offsets in asm/vvar.h. */
