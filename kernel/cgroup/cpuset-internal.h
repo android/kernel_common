@@ -3,6 +3,7 @@
 #ifndef __CPUSET_INTERNAL_H
 #define __CPUSET_INTERNAL_H
 
+#include <linux/android_kabi.h>
 #include <linux/cgroup.h>
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
@@ -180,6 +181,8 @@ struct cpuset {
 
 	/* Used to merge intersecting subsets for generate_sched_domains */
 	struct uf_node node;
+
+	ANDROID_BACKPORT_RESERVE(1);
 };
 
 static inline struct cpuset *css_cs(struct cgroup_subsys_state *css)
