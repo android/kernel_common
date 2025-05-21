@@ -1937,7 +1937,7 @@ static int find_lowest_rq(struct task_struct *sched_ctx, struct task_struct *exe
 				  sched_ctx, exec_ctx, lowest_mask);
 	}
 
-	trace_android_rvh_find_lowest_rq(sched_ctx, lowest_mask, ret, &cpu);
+	trace_android_rvh_find_lowest_rq(sched_ctx, exec_ctx, lowest_mask, ret, &cpu);
 	if (cpu >= 0)
 		return cpu;
 
