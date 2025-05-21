@@ -42,7 +42,7 @@ static int __init early_page_shift_compat(char *buf)
 
 	return 0;
 }
-early_param("androidboot.page_shift", early_page_shift_compat);
+early_param("page_shift", early_page_shift_compat);
 
 static int __init init_mmap_rnd_bits(void)
 {
