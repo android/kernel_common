@@ -13,6 +13,7 @@
 
 #![no_std]
 #![feature(arbitrary_self_types)]
+#![feature(asm_goto)]
 #![feature(coerce_unsized)]
 #![feature(dispatch_from_dyn)]
 #![feature(inline_const)]
@@ -50,6 +51,7 @@ pub mod mm;
 #[cfg(CONFIG_NET)]
 pub mod net;
 pub mod page;
+pub mod page_size_compat;
 pub mod prelude;
 pub mod print;
 pub mod rbtree;
