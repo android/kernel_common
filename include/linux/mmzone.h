@@ -1472,6 +1472,7 @@ typedef struct pglist_data {
 #endif
 
 	ANDROID_KABI_RESERVE(1);
+	ANDROID_OEM_DATA(1);
 } pg_data_t;
 
 #define node_present_pages(nid)	(NODE_DATA(nid)->node_present_pages)
