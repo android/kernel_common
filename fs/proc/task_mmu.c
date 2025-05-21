@@ -17,6 +17,7 @@
 #include <linux/swapops.h>
 #include <linux/mmu_notifier.h>
 #include <linux/page_idle.h>
+#include <linux/page_size_compat.h>
 #include <linux/shmem_fs.h>
 #include <linux/uaccess.h>
 #include <linux/pkeys.h>
@@ -343,6 +344,11 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
 
 	start = vma->vm_start;
 	end = vma->vm_end;
+
+	/* Skip page size fixup VMAs */
+	if (flags & __VM_NO_COMPAT)
+		return;
+
 	show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
 
 	get_vma_name(vma, &path, &name, &name_fmt);
