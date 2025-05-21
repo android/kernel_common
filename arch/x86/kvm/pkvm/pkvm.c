@@ -520,11 +520,19 @@ static bool is_kvm_vcpu_accessible(struct kvm_vcpu *vcpu, unsigned long fn)
 	case __pkvm__cache_reg:
 	case __pkvm__update_exception_bitmap:
 		/*
-		 * FIXME: As the host still needs to pre-configure pVM's vcpu
-		 * state for booting, the protection is enforced by the pkvm
-		 * hypervisor only if the vcpu has started running. If the host
-		 * doesn't need to do so, the protection can be enforced
-		 * directly.
+		 * As the host needs to pre-configure the pVM's vcpu state for
+		 * booting, the protection is only enforced by the pkvm hypervisor
+		 * once the vcpu has started running.
+		 *
+		 * If the pVM runs with pvmfw, the hypervisor will enforce
+		 * some of the vcpu's initial state before the first vcpu starts
+		 * running, in pkvm_vcpu_pvmfw_entry_init(). However, before
+		 * that we don't know yet if the pVM will run with pvmfw or not,
+		 * since the host VMM may issue the ioctl enabling pvmfw either
+		 * before or after using any of the above PV interfaces.
+		 *
+		 * FIXME: for now also allow that for secondary vCPUs,
+		 * for INIT/SIPI emulation by the host.
 		 */
 		return !kvm_vcpu_has_run(vcpu);
 	default:
@@ -708,40 +716,49 @@ static void pkvm_vcpu_update_state_from_host(struct pkvm_vcpu *pkvm_vcpu)
 			vcpu->arch.guest_debug_dr7 = shared_vcpu->arch.guest_debug_dr7;
 		if (vcpu->guest_debug & KVM_GUESTDBG_SINGLESTEP)
 			vcpu->arch.singlestep_rip = shared_vcpu->arch.singlestep_rip;
-	} else if (unlikely(!kvm_vcpu_has_run(vcpu))) {
+	} else if (unlikely(!kvm_vcpu_has_run(vcpu) && kvm_vcpu_is_reset_bsp(vcpu))) {
 		/*
-		 * FIXME: Allows the host to set the pVM's vcpu state for the
-		 * initial booting if the vcpu has not started running. This
-		 * is to satisfy the current crosvm implementation. But the
-		 * initial vcpu state set by the host is un-trusted. Once the
-		 * crosvm will not do so and the pkvm hypervisor set the initial
-		 * pVM's vcpu state, this should be removed.
-		 *
-		 * For Multiboot-compatible bootloader, the boot information is
-		 * stored in the RAX/RDX.
+		 * Allow the host VMM to set the initial values of most GPRs
+		 * to let it pass boot information to the pVM payload and/or
+		 * to pvmfw using various boot protocols, e.g. in RSI with the
+		 * Linux/x86 boot protocol or in RAX/RBX with Multiboot.
 		 */
 		kvm_rax_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RAX]);
+		kvm_rbx_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RBX]);
+		kvm_rcx_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RCX]);
 		kvm_rdx_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RDX]);
-		/*
-		 * For ELF/kernel bzImage, configures the bootstrap VCPU for the
-		 * Linux/x86 boot protocol in RSP/RSI.
-		 * <https://www.kernel.org/doc/html/latest/arch/x86/boot.html>
-		 */
+		kvm_rsi_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RSI]);
+		kvm_rdi_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RDI]);
 		if (kvm_register_is_dirty(shared_vcpu, VCPU_REGS_RSP))
 			kvm_rsp_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RSP]);
-		kvm_rsi_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RSI]);
-		/* Pass the guest boot entry address in RIP */
+		kvm_rbp_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RBP]);
+		kvm_r8_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_R8]);
+		kvm_r9_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_R9]);
+		kvm_r10_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_R10]);
+		kvm_r11_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_R11]);
+		kvm_r12_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_R12]);
+		kvm_r13_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_R13]);
+		kvm_r14_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_R14]);
+
+		/* Reserve R15 for pKVM for future extensions. */
+		kvm_r15_write(vcpu, 0);
+
+		/*
+		 * If the host VMM boots the pVM directly, without pvmfw,
+		 * let it set the boot entry address.
+		 */
 		if (!pkvm_vcpu_is_pvmfw_bsp(vcpu) &&
 		    kvm_register_is_dirty(shared_vcpu, VCPU_REGS_RIP))
 			kvm_rip_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RIP]);
-		/*
-		 * FIXME: Pass pVM payload entry address to pVM firmware by RDI.
-		 * According to the comment in the crosvm x86_64/src/lib.rs,
-		 * this is just for development purpose. Probably this update
-		 * will not be needed eventually.
-		 */
-		kvm_rdi_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RDI]);
 
+		return;
+	} else if (unlikely(!kvm_vcpu_has_run(vcpu) && !kvm_vcpu_is_reset_bsp(vcpu))) {
+		/*
+		 * FIXME: temporarily let the host set the initial RIP for
+		 * secondary vCPUs for INIT/SIPI emulation, until we implement
+		 * a guest PV mechanism for secondary vCPUs startup.
+		 */
+		kvm_rip_write(vcpu, shared_vcpu->arch.regs[VCPU_REGS_RIP]);
 		return;
 	}
 
