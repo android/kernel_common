@@ -111,8 +111,8 @@ static __always_inline unsigned __page_shift(void)
  * NOTE: __MAP_NO_COMPAT is not new UABI it is only ever set by the kernel
  *       in ___filemap_fixup()
  */
-#define __VM_NO_COMPAT      (_AC(1,ULL) << 59)
-#define __MAP_NO_COMPAT     (_AC(1,UL) << 31)
+#define __VM_NO_COMPAT      _BITULL(58)
+#define __MAP_NO_COMPAT     _BITUL(31)
 
 /*
  * Conditional page-alignment based on mmap flags

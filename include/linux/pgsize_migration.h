@@ -23,22 +23,24 @@
  * This allows the kernel to identify the portion of an ELF LOAD segment VMA
  * that is padding.
  *
- * 4 high bits of vm_flags [63,60] are used to represent ELF segment padding
+ * 4 high bits of vm_flags [62,59] are used to represent ELF segment padding
  * up to 60kB, which is sufficient for ELFs of both 16kB and 64kB segment
  * alignment (p_align).
  *
  * The representation is illustrated below.
  *
- *                    63        62        61        60
+ *                    62        61        60        59
  *                _________ _________ _________ _________
  *               |  Bit 3  |  Bit 2  |  Bit 1  |  Bit 0  |
  *               | of  4kB | of  4kB | of  4kB | of  4kB |
  *               |  chunks |  chunks |  chunks |  chunks |
  *               |_________|_________|_________|_________|
+ *
+ * NOTE: Bit 63 is already used by mseal()
  */
 
 #define VM_PAD_WIDTH		4
-#define VM_PAD_SHIFT		(BITS_PER_LONG - VM_PAD_WIDTH)
+#define VM_PAD_SHIFT		(BITS_PER_LONG - VM_PAD_WIDTH - 1)
 #define VM_TOTAL_PAD_PAGES	((1ULL << VM_PAD_WIDTH) - 1)
 #define VM_PAD_MASK		(VM_TOTAL_PAD_PAGES << VM_PAD_SHIFT)
 #define VMA_PAD_START(vma)	(vma->vm_end - (vma_pad_pages(vma) << PAGE_SHIFT))
