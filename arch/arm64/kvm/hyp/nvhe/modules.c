@@ -236,6 +236,7 @@ const struct pkvm_module_ops module_ops = {
 	.register_unmask_serror = __pkvm_register_unmask_serror,
 	.host_donate_hyp = ___pkvm_host_donate_hyp,
 	.host_donate_hyp_prot = ___pkvm_host_donate_hyp_prot,
+	.host_donate_sglist_hyp = __pkvm_host_donate_sglist_hyp,
 	.hyp_donate_host = __pkvm_hyp_donate_host,
 	.host_share_hyp = __pkvm_host_share_hyp,
 	.host_unshare_hyp = __pkvm_host_unshare_hyp,
