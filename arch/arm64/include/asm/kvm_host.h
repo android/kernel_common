@@ -89,6 +89,8 @@ struct kvm_hyp_memcache {
 	unsigned long nr_pages;
 	unsigned long flags;
 	void *mapping; /* struct pkvm_mapping *, only used from EL1 */
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 static inline void push_hyp_memcache(struct kvm_hyp_memcache *mc,
