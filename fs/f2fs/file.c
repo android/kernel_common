@@ -38,7 +38,7 @@
 #undef CREATE_TRACE_POINTS
 #include <trace/hooks/fs.h>
 
-static vm_fault_t f2fs_filemap_fault(struct vm_fault *vmf)
+vm_fault_t f2fs_filemap_fault(struct vm_fault *vmf)
 {
 	struct inode *inode = file_inode(vmf->vma->vm_file);
 	vm_flags_t flags = vmf->vma->vm_flags;

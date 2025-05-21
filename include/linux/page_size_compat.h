@@ -40,6 +40,14 @@
 DECLARE_STATIC_KEY_FALSE(page_shift_compat_enabled);
 extern int page_shift_compat __ro_after_init;
 
+#ifdef CONFIG_SHMEM
+extern vm_fault_t shmem_fault(struct vm_fault *vmf);
+#endif	/* CONFIG_SHMEM */
+
+#ifdef CONFIG_F2FS_FS
+extern vm_fault_t f2fs_filemap_fault(struct vm_fault *vmf);
+#endif	/* CONFIG_F2FS_FS */
+
 #ifdef CONFIG_X86_64
 static __always_inline unsigned __page_shift(void)
 {
