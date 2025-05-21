@@ -602,6 +602,10 @@ struct iommu_ops {
 	struct iommu_domain *release_domain;
 	struct iommu_domain *default_domain;
 	u8 user_pasid_table:1;
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /**
@@ -690,6 +694,10 @@ struct iommu_domain_ops {
 	int (*add_deferred_map_sg)(struct iommu_map_cookie_sg *cookie,
 				   phys_addr_t paddr, size_t pgsize, size_t pgcount);
 	size_t (*consume_deferred_map_sg)(struct iommu_map_cookie_sg *cookie);
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 /**
