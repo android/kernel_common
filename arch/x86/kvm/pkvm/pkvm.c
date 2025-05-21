@@ -475,14 +475,23 @@ static struct pkvm_vcpu *load_pkvm_vcpu(struct kvm_vcpu *shared_vcpu, unsigned l
 		return NULL;
 
 	vcpu = to_kvm_vcpu(pkvm_vcpu);
-	if (!is_kvm_vcpu_accessible(vcpu, fn)) {
-		put_pkvm_vcpu(pkvm_vcpu);
-		return NULL;
-	}
+	if (!is_kvm_vcpu_accessible(vcpu, fn))
+		goto out;
+
+	/*
+	 * Except the vcpu_load PV interface, the other vcpu accessing PV
+	 * interfaces requires the vcpu to be loaded on this CPU.
+	 */
+	if (vcpu->cpu != raw_smp_processor_id() &&
+	    !(vcpu->cpu == -1 && fn == __pkvm__vcpu_load))
+		goto out;
 
 	pkvm_x86_call(switch_to_guest_vcpu)(vcpu);
 
 	return pkvm_vcpu;
+out:
+	put_pkvm_vcpu(pkvm_vcpu);
+	return NULL;
 }
 
 static void unload_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
