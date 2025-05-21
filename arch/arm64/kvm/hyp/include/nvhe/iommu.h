@@ -69,7 +69,7 @@ struct kvm_iommu_ops {
 	phys_addr_t (*iova_to_phys)(struct kvm_hyp_iommu_domain *domain, unsigned long iova);
 	void (*iotlb_sync)(struct kvm_hyp_iommu_domain *domain,
 			   struct iommu_iotlb_gather *gather);
-	bool (*dabt_handler)(struct kvm_cpu_context *host_ctxt, u64 esr, u64 addr);
+	bool (*dabt_handler)(struct user_pt_regs *regs, u64 esr, u64 addr);
 	void (*host_stage2_idmap)(struct kvm_hyp_iommu_domain *domain,
 				  phys_addr_t start, phys_addr_t end, int prot);
 	void (*host_stage2_idmap_complete)(bool map);
