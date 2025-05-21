@@ -1475,6 +1475,7 @@ typedef struct pglist_data {
 #endif
 
 	ANDROID_KABI_RESERVE(1);
+	ANDROID_BACKPORT_RESERVE(1);
 	ANDROID_OEM_DATA(1);
 } pg_data_t;
 
