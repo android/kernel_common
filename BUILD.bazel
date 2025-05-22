@@ -807,7 +807,6 @@ kernel_build(
     arch = "arm64",
     # Enable mixed build.
     base_kernel = ":kernel_aarch64",
-    build_config = "build.config.db845c",
     defconfig = "arch/arm64/configs/gki_defconfig",
     make_goals = [
         "modules",
@@ -842,7 +841,6 @@ kernel_build(
     arch = "arm64",
     # Enable mixed build.
     base_kernel = ":kernel_aarch64",
-    build_config = "build.config.db845c",
     defconfig = "arch/arm64/configs/gki_defconfig",
     make_goals = [
         "modules",
