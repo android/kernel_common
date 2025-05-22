@@ -28,6 +28,8 @@
 #include <linux/highmem.h>
 #include <linux/io.h>
 #include <linux/kmemleak.h>
+#include <linux/sched.h>
+#include <linux/jiffies.h>
 #include <trace/events/cma.h>
 
 #include "internal.h"
@@ -783,6 +785,8 @@ static int cma_range_alloc(struct cma *cma, struct cma_memrange *cmr,
 	unsigned long bitmap_maxno, bitmap_no, bitmap_count;
 	int ret = -EBUSY;
 	struct page *page = NULL;
+	int num_attempts = 0;
+	int max_retries = 5;
 
 	mask = cma_bitmap_aligned_mask(cma, align);
 	offset = cma_bitmap_aligned_offset(cma, cmr, align);
@@ -806,8 +810,28 @@ static int cma_range_alloc(struct cma *cma, struct cma_memrange *cmr,
 				bitmap_maxno, start, bitmap_count, mask,
 				offset);
 		if (bitmap_no >= bitmap_maxno) {
-			spin_unlock_irq(&cma->lock);
-			break;
+			if ((num_attempts < max_retries) && (ret == -EBUSY)) {
+				spin_unlock_irq(&cma->lock);
+
+				if (fatal_signal_pending(current))
+					break;
+
+				/*
+				 * Page may be momentarily pinned by some other
+				 * process which has been scheduled out, e.g.
+				 * in exit path, during unmap call, or process
+				 * fork and so cannot be freed there. Sleep
+				 * for 100ms and retry the allocation.
+				 */
+				start = 0;
+				ret = -ENOMEM;
+				schedule_timeout_killable(msecs_to_jiffies(100));
+				num_attempts++;
+				continue;
+			} else {
+				spin_unlock_irq(&cma->lock);
+				break;
+			}
 		}
 		bitmap_set(cmr->bitmap, bitmap_no, bitmap_count);
 		cma->available_count -= count;
