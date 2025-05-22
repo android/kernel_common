@@ -813,7 +813,8 @@ static int cma_range_alloc(struct cma *cma, struct cma_memrange *cmr,
 			if ((num_attempts < max_retries) && (ret == -EBUSY)) {
 				spin_unlock_irq(&cma->lock);
 
-				if (fatal_signal_pending(current))
+				if (fatal_signal_pending(current) ||
+				    (gfp & __GFP_NORETRY))
 					break;
 
 				/*
@@ -875,6 +876,10 @@ struct page *__cma_alloc(struct cma *cma, unsigned long count,
 	int ret = -ENOMEM, r;
 	unsigned long i;
 	const char *name = cma ? cma->name : NULL;
+
+	if (WARN_ON_ONCE((gfp & GFP_KERNEL) == 0 ||
+		(gfp & ~(GFP_KERNEL|__GFP_NOWARN|__GFP_NORETRY)) != 0))
+		return page;
 
 	trace_cma_alloc_start(name, count, align);
 
