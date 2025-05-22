@@ -621,17 +621,20 @@ static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *hvcpu, int cpu)
 	return ret;
 }
 
-static __init void pkvm_host_deinit_vmx(struct pkvm_host_vcpu *hvcpu)
+static inline void pkvm_host_clear_vmx(struct vcpu_vmx *vmx)
 {
-	struct vcpu_vmx *vmx = &hvcpu->vmx;
-
-	pkvm_cpu_vmxoff();
-
 	if (vmx->vmcs01.vmcs)
 		vmx->vmcs01.vmcs = NULL;
 
 	if (vmx->vmcs01.msr_bitmap)
 		vmx->vmcs01.msr_bitmap = NULL;
+}
+
+static __init void pkvm_host_deinit_vmx(struct pkvm_host_vcpu *hvcpu)
+{
+	pkvm_cpu_vmxoff();
+
+	pkvm_host_clear_vmx(&hvcpu->vmx);
 }
 
 static __init void pkvm_host_setup_nested_vmx_cap(struct pkvm_hyp *pkvm)
@@ -865,6 +868,7 @@ static __init int pkvm_host_setup_vcpu(struct pkvm_hyp *pkvm, int cpu)
 	hvcpu->pcpu = pkvm->pcpus[cpu];
 	hvcpu->vmx.vcpu.cpu = cpu;
 	hvcpu->vmx.vcpu.vcpu_id = cpu;
+	hvcpu->vmx.vcpu.mode = OUTSIDE_GUEST_MODE;
 
 	pkvm->host_vm.host_vcpus[cpu] = hvcpu;
 
@@ -908,6 +912,57 @@ static noinline int local_deprivilege_cpu(struct pkvm_host_vcpu *hvcpu)
 		: "rax", "rdx", "memory");
 
 	return ret;
+}
+
+static __init void pkvm_host_reprivilege_cpu(void *data)
+{
+	struct pkvm_host_vcpu *hvcpu = (struct pkvm_host_vcpu *)data;
+	struct kvm_vcpu *vcpu = &hvcpu->vmx.vcpu;
+	unsigned long flags;
+	int cpu = get_cpu();
+
+	if (WARN_ON(vcpu->mode == OUTSIDE_GUEST_MODE))
+		return;
+
+	local_irq_save(flags);
+
+	/*
+	 * Load the RW GDT page for reprivilege code
+	 * to reload TR.
+	 * TODO: find a way to do this in pkvm.
+	 */
+	load_direct_gdt(cpu);
+
+	/*
+	 * Intel CET requires indirect jmp/call to return to
+	 * endbr64 instruction. So we can't use kvm_hypercall
+	 * here.
+	 */
+	asm volatile(
+		"vmcall\n"
+		"endbr64\n"
+		:
+		: "a"(__PKVM_HC_REPRIVILEGE_VCPU)
+		: "memory");
+
+	/*
+	 * Switch back to RO GDT page
+	 */
+	load_fixmap_gdt(cpu);
+
+	/*
+	 * Now we are re-privileged. Clean up VMX.
+	 */
+	pkvm_host_clear_vmx(&hvcpu->vmx);
+	vcpu = &hvcpu->vmx.vcpu;
+	vcpu->mode = OUTSIDE_GUEST_MODE;
+	this_cpu_write(pkvm_enabled, false);
+
+	pr_info("%s: CPU%d back in host mode\n", __func__, cpu);
+
+	local_irq_restore(flags);
+
+	put_cpu();
 }
 
 static __init void pkvm_host_deprivilege_cpu(void *data)
@@ -955,6 +1010,21 @@ ok:
 	put_cpu();
 }
 
+static __init void pkvm_host_reprivilege_cpus(struct pkvm_hyp *pkvm)
+{
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		struct pkvm_host_vcpu *hvcpu = pkvm->host_vm.host_vcpus[cpu];
+
+		if (hvcpu->vmx.vcpu.mode == OUTSIDE_GUEST_MODE)
+			continue;
+
+		smp_call_function_single(cpu, pkvm_host_reprivilege_cpu,
+					       (void *)hvcpu, true);
+	}
+}
+
 /*
  * Used in root mode to deprivilege CPUs
  */
@@ -967,14 +1037,6 @@ static __init int pkvm_host_deprivilege_cpus(struct pkvm_hyp *pkvm)
 
 	on_each_cpu(pkvm_host_deprivilege_cpu, &p, 1);
 	if (p.ret) {
-		/*
-		 * TODO:
-		 * We are here because some CPUs failed to be deprivileged, so
-		 * the failed CPU will stay in root mode. But the others already
-		 * in the non-root mode. In this case, we should let non-root mode
-		 * CPUs go back to root mode, then the system can still run natively
-		 * without pKVM enabled.
-		 */
 		pr_err("%s: WARNING - failed to deprivilege all CPUs!\n", __func__);
 	} else {
 		pr_info("%s: all cpus are in guest mode!\n", __func__);
@@ -1011,7 +1073,8 @@ static int this_cpu_do_finalise_hc(struct pkvm_section *sections, unsigned long 
 
 static __init void do_pkvm_finalise(void *data)
 {
-	__this_cpu_do_finalise_hc(NULL, 0);
+	int *ret = (int *)data;
+	*ret = __this_cpu_do_finalise_hc(NULL, 0);
 }
 
 static __init int pkvm_init_finalise(void)
@@ -1089,11 +1152,12 @@ static __init int pkvm_init_finalise(void)
 	 */
 	ret = this_cpu_do_finalise_hc(sections, ARRAY_SIZE(sections));
 	if (ret) {
-		pr_err("%s: pkvm finalise failed!\n", __func__);
+		pr_err("%s: pkvm finalise on CPU%d failed!\n", __func__, self);
 		goto out;
 	}
 
 	for_each_possible_cpu(cpu) {
+		int finalize_ret = 0;
 		if (cpu == self)
 			continue;
 
@@ -1102,7 +1166,14 @@ static __init int pkvm_init_finalise(void)
 		 * for other cpus other than boot cpu.
 		 */
 		ret = smp_call_function_single(cpu, do_pkvm_finalise,
-					       NULL, true);
+					       (void *)&finalize_ret, true);
+		if (ret || finalize_ret) {
+			pr_err("%s: pkvm finalise on CPU%d failed!\n",
+					__func__, cpu);
+			if (!ret)
+				ret = finalize_ret;
+			goto out;
+		}
 	}
 
 	ret = kvm_hypercall0(PKVM_HC_ACTIVATE_IOMMU);
@@ -1422,6 +1493,7 @@ int __init vmx_pkvm_init(void)
 	pkvm->num_cpus = num_possible_cpus();
 
 	ret = pkvm_init_finalise();
+	kvm_hypercall1(__PKVM_HC_COMMIT_FINALISE, !ret);
 	if (ret)
 		goto out;
 
@@ -1429,8 +1501,11 @@ int __init vmx_pkvm_init(void)
 	return 0;
 
 out:
-	pkvm_firmware_rmem_clear();
-	pkvm_sym(pkvm_hyp) = NULL;
-	/* TODO: Revisit if the memory resource may be reused here */
+	if (ret) {
+		pkvm_host_reprivilege_cpus(pkvm);
+		pkvm_firmware_rmem_clear();
+		pkvm_sym(pkvm_hyp) = NULL;
+		/* TODO: Revisit if the memory resource may be reused here */
+	}
 	return ret;
 }

@@ -10,6 +10,8 @@
 #include <pkvm.h>
 #include <pkvm/vmx/vmx.h>
 
+void pkvm_repriv_restore_cpu(unsigned long *vcpu_regs);
+
 #define SHADOW_VM_HANDLE_SHIFT		32
 #define SHADOW_VCPU_INDEX_MASK		((1UL << SHADOW_VM_HANDLE_SHIFT) - 1)
 #define to_shadow_vcpu_handle(vm_handle, vcpu_idx)		\

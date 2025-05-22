@@ -20,6 +20,21 @@
 #define PKVM_HC_ADD_PTDEV		11
 
 /*
+ * Internal hypercall to commit the pkvm initialization
+ * status to success or failure. This is to make internal
+ * hypercalls to be unavailable for general use after
+ * successful pkvm initialization and to rollback pkvm
+ * initialization actions on failure.
+ */
+#define __PKVM_HC_COMMIT_FINALISE	100
+
+/*
+ * Internal hypercall to reprivilege cpus on pkvm
+ * initialization failure.
+ */
+#define __PKVM_HC_REPRIVILEGE_VCPU	101
+
+/*
  * 15bits for PASID, DO NOT change it, based on it,
  * the size of PASID DIR table can kept as one page
  */

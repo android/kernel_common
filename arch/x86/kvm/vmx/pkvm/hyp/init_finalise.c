@@ -30,9 +30,17 @@
 #include <pkvm/vmx/vmx.h>
 #include <pkvm/pkvm.h>
 
+#include "bug.h"
+
 bool pvmfw_present;
 phys_addr_t pvmfw_base;
 phys_addr_t pvmfw_size;
+
+/*
+ * Memory area reserved for pkvm.
+ */
+static phys_addr_t pkvm_mem_base;
+static phys_addr_t pkvm_mem_size;
 
 void *pkvm_mmu_pgt_base;
 void *pkvm_vmemmap_base;
@@ -40,15 +48,16 @@ void *host_ept_pgt_base;
 static void *iommu_mem_base;
 static void *shadow_ept_base;
 
-static int divide_memory_pool(phys_addr_t phys, unsigned long size)
+static int divide_memory_pool(void)
 {
 	int data_struct_size = pkvm_data_struct_pages(PKVM_GLOBAL_PAGES,
 						      PKVM_PERCPU_PAGES,
 						      pkvm_hyp->num_cpus) << PAGE_SHIFT;
-	void *virt = __pkvm_va(phys + data_struct_size);
+	void *virt = __pkvm_va(pkvm_mem_base + data_struct_size);
 	unsigned long nr_pages;
 
-	pkvm_early_alloc_init(virt, size - data_struct_size);
+	PKVM_ASSERT(pkvm_mem_size > data_struct_size);
+	pkvm_early_alloc_init(virt, pkvm_mem_size - data_struct_size);
 
 	nr_pages = pkvm_vmemmap_pages(sizeof(struct hyp_page));
 	pkvm_vmemmap_base = pkvm_early_alloc_contig(nr_pages);
@@ -245,8 +254,7 @@ static int create_host_ept_mapping(void)
 	return 0;
 }
 
-static int protect_pkvm_pages(const struct pkvm_section sections[],
-		       int section_sz, phys_addr_t phys, unsigned long size)
+static int protect_pkvm_pages(const struct pkvm_section sections[], int section_sz)
 {
 	int ret;
 #ifndef CONFIG_PKVM_INTEL_DEBUG
@@ -267,7 +275,8 @@ static int protect_pkvm_pages(const struct pkvm_section sections[],
 	}
 #endif
 
-	ret = pkvm_host_ept_unmap(phys, phys, size);
+	PKVM_ASSERT(pkvm_mem_size);
+	ret = pkvm_host_ept_unmap(pkvm_mem_base, pkvm_mem_base, pkvm_mem_size);
 	if (ret) {
 		pkvm_err("%s: failed to protect reserved memory\n", __func__);
 		return ret;
@@ -295,22 +304,102 @@ static int create_iommu(void)
 	return pkvm_init_iommu(pkvm_virt_to_phys(iommu_mem_base), nr_pages);
 }
 
+/*
+ * Flag indicating if pkvm(mainly ept and iommu) is setup and enabled
+ * on at least one cpu but does not indicate pkvm is fully initialized.
+ * This flag is also leveraged during the handling of pkvm initialization
+ * failure - this determines whether to tear down the pkvm setup if
+ * pkvm initialization failed.
+ */
+static bool pkvm_setup_done __ro_after_init;
+
+/*
+ * Flag indicating if pkvm is initialized successfully.
+ * Used to enforce internal hypercalls to be unavailable
+ * for general use once pkvm is initialized.
+ */
+static bool pkvm_initialized __ro_after_init;
+
+int pkvm_reprivilege_vcpu(struct kvm_vcpu *vcpu)
+{
+	if (pkvm_initialized) {
+		pkvm_err("reprivilege request after pkvm initialization is not allowed!\n");
+		return -EPERM;
+	}
+
+	pkvm_repriv_restore_cpu(vcpu->arch.regs);
+	/* Reach here only if reprivilege fails. */
+	pkvm_err("Failed to reprivilege vcpu: %d\n", vcpu->vcpu_id);
+
+	return -1;
+}
+
+static void pkvm_undo_finalise(void)
+{
+	/*
+	 * Allow the host to access memory for successfully unwinding
+	 * pkvm and returning to host mode.
+	 */
+	if (pkvm_setup_done) {
+		u64 prot = pkvm_mkstate(HOST_EPT_DEF_MEM_PROT, PKVM_PAGE_OWNED);
+
+		pkvm_dbg("%s: remapping reserved mem %llx[%llx]\n",
+				__func__, pkvm_mem_base, pkvm_mem_size);
+		if (pkvm_host_ept_map(pkvm_mem_base, pkvm_mem_base, pkvm_mem_size, 0, prot)) {
+			pkvm_err("pkvm: failed to map back reserved mem[%llx:%llx] to host!\n",
+					pkvm_mem_base, pkvm_mem_size);
+		}
+		if (pvmfw_present) {
+			pkvm_dbg("%s: remapping pvmfw reserved mem %llx[%llx]\n",
+					__func__, pvmfw_base, pvmfw_size);
+			if (pkvm_host_ept_map(pvmfw_base, pvmfw_base, pvmfw_size, 0, prot)) {
+				pkvm_err("pkvm: failed to map back pvmfw mem[%llx:%llx] to host!\n",
+					pvmfw_base, pvmfw_size);
+			}
+		}
+	}
+
+	pkvm_undo_iommu();
+}
+
+int pkvm_commit_finalise(bool success)
+{
+	if (pkvm_initialized) {
+		pkvm_err("init commit request after pkvm initialization is not allowed!\n");
+		return -EPERM;
+	}
+
+	if (success) {
+		pkvm_initialized = true;
+		/*
+		 * TODO: Move reprivilege logic and undo_finalize
+		 * to a separate section and zero it out here.
+		 */
+	} else {
+		pkvm_undo_finalise();
+	}
+
+	return 0;
+}
+
 #define TMP_SECTION_SZ	16UL
 int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 			 int section_sz)
 {
 	int i, ret = 0;
-	static bool pkvm_init;
 	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
 	struct pkvm_pcpu *pcpu = hvcpu->pcpu;
 	struct pkvm_section tmp_sections[TMP_SECTION_SZ];
-	phys_addr_t hyp_mem_base;
-	unsigned long hyp_mem_size = 0;
 	u64 eptp;
+
+	if (pkvm_initialized) {
+		pkvm_err("INIT_FINALISE hypercall after pkvm initialization is not allowed!\n");
+		return -EPERM;
+	}
 
 	this_cpu_write(host_vcpu, vcpu);
 
-	if (pkvm_init) {
+	if (pkvm_setup_done) {
 		/* Switch to pkvm mmu in root mode in case some setup may need this */
 		native_write_cr3(pkvm_hyp->mmu->root_pa);
 		goto switch_pgt;
@@ -329,17 +418,17 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 	for (i = 0; i < section_sz; i++) {
 		tmp_sections[i] = sections[i];
 		if (sections[i].type == PKVM_RESERVED_MEMORY) {
-			hyp_mem_base = sections[i].addr;
-			hyp_mem_size = sections[i].size;
+			pkvm_mem_base = sections[i].addr;
+			pkvm_mem_size = sections[i].size;
 		}
 	}
-	if (hyp_mem_size == 0) {
+	if (pkvm_mem_size == 0) {
 		pkvm_err("pkvm: no pkvm reserve memory!");
 		ret = -ENOTSUPP;
 		goto out;
 	}
 
-	ret = divide_memory_pool(hyp_mem_base, hyp_mem_size);
+	ret = divide_memory_pool();
 	if (ret) {
 		pkvm_err("pkvm: not reserve enough memory!");
 		goto out;
@@ -353,8 +442,7 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 	if (ret)
 		goto out;
 
-	ret = protect_pkvm_pages(tmp_sections, section_sz,
-			hyp_mem_base, hyp_mem_size);
+	ret = protect_pkvm_pages(tmp_sections, section_sz);
 	if (ret)
 		goto out;
 
@@ -373,7 +461,7 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 	if (ret)
 		goto out;
 
-	pkvm_init = true;
+	pkvm_setup_done = true;
 
 switch_pgt:
 	/* switch mmu */

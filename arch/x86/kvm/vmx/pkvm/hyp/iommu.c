@@ -11,6 +11,7 @@
 #include "mmu.h"
 #include "ept.h"
 #include "pgtable.h"
+#include "mem_protect.h"
 #include "iommu_internal.h"
 #include "debug.h"
 #include "ptdev.h"
@@ -932,6 +933,54 @@ int pkvm_init_iommu(unsigned long mem_base, unsigned long nr_pages)
 	}
 
 	return 0;
+}
+
+static void restore_qi(struct pkvm_iommu *iommu, u64 iqa)
+{
+	u32 sts;
+
+	sts = readl(iommu->iommu.reg + DMAR_GSTS_REG);
+	if (!(sts & DMA_GSTS_QIES))
+		return;
+
+	/* Disable QI */
+	iommu->iommu.gcmd &= ~DMA_GCMD_QIE;
+	writel(iommu->iommu.gcmd, iommu->iommu.reg + DMAR_GCMD_REG);
+	PKVM_IOMMU_WAIT_OP(iommu->iommu.reg + DMAR_GSTS_REG,
+			   readl, !(sts & DMA_GSTS_QIES), sts);
+
+	/* Set tail to 0 */
+	writel(0, iommu->iommu.reg + DMAR_IQT_REG);
+
+	/* Set IQA */
+	writeq(iqa, iommu->iommu.reg + DMAR_IQA_REG);
+
+	/* Enable QI */
+	iommu->iommu.gcmd |= DMA_GCMD_QIE;
+	writel(iommu->iommu.gcmd, iommu->iommu.reg + DMAR_GCMD_REG);
+	PKVM_IOMMU_WAIT_OP(iommu->iommu.reg + DMAR_GSTS_REG,
+			   readl, (sts & DMA_GSTS_QIES), sts);
+}
+
+void pkvm_undo_iommu(void)
+{
+	struct pkvm_iommu *iommu;
+
+	for_each_valid_iommu(iommu) {
+		u64 prot = pkvm_mkstate(HOST_EPT_DEF_MMIO_PROT, PKVM_PAGE_OWNED);
+
+		if (!iommu->activated)
+			continue;
+		if (pkvm_host_ept_map((unsigned long)iommu->iommu.reg_phys,
+			     (unsigned long)iommu->iommu.reg_phys,
+			     iommu->iommu.reg_size, 0, prot)) {
+			pkvm_err("pkvm: failed to map back IOMMU mmio space[%llx:%llx] to host!\n",
+					(unsigned long long)iommu->iommu.reg_phys,
+					iommu->iommu.reg_size);
+		}
+
+		restore_qi(iommu, iommu->viommu.vreg.iqa);
+	}
 }
 
 static int free_shadow_id_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
