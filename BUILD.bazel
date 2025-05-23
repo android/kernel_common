@@ -1521,6 +1521,7 @@ ddk_headers(
         "sound/usb/usbaudio.h",
         ":all_headers_allowlist_aarch64_globs",
         ":all_headers_allowlist_common_globs",
+        ":all_headers_allowlist_exynos",
         ":xhci_headers",
     ],
     # The list of include directories where source files can #include headers
@@ -1627,6 +1628,24 @@ ddk_headers(
     # Unsafe include directories are appended to ccflags-y.
     includes = [
         ".",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+ddk_headers(
+    name = "all_headers_allowlist_exynos",
+    hdrs = [
+        "drivers/android/binder_alloc.h",
+        "drivers/android/binder_internal.h",
+        "drivers/android/binder_trace.h",
+        "drivers/android/dbitmap.h",
+        "kernel/sched/cpudeadline.h",
+        "kernel/sched/cpupri.h",
+        "kernel/sched/ext.h",
+        "kernel/sched/features.h",
+        "kernel/sched/sched.h",
+        "kernel/sched/stats.h",
+        "kernel/workqueue_internal.h",
     ],
     visibility = ["//visibility:private"],
 )
