@@ -115,6 +115,13 @@
   consume_skb
   cont_write_begin
   __copy_overflow
+  cpufreq_cpu_get
+  cpufreq_cpu_put
+  cpufreq_driver_target
+  cpufreq_generic_attr
+  cpufreq_generic_frequency_table_verify
+  cpufreq_generic_get
+  cpufreq_register_driver
   __cpuhp_remove_state
   __cpuhp_setup_state
   cpuidle_pause_and_lock
@@ -149,6 +156,7 @@
   dev_driver_string
   _dev_err
   dev_err_probe
+  devfreq_recommended_opp
   __dev_fwnode
   __dev_fwnode_const
   dev_get_regmap
@@ -184,12 +192,14 @@
   __devm_add_action
   devm_blk_crypto_profile_init
   devm_clk_bulk_get
+  devm_clk_bulk_get_all
   devm_clk_bulk_get_all_enable
   devm_clk_bulk_get_optional
   devm_clk_get
   devm_clk_get_enabled
   devm_clk_get_optional
   devm_clk_get_optional_enabled
+  devm_devfreq_add_device
   devm_extcon_dev_allocate
   devm_extcon_dev_register
   devm_extcon_register_notifier
@@ -204,6 +214,7 @@
   devm_input_allocate_device
   devm_ioremap
   devm_ioremap_resource
+  devm_iounmap
   devm_kasprintf
   devm_kfree
   devm_kmalloc
@@ -220,7 +231,9 @@
   devm_of_phy_get_by_index
   __devm_of_phy_provider_register
   devm_of_platform_populate
+  devm_pci_alloc_host_bridge
   devm_phy_create
+  devm_phy_optional_get
   devm_pinctrl_get
   devm_platform_get_and_ioremap_resource
   devm_platform_ioremap_resource
@@ -240,6 +253,7 @@
   devm_regulator_get_optional
   devm_regulator_register
   devm_request_threaded_irq
+  __devm_reset_control_bulk_get
   __devm_reset_control_get
   devm_reset_controller_register
   devm_rproc_alloc
@@ -255,11 +269,23 @@
   dev_pm_opp_adjust_voltage
   dev_pm_opp_disable
   dev_pm_opp_enable
+  dev_pm_opp_find_freq_ceil
   dev_pm_opp_find_freq_exact
   dev_pm_opp_find_freq_floor
+  dev_pm_opp_free_cpufreq_table
+  dev_pm_opp_get_freq_indexed
   dev_pm_opp_get_opp_count
   dev_pm_opp_get_voltage
+  dev_pm_opp_init_cpufreq_table
+  dev_pm_opp_of_add_table
+  dev_pm_opp_of_cpumask_add_table
+  dev_pm_opp_of_cpumask_remove_table
+  dev_pm_opp_of_get_sharing_cpus
+  dev_pm_opp_of_register_em
+  dev_pm_opp_of_remove_table
   dev_pm_opp_put
+  dev_pm_opp_register_notifier
+  dev_pm_opp_unregister_notifier
   dev_pm_set_dedicated_wake_irq_reverse
   devres_add
   __devres_alloc_node
@@ -372,6 +398,8 @@
   gpiochip_get_data
   gpiod_direction_output
   gpiod_set_value_cansleep
+  handle_edge_irq
+  handle_fasteoi_irq
   handle_level_irq
   handle_nested_irq
   handle_simple_irq
@@ -461,16 +489,24 @@
   iput
   __ipv6_addr_type
   ipv6_stub
+  irq_chip_ack_parent
+  irq_chip_mask_parent
+  irq_chip_unmask_parent
   irq_create_mapping_affinity
   irq_dispose_mapping
   __irq_domain_alloc_fwnode
   irq_domain_free_fwnode
+  irq_domain_free_irqs_common
+  irq_domain_free_irqs_parent
+  irq_domain_get_irq_data
   irq_domain_instantiate
   irq_domain_remove
+  irq_domain_set_info
   irq_domain_simple_ops
   irq_domain_xlate_twocell
   irq_modify_status
   __irq_resolve_mapping
+  irq_set_chained_handler_and_data
   irq_set_chip_and_handler_name
   irq_set_chip_data
   irq_set_irq_wake
@@ -665,8 +701,10 @@
   of_device_get_match_data
   of_device_is_available
   of_device_is_compatible
+  of_find_compatible_node
   of_find_device_by_node
   of_find_node_by_name
+  of_find_node_opts_by_path
   of_find_property
   of_fwnode_ops
   of_get_child_by_name
@@ -674,6 +712,7 @@
   of_get_next_available_child
   of_get_next_child
   of_get_next_parent
+  of_get_pci_domain_nr
   of_get_property
   of_get_regulator_init_data
   of_graph_get_next_endpoint
@@ -689,6 +728,7 @@
   of_n_size_cells
   of_nvmem_cell_get
   __of_parse_phandle_with_args
+  of_pci_get_devfn
   of_platform_depopulate
   of_platform_populate
   of_property_count_elems_of_size
@@ -714,6 +754,20 @@
   param_ops_ulong
   param_ops_ushort
   pci_bus_type
+  pci_free_resource_list
+  pci_generic_config_read
+  pci_generic_config_read32
+  pci_generic_config_write
+  pci_generic_config_write32
+  pci_host_probe
+  pci_lock_rescan_remove
+  pci_msi_create_irq_domain
+  pci_msi_mask_irq
+  pci_msi_unmask_irq
+  pci_pio_to_address
+  pci_remove_root_bus
+  pci_stop_root_bus
+  pci_unlock_rescan_remove
   pcpu_alloc_noprof
   __per_cpu_offset
   perf_aux_output_begin
@@ -767,6 +821,7 @@
   platform_driver_unregister
   platform_get_ethdev_address
   platform_get_irq
+  platform_get_irq_byname
   platform_get_irq_byname_optional
   platform_get_irq_optional
   platform_get_mem_or_io
@@ -849,6 +904,7 @@
   regulator_disable_regmap
   regulator_enable
   regulator_enable_regmap
+  regulator_get_optional
   regulator_get_voltage
   regulator_get_voltage_sel_pickable_regmap
   regulator_get_voltage_sel_regmap
@@ -862,7 +918,9 @@
   regulator_map_voltage_linear
   regulator_map_voltage_linear_range
   regulator_map_voltage_pickable_linear_range
+  regulator_put
   regulator_set_mode
+  regulator_set_voltage
   regulator_set_voltage_sel_pickable_regmap
   regulator_set_voltage_sel_regmap
   regulator_set_voltage_time_sel
@@ -870,6 +928,8 @@
   report_iommu_fault
   __request_module
   reset_control_assert
+  reset_control_bulk_assert
+  reset_control_bulk_deassert
   reset_control_deassert
   reset_control_reset
   round_jiffies_relative
