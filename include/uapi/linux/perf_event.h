@@ -511,16 +511,7 @@ struct perf_event_attr {
 	__u16	sample_max_stack;
 	__u16	__reserved_2;
 	__u32	aux_sample_size;
-
-	union {
-		__u32	aux_action;
-		struct {
-			__u32	aux_start_paused :  1, /* start AUX area tracing paused */
-				aux_pause        :  1, /* on overflow, pause AUX area tracing */
-				aux_resume       :  1, /* on overflow, resume AUX area tracing */
-				__reserved_3     : 29;
-		};
-	};
+	__u32	__reserved_3;
 
 	/*
 	 * User provided data if sigtrap=1, passed back to user via
