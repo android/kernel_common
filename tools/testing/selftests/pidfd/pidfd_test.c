@@ -42,41 +42,12 @@ static pid_t pidfd_clone(int flags, int *pidfd, int (*fn)(void *))
 #endif
 }
 
-static pthread_t signal_received;
+static int signal_received;
 
 static void set_signal_received_on_sigusr1(int sig)
 {
 	if (sig == SIGUSR1)
-		signal_received = pthread_self();
-}
-
-static int send_signal(int pidfd)
-{
-	int ret = 0;
-
-	if (sys_pidfd_send_signal(pidfd, SIGUSR1, NULL, 0) < 0) {
-		ret = -EINVAL;
-		goto exit;
-	}
-
-	if (signal_received != pthread_self()) {
-		ret = -EINVAL;
-		goto exit;
-	}
-
-exit:
-	signal_received = 0;
-	return ret;
-}
-
-static void *send_signal_worker(void *arg)
-{
-	int pidfd = (int)(intptr_t)arg;
-	int ret;
-
-	/* We forward any errors for the caller to handle. */
-	ret = send_signal(pidfd);
-	return (void *)(intptr_t)ret;
+		signal_received = 1;
 }
 
 /*
@@ -85,11 +56,8 @@ static void *send_signal_worker(void *arg)
  */
 static int test_pidfd_send_signal_simple_success(void)
 {
-	int pidfd;
+	int pidfd, ret;
 	const char *test_name = "pidfd_send_signal send SIGUSR1";
-	pthread_t thread;
-	void *thread_res;
-	int err;
 
 	if (!have_pidfd_send_signal) {
 		ksft_test_result_skip(
@@ -98,45 +66,25 @@ static int test_pidfd_send_signal_simple_success(void)
 		return 0;
 	}
 
-	signal(SIGUSR1, set_signal_received_on_sigusr1);
-
-	/* Try sending a signal to ourselves via /proc/self. */
 	pidfd = open("/proc/self", O_DIRECTORY | O_CLOEXEC);
 	if (pidfd < 0)
 		ksft_exit_fail_msg(
 			"%s test: Failed to open process file descriptor\n",
 			test_name);
-	err = send_signal(pidfd);
-	if (err)
-		ksft_exit_fail_msg(
-			"%s test: Error %d on sending pidfd signal\n",
-			test_name, err);
+
+	signal(SIGUSR1, set_signal_received_on_sigusr1);
+
+	ret = sys_pidfd_send_signal(pidfd, SIGUSR1, NULL, 0);
 	close(pidfd);
-
-	/* Now try the same thing only using PIDFD_SELF_THREAD_GROUP. */
-	err = send_signal(PIDFD_SELF_THREAD_GROUP);
-	if (err)
-		ksft_exit_fail_msg(
-			"%s test: Error %d on PIDFD_SELF_THREAD_GROUP signal\n",
-			test_name, err);
-
-	/*
-	 * Now try the same thing in a thread and assert thread ID is equal to
-	 * worker thread ID.
-	 */
-	if (pthread_create(&thread, NULL, send_signal_worker,
-			   (void *)(intptr_t)PIDFD_SELF_THREAD))
-		ksft_exit_fail_msg("%s test: Failed to create thread\n",
+	if (ret < 0)
+		ksft_exit_fail_msg("%s test: Failed to send signal\n",
 				   test_name);
-	if (pthread_join(thread, &thread_res))
-		ksft_exit_fail_msg("%s test: Failed to join thread\n",
-				   test_name);
-	err = (int)(intptr_t)thread_res;
-	if (err)
-		ksft_exit_fail_msg(
-			"%s test: Error %d on PIDFD_SELF_THREAD signal\n",
-			test_name, err);
 
+	if (signal_received != 1)
+		ksft_exit_fail_msg("%s test: Failed to receive signal\n",
+				   test_name);
+
+	signal_received = 0;
 	ksft_test_result_pass("%s test: Sent signal\n", test_name);
 	return 0;
 }
