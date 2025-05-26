@@ -17,7 +17,7 @@
  *
  * When all the above are satisfied, HAS_KERNEL_IBT will be 1, otherwise 0.
  */
-#if defined(CONFIG_X86_KERNEL_IBT) && !defined(__DISABLE_EXPORTS)
+#if defined(CONFIG_X86_KERNEL_IBT) && (!defined(__DISABLE_EXPORTS) || defined(__PKVM_HYP__))
 
 #define HAS_KERNEL_IBT	1
 
