@@ -20,11 +20,6 @@ enum pkvm_psci_notification {
 	PKVM_PSCI_CPU_ENTRY,
 };
 
-struct pkvm_sglist_page {
-	u64	pfn : 40;
-	u8	order;
-} __packed;
-
 /**
  * struct pkvm_module_ops - pKVM modules callbacks
  * @create_private_mapping:	Map a memory region into the hypervisor private
@@ -137,9 +132,6 @@ struct pkvm_sglist_page {
  *				full control is given to the hypervisor.
  * @host_donate_hyp_prot:	As host_donate_hyp_prot, but this variant sets
  *				the prot of the hyp.
- * @host_donate_sglist_hyp:	Similar to host_donate_hyp but take an array of PFNs
- *				(kvm_sglist_page) as an argument. This intends to
- *				batch IOMMU updates.
  * @hyp_donate_host:		The page @pfn whom control has previously been
  *				given to the hypervisor (@host_donate_hyp) is
  *				given back to the host.
@@ -233,7 +225,6 @@ struct pkvm_module_ops {
 	int (*register_unmask_serror)(bool (*unmask)(void), void (*mask)(void));
 	int (*host_donate_hyp)(u64 pfn, u64 nr_pages, bool accept_mmio);
 	int (*host_donate_hyp_prot)(u64 pfn, u64 nr_pages, bool accept_mmio, enum kvm_pgtable_prot prot);
-	int (*host_donate_sglist_hyp)(struct pkvm_sglist_page *sglist, size_t nr_pages);
 	int (*hyp_donate_host)(u64 pfn, u64 nr_pages);
 	int (*host_share_hyp)(u64 pfn);
 	int (*host_unshare_hyp)(u64 pfn);
