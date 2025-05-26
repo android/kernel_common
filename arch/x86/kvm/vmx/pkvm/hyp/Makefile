@@ -7,6 +7,7 @@ ccflags-y += -D__DISABLE_EXPORTS
 ccflags-y += -D__PKVM_HYP__
 ccflags-y += -include $(srctree)/arch/x86/kvm/pkvm/def.h
 
+asflags-y += -D__DISABLE_EXPORTS
 asflags-y += -D__PKVM_HYP__
 asflags-y += -I $(srctree)/arch/x86/kvm
 asflags-y += -I $(srctree)/arch/x86/kvm/vmx/pkvm/include
@@ -21,12 +22,13 @@ pkvm-hyp-y	+= $(pkvm)/cpu.o $(pkvm)/pkvm.o $(pkvm)/x86.o $(pkvm)/vmx/vmx.o $(pkv
 
 lib-dir		:= lib
 lib2-dir	:= ../../../../../../lib
+lib3-dir	:= ../../../../lib
 pkvm-hyp-y	+= $(lib-dir)/memset_64.o
 pkvm-hyp-y	+= $(lib-dir)/memcpy_64.o
 pkvm-hyp-y	+= $(lib2-dir)/find_bit.o
 pkvm-hyp-y	+= $(lib2-dir)/hweight.o
 pkvm-hyp-y	+= $(lib2-dir)/ctype.o $(lib2-dir)/string.o
-pkvm-hyp-$(CONFIG_MITIGATION_RETPOLINE)	+= $(lib-dir)/retpoline.o
+pkvm-hyp-$(CONFIG_MITIGATION_RETPOLINE)	+= $(lib3-dir)/retpoline.o
 pkvm-hyp-$(CONFIG_LIST_HARDENED)	+= $(lib-dir)/list_debug.o
 
 pkvm-obj 	:= $(patsubst %.o,%.pkvm.o,$(pkvm-hyp-y))
