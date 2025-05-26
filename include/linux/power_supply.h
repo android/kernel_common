@@ -17,7 +17,6 @@
 #include <linux/leds.h>
 #include <linux/spinlock.h>
 #include <linux/notifier.h>
-#include <linux/android_kabi.h>
 
 /*
  * All voltages, currents, charges, energies, time and temperatures in uV,
@@ -243,8 +242,6 @@ struct power_supply_config {
 
 	char **supplied_to;
 	size_t num_supplicants;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /* Description of power supply */
@@ -286,8 +283,6 @@ struct power_supply_desc {
 	bool no_thermal;
 	/* For APM emulation, think legacy userspace. */
 	int use_for_apm;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 struct power_supply {
@@ -325,8 +320,6 @@ struct power_supply {
 	struct led_trigger *charging_blink_full_solid_trig;
 	struct led_trigger *charging_orange_full_green_trig;
 #endif
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /*
@@ -346,7 +339,6 @@ struct power_supply_info {
 	int energy_full_design;
 	int energy_empty_design;
 	int use_for_apm;
-	ANDROID_KABI_RESERVE(1);
 };
 
 struct power_supply_battery_ocv_table {
@@ -774,7 +766,6 @@ struct power_supply_battery_info {
 	int vbat2ri_charging_size;
 	int bti_resistance_ohm;
 	int bti_resistance_tolerance;
-	ANDROID_KABI_RESERVE(1);
 };
 
 extern int power_supply_reg_notifier(struct notifier_block *nb);

@@ -3,7 +3,6 @@
 #define __NET_GENERIC_NETLINK_H
 
 #include <linux/net.h>
-#include <linux/android_kabi.h>
 #include <net/netlink.h>
 #include <net/net_namespace.h>
 #include <uapi/linux/genetlink.h>
@@ -114,8 +113,6 @@ struct genl_family {
 	unsigned int		mcgrp_offset;
 	/* list of per-socket privs */
 	struct xarray		*sock_privs;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -222,8 +219,6 @@ struct genl_ops {
 	u8			internal_flags;
 	u8			flags;
 	u8			validate;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**

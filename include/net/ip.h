@@ -25,7 +25,6 @@
 #include <linux/jhash.h>
 #include <linux/sockptr.h>
 #include <linux/static_key.h>
-#include <linux/android_kabi.h>
 
 #include <net/inet_sock.h>
 #include <net/route.h>
@@ -84,7 +83,6 @@ struct ipcm_cookie {
 	__s16			tos;
 	char			priority;
 	__u16			gso_size;
-	ANDROID_KABI_RESERVE(1);
 };
 
 static inline void ipcm_init(struct ipcm_cookie *ipcm)

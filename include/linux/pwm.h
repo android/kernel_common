@@ -7,7 +7,6 @@
 #include <linux/module.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
-#include <linux/android_kabi.h>
 
 MODULE_IMPORT_NS(PWM);
 
@@ -88,8 +87,6 @@ struct pwm_device {
 	struct pwm_args args;
 	struct pwm_state state;
 	struct pwm_state last;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -266,7 +263,6 @@ struct pwm_ops {
 		     const struct pwm_state *state);
 	int (*get_state)(struct pwm_chip *chip, struct pwm_device *pwm,
 			 struct pwm_state *state);
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -294,7 +290,6 @@ struct pwm_chip {
 
 	/* only used internally by the PWM framework */
 	bool uses_pwmchip_alloc;
-	ANDROID_KABI_RESERVE(1);
 	struct pwm_device pwms[] __counted_by(npwm);
 };
 

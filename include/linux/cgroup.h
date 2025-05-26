@@ -24,7 +24,6 @@
 #include <linux/user_namespace.h>
 #include <linux/refcount.h>
 #include <linux/kernel_stat.h>
-#include <linux/android_kabi.h>
 
 #include <linux/cgroup-defs.h>
 
@@ -65,8 +64,6 @@ struct css_task_iter {
 	struct css_set			*cur_dcset;
 	struct task_struct		*cur_task;
 	struct list_head		iters_node;	/* css_set->task_iters */
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 extern struct file_system_type cgroup_fs_type;

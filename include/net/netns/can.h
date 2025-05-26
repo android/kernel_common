@@ -8,7 +8,6 @@
 
 #include <linux/spinlock.h>
 #include <linux/timer.h>
-#include <linux/android_kabi.h>
 
 struct can_dev_rcv_lists;
 struct can_pkg_stats;
@@ -37,8 +36,6 @@ struct netns_can {
 
 	/* CAN GW per-net gateway jobs */
 	struct hlist_head cgw_list;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 #endif /* __NETNS_CAN_H__ */

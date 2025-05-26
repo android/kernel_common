@@ -20,7 +20,6 @@
 #include <linux/seqlock.h>
 #include <linux/percpu_counter.h>
 #include <linux/types.h>
-#include <linux/android_kabi.h>
 
 #include <asm/mmu.h>
 
@@ -805,11 +804,6 @@ struct vm_area_struct {
 	struct anon_vma_name *anon_name;
 #endif
 	struct vm_userfaultfd_ctx vm_userfaultfd_ctx;
-
-	ANDROID_KABI_RESERVE(1);
-	ANDROID_KABI_RESERVE(2);
-	ANDROID_KABI_RESERVE(3);
-	ANDROID_KABI_RESERVE(4);
 } __randomize_layout;
 
 #ifdef CONFIG_NUMA
@@ -1074,8 +1068,6 @@ struct mm_struct {
 #endif
 		} lru_gen;
 #endif /* CONFIG_LRU_GEN_WALKS_MMU */
-
-		ANDROID_KABI_RESERVE(1);
 	} __randomize_layout;
 
 	/*

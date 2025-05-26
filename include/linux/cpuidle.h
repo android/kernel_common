@@ -15,7 +15,6 @@
 #include <linux/list.h>
 #include <linux/hrtimer.h>
 #include <linux/context_tracking.h>
-#include <linux/android_kabi.h>
 
 #define CPUIDLE_STATE_MAX	10
 #define CPUIDLE_NAME_LEN	16
@@ -112,8 +111,6 @@ struct cpuidle_device {
 	cpumask_t		coupled_cpus;
 	struct cpuidle_coupled	*coupled;
 #endif
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 DECLARE_PER_CPU(struct cpuidle_device *, cpuidle_devices);
@@ -168,8 +165,6 @@ struct cpuidle_driver {
 
 	/* preferred governor to switch at register time */
 	const char		*governor;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 #ifdef CONFIG_CPU_IDLE

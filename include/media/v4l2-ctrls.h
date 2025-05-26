@@ -11,7 +11,6 @@
 #include <linux/list.h>
 #include <linux/mutex.h>
 #include <linux/videodev2.h>
-#include <linux/android_kabi.h>
 #include <media/media-request.h>
 
 /* forward references */
@@ -94,9 +93,6 @@ union v4l2_ctrl_ptr {
 	struct v4l2_rect *p_rect;
 	void *p;
 	const void *p_const;
-
-	ANDROID_KABI_RESERVE(1);
-	ANDROID_KABI_RESERVE(2);
 };
 
 /**
@@ -129,8 +125,6 @@ struct v4l2_ctrl_ops {
 	int (*g_volatile_ctrl)(struct v4l2_ctrl *ctrl);
 	int (*try_ctrl)(struct v4l2_ctrl *ctrl);
 	int (*s_ctrl)(struct v4l2_ctrl *ctrl);
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -156,8 +150,6 @@ struct v4l2_ctrl_type_ops {
 			union v4l2_ctrl_ptr ptr);
 	void (*log)(const struct v4l2_ctrl *ctrl);
 	int (*validate)(const struct v4l2_ctrl *ctrl, union v4l2_ctrl_ptr ptr);
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -330,8 +322,6 @@ struct v4l2_ctrl {
 	union v4l2_ctrl_ptr p_max;
 	union v4l2_ctrl_ptr p_new;
 	union v4l2_ctrl_ptr p_cur;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -384,8 +374,6 @@ struct v4l2_ctrl_ref {
 	u32 p_req_array_alloc_elems;
 	u32 p_req_elems;
 	union v4l2_ctrl_ptr p_req;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -436,8 +424,6 @@ struct v4l2_ctrl_handler {
 	struct list_head requests;
 	struct list_head requests_queued;
 	struct media_request_object req_obj;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -493,8 +479,6 @@ struct v4l2_ctrl_config {
 	const char * const *qmenu;
 	const s64 *qmenu_int;
 	unsigned int is_private:1;
-
-	ANDROID_KABI_RESERVE(1);
 };
 
 /**
