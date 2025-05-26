@@ -30,7 +30,6 @@ static bool is_madv_discard(int behavior)
 	case MADV_REMOVE:
 	case MADV_DONTFORK:
 	case MADV_WIPEONFORK:
-	case MADV_GUARD_INSTALL:
 		return true;
 	}
 
