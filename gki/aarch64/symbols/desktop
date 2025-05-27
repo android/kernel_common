@@ -864,6 +864,7 @@
   __put_task_struct
   queue_delayed_work_on
   queue_limits_commit_update
+  queue_limits_commit_update_frozen
   queue_work_on
   ___ratelimit
   _raw_read_lock
