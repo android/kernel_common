@@ -17,6 +17,7 @@
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <linux/u64_stats_sync.h>
+#include <linux/android_kabi.h>
 
 #include <uapi/linux/spi/spi.h>
 
@@ -232,6 +233,8 @@ struct spi_device {
 	 * then more than one bit need to be set in cs_index_mask.
 	 */
 	u32			cs_index_mask : SPI_CS_CNT_MAX;
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 
 	/*
 	 * Likely need more hooks for more protocol options affecting how
@@ -349,6 +352,8 @@ struct spi_driver {
 	void			(*remove)(struct spi_device *spi);
 	void			(*shutdown)(struct spi_device *spi);
 	struct device_driver	driver;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 #define to_spi_driver(__drv)   \
@@ -772,6 +777,9 @@ struct spi_controller {
 	bool			queue_empty;
 	bool			must_async;
 	bool			defer_optimize_message;
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 static inline void *spi_controller_get_devdata(struct spi_controller *ctlr)
@@ -1119,6 +1127,8 @@ struct spi_transfer {
 	struct ptp_system_timestamp *ptp_sts;
 
 	struct list_head transfer_list;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 /**
@@ -1200,6 +1210,8 @@ struct spi_message {
 
 	/* List of spi_res resources when the SPI message is processed */
 	struct list_head        resources;
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 static inline void spi_message_init_no_memset(struct spi_message *m)
@@ -1648,6 +1660,8 @@ struct spi_board_info {
 	 * needed to behave without being bound to a driver:
 	 *  - quirks like clock rate mattering when not selected
 	 */
+
+	ANDROID_KABI_RESERVE(1);
 };
 
 #ifdef	CONFIG_SPI

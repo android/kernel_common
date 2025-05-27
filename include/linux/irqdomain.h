@@ -36,6 +36,7 @@
 #include <linux/of.h>
 #include <linux/mutex.h>
 #include <linux/radix-tree.h>
+#include <linux/android_kabi.h>
 
 struct device_node;
 struct fwnode_handle;
@@ -189,6 +190,11 @@ struct irq_domain {
 	const struct msi_parent_ops	*msi_parent_ops;
 #endif
 	void				(*exit)(struct irq_domain *d);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 
 	/* reverse map data. The linear map gets appended to the irq_domain */
 	irq_hw_number_t			hwirq_max;

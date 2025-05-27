@@ -14,6 +14,7 @@
 #include <linux/skbuff.h>
 #include <linux/types.h>
 #include <linux/usb.h>
+#include <linux/android_kabi.h>
 
 /* interface from usbnet core to each USB networking link we handle */
 struct usbnet {
@@ -81,6 +82,11 @@ struct usbnet {
  * that must be broken
  */
 #		define EVENT_UNPLUG		31
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_RESERVE(4);
 };
 
 static inline bool usbnet_going_away(struct usbnet *ubn)
@@ -180,6 +186,9 @@ struct driver_info {
 	int		out;		/* tx endpoint */
 
 	unsigned long	data;		/* Misc driver specific data */
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
 };
 
 /* Minidrivers are just drivers using the "usbnet" core as a powerful
