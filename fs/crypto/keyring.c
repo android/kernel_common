@@ -553,7 +553,7 @@ static int do_add_master_key(struct super_block *sb,
 
 static int add_master_key(struct super_block *sb,
 			  struct fscrypt_master_key_secret *secret,
-			  struct fscrypt_key_specifier *key_spec, u32 flags)
+			  struct fscrypt_key_specifier *key_spec)
 {
 	int err;
 
@@ -816,7 +816,7 @@ int fscrypt_ioctl_add_key(struct file *filp, void __user *_uarg)
 			goto out_wipe_secret;
 	}
 
-	err = add_master_key(sb, &secret, &arg.key_spec, arg.flags);
+	err = add_master_key(sb, &secret, &arg.key_spec);
 	if (err)
 		goto out_wipe_secret;
 
@@ -884,7 +884,7 @@ int fscrypt_add_test_dummy_key(struct super_block *sb,
 	int err;
 
 	fscrypt_get_test_dummy_secret(&secret);
-	err = add_master_key(sb, &secret, key_spec, 0);
+	err = add_master_key(sb, &secret, key_spec);
 	wipe_master_key_secret(&secret);
 	return err;
 }
