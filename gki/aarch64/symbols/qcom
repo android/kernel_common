@@ -887,6 +887,7 @@
   __drm_atomic_helper_plane_duplicate_state
   drm_atomic_helper_prepare_planes
   __drm_atomic_helper_private_obj_duplicate_state
+  drm_atomic_helper_resume
   drm_atomic_helper_set_config
   drm_atomic_helper_shutdown
   drm_atomic_helper_swap_state
@@ -957,6 +958,7 @@
   __drm_err
   drm_event_reserve_init_locked
   drm_format_info
+  drm_framebuffer_cleanup
   drm_framebuffer_init
   drm_framebuffer_lookup
   drm_framebuffer_remove
@@ -978,6 +980,7 @@
   drm_gem_prime_handle_to_fd
   drm_gem_private_object_init
   drm_gem_put_pages
+  drm_gem_shmem_get_pages_sgt
   drm_gem_vm_close
   drm_gem_vm_open
   drm_get_connector_status_name
