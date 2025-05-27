@@ -52,18 +52,13 @@ DECLARE_RESTRICTED_HOOK(android_rvh_bitmap_find_best_next_area,
 DECLARE_HOOK(android_vh_madvise_cold_pageout_skip,
 	     TP_PROTO(struct vm_area_struct *vma, struct folio *folio, bool pageout, bool *need_skip),
 	     TP_ARGS(vma, folio, pageout, need_skip));
-/*
 
-DECLARE_RESTRICTED_HOOK(android_rvh_set_skip_swapcache_flags,
-			TP_PROTO(gfp_t *flags),
-			TP_ARGS(flags), 1);
 DECLARE_RESTRICTED_HOOK(android_rvh_set_gfp_zone_flags,
-			TP_PROTO(gfp_t *flags),
+			TP_PROTO(unsigned int *flags),	/* gfp_t *flags */
 			TP_ARGS(flags), 1);
 DECLARE_RESTRICTED_HOOK(android_rvh_set_readahead_gfp_mask,
-			TP_PROTO(gfp_t *flags),
+			TP_PROTO(unsigned int *flags),	/* gfp_t *flags */
 			TP_ARGS(flags), 1);
-*/
 struct mem_cgroup;
 DECLARE_HOOK(android_vh_mem_cgroup_alloc,
 	TP_PROTO(struct mem_cgroup *memcg),
