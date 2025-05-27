@@ -394,10 +394,8 @@ void *hyp_ftrace_sync(unsigned long *funcs_pg, unsigned long *funcs,
 		.funcs_pg = funcs_pg,
 	};
 
-	if (!funcs || !funcs_end) {
-		funcs = __hyp_patchable_function_entries_start;
+	if (!funcs_end)
 		funcs_end = __hyp_patchable_function_entries_end;
-	}
 
 	hyp_ftrace_patch(funcs, funcs_end, 2 * AARCH64_INSN_SIZE,
 			 __get_enable_disable_ins_from_funcs_pg, (void *)&args);
