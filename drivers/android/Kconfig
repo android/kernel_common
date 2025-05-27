@@ -49,6 +49,15 @@ config ANDROID_BINDER_IPC_RUST
 
 	  To build this as a GKI module, choose m.
 
+config ANDROID_BINDER_IPC_RUST_DUMMY
+	tristate "Empty module called rust_binder.ko"
+	depends on ANDROID_BINDER_IPC && !ANDROID_BINDER_IPC_RUST
+	help
+	  This creates an empty module of the same name as the Rust Binder
+	  module. This option can be used to trick the build system into
+	  thinking that Rust Binder was successfully built in cases where Rust
+	  support is unavailable.
+
 config ANDROID_BINDER_IPC_SELFTEST
 	bool "Android Binder IPC Driver Selftest"
 	depends on ANDROID_BINDER_IPC
