@@ -484,6 +484,9 @@ DECLARE_HOOK(android_vh_lruvec_del_folio,
 DECLARE_HOOK(android_vh_rmqueue_pcplist_override_batch,
 	TP_PROTO(int *batch),
 	TP_ARGS(batch));
+DECLARE_HOOK(android_vh_do_group_exit,
+	TP_PROTO(struct task_struct *tsk),
+	TP_ARGS(tsk));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */
