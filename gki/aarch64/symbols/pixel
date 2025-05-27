@@ -2868,7 +2868,10 @@
   __xa_store
   xa_store
   __xfrm_state_destroy
+  xfrm_state_alloc
+  xfrm_state_delete
   xfrm_state_lookup_byspi
+  xfrm_state_migrate
   xfrm_stateonly_find
   xhci_gen_setup
   xhci_init_driver
