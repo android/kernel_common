@@ -723,9 +723,13 @@ static inline bool blk_zone_plug_bio(struct bio *bio, unsigned int nr_segs)
 
 static inline unsigned int disk_zone_no(struct gendisk *disk, sector_t sector)
 {
+	const sector_t zone_sectors = disk->queue->limits.chunk_sectors;
+
 	if (!blk_queue_is_zoned(disk->queue))
 		return 0;
-	return sector >> ilog2(disk->queue->limits.chunk_sectors);
+	if (is_power_of_2(zone_sectors))
+		return sector >> ilog2(zone_sectors);
+	return div64_u64(sector, zone_sectors);
 }
 
 static inline unsigned int bdev_nr_zones(struct block_device *bdev)
@@ -1404,7 +1408,17 @@ static inline sector_t bdev_zone_sectors(struct block_device *bdev)
 static inline sector_t bdev_offset_from_zone_start(struct block_device *bdev,
 						   sector_t sector)
 {
-	return sector & (bdev_zone_sectors(bdev) - 1);
+	sector_t zone_sectors = bdev_zone_sectors(bdev);
+	u64 remainder = 0;
+
+	if (!bdev_is_zoned(bdev))
+		return 0;
+
+	if (is_power_of_2(zone_sectors))
+		return sector & (zone_sectors - 1);
+
+	div64_u64_rem(sector, zone_sectors, &remainder);
+	return remainder;
 }
 
 static inline sector_t bio_offset_from_zone_start(struct bio *bio)
