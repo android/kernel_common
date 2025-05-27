@@ -1408,7 +1408,7 @@ impl Thread {
 
     fn write(self: &Arc<Self>, req: &mut BinderWriteRead) -> Result {
         let write_start = req.write_buffer.wrapping_add(req.write_consumed);
-        let write_len = req.write_size - req.write_consumed;
+        let write_len = req.write_size.saturating_sub(req.write_consumed);
         let mut reader = UserSlice::new(write_start as _, write_len as _).reader();
 
         while reader.len() >= size_of::<u32>() && self.inner.lock().return_work.is_unused() {
@@ -1497,7 +1497,7 @@ impl Thread {
 
     fn read(self: &Arc<Self>, req: &mut BinderWriteRead, wait: bool) -> Result {
         let read_start = req.read_buffer.wrapping_add(req.read_consumed);
-        let read_len = req.read_size - req.read_consumed;
+        let read_len = req.read_size.saturating_sub(req.read_consumed);
         let mut writer = BinderReturnWriter::new(
             UserSlice::new(read_start as _, read_len as _).writer(),
             self,
