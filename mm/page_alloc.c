@@ -617,6 +617,9 @@ static inline unsigned int order_to_pindex(int migratetype, int order)
 		VM_BUG_ON(order != HPAGE_PMD_ORDER);
 
 		movable = migratetype == MIGRATE_MOVABLE;
+#ifdef CONFIG_CMA
+		movable |= migratetype == MIGRATE_CMA;
+#endif
 
 		return NR_LOWORDER_PCP_LISTS + movable;
 	}
