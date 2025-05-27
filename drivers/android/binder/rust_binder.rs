@@ -314,6 +314,8 @@ impl kernel::Module for BinderModule {
             }
         }
 
+        pr_warn!("Loaded Rust Binder.");
+
         BINDER_SHRINKER.register(kernel::c_str!("android-binder"))?;
 
         // SAFETY: The module is being loaded, so we can initialize binderfs.

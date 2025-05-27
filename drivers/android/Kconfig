@@ -37,6 +37,18 @@ config ANDROID_BINDER_DEVICES
 	  created. Each binder device has its own context manager, and is
 	  therefore logically separated from the other devices.
 
+config ANDROID_BINDER_IPC_RUST
+	tristate "Rust version of Android Binder IPC Driver"
+	depends on RUST && ANDROID_BINDER_IPC && ANDROID_BINDERFS
+	help
+	  This enables the Rust implementation of the Binder driver. At this
+	  time, the Rust implementation can only be built as an alternative to
+	  the C implementation. By default, the C implementation is used, but
+	  if the binder.impl=rust kernel command-line parameter is provided,
+	  then the Rust implementation is used instead.
+
+	  To build this as a GKI module, choose m.
+
 config ANDROID_BINDER_IPC_SELFTEST
 	bool "Android Binder IPC Driver Selftest"
 	depends on ANDROID_BINDER_IPC
