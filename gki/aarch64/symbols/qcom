@@ -659,6 +659,7 @@
   devm_pwm_get
   devm_qcom_smem_state_get
   devm_regmap_add_irq_chip
+  devm_regmap_add_irq_chip_fwnode
   devm_regmap_del_irq_chip
   devm_regmap_field_alloc
   devm_regmap_field_bulk_alloc
@@ -1615,8 +1616,10 @@
   irq_dispose_mapping
   __irq_domain_alloc_irqs
   irq_domain_alloc_irqs_parent
+  __irq_domain_alloc_fwnode
   irq_domain_create_hierarchy
   irq_domain_disconnect_hierarchy
+  irq_domain_free_fwnode
   irq_domain_free_irqs_common
   irq_domain_free_irqs_parent
   irq_domain_get_irq_data
@@ -1828,6 +1831,7 @@
   led_trigger_register_simple
   led_trigger_unregister
   led_trigger_unregister_simple
+  linear_range_values_in_range
   linkwatch_fire_event
   __list_add_valid_or_report
   __list_del_entry_valid_or_report
