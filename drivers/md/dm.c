@@ -1788,11 +1788,14 @@ static inline bool dm_zone_bio_needs_split(struct mapped_device *md,
 					   struct bio *bio)
 {
 	/*
-	 * For mapped device that need zone append emulation, we must
-	 * split any large BIO that straddles zone boundaries.
+	 * For a mapped device that needs zone append emulation, we must
+	 * split any large BIO that straddles zone boundaries. Additionally,
+	 * split sequential zoned writes to prevent that splitting lower in the
+	 * stack causes bio reordering.
 	 */
-	return dm_emulate_zone_append(md) && bio_straddles_zones(bio) &&
-		!bio_flagged(bio, BIO_ZONE_WRITE_PLUGGING);
+	return ((dm_emulate_zone_append(md) && bio_straddles_zones(bio)) ||
+		(bio_op(bio) == REQ_OP_WRITE && bdev_is_zoned(bio->bi_bdev))) &&
+	       !bio_flagged(bio, BIO_ZONE_WRITE_PLUGGING);
 }
 static inline bool dm_zone_plug_bio(struct mapped_device *md, struct bio *bio)
 {
