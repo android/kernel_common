@@ -2189,6 +2189,9 @@ static int __init userfaultfd_init(void)
 {
 	int ret;
 
+	if (__PAGE_SIZE != PAGE_SIZE)
+		return 0;
+
 	ret = misc_register(&userfaultfd_misc);
 	if (ret)
 		return ret;
