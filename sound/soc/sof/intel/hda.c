@@ -1467,6 +1467,8 @@ void hda_unregister_clients(struct snd_sof_dev *sdev)
 	hda_probes_unregister(sdev);
 }
 
+MODULE_SOFTDEP("pre: snd_ctl_led");
+
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_DESCRIPTION("SOF support for HDaudio platforms");
 MODULE_IMPORT_NS(SND_SOC_SOF_PCI_DEV);
