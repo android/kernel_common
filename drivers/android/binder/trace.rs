@@ -9,11 +9,10 @@ use kernel::bindings::{
     rust_binder_transaction, task_struct,
 };
 use kernel::error::Result;
+use kernel::ffi::{c_int, c_uint, c_ulong};
 use kernel::task::{Pid, Task};
 use kernel::tracepoint::declare_trace;
 use kernel::uapi;
-
-use core::ffi::{c_int, c_uint, c_ulong};
 
 declare_trace! {
     unsafe fn rust_binder_ioctl(cmd: c_uint, arg: c_ulong);

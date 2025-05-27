@@ -63,8 +63,8 @@ mod strings {
     use kernel::str::CStr;
 
     extern "C" {
-        static binder_command_strings: [*const core::ffi::c_char; super::BC_COUNT];
-        static binder_return_strings: [*const core::ffi::c_char; super::BR_COUNT];
+        static binder_command_strings: [*const u8; super::BC_COUNT];
+        static binder_return_strings: [*const u8; super::BR_COUNT];
     }
 
     pub(super) fn command_string(i: usize) -> &'static str {

@@ -46,22 +46,22 @@ mod binderfs {
     use kernel::bindings::{dentry, inode};
 
     extern "C" {
-        pub fn init_rust_binderfs() -> core::ffi::c_int;
+        pub fn init_rust_binderfs() -> kernel::ffi::c_int;
     }
     extern "C" {
         pub fn rust_binderfs_create_proc_file(
             nodp: *mut inode,
-            pid: core::ffi::c_int,
+            pid: kernel::ffi::c_int,
         ) -> *mut dentry;
     }
     extern "C" {
         pub fn rust_binderfs_remove_file(dentry: *mut dentry);
     }
-    pub type rust_binder_context = *mut core::ffi::c_void;
+    pub type rust_binder_context = *mut kernel::ffi::c_void;
     #[repr(C)]
     #[derive(Copy, Clone)]
     pub struct binder_device {
-        pub minor: core::ffi::c_int,
+        pub minor: kernel::ffi::c_int,
         pub ctx: rust_binder_context,
     }
     impl Default for binder_device {
@@ -352,8 +352,8 @@ pub static rust_binder_fops: AssertSync<kernel::bindings::file_operations> = {
 
 #[no_mangle]
 unsafe extern "C" fn rust_binder_new_context(
-    name: *const core::ffi::c_char,
-) -> *mut core::ffi::c_void {
+    name: *const kernel::ffi::c_char,
+) -> *mut kernel::ffi::c_void {
     // SAFETY: The caller will always provide a valid c string here.
     let name = unsafe { kernel::str::CStr::from_char_ptr(name) };
     match Context::new(name) {
@@ -363,7 +363,7 @@ unsafe extern "C" fn rust_binder_new_context(
 }
 
 #[no_mangle]
-unsafe extern "C" fn rust_binder_remove_context(device: *mut core::ffi::c_void) {
+unsafe extern "C" fn rust_binder_remove_context(device: *mut kernel::ffi::c_void) {
     if !device.is_null() {
         // SAFETY: The caller ensures that the `device` pointer came from a previous call to
         // `rust_binder_new_device`.
@@ -376,7 +376,7 @@ unsafe extern "C" fn rust_binder_remove_context(device: *mut core::ffi::c_void) 
 unsafe extern "C" fn rust_binder_open(
     inode: *mut bindings::inode,
     file_ptr: *mut bindings::file,
-) -> core::ffi::c_int {
+) -> kernel::ffi::c_int {
     // SAFETY: The `rust_binderfs.c` file ensures that `i_private` is set to a
     // `struct binder_device`.
     let device = unsafe { (*inode).i_private } as *const binderfs::binder_device;
@@ -409,7 +409,7 @@ unsafe extern "C" fn rust_binder_open(
 unsafe extern "C" fn rust_binder_release(
     _inode: *mut bindings::inode,
     file: *mut bindings::file,
-) -> core::ffi::c_int {
+) -> kernel::ffi::c_int {
     // SAFETY: We previously set `private_data` in `rust_binder_open`.
     let process = unsafe { Arc::<Process>::from_foreign((*file).private_data) };
     // SAFETY: The caller ensures that the file is valid.
@@ -420,36 +420,36 @@ unsafe extern "C" fn rust_binder_release(
 
 unsafe extern "C" fn rust_binder_compat_ioctl(
     file: *mut bindings::file,
-    cmd: core::ffi::c_uint,
-    arg: core::ffi::c_ulong,
-) -> core::ffi::c_long {
+    cmd: kernel::ffi::c_uint,
+    arg: kernel::ffi::c_ulong,
+) -> kernel::ffi::c_long {
     // SAFETY: We previously set `private_data` in `rust_binder_open`.
     let f = unsafe { Arc::<Process>::borrow((*file).private_data) };
     // SAFETY: The caller ensures that the file is valid.
     match Process::compat_ioctl(f, unsafe { File::from_raw_file(file) }, cmd as _, arg as _) {
         Ok(()) => 0,
-        Err(err) => err.to_errno().into(),
+        Err(err) => err.to_errno() as isize,
     }
 }
 
 unsafe extern "C" fn rust_binder_unlocked_ioctl(
     file: *mut bindings::file,
-    cmd: core::ffi::c_uint,
-    arg: core::ffi::c_ulong,
-) -> core::ffi::c_long {
+    cmd: kernel::ffi::c_uint,
+    arg: kernel::ffi::c_ulong,
+) -> kernel::ffi::c_long {
     // SAFETY: We previously set `private_data` in `rust_binder_open`.
     let f = unsafe { Arc::<Process>::borrow((*file).private_data) };
     // SAFETY: The caller ensures that the file is valid.
     match Process::ioctl(f, unsafe { File::from_raw_file(file) }, cmd as _, arg as _) {
         Ok(()) => 0,
-        Err(err) => err.to_errno().into(),
+        Err(err) => err.to_errno() as isize,
     }
 }
 
 unsafe extern "C" fn rust_binder_mmap(
     file: *mut bindings::file,
     vma: *mut bindings::vm_area_struct,
-) -> core::ffi::c_int {
+) -> kernel::ffi::c_int {
     // SAFETY: We previously set `private_data` in `rust_binder_open`.
     let f = unsafe { Arc::<Process>::borrow((*file).private_data) };
     // SAFETY: The caller ensures that the vma is valid.
@@ -479,7 +479,7 @@ unsafe extern "C" fn rust_binder_poll(
 unsafe extern "C" fn rust_binder_flush(
     file: *mut bindings::file,
     _id: bindings::fl_owner_t,
-) -> core::ffi::c_int {
+) -> kernel::ffi::c_int {
     // SAFETY: We previously set `private_data` in `rust_binder_open`.
     let f = unsafe { Arc::<Process>::borrow((*file).private_data) };
     match Process::flush(f) {
@@ -491,8 +491,8 @@ unsafe extern "C" fn rust_binder_flush(
 #[no_mangle]
 unsafe extern "C" fn rust_binder_stats_show(
     ptr: *mut seq_file,
-    _: *mut core::ffi::c_void,
-) -> core::ffi::c_int {
+    _: *mut kernel::ffi::c_void,
+) -> kernel::ffi::c_int {
     // SAFETY: The caller ensures that the pointer is valid and exclusive for the duration in which
     // this method is called.
     let m = unsafe { SeqFile::from_raw(ptr) };
@@ -505,8 +505,8 @@ unsafe extern "C" fn rust_binder_stats_show(
 #[no_mangle]
 unsafe extern "C" fn rust_binder_state_show(
     ptr: *mut seq_file,
-    _: *mut core::ffi::c_void,
-) -> core::ffi::c_int {
+    _: *mut kernel::ffi::c_void,
+) -> kernel::ffi::c_int {
     // SAFETY: The caller ensures that the pointer is valid and exclusive for the duration in which
     // this method is called.
     let m = unsafe { SeqFile::from_raw(ptr) };
@@ -519,8 +519,8 @@ unsafe extern "C" fn rust_binder_state_show(
 #[no_mangle]
 unsafe extern "C" fn rust_binder_proc_show(
     ptr: *mut seq_file,
-    _: *mut core::ffi::c_void,
-) -> core::ffi::c_int {
+    _: *mut kernel::ffi::c_void,
+) -> kernel::ffi::c_int {
     // SAFETY: Accessing the private field of `seq_file` is okay.
     let pid = (unsafe { (*ptr).private }) as usize as Pid;
     // SAFETY: The caller ensures that the pointer is valid and exclusive for the duration in which
@@ -535,8 +535,8 @@ unsafe extern "C" fn rust_binder_proc_show(
 #[no_mangle]
 unsafe extern "C" fn rust_binder_transactions_show(
     ptr: *mut seq_file,
-    _: *mut core::ffi::c_void,
-) -> core::ffi::c_int {
+    _: *mut kernel::ffi::c_void,
+) -> kernel::ffi::c_int {
     // SAFETY: The caller ensures that the pointer is valid and exclusive for the duration in which
     // this method is called.
     let m = unsafe { SeqFile::from_raw(ptr) };

@@ -549,8 +549,8 @@ impl Process {
         seq_print!(m, "proc {}\n", self.task.pid_in_current_ns());
         seq_print!(m, "context {}\n", &*ctx.name);
 
-        let mut all_threads = Vec::new();
-        let mut all_nodes = Vec::new();
+        let mut all_threads = KVec::new();
+        let mut all_nodes = KVec::new();
         loop {
             let inner = self.inner.lock();
             let num_threads = inner.threads.iter().count();
@@ -1434,7 +1434,7 @@ fn ioctl_freeze(reader: &mut UserSliceReader) -> Result {
 
     // Very unlikely for there to be more than 3, since a process normally uses at most binder and
     // hwbinder.
-    let mut procs = Vec::with_capacity(3, GFP_KERNEL)?;
+    let mut procs = KVec::with_capacity(3, GFP_KERNEL)?;
 
     let ctxs = crate::context::get_all_contexts()?;
     for ctx in ctxs {

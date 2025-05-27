@@ -22,7 +22,7 @@ pub(super) struct ArrayRangeAllocator<T> {
     /// store the free ranges.
     ///
     /// Sorted by offset.
-    pub(super) ranges: Vec<Range<T>>,
+    pub(super) ranges: KVec<Range<T>>,
     size: usize,
     free_oneway_space: usize,
 }
@@ -141,7 +141,7 @@ impl<T> ArrayRangeAllocator<T> {
             state: DescriptorState::new(is_oneway, debug_id, pid),
         };
         // Insert the value at the given index to keep the array sorted.
-        insert_within_capacity(&mut self.ranges, insert_at_idx, new_range);
+        self.ranges.insert_within_capacity(insert_at_idx, new_range).ok().unwrap();
 
         Ok(insert_at_offset)
     }
@@ -182,7 +182,7 @@ impl<T> ArrayRangeAllocator<T> {
             }
         }
 
-        self.ranges.remove(i);
+        self.ranges.remove(i)?;
         Ok(freed_range)
     }
 
@@ -235,48 +235,13 @@ impl<T> ArrayRangeAllocator<T> {
 }
 
 pub(crate) struct EmptyArrayAlloc<T> {
-    ranges: Vec<Range<T>>,
+    ranges: KVec<Range<T>>,
 }
 
 impl<T> EmptyArrayAlloc<T> {
     pub(crate) fn try_new(capacity: usize) -> Result<Self> {
         Ok(Self {
-            ranges: Vec::with_capacity(capacity, GFP_KERNEL)?,
+            ranges: KVec::with_capacity(capacity, GFP_KERNEL)?,
         })
-    }
-}
-
-/// Copied from `rust/alloc/vec/mod.rs` with allocation codepath removed.
-///
-/// TODO: Either add this to the standard library (like [`push_within_capacity`]) or move it to the
-/// kernel crate once [the updated allocation APIs][alloc] are available.
-///
-/// [`push_within_capacity`]: https://github.com/rust-lang/rust/issues/100486
-/// [alloc]: https://lore.kernel.org/r/20240328013603.206764-1-wedsonaf@gmail.com
-fn insert_within_capacity<T>(vec: &mut Vec<T>, index: usize, element: T) {
-    let len = vec.len();
-
-    if len == vec.capacity() {
-        panic!("no capacity to insert");
-    }
-
-    unsafe {
-        // The spot to put the new value
-        {
-            let p = vec.as_mut_ptr().add(index);
-            if index < len {
-                // Shift everything over to make space. (Duplicating the
-                // `index`th element into two consecutive places.)
-                core::ptr::copy(p, p.add(1), len - index);
-            } else if index == len {
-                // No elements need shifting.
-            } else {
-                panic!("insertion index (is {index}) should be <= len (is {len})");
-            }
-            // Write it in, overwriting the first copy of the `index`th
-            // element.
-            core::ptr::write(p, element);
-        }
-        vec.set_len(len + 1);
     }
 }

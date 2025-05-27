@@ -6,9 +6,9 @@
 
 use kernel::bindings;
 
-pub(crate) type Policy = core::ffi::c_uint;
-pub(crate) type Priority = core::ffi::c_int;
-pub(crate) type Nice = core::ffi::c_int;
+pub(crate) type Policy = kernel::ffi::c_uint;
+pub(crate) type Priority = kernel::ffi::c_int;
+pub(crate) type Nice = kernel::ffi::c_int;
 
 pub(crate) const SCHED_NORMAL: Policy = bindings::SCHED_NORMAL;
 pub(crate) const SCHED_FIFO: Policy = bindings::SCHED_FIFO;

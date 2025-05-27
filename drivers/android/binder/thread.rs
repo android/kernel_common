@@ -46,10 +46,10 @@ struct ScatterGatherState {
     /// A struct that tracks the amount of unused buffer space.
     unused_buffer_space: UnusedBufferSpace,
     /// Scatter-gather entries to copy.
-    sg_entries: Vec<ScatterGatherEntry>,
+    sg_entries: KVec<ScatterGatherEntry>,
     /// Indexes into `sg_entries` corresponding to the last binder_buffer_object that
     /// was processed and all of its ancestors. The array is in sorted order.
-    ancestors: Vec<usize>,
+    ancestors: KVec<usize>,
 }
 
 /// This entry specifies an additional buffer that should be copied using the scatter-gather
@@ -66,7 +66,7 @@ struct ScatterGatherEntry {
     /// The minimum offset of the next fixup in this buffer.
     fixup_min_offset: usize,
     /// The offsets within this buffer that contain pointers which should be translated.
-    pointer_fixups: Vec<PointerFixupEntry>,
+    pointer_fixups: KVec<PointerFixupEntry>,
 }
 
 /// This entry specifies that a fixup should happen at `target_offset` of the
@@ -843,7 +843,7 @@ impl Thread {
                         offset: alloc_offset,
                         sender_uaddr: obj.buffer as _,
                         length: obj_length,
-                        pointer_fixups: Vec::new(),
+                        pointer_fixups: KVec::new(),
                         fixup_min_offset: 0,
                     },
                     GFP_KERNEL,
@@ -941,7 +941,7 @@ impl Thread {
                     .sender_uaddr
                     .checked_add(parent_offset)
                     .ok_or(EINVAL)?;
-                let mut fda_bytes = Vec::new();
+                let mut fda_bytes = KVec::new();
                 UserSlice::new(fda_uaddr as _, fds_len).read_all(&mut fda_bytes, GFP_KERNEL)?;
 
                 if fds_len != fda_bytes.len() {
@@ -1125,8 +1125,8 @@ impl Thread {
                     offset: offsets_end,
                     limit: len,
                 },
-                sg_entries: Vec::new(),
-                ancestors: Vec::new(),
+                sg_entries: KVec::new(),
+                ancestors: KVec::new(),
             });
 
             // Traverse the objects specified.

@@ -201,9 +201,9 @@ impl Allocation {
         let files = core::mem::take(&mut file_list.files_to_translate);
 
         let num_close_on_free = files.iter().filter(|entry| entry.close_on_free).count();
-        let mut close_on_free = Vec::with_capacity(num_close_on_free, GFP_KERNEL)?;
+        let mut close_on_free = KVec::with_capacity(num_close_on_free, GFP_KERNEL)?;
 
-        let mut reservations = Vec::with_capacity(files.len(), GFP_KERNEL)?;
+        let mut reservations = KVec::with_capacity(files.len(), GFP_KERNEL)?;
         for file_info in files {
             let res = FileDescriptorReservation::get_unused_fd_flags(bindings::O_CLOEXEC)?;
             let fd = res.reserved_fd();
@@ -566,8 +566,8 @@ impl BinderObject {
 
 #[derive(Default)]
 struct FileList {
-    files_to_translate: Vec<FileEntry>,
-    close_on_free: Vec<u32>,
+    files_to_translate: KVec<FileEntry>,
+    close_on_free: KVec<u32>,
 }
 
 struct FileEntry {
@@ -580,7 +580,7 @@ struct FileEntry {
 }
 
 pub(crate) struct TranslatedFds {
-    reservations: Vec<Reservation>,
+    reservations: KVec<Reservation>,
     /// If commit is called, then these fds should be closed. (If commit is not called, then they
     /// shouldn't be closed.)
     close_on_free: FdsCloseOnFree,
@@ -594,8 +594,8 @@ struct Reservation {
 impl TranslatedFds {
     pub(crate) fn new() -> Self {
         Self {
-            reservations: Vec::new(),
-            close_on_free: FdsCloseOnFree(Vec::new()),
+            reservations: KVec::new(),
+            close_on_free: FdsCloseOnFree(KVec::new()),
         }
     }
 
@@ -608,4 +608,4 @@ impl TranslatedFds {
     }
 }
 
-pub(crate) struct FdsCloseOnFree(Vec<u32>);
+pub(crate) struct FdsCloseOnFree(KVec<u32>);

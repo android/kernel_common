@@ -15,15 +15,17 @@
 
 use core::{
     alloc::Layout,
-    ffi::{c_ulong, c_void},
     marker::PhantomPinned,
     mem::{size_of, size_of_val, MaybeUninit},
-    ptr,
+    ptr::{self, NonNull},
 };
 
 use kernel::{
+    alloc::allocator::Kmalloc,
+    alloc::Allocator,
     bindings,
     error::Result,
+    ffi::{c_ulong, c_void},
     mm::{virt, Mm, MmWithUser},
     new_mutex, new_spinlock,
     page::{Page, PAGE_SHIFT, PAGE_SIZE},
@@ -294,16 +296,13 @@ impl ShrinkablePageRange {
 
         let layout = Layout::array::<PageInfo>(num_pages).map_err(|_| ENOMEM)?;
         // SAFETY: The layout has non-zero size.
-        let pages = unsafe { alloc::alloc::alloc(layout) as *mut PageInfo };
-        if pages.is_null() {
-            return Err(ENOMEM);
-        }
+        let pages = Kmalloc::alloc(layout, GFP_KERNEL)?.cast::<PageInfo>();
 
         // SAFETY: This just initializes the pages array.
         unsafe {
             let self_ptr = self as *const ShrinkablePageRange;
             for i in 0..num_pages {
-                let info = pages.add(i);
+                let info = pages.add(i).as_ptr();
                 ptr::addr_of_mut!((*info).range).write(self_ptr);
                 ptr::addr_of_mut!((*info).page).write(None);
                 let lru = ptr::addr_of_mut!((*info).lru);
@@ -317,11 +316,11 @@ impl ShrinkablePageRange {
             pr_debug!("Failed to register with vma: already registered");
             drop(inner);
             // SAFETY: The `pages` array was allocated with the same layout.
-            unsafe { alloc::alloc::dealloc(pages.cast(), layout) };
+            unsafe { Kmalloc::free(pages.cast(), layout) };
             return Err(EBUSY);
         }
 
-        inner.pages = pages;
+        inner.pages = pages.as_ptr();
         inner.size = num_pages;
         inner.vma_addr = vma.start();
 
@@ -638,12 +637,16 @@ impl PinnedDrop for ShrinkablePageRange {
         // `stable_trylock_mm`.
         drop(self.mm_lock.lock());
 
+        let Some(pages) = NonNull::new(pages) else {
+            return;
+        };
+
         // SAFETY: This computation did not overflow when allocating the pages array, so it will
         // not overflow this time.
         let layout = unsafe { Layout::array::<PageInfo>(size).unwrap_unchecked() };
 
         // SAFETY: The `pages` array was allocated with the same layout.
-        unsafe { alloc::alloc::dealloc(pages.cast(), layout) };
+        unsafe { Kmalloc::free(pages.cast(), layout) };
     }
 }
 
@@ -676,7 +679,7 @@ unsafe extern "C" fn rust_shrink_scan(
                 item: *mut bindings::list_head,
                 list: *mut bindings::list_lru_one,
                 lock: *mut bindings::spinlock_t,
-                cb_arg: *mut core::ffi::c_void,
+                cb_arg: *mut kernel::ffi::c_void,
             ) -> bindings::lru_status;
         }
 

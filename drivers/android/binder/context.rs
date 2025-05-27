@@ -25,12 +25,12 @@ pub(crate) struct ContextList {
     list: List<Context>,
 }
 
-pub(crate) fn get_all_contexts() -> Result<Vec<Arc<Context>>> {
+pub(crate) fn get_all_contexts() -> Result<KVec<Arc<Context>>> {
     let lock = CONTEXTS.lock();
 
     let count = lock.list.iter().count();
 
-    let mut ctxs = Vec::with_capacity(count, GFP_KERNEL)?;
+    let mut ctxs = KVec::with_capacity(count, GFP_KERNEL)?;
     for ctx in &lock.list {
         ctxs.push(Arc::from(ctx), GFP_KERNEL)?;
     }
@@ -161,20 +161,23 @@ impl Context {
         }
     }
 
-    pub(crate) fn get_all_procs(&self) -> Result<Vec<Arc<Process>>> {
+    pub(crate) fn get_all_procs(&self) -> Result<KVec<Arc<Process>>> {
         let lock = self.manager.lock();
         let count = lock.all_procs.iter().count();
 
-        let mut procs = Vec::with_capacity(count, GFP_KERNEL)?;
+        let mut procs = KVec::with_capacity(count, GFP_KERNEL)?;
         for proc in &lock.all_procs {
             procs.push(Arc::from(proc), GFP_KERNEL)?;
         }
         Ok(procs)
     }
 
-    pub(crate) fn get_procs_with_pid(&self, pid: i32) -> Result<Vec<Arc<Process>>> {
-        let mut procs = self.get_all_procs()?;
-        procs.retain(|proc| proc.task.pid() == pid);
-        Ok(procs)
+    pub(crate) fn get_procs_with_pid(&self, pid: i32) -> Result<KVec<Arc<Process>>> {
+        let orig = self.get_all_procs()?;
+        let mut backing = KVec::with_capacity(orig.len(), GFP_KERNEL)?;
+        for proc in orig.into_iter().filter(|proc| proc.task.pid() == pid) {
+            backing.push(proc, GFP_KERNEL)?;
+        }
+        Ok(backing)
     }
 }

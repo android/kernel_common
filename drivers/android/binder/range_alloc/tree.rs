@@ -33,7 +33,7 @@ pub(super) struct TreeRangeAllocator<T> {
 impl<T> TreeRangeAllocator<T> {
     pub(crate) fn from_array(
         size: usize,
-        ranges: &mut Vec<Range<T>>,
+        ranges: &mut KVec<Range<T>>,
         alloc: &mut FromArrayAllocs<T>,
     ) -> Self {
         let mut tree = TreeRangeAllocator {
@@ -44,7 +44,7 @@ impl<T> TreeRangeAllocator<T> {
         };
 
         let mut free_offset = 0;
-        for range in ranges.drain(..) {
+        for range in ranges.drain_all() {
             let free_size = range.offset - free_offset;
             if free_size > 0 {
                 let free_node = alloc.free_tree.pop().unwrap();
@@ -477,20 +477,20 @@ impl<T> ReserveNewTreeAlloc<T> {
 
 /// An allocation for creating a tree from an `ArrayRangeAllocator`.
 pub(crate) struct FromArrayAllocs<T> {
-    tree: Vec<RBTreeNodeReservation<usize, Descriptor<T>>>,
-    free_tree: Vec<RBTreeNodeReservation<FreeKey, ()>>,
+    tree: KVec<RBTreeNodeReservation<usize, Descriptor<T>>>,
+    free_tree: KVec<RBTreeNodeReservation<FreeKey, ()>>,
 }
 
 impl<T> FromArrayAllocs<T> {
     pub(crate) fn try_new(len: usize) -> Result<Self> {
         let num_descriptors = 2 * len + 1;
 
-        let mut tree = Vec::with_capacity(num_descriptors, GFP_KERNEL)?;
+        let mut tree = KVec::with_capacity(num_descriptors, GFP_KERNEL)?;
         for _ in 0..num_descriptors {
             tree.push(RBTreeNodeReservation::new(GFP_KERNEL)?, GFP_KERNEL)?;
         }
 
-        let mut free_tree = Vec::with_capacity(num_descriptors, GFP_KERNEL)?;
+        let mut free_tree = KVec::with_capacity(num_descriptors, GFP_KERNEL)?;
         for _ in 0..num_descriptors {
             free_tree.push(RBTreeNodeReservation::new(GFP_KERNEL)?, GFP_KERNEL)?;
         }

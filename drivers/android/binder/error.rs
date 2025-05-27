@@ -41,7 +41,7 @@ impl BinderError {
         self.reply == BR_DEAD_REPLY
     }
 
-    pub(crate) fn as_errno(&self) -> core::ffi::c_int {
+    pub(crate) fn as_errno(&self) -> kernel::ffi::c_int {
         self.source.unwrap_or(EINVAL).to_errno()
     }
 
