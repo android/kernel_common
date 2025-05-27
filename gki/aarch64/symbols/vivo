@@ -23,6 +23,8 @@
   kblockd_mod_delayed_work_on
   kern_path
   __lock_buffer
+  mempool_kfree
+  mempool_kmalloc
   mipi_dsi_dcs_write
   __neigh_create
   netdev_is_rx_handler_busy
