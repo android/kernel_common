@@ -909,9 +909,8 @@ impl Thread {
                 let num_fds = usize::try_from(obj.num_fds).map_err(|_| EINVAL)?;
                 let fds_len = num_fds.checked_mul(size_of::<u32>()).ok_or(EINVAL)?;
 
-                view.alloc.info_add_fd_reserve(num_fds)?;
-
                 let info = sg_state.validate_parent_fixup(parent_index, parent_offset, fds_len)?;
+                view.alloc.info_add_fd_reserve(num_fds)?;
 
                 sg_state.ancestors.truncate(info.num_ancestors);
                 let parent_entry = match sg_state.sg_entries.get_mut(info.parent_sg_index) {
