@@ -6,6 +6,8 @@
  * Copyright 2024 Google LLC
  */
 
+#include "rust_binder.h"
+
 const char * const binder_command_strings[] = {
 	"BC_TRANSACTION",
 	"BC_REPLY",
@@ -51,3 +53,7 @@ const char * const binder_return_strings[] = {
 	"BR_ONEWAY_SPAM_SUSPECT",
 	"BR_TRANSACTION_PENDING_FROZEN"
 };
+
+#define CREATE_TRACE_POINTS
+#define CREATE_RUST_TRACE_POINTS
+#include "rust_binder_events.h"

@@ -6,14 +6,14 @@
  * Copyright 2024 Google LLC
  */
 
-#include <linux/rust_binder.h>
+#include "rust_binder.h"
 
 #define CREATE_TRACE_POINTS
 #define CREATE_RUST_TRACE_POINTS
 #include <trace/hooks/vendor_hooks.h>
 #include <linux/tracepoint.h>
 
-#include <trace/hooks/rust_binder.h>
+#include "rust_binder_hooks.h"
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event

@@ -411,6 +411,14 @@ pub(crate) struct ThreadPrioState {
     pub(crate) next: BinderPriority,
 }
 
+use core::mem::offset_of;
+use kernel::bindings::rb_thread_layout;
+pub(crate) const THREAD_LAYOUT: rb_thread_layout = rb_thread_layout {
+    arc_offset: Arc::<Thread>::DATA_OFFSET,
+    process: offset_of!(Thread, process),
+    id: offset_of!(Thread, id),
+};
+
 /// This represents a thread that's used with binder.
 #[pin_data]
 pub(crate) struct Thread {
