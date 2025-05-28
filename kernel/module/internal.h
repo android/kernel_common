@@ -420,3 +420,11 @@ static inline int same_magic(const char *amagic, const char *bmagic, bool has_cr
 	return strcmp(amagic, bmagic) == 0;
 }
 #endif /* CONFIG_MODVERSIONS */
+
+#ifdef CONFIG_MODULE_SIG_PROTECT
+extern const char *const protected_symbol_exports[];
+extern size_t protected_symbol_exports_count;
+#else
+#define protected_symbol_exports NULL
+#define protected_symbol_exports_count 0UL
+#endif
