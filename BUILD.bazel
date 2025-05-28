@@ -109,6 +109,17 @@ write_file(
 )
 
 write_file(
+    name = "gki_aarch64_protected_module_names",
+    out = "gki/aarch64/protected_module_names",
+    content = [
+        module.removesuffix(".ko")
+        for module in get_gki_protected_modules_list("arm64")
+    ] + [
+        "",  # Ensure new line at the end.
+    ],
+)
+
+write_file(
     name = "gki_system_dlkm_modules_x86_64",
     out = "gki/x86_64/system_dlkm_modules",
     # Do not built kunit modules into system_dlkm
@@ -122,6 +133,17 @@ write_file(
     name = "gki_x86_64_protected_modules",
     out = "gki/x86_64/protected_modules",
     content = get_gki_protected_modules_list("x86_64") + [
+        "",  # Ensure new line at the end.
+    ],
+)
+
+write_file(
+    name = "gki_x86_64_protected_module_names",
+    out = "gki/x86_64/protected_module_names",
+    content = [
+        module.removesuffix(".ko")
+        for module in get_gki_protected_modules_list("x86_64")
+    ] + [
         "",  # Ensure new line at the end.
     ],
 )
@@ -249,6 +271,7 @@ common_kernel(
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     protected_exports_list = "gki/aarch64/protected_exports",
+    protected_module_names_list = ":gki_aarch64_protected_module_names",
     protected_modules_list = ":gki_aarch64_protected_modules",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     trim_nonlisted_kmi = True,
@@ -280,6 +303,7 @@ common_kernel(
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     page_size = "16k",
     protected_exports_list = "gki/aarch64/protected_exports",
+    protected_module_names_list = ":gki_aarch64_protected_module_names",
     protected_modules_list = ":gki_aarch64_protected_modules",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     trim_nonlisted_kmi = True,
@@ -309,6 +333,7 @@ common_kernel(
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     pre_defconfig_fragments = ["arch/arm64/configs/tv_gki.fragment"],
     protected_exports_list = "gki/aarch64/protected_exports",
+    protected_module_names_list = ":gki_aarch64_protected_module_names",
     protected_modules_list = ":gki_aarch64_protected_modules",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     trim_nonlisted_kmi = True,
@@ -349,6 +374,7 @@ common_kernel(
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     protected_exports_list = "gki/aarch64/protected_exports",
+    protected_module_names_list = ":gki_aarch64_protected_module_names",
     protected_modules_list = ":gki_aarch64_protected_modules",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     trim_nonlisted_kmi = True,
