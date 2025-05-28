@@ -1632,6 +1632,22 @@ ddk_headers(
 # Implementation details for DDK headers. The targets below cannot be directly
 # depended on by DDK modules.
 
+# Headers for building pKVM modules. They are for pKVM only so not added to
+# all_headers_aarch64.
+ddk_headers(
+    name = "pkvm_headers_aarch64",
+    hdrs = [
+        "arch/arm64/kvm/hyp/include/module/nvhe/define_events.h",
+        "arch/arm64/kvm/hyp/include/module/nvhe/trace.h",
+    ],
+    includes = [
+        # LINT.IfChange(pkvm_includes)
+        "arch/arm64/kvm/hyp/include/module",
+        # LINT.ThenChange(/arch/arm64/kvm/hyp/nvhe/Makefile.module:includes)
+    ],
+    visibility = ["//visibility:private"],
+)
+
 # Headers needed to include drivers/usb/host/xhci.h.
 ddk_headers(
     name = "xhci_headers",
@@ -1670,6 +1686,7 @@ ddk_headers(
         ":all_headers_allowlist_aarch64_globs",
         ":all_headers_allowlist_common_globs",
         ":all_headers_allowlist_exynos",
+        ":pkvm_headers_aarch64",
         ":xhci_headers",
     ],
     # The list of include directories where source files can #include headers
