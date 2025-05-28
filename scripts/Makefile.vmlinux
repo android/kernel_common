@@ -26,6 +26,11 @@ targets += .vmlinux.protected-exports.o
 vmlinux: .vmlinux.protected-exports.o
 endif
 
+ifdef CONFIG_TRIM_UNUSED_KSYMS
+targets += .vmlinux.permitted-imports.o
+vmlinux: .vmlinux.permitted-imports.o
+endif
+
 endif
 
 ARCH_POSTLINK := $(wildcard $(srctree)/arch/$(SRCARCH)/Makefile.postlink)
