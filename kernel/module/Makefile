@@ -13,7 +13,6 @@ obj-y += kmod.o
 obj-$(CONFIG_MODULE_DEBUG_AUTOLOAD_DUPS) += dups.o
 obj-$(CONFIG_MODULE_DECOMPRESS) += decompress.o
 obj-$(CONFIG_MODULE_SIG) += signing.o
-obj-$(CONFIG_MODULE_SIG_PROTECT) += gki_module.o
 obj-$(CONFIG_LIVEPATCH) += livepatch.o
 obj-$(CONFIG_MODULES_TREE_LOOKUP) += tree_lookup.o
 obj-$(CONFIG_DEBUG_KMEMLEAK) += debug_kmemleak.o
@@ -24,36 +23,3 @@ obj-$(CONFIG_KGDB_KDB) += kdb.o
 obj-$(CONFIG_MODVERSIONS) += version.o
 obj-$(CONFIG_MODULE_UNLOAD_TAINT_TRACKING) += tracking.o
 obj-$(CONFIG_MODULE_STATS) += stats.o
-
-#
-# ANDROID: GKI: Generate headerfiles required for gki_module.o
-#
-# Dependencies on generated files need to be listed explicitly
-$(obj)/gki_module.o: include/generated/gki_module_protected_exports.h \
-			include/generated/gki_module_unprotected.h
-
-ifneq ($(CONFIG_UNUSED_KSYMS_WHITELIST),)
-ALL_KMI_SYMBOLS := $(CONFIG_UNUSED_KSYMS_WHITELIST)
-else
-ALL_KMI_SYMBOLS := include/config/abi_gki_kmi_symbols
-$(ALL_KMI_SYMBOLS):
-	: > $@
-endif
-
-include/generated/gki_module_unprotected.h: $(ALL_KMI_SYMBOLS) \
-				$(srctree)/scripts/gen_gki_modules_headers.sh
-	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/gen_gki_modules_headers.sh $@ \
-	"$(srctree)" \
-	$(ALL_KMI_SYMBOLS)
-
-# AARCH is the same as ARCH, except that arm64 becomes aarch64
-AARCH := $(if $(filter arm64,$(ARCH)),aarch64,$(ARCH))
-
-# ABI protected exports list file specific to ARCH if exists else empty
-ABI_PROTECTED_EXPORTS_FILE := $(wildcard $(srctree)/gki/$(AARCH)/protected_exports)
-
-include/generated/gki_module_protected_exports.h: $(ABI_PROTECTED_EXPORTS_FILE) \
-				$(srctree)/scripts/gen_gki_modules_headers.sh
-	$(Q)$(CONFIG_SHELL) $(srctree)/scripts/gen_gki_modules_headers.sh $@ \
-	"$(srctree)" \
-	$(ABI_PROTECTED_EXPORTS_FILE)
