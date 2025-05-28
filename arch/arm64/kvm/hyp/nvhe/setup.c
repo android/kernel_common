@@ -19,7 +19,7 @@
 #include <nvhe/mm.h>
 #include <nvhe/pkvm.h>
 #include <nvhe/serial.h>
-#include <nvhe/trace/trace.h>
+#include <nvhe/trace.h>
 #include <nvhe/trap_handler.h>
 
 unsigned long hyp_nr_cpus;

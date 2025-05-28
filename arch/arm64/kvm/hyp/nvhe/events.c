@@ -5,9 +5,9 @@
 
 #include <nvhe/mm.h>
 #include <nvhe/mem_protect.h>
-#include <nvhe/trace/trace.h>
+#include <nvhe/trace.h>
 
-#include <nvhe/trace/define_events.h>
+#include <nvhe/define_events.h>
 
 extern struct hyp_event_id __hyp_event_ids_start[];
 extern struct hyp_event_id __hyp_event_ids_end[];
