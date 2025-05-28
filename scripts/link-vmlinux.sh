@@ -70,6 +70,9 @@ vmlinux_link()
 
 	if is_enabled CONFIG_MODULES; then
 		objs="${objs} .vmlinux.export.o"
+		if is_enabled CONFIG_MODULE_SIG_PROTECT; then
+			objs="${objs} .vmlinux.protected-exports.o"
+		fi
 	fi
 
 	objs="${objs} init/version-timestamp.o"

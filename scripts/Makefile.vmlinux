@@ -20,6 +20,12 @@ quiet_cmd_cc_o_c = CC      $@
 ifdef CONFIG_MODULES
 targets += .vmlinux.export.o
 vmlinux: .vmlinux.export.o
+
+ifdef CONFIG_MODULE_SIG_PROTECT
+targets += .vmlinux.protected-exports.o
+vmlinux: .vmlinux.protected-exports.o
+endif
+
 endif
 
 ARCH_POSTLINK := $(wildcard $(srctree)/arch/$(SRCARCH)/Makefile.postlink)
