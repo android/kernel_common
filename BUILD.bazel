@@ -12,7 +12,6 @@ load("@rules_python//python:defs.bzl", "py_library")
 load(
     "//build/kernel/kleaf:common_kernels.bzl",
     "common_kernel",
-    "define_prebuilts",
 )
 load("//build/kernel/kleaf:constants.bzl", "COMMON_KCFLAGS", "DEFAULT_GKI_OUTS", "X86_64_OUTS")
 load("//build/kernel/kleaf:fail.bzl", "fail_rule")
@@ -396,8 +395,6 @@ pkg_install(
     srcs = [":kernel_kythe_files"],
     visibility = ["//visibility:public"],
 )
-
-define_prebuilts(visibility = ["//visibility:public"])
 
 # Microdroid is not a real device. The kernel image is built with special
 #  configs to reduce the size. Hence, not using mixed build.
