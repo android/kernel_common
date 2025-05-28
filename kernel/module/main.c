@@ -90,6 +90,13 @@ struct symsearch {
 	enum mod_license license;
 };
 
+#ifdef CONFIG_MODULE_SIG_PROTECT
+static int cmp_string(const void *a, const void *b)
+{
+	return strcmp((const char *)a, *(const char **)b);
+}
+#endif
+
 /*
  * Bounds of module memory, for speeding up __module_address.
  * Protected by module_mutex.
@@ -1360,6 +1367,15 @@ fail:
 }
 EXPORT_SYMBOL_GPL(__symbol_get);
 
+#ifdef CONFIG_MODULE_SIG_PROTECT
+static bool is_protected_symbol_export(const char *name)
+{
+	return bsearch(name, protected_symbol_exports,
+		       protected_symbol_exports_count,
+		       sizeof(const char *), cmp_string) != NULL;
+}
+#endif
+
 /*
  * Ensure that an exported symbol [global namespace] does not already exist
  * in the kernel or in some other module's exported symbol table.
@@ -1391,6 +1407,13 @@ static int verify_exported_symbols(struct module *mod)
 				       module_name(fsa.owner));
 				return -ENOEXEC;
 			}
+#ifdef CONFIG_MODULE_SIG_PROTECT
+			if (!mod->sig_ok && is_protected_symbol_export(kernel_symbol_name(s))) {
+				pr_err("%s: exports protected symbol %s\n",
+				       mod->name, kernel_symbol_name(s));
+				return -EACCES;
+			}
+#endif
 		}
 	}
 	return 0;
@@ -2416,12 +2439,16 @@ static void module_augment_kernel_taints(struct module *mod, struct load_info *i
 	}
 #ifdef CONFIG_MODULE_SIG
 	mod->sig_ok = info->sig_ok;
+#ifndef CONFIG_MODULE_SIG_PROTECT
 	if (!mod->sig_ok) {
 		pr_notice_once("%s: module verification failed: signature "
 			       "and/or required key missing - tainting "
 			       "kernel\n", mod->name);
 		add_taint_module(mod, TAINT_UNSIGNED_MODULE, LOCKDEP_STILL_OK);
 	}
+#endif
+#else
+	mod->sig_ok = 0;
 #endif
 
 	/*
