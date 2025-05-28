@@ -428,3 +428,11 @@ extern size_t protected_symbol_exports_count;
 #define protected_symbol_exports NULL
 #define protected_symbol_exports_count 0UL
 #endif
+
+#ifdef CONFIG_TRIM_UNUSED_KSYMS
+extern const char *const permitted_symbol_imports[];
+extern size_t permitted_symbol_imports_count;
+#else
+#define permitted_symbol_imports NULL
+#define permitted_symbol_imports_count 0UL
+#endif

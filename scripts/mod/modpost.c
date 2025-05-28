@@ -62,6 +62,7 @@ bool target_is_big_endian;
 bool host_is_big_endian;
 
 static unsigned int nr_module_exported_symbols;
+static unsigned int nr_white_list_symbols;
 
 /*
  * Cut off the warnings when there are too many. This typically occurs when
@@ -1738,18 +1739,29 @@ static void check_exports(struct module *mod)
 	}
 }
 
-static void handle_white_list_exports(const char *white_list)
+struct permitted_symbol {
+	struct list_head list;
+	const char *name;
+};
+
+static void handle_white_list_exports(const char *white_list,
+				      struct list_head *permitted_symbols)
 {
 	char *buf, *p, *name;
-
+	struct permitted_symbol *ps;
 	buf = read_text_file(white_list);
 	p = buf;
 
 	while ((name = strsep(&p, "\n"))) {
 		struct symbol *sym = find_symbol(name);
 
-		if (sym)
+		if (sym) {
 			sym->used = true;
+			ps = xmalloc(sizeof(*ps));
+			ps->name = sym->name;
+			list_add_tail(&ps->list, permitted_symbols);
+			++nr_white_list_symbols;
+		}
 	}
 
 	free(buf);
@@ -2238,6 +2250,31 @@ static void write_protected_exports_c_file(void)
 	free(buf.p);
 }
 
+static void write_permitted_imports_c_file(struct list_head *permitted_symbols)
+{
+	struct permitted_symbol *ps, *ps2;
+	const char *symbols[nr_white_list_symbols];
+	unsigned int i = 0;
+	struct buffer buf = {};
+
+	list_for_each_entry_safe(ps, ps2, permitted_symbols, list) {
+		symbols[i++] = ps->name;
+		list_del(&ps->list);
+		free(ps);
+	}
+	qsort(symbols, nr_white_list_symbols, sizeof(const char *), symbol_cmp);
+
+	buf_printf(&buf, "#include \"../kernel/module/internal.h\"\n\n");
+	buf_printf(&buf, "size_t permitted_symbol_imports_count = %d;\n\n", nr_white_list_symbols);
+	buf_printf(&buf, "const char *const permitted_symbol_imports[] = {\n");
+	for (i=0; i<nr_white_list_symbols; ++i) {
+		buf_printf(&buf, "\t\"%s\",\n", symbols[i]);
+	}
+	buf_printf(&buf, "};\n");
+	write_if_changed(&buf, ".vmlinux.permitted-imports.c");
+	free(buf.p);
+}
+
 int main(int argc, char **argv)
 {
 	struct module *mod;
@@ -2337,8 +2374,13 @@ int main(int argc, char **argv)
 		check_exports(mod);
 	}
 
-	if (unused_exports_white_list)
-		handle_white_list_exports(unused_exports_white_list);
+	if (trim_unused_exports) {
+		LIST_HEAD(permitted_imports);
+		if (unused_exports_white_list)
+			handle_white_list_exports(unused_exports_white_list,
+						  &permitted_imports);
+		write_permitted_imports_c_file(&permitted_imports);
+	}
 
 	list_for_each_entry(mod, &modules, list) {
 		if (mod->from_dump)
