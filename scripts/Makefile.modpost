@@ -198,6 +198,13 @@ modpost-args += -e $(addprefix -i , $(KBUILD_EXTRA_SYMBOLS))
 
 endif # ($(KBUILD_EXTMOD),)
 
+ifdef CONFIG_MODULE_SIG_PROTECT
+mod-protect-list := $(CONFIG_MODULE_SIG_PROTECT_LIST)
+mod-protect-list := $(if $(filter-out /%, $(mod-protect-list)),$(if $(wildcard $(mod-protect-list)),,$(srctree)/))$(mod-protect-list)
+modpost-args += $(addprefix -p , $(mod-protect-list))
+modpost-deps += $(mod-protect-list)
+endif
+
 quiet_cmd_modpost = MODPOST $@
       cmd_modpost = \
 	$(if $(missing-input), \
