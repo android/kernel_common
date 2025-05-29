@@ -668,8 +668,7 @@ static void notify_unlink(struct dentry *dentry, const char *file_id_str,
 	if (take_lock)
 		dir = incfs_lookup_dentry(root, special_directory);
 	else
-		dir = lookup_one_len(special_directory, root,
-				     strlen(special_directory));
+		dir = lookup_noperm(&QSTR(special_directory), root);
 
 	if (IS_ERR(dir)) {
 		error = PTR_ERR(dir);

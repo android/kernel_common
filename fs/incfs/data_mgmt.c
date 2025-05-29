@@ -207,7 +207,7 @@ struct dentry *incfs_lookup_dentry(struct dentry *parent, const char *name)
 
 	inode = d_inode(parent);
 	inode_lock_nested(inode, I_MUTEX_PARENT);
-	result = lookup_one_len(name, parent, strlen(name));
+	result = lookup_noperm(&QSTR(name), parent);
 	inode_unlock(inode);
 
 	if (IS_ERR(result))
