@@ -7024,12 +7024,9 @@ int vmx_vcpu_create(struct kvm_vcpu *vcpu)
 #endif
 	}
 
-	/* TODO: support ipiv in the pkvm hypervisor */
-#ifndef __PKVM_HYP__
 	if (vmx_can_use_ipiv(vcpu))
 		WRITE_ONCE(to_kvm_vmx(vcpu->kvm)->pid_table[vcpu->vcpu_id],
 			   __pa(&vmx->pi_desc) | PID_TABLE_ENTRY_VALID);
-#endif
 
 #ifdef __PKVM_HYP__
 	err = pkvm_init_shadow_vcpu(vcpu);
@@ -8087,6 +8084,9 @@ int setup_vmx(void)
 	 * to mark the dirty page.
 	 */
 	enable_pml = 0;
+
+	/* FIXME: Enable ipiv */
+	enable_ipiv = false;
 
 	for_each_possible_cpu(cpu)
 		INIT_LIST_HEAD(&per_cpu(loaded_vmcss_on_cpu, cpu));

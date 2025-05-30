@@ -8554,6 +8554,11 @@ __init int vmx_hardware_setup(void)
 	if (!enable_apicv || !cpu_has_vmx_ipiv())
 		enable_ipiv = false;
 
+#if IS_ENABLED(CONFIG_PKVM_INTEL)
+	if (enable_pkvm)
+		enable_ipiv = false;
+#endif
+
 	if (cpu_has_vmx_tsc_scaling())
 		kvm_caps.has_tsc_control = true;
 
