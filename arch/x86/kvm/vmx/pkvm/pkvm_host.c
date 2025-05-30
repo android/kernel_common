@@ -801,11 +801,14 @@ static __init void init_tss(struct pkvm_pcpu *pcpu)
 static __init int pkvm_setup_pcpu(struct pkvm_hyp *pkvm, int cpu)
 {
 	struct pkvm_pcpu *pcpu;
+#ifndef CONFIG_PKVM_INTEL_DEBUG
 	int nr_pages;
+#endif
 
 	if (cpu >= CONFIG_NR_CPUS)
 		return -ENOMEM;
 
+#ifndef CONFIG_PKVM_INTEL_DEBUG
 	nr_pages = pkvm_sym(pkvm_per_cpu_nr_pages)();
 	if (nr_pages) {
 		void *per_cpu_base = pkvm_sym(pkvm_early_alloc_contig)(nr_pages);
@@ -815,6 +818,16 @@ static __init int pkvm_setup_pcpu(struct pkvm_hyp *pkvm, int cpu)
 			return -ENOMEM;
 		}
 	}
+#else
+	/*
+	 * Overwrite the pkvm's percpu setup symbols with the host percpu value
+	 * as the same percpu base will be used by the pkvm and the host in the
+	 * debug build.
+	 */
+	pkvm_sym(__per_cpu_offset)[cpu] = __per_cpu_offset[cpu];
+	per_cpu(pkvm_sym(this_cpu_off), cpu) = __per_cpu_offset[cpu];
+	per_cpu(pkvm_sym(pcpu_hot).cpu_number, cpu) = cpu;
+#endif
 
 	pcpu = pkvm_sym(pkvm_early_alloc_contig)(PKVM_PCPU_PAGES);
 	if (!pcpu)

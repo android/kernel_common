@@ -10,11 +10,6 @@
 # define __percpu_rel
 #endif
 
-#ifdef __PKVM_HYP__
-#undef __percpu_seg
-# define __percpu_seg		fs
-#endif
-
 #ifdef __ASSEMBLY__
 
 #ifdef CONFIG_SMP
@@ -49,11 +44,6 @@
 #ifdef CONFIG_X86_64
 # define __percpu_seg_override	__seg_gs
 #else
-# define __percpu_seg_override	__seg_fs
-#endif
-
-#ifdef __PKVM_HYP__
-#undef __percpu_seg_override
 # define __percpu_seg_override	__seg_fs
 #endif
 

@@ -124,8 +124,6 @@ struct pkvm_section {
 #define PKVM_PCPU_PAGES (ALIGN(sizeof(struct pkvm_pcpu), PAGE_SIZE) >> PAGE_SHIFT)
 #define PKVM_HOST_VCPU_PAGES (ALIGN(sizeof(struct pkvm_host_vcpu), PAGE_SIZE) >> PAGE_SHIFT)
 #define PKVM_HOST_VCPU_VMCS_PAGES 3 /*vmxarea+vmcs+msr_bitmap*/
-#define PKVM_PERCPU_PAGES (PKVM_PCPU_PAGES + PKVM_HOST_VCPU_PAGES + \
-			   PKVM_HOST_VCPU_VMCS_PAGES + pkvm_sym(pkvm_per_cpu_nr_pages)())
 
 extern unsigned long pkvm_sym(__page_base_offset);
 extern unsigned long pkvm_sym(__symbol_base_offset);
@@ -156,7 +154,17 @@ PKVM_DECLARE(void, init_msr_emulation, (struct vcpu_vmx *vmx));
 #include "GEN-for-each-exc.h"
 #undef GEN
 
+#ifndef CONFIG_PKVM_INTEL_DEBUG
 PKVM_DECLARE(unsigned int, pkvm_per_cpu_nr_pages, (void));
 PKVM_DECLARE(int, setup_pkvm_per_cpu, (int cpu, unsigned long base));
+#define PKVM_PERCPU_PAGES (PKVM_PCPU_PAGES + PKVM_HOST_VCPU_PAGES + \
+			   PKVM_HOST_VCPU_VMCS_PAGES + pkvm_sym(pkvm_per_cpu_nr_pages)())
+#else
+extern unsigned long pkvm_sym(__per_cpu_offset)[NR_CPUS];
+DECLARE_PER_CPU_READ_MOSTLY(unsigned long, pkvm_sym(this_cpu_off));
+DECLARE_PER_CPU_ALIGNED(struct pcpu_hot, pkvm_sym(pcpu_hot));
+#define PKVM_PERCPU_PAGES (PKVM_PCPU_PAGES + PKVM_HOST_VCPU_PAGES + \
+			   PKVM_HOST_VCPU_VMCS_PAGES)
+#endif
 
 #endif
