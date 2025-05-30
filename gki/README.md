@@ -11,7 +11,6 @@ gki
 |   |   |-- virtual_device
 |   |   |-- $partner
 |   |   +-- ...
-|   |-- protected_exports
 |   |-- abi.stg
 |   |-- abi.stg.allowed_breaks
 |   +-- afdo
@@ -28,9 +27,6 @@ architecture. Within each such subdirectory:
       * maintained by the partner
       * e.g. `kmi_symbol_list = "//common:gki/aarch64/symbols/acme"`
       * e.g. `tools/bazel run //modules:acme_aarch64_abi_update_symbol_list`
-* `protected_exports` - a list of symbols owned by GKI modules
-   * maintained by Kleaf
-   * e.g. `tools/bazel run //common:kernel_aarch64_abi_update_protected_exports`
 * `abi.stg` - the tracked ABI
    * maintained by Kleaf
    * e.g. `tools/bazel run //common:kernel_aarch64_abi_update`
