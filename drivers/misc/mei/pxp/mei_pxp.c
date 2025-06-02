@@ -47,6 +47,7 @@ static inline int mei_pxp_reenable(const struct device *dev, struct mei_cl_devic
  * @dev: device corresponding to the mei_cl_device
  * @message: a message buffer to send
  * @size: size of the message
+ * @vtag: the vtag of the connection (use 0 for default)
  * @timeout_ms: timeout in milliseconds, zero means wait indefinitely.
  *
  * Returns: 0 on Success, <0 on Failure with the following defined failures.
@@ -60,7 +61,8 @@ static inline int mei_pxp_reenable(const struct device *dev, struct mei_cl_devic
  *                  Caller may attempt to try again immediately.
  */
 static int
-mei_pxp_send_message(struct device *dev, const void *message, size_t size, unsigned long timeout_ms)
+mei_pxp_send_message(struct device *dev, const void *message, size_t size,
+		     u8 vtag, unsigned long timeout_ms)
 {
 	struct mei_cl_device *cldev;
 	ssize_t byte;
@@ -71,7 +73,7 @@ mei_pxp_send_message(struct device *dev, const void *message, size_t size, unsig
 
 	cldev = to_mei_cl_device(dev);
 
-	byte = mei_cldev_send_timeout(cldev, message, size, timeout_ms);
+	byte = mei_cldev_send_vtag_timeout(cldev, (u8 *)message, size, vtag, timeout_ms);
 	if (byte < 0) {
 		dev_dbg(dev, "mei_cldev_send failed. %zd\n", byte);
 		switch (byte) {
@@ -96,6 +98,7 @@ mei_pxp_send_message(struct device *dev, const void *message, size_t size, unsig
  * @dev: device corresponding to the mei_cl_device
  * @buffer: a message buffer to contain the received message
  * @size: size of the buffer
+ * @vtag: the vtag of the connection (use 0 for default)
  * @timeout_ms: timeout in milliseconds, zero means wait indefinitely.
  *
  * Returns: number of bytes send on Success, <0 on Failure with the following defined failures.
@@ -110,7 +113,8 @@ mei_pxp_send_message(struct device *dev, const void *message, size_t size, unsig
  *                  Caller may attempt to try again from send immediately.
  */
 static int
-mei_pxp_receive_message(struct device *dev, void *buffer, size_t size, unsigned long timeout_ms)
+mei_pxp_receive_message(struct device *dev, void *buffer, size_t size,
+			u8 vtag, unsigned long timeout_ms)
 {
 	struct mei_cl_device *cldev;
 	ssize_t byte;
@@ -123,7 +127,7 @@ mei_pxp_receive_message(struct device *dev, void *buffer, size_t size, unsigned 
 	cldev = to_mei_cl_device(dev);
 
 retry:
-	byte = mei_cldev_recv_timeout(cldev, buffer, size, timeout_ms);
+	byte = mei_cldev_recv_vtag_timeout(cldev, buffer, size, &vtag, timeout_ms);
 	if (byte < 0) {
 		dev_dbg(dev, "mei_cldev_recv failed. %zd\n", byte);
 		switch (byte) {

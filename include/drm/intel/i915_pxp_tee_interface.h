@@ -22,20 +22,19 @@ struct i915_pxp_component_ops {
 	/**
 	 * @send: Send a PXP message.
 	 */
-	int (*send)(struct device *dev, const void *message, size_t size,
-		    unsigned long timeout_ms);
+	int (*send)(struct device *dev, const void *message, size_t size, u8 vtag,
+			unsigned long timeout_ms);
 	/**
 	 * @recv: Receive a PXP message.
 	 */
-	int (*recv)(struct device *dev, void *buffer, size_t size,
-		    unsigned long timeout_ms);
+	int (*recv)(struct device *dev, void *buffer, size_t size, u8 vtag,
+			unsigned long timeout_ms);
 	/**
 	 * @gsc_command: Send a GSC command.
 	 */
 	ssize_t (*gsc_command)(struct device *dev, u8 client_id, u32 fence_id,
 			       struct scatterlist *sg_in, size_t total_in_len,
 			       struct scatterlist *sg_out);
-
 };
 
 /**
