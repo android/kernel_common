@@ -866,6 +866,11 @@ static inline void inode_lock(struct inode *inode)
 	down_write(&inode->i_rwsem);
 }
 
+static inline __must_check int inode_lock_killable(struct inode *inode)
+{
+	return down_write_killable(&inode->i_rwsem);
+}
+
 static inline void inode_unlock(struct inode *inode)
 {
 	up_write(&inode->i_rwsem);
@@ -874,6 +879,11 @@ static inline void inode_unlock(struct inode *inode)
 static inline void inode_lock_shared(struct inode *inode)
 {
 	down_read(&inode->i_rwsem);
+}
+
+static inline __must_check int inode_lock_shared_killable(struct inode *inode)
+{
+	return down_read_killable(&inode->i_rwsem);
 }
 
 static inline void inode_unlock_shared(struct inode *inode)
@@ -1306,6 +1316,7 @@ struct sb_writers {
 	unsigned short			frozen;		/* Is sb frozen? */
 	int				freeze_kcount;	/* How many kernel freeze requests? */
 	int				freeze_ucount;	/* How many userspace freeze requests? */
+	const void			*freeze_owner;	/* Owner of the freeze */
 	struct percpu_rw_semaphore	rw_sem[SB_FREEZE_LEVELS];
 };
 
@@ -1779,7 +1790,7 @@ static inline void __sb_end_write(struct super_block *sb, int level)
 
 static inline void __sb_start_write(struct super_block *sb, int level)
 {
-	percpu_down_read(sb->s_writers.rw_sem + level - 1);
+	percpu_down_read_freezable(sb->s_writers.rw_sem + level - 1, true);
 }
 
 static inline bool __sb_start_write_trylock(struct super_block *sb, int level)
@@ -2070,7 +2081,17 @@ typedef bool (*filldir_t)(struct dir_context *, const char *, int, loff_t, u64,
 struct dir_context {
 	filldir_t actor;
 	loff_t pos;
+	/*
+	 * Filesystems MUST NOT MODIFY count, but may use as a hint:
+	 * 0	    unknown
+	 * > 0      space in buffer (assume at least one entry)
+	 * INT_MAX  unlimited
+	 */
+	int count;
 };
+
+/* If OR-ed with d_type, pending signals are not checked */
+#define FILLDIR_FLAG_NOINTR	0x1000
 
 /*
  * These flags let !MMU mmap() govern direct device mapping vs immediate
@@ -2268,6 +2289,7 @@ extern loff_t vfs_dedupe_file_range_one(struct file *src_file, loff_t src_pos,
  * @FREEZE_HOLDER_KERNEL: kernel wants to freeze or thaw filesystem
  * @FREEZE_HOLDER_USERSPACE: userspace wants to freeze or thaw filesystem
  * @FREEZE_MAY_NEST: whether nesting freeze and thaw requests is allowed
+ * @FREEZE_EXCL: a freeze that can only be undone by the owner
  *
  * Indicate who the owner of the freeze or thaw request is and whether
  * the freeze needs to be exclusive or can nest.
@@ -2281,6 +2303,7 @@ enum freeze_holder {
 	FREEZE_HOLDER_KERNEL	= (1U << 0),
 	FREEZE_HOLDER_USERSPACE	= (1U << 1),
 	FREEZE_MAY_NEST		= (1U << 2),
+	FREEZE_EXCL		= (1U << 3),
 };
 
 struct super_operations {
@@ -2294,9 +2317,9 @@ struct super_operations {
 	void (*evict_inode) (struct inode *);
 	void (*put_super) (struct super_block *);
 	int (*sync_fs)(struct super_block *sb, int wait);
-	int (*freeze_super) (struct super_block *, enum freeze_holder who);
+	int (*freeze_super) (struct super_block *, enum freeze_holder who, const void *owner);
 	int (*freeze_fs) (struct super_block *);
-	int (*thaw_super) (struct super_block *, enum freeze_holder who);
+	int (*thaw_super) (struct super_block *, enum freeze_holder who, const void *owner);
 	int (*unfreeze_fs) (struct super_block *);
 	int (*statfs) (struct dentry *, struct kstatfs *);
 	int (*remount_fs) (struct super_block *, int *, char *);
@@ -2343,6 +2366,7 @@ struct super_operations {
 #define S_CASEFOLD	(1 << 15) /* Casefolded file */
 #define S_VERITY	(1 << 16) /* Verity file (using fs/verity/) */
 #define S_KERNEL_FILE	(1 << 17) /* File is in use by the kernel (eg. fs/cachefiles) */
+#define S_ANON_INODE	(1 << 19) /* Inode is an anonymous inode */
 
 /*
  * Note that nosuid etc flags are inode-specific: setting some file-system
@@ -2399,6 +2423,7 @@ static inline bool sb_rdonly(const struct super_block *sb) { return sb->s_flags 
 
 #define IS_WHITEOUT(inode)	(S_ISCHR(inode->i_mode) && \
 				 (inode)->i_rdev == WHITEOUT_DEV)
+#define IS_ANON_FILE(inode)	((inode)->i_flags & S_ANON_INODE)
 
 static inline bool HAS_UNMAPPED_ID(struct mnt_idmap *idmap,
 				   struct inode *inode)
@@ -2704,8 +2729,10 @@ extern int unregister_filesystem(struct file_system_type *);
 extern int vfs_statfs(const struct path *, struct kstatfs *);
 extern int user_statfs(const char __user *, struct kstatfs *);
 extern int fd_statfs(int, struct kstatfs *);
-int freeze_super(struct super_block *super, enum freeze_holder who);
-int thaw_super(struct super_block *super, enum freeze_holder who);
+int freeze_super(struct super_block *super, enum freeze_holder who,
+		 const void *freeze_owner);
+int thaw_super(struct super_block *super, enum freeze_holder who,
+	       const void *freeze_owner);
 extern __printf(2, 3)
 int super_setup_bdi_name(struct super_block *sb, char *fmt, ...);
 extern int super_setup_bdi(struct super_block *sb);
@@ -3514,9 +3541,11 @@ extern void put_filesystem(struct file_system_type *fs);
 extern struct file_system_type *get_fs_type(const char *name);
 extern void drop_super(struct super_block *sb);
 extern void drop_super_exclusive(struct super_block *sb);
-extern void iterate_supers(void (*)(struct super_block *, void *), void *);
+extern void iterate_supers(void (*f)(struct super_block *, void *), void *arg);
 extern void iterate_supers_type(struct file_system_type *,
 			        void (*)(struct super_block *, void *), void *);
+void filesystems_freeze(void);
+void filesystems_thaw(void);
 
 extern int dcache_dir_open(struct inode *, struct file *);
 extern int dcache_dir_close(struct inode *, struct file *);

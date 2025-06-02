@@ -85,10 +85,13 @@
 #include <linux/file.h>
 #include <linux/filter.h>
 #include <linux/fs.h>
+#include <linux/fs_struct.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/mount.h>
 #include <linux/namei.h>
+#include <linux/net.h>
+#include <linux/pidfs.h>
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/sched/signal.h>
@@ -643,6 +646,9 @@ static void unix_sock_destructor(struct sock *sk)
 		return;
 	}
 
+	if (sk->sk_peer_pid)
+		pidfs_put_pid(sk->sk_peer_pid);
+
 	if (u->addr)
 		unix_release_addr(u->addr);
 
@@ -734,13 +740,48 @@ static void unix_release_sock(struct sock *sk, int embrion)
 		unix_gc();		/* Garbage collect fds */
 }
 
-static void init_peercred(struct sock *sk)
+struct unix_peercred {
+	struct pid *peer_pid;
+	const struct cred *peer_cred;
+};
+
+static inline int prepare_peercred(struct unix_peercred *peercred)
 {
-	sk->sk_peer_pid = get_pid(task_tgid(current));
-	sk->sk_peer_cred = get_current_cred();
+	struct pid *pid;
+	int err;
+
+	pid = task_tgid(current);
+	err = pidfs_register_pid(pid);
+	if (likely(!err)) {
+		peercred->peer_pid = get_pid(pid);
+		peercred->peer_cred = get_current_cred();
+	}
+	return err;
 }
 
-static void update_peercred(struct sock *sk)
+static void drop_peercred(struct unix_peercred *peercred)
+{
+	const struct cred *cred = NULL;
+	struct pid *pid = NULL;
+
+	might_sleep();
+
+	swap(peercred->peer_pid, pid);
+	swap(peercred->peer_cred, cred);
+
+	pidfs_put_pid(pid);
+	put_pid(pid);
+	put_cred(cred);
+}
+
+static inline void init_peercred(struct sock *sk,
+				 const struct unix_peercred *peercred)
+{
+	sk->sk_peer_pid = peercred->peer_pid;
+	sk->sk_peer_cred = peercred->peer_cred;
+}
+
+static void update_peercred(struct sock *sk, struct unix_peercred *peercred)
 {
 	const struct cred *old_cred;
 	struct pid *old_pid;
@@ -748,11 +789,11 @@ static void update_peercred(struct sock *sk)
 	spin_lock(&sk->sk_peer_lock);
 	old_pid = sk->sk_peer_pid;
 	old_cred = sk->sk_peer_cred;
-	init_peercred(sk);
+	init_peercred(sk, peercred);
 	spin_unlock(&sk->sk_peer_lock);
 
-	put_pid(old_pid);
-	put_cred(old_cred);
+	peercred->peer_pid = old_pid;
+	peercred->peer_cred = old_cred;
 }
 
 static void copy_peercred(struct sock *sk, struct sock *peersk)
@@ -761,6 +802,7 @@ static void copy_peercred(struct sock *sk, struct sock *peersk)
 
 	spin_lock(&sk->sk_peer_lock);
 	sk->sk_peer_pid = get_pid(peersk->sk_peer_pid);
+	pidfs_get_pid(sk->sk_peer_pid);
 	sk->sk_peer_cred = get_cred(peersk->sk_peer_cred);
 	spin_unlock(&sk->sk_peer_lock);
 }
@@ -770,6 +812,7 @@ static int unix_listen(struct socket *sock, int backlog)
 	int err;
 	struct sock *sk = sock->sk;
 	struct unix_sock *u = unix_sk(sk);
+	struct unix_peercred peercred = {};
 
 	err = -EOPNOTSUPP;
 	if (sock->type != SOCK_STREAM && sock->type != SOCK_SEQPACKET)
@@ -777,6 +820,9 @@ static int unix_listen(struct socket *sock, int backlog)
 	err = -EINVAL;
 	if (!READ_ONCE(u->addr))
 		goto out;	/* No listens on an unbound socket */
+	err = prepare_peercred(&peercred);
+	if (err)
+		goto out;
 	unix_state_lock(sk);
 	if (sk->sk_state != TCP_CLOSE && sk->sk_state != TCP_LISTEN)
 		goto out_unlock;
@@ -786,11 +832,12 @@ static int unix_listen(struct socket *sock, int backlog)
 	WRITE_ONCE(sk->sk_state, TCP_LISTEN);
 
 	/* set credentials so connect can copy them */
-	update_peercred(sk);
+	update_peercred(sk, &peercred);
 	err = 0;
 
 out_unlock:
 	unix_state_unlock(sk);
+	drop_peercred(&peercred);
 out:
 	return err;
 }
@@ -1101,7 +1148,7 @@ static int unix_release(struct socket *sock)
 }
 
 static struct sock *unix_find_bsd(struct sockaddr_un *sunaddr, int addr_len,
-				  int type)
+				  int type, int flags)
 {
 	struct inode *inode;
 	struct path path;
@@ -1109,13 +1156,39 @@ static struct sock *unix_find_bsd(struct sockaddr_un *sunaddr, int addr_len,
 	int err;
 
 	unix_mkname_bsd(sunaddr, addr_len);
-	err = kern_path(sunaddr->sun_path, LOOKUP_FOLLOW, &path);
-	if (err)
-		goto fail;
 
-	err = path_permission(&path, MAY_WRITE);
-	if (err)
-		goto path_put;
+	if (flags & SOCK_COREDUMP) {
+		const struct cred *cred;
+		struct cred *kcred;
+		struct path root;
+
+		kcred = prepare_kernel_cred(&init_task);
+		if (!kcred) {
+			err = -ENOMEM;
+			goto fail;
+		}
+
+		task_lock(&init_task);
+		get_fs_root(init_task.fs, &root);
+		task_unlock(&init_task);
+
+		cred = override_creds(kcred);
+		err = vfs_path_lookup(root.dentry, root.mnt, sunaddr->sun_path,
+				      LOOKUP_BENEATH | LOOKUP_NO_SYMLINKS |
+				      LOOKUP_NO_MAGICLINKS, &path);
+		put_cred(revert_creds(cred));
+		path_put(&root);
+		if (err)
+			goto fail;
+	} else {
+		err = kern_path(sunaddr->sun_path, LOOKUP_FOLLOW, &path);
+		if (err)
+			goto fail;
+
+		err = path_permission(&path, MAY_WRITE);
+		if (err)
+			goto path_put;
+	}
 
 	err = -ECONNREFUSED;
 	inode = d_backing_inode(path.dentry);
@@ -1165,12 +1238,12 @@ static struct sock *unix_find_abstract(struct net *net,
 
 static struct sock *unix_find_other(struct net *net,
 				    struct sockaddr_un *sunaddr,
-				    int addr_len, int type)
+				    int addr_len, int type, int flags)
 {
 	struct sock *sk;
 
 	if (sunaddr->sun_path[0])
-		sk = unix_find_bsd(sunaddr, addr_len, type);
+		sk = unix_find_bsd(sunaddr, addr_len, type, flags);
 	else
 		sk = unix_find_abstract(net, sunaddr, addr_len, type);
 
@@ -1428,7 +1501,7 @@ static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
 		}
 
 restart:
-		other = unix_find_other(sock_net(sk), sunaddr, alen, sock->type);
+		other = unix_find_other(sock_net(sk), sunaddr, alen, sock->type, 0);
 		if (IS_ERR(other)) {
 			err = PTR_ERR(other);
 			goto out;
@@ -1525,6 +1598,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 	struct sockaddr_un *sunaddr = (struct sockaddr_un *)uaddr;
 	struct sock *sk = sock->sk, *newsk = NULL, *other = NULL;
 	struct unix_sock *u = unix_sk(sk), *newu, *otheru;
+	struct unix_peercred peercred = {};
 	struct net *net = sock_net(sk);
 	struct sk_buff *skb = NULL;
 	unsigned char state;
@@ -1561,6 +1635,10 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 		goto out;
 	}
 
+	err = prepare_peercred(&peercred);
+	if (err)
+		goto out;
+
 	/* Allocate skb for sending to listening sock */
 	skb = sock_wmalloc(newsk, 1, 0, GFP_KERNEL);
 	if (!skb) {
@@ -1570,7 +1648,7 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 
 restart:
 	/*  Find listening sock. */
-	other = unix_find_other(net, sunaddr, addr_len, sk->sk_type);
+	other = unix_find_other(net, sunaddr, addr_len, sk->sk_type, flags);
 	if (IS_ERR(other)) {
 		err = PTR_ERR(other);
 		goto out_free_skb;
@@ -1636,7 +1714,7 @@ restart:
 	unix_peer(newsk)	= sk;
 	newsk->sk_state		= TCP_ESTABLISHED;
 	newsk->sk_type		= sk->sk_type;
-	init_peercred(newsk);
+	init_peercred(newsk, &peercred);
 	newu = unix_sk(newsk);
 	newu->listener = other;
 	RCU_INIT_POINTER(newsk->sk_wq, &newu->peer_wq);
@@ -1695,20 +1773,33 @@ out_free_skb:
 out_free_sk:
 	unix_release_sock(newsk, 0);
 out:
+	drop_peercred(&peercred);
 	return err;
 }
 
 static int unix_socketpair(struct socket *socka, struct socket *sockb)
 {
+	struct unix_peercred ska_peercred = {}, skb_peercred = {};
 	struct sock *ska = socka->sk, *skb = sockb->sk;
+	int err;
+
+	err = prepare_peercred(&ska_peercred);
+	if (err)
+		return err;
+
+	err = prepare_peercred(&skb_peercred);
+	if (err) {
+		drop_peercred(&ska_peercred);
+		return err;
+	}
 
 	/* Join our sockets back to back */
 	sock_hold(ska);
 	sock_hold(skb);
 	unix_peer(ska) = skb;
 	unix_peer(skb) = ska;
-	init_peercred(ska);
-	init_peercred(skb);
+	init_peercred(ska, &ska_peercred);
+	init_peercred(skb, &skb_peercred);
 
 	ska->sk_state = TCP_ESTABLISHED;
 	skb->sk_state = TCP_ESTABLISHED;
@@ -2026,7 +2117,7 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg,
 	if (msg->msg_namelen) {
 lookup:
 		other = unix_find_other(sock_net(sk), msg->msg_name,
-					msg->msg_namelen, sk->sk_type);
+					msg->msg_namelen, sk->sk_type, 0);
 		if (IS_ERR(other)) {
 			err = PTR_ERR(other);
 			goto out_free;
