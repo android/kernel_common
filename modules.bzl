@@ -130,7 +130,6 @@ _X86_64_GKI_MODULES_LIST = [
     "drivers/thermal/intel/int340x_thermal/processor_thermal_wt_req.ko",
     "drivers/thermal/intel/intel_soc_dts_iosf.ko",
     "drivers/thermal/intel/intel_soc_dts_thermal.ko",
-    "drivers/thunderbolt/thunderbolt.ko",
 ]
 
 # buildifier: disable=unnamed-macro
