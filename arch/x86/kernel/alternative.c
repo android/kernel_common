@@ -35,6 +35,7 @@
 #include <asm/cfi.h>
 #include <asm/ibt.h>
 #include <asm/set_memory.h>
+#include <asm/pkvm_image.h>
 
 int __read_mostly alternatives_patched;
 
@@ -946,6 +947,26 @@ void __init_or_module noinline apply_retpolines(s32 *start, s32 *end)
 }
 
 #ifdef CONFIG_MITIGATION_RETHUNK
+#ifdef CONFIG_PKVM_INTEL
+static void *get_return_thunk(void *addr)
+{
+	if (!is_pkvm_text(addr))
+		return x86_return_thunk;
+
+	if (x86_return_thunk == __x86_return_thunk)
+		return __x86_return_thunk__pkvm;
+	else if (x86_return_thunk == call_depth_return_thunk)
+		return call_depth_return_thunk__pkvm;
+	else if (x86_return_thunk == retbleed_return_thunk)
+		return retbleed_return_thunk__pkvm;
+	else if (x86_return_thunk == srso_return_thunk)
+		return srso_return_thunk__pkvm;
+	else if (x86_return_thunk == srso_alias_return_thunk)
+		return srso_alias_return_thunk__pkvm;
+
+	BUG();
+}
+#endif
 
 bool cpu_wants_rethunk(void)
 {
@@ -980,7 +1001,12 @@ static int patch_return(void *addr, struct insn *insn, u8 *bytes)
 	/* Patch the custom return thunks... */
 	if (cpu_wants_rethunk_at(addr)) {
 		i = JMP32_INSN_SIZE;
+#ifdef CONFIG_PKVM_INTEL
+		__text_gen_insn(bytes, JMP32_INSN_OPCODE, addr,
+			get_return_thunk(addr), i);
+#else
 		__text_gen_insn(bytes, JMP32_INSN_OPCODE, addr, x86_return_thunk, i);
+#endif
 	} else {
 		/* ... or patch them out if not needed. */
 		bytes[i++] = RET_INSN_OPCODE;

@@ -502,6 +502,34 @@ static inline void call_depth_return_thunk(void) {}
 # define THUNK_TARGET(addr) [thunk_target] "rm" (addr)
 #endif
 
+#ifdef CONFIG_PKVM_INTEL
+#ifdef CONFIG_MITIGATION_RETHUNK
+extern void __x86_return_thunk__pkvm(void);
+#else
+static inline void __x86_return_thunk__pkvm(void) {}
+#endif
+
+#ifdef CONFIG_MITIGATION_UNRET_ENTRY
+extern void retbleed_return_thunk__pkvm(void);
+#else
+static inline void retbleed_return_thunk__pkvm(void) {}
+#endif
+
+#ifdef CONFIG_MITIGATION_SRSO
+extern void srso_return_thunk__pkvm(void);
+extern void srso_alias_return_thunk__pkvm(void);
+#else
+static inline void srso_return_thunk__pkvm(void) {}
+static inline void srso_alias_return_thunk__pkvm(void) {}
+#endif
+
+#ifdef CONFIG_MITIGATION_CALL_DEPTH_TRACKING
+extern void call_depth_return_thunk__pkvm(void);
+#else
+static inline void call_depth_return_thunk__pkvm(void) {}
+#endif
+#endif /* CONFIG_PKVM_INTEL */
+
 /* The Spectre V2 mitigation variants */
 enum spectre_v2_mitigation {
 	SPECTRE_V2_NONE,
