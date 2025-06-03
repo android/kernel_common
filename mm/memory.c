@@ -3739,6 +3739,8 @@ static vm_fault_t do_wp_page(struct vm_fault *vmf)
 		return wp_page_shared(vmf, folio);
 	}
 
+	trace_android_vh_do_wp_page(folio);
+
 	/*
 	 * Private mapping: create an exclusive anonymous page copy if reuse
 	 * is impossible. We might miss VM_WRITE for FOLL_FORCE handling.
@@ -4564,6 +4566,7 @@ check_folio:
 		pte = pte_mksoft_dirty(pte);
 	if (pte_swp_uffd_wp(vmf->orig_pte))
 		pte = pte_mkuffd_wp(pte);
+	trace_android_vh_do_swap_page(folio, &pte, vmf, entry);
 
 	/*
 	 * Same logic as in do_wp_page(); however, optimize for pages that are
@@ -4828,6 +4831,7 @@ static vm_fault_t do_anonymous_page(struct vm_fault *vmf)
 	 */
 	__folio_mark_uptodate(folio);
 
+	trace_android_vh_do_anonymous_page(vma, folio);
 	entry = mk_pte(&folio->page, vma->vm_page_prot);
 	entry = pte_sw_mkyoung(entry);
 	if (vma->vm_flags & VM_WRITE)
