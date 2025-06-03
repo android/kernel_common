@@ -1770,6 +1770,17 @@ static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 	void *entries;
 	size_t size;
 
+	/*
+	 * XSAVES is effectively enabled if and only if XSAVE is also exposed
+	 * to the guest.  XSAVES depends on CR4.OSXSAVE, and CR4.OSXSAVE can be
+	 * set if and only if XSAVE is supported.
+	 */
+	if (boot_cpu_has(X86_FEATURE_XSAVE) &&
+	    guest_cpuid_has(vcpu, X86_FEATURE_XSAVE))
+		kvm_governed_feature_check_and_set(vcpu, X86_FEATURE_XSAVES);
+
+	kvm_governed_feature_check_and_set(vcpu, X86_FEATURE_LAM);
+
 	if (vcpu->arch.guest_state_protected || !e2 || !nent)
 		return;
 
