@@ -21,6 +21,7 @@
 #include <asm/sync_core.h>
 #include <asm/text-patching.h>
 #include <asm/xen/hypercall.h>
+#include <asm/pkvm_image.h>
 
 static int __initdata_or_module debug_callthunks;
 
@@ -79,6 +80,25 @@ extern u8 skl_call_thunk_tail[];
 
 #define SKL_TMPL_SIZE \
 	((unsigned int)(skl_call_thunk_tail - skl_call_thunk_template))
+
+#ifdef CONFIG_PKVM_INTEL
+asm (
+	".pushsection .rodata				\n"
+	".global skl_call_thunk_template__pkvm		\n"
+	"skl_call_thunk_template__pkvm:			\n"
+		__stringify(INCREMENT_CALL_DEPTH_PKVM)"	\n"
+	".global skl_call_thunk_tail__pkvm		\n"
+	"skl_call_thunk_tail__pkvm:			\n"
+	".popsection					\n"
+);
+
+extern u8 skl_call_thunk_template__pkvm[];
+extern u8 skl_call_thunk_tail__pkvm[];
+
+#define SKL_TMPL_SIZE_PKVM \
+	((unsigned int)(skl_call_thunk_tail__pkvm - \
+		skl_call_thunk_template__pkvm))
+#endif /* CONFIG_PKVM_INTEL */
 
 extern void error_entry(void);
 extern void xen_error_entry(void);
@@ -178,9 +198,18 @@ static void *patch_dest(void *dest, bool direct)
 	unsigned int tsize = SKL_TMPL_SIZE;
 	u8 insn_buff[MAX_PATCH_LEN];
 	u8 *pad = dest - tsize;
+	u8 *thunk = skl_call_thunk_template;
 
-	memcpy(insn_buff, skl_call_thunk_template, tsize);
-	apply_relocation(insn_buff, pad, tsize, skl_call_thunk_template, tsize);
+#ifdef CONFIG_PKVM_INTEL
+	if (is_pkvm_text(dest)) {
+		tsize = SKL_TMPL_SIZE_PKVM;
+		pad = dest - tsize;
+		thunk = skl_call_thunk_template__pkvm;
+	}
+#endif
+
+	memcpy(insn_buff, thunk, tsize);
+	apply_relocation(insn_buff, pad, tsize, thunk, tsize);
 
 	/* Already patched? */
 	if (!bcmp(pad, insn_buff, tsize))
