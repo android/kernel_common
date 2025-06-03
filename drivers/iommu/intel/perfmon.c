@@ -652,6 +652,8 @@ int alloc_iommu_pmu(struct intel_iommu *iommu)
 	iommu_pmu->cntr_reg = get_perf_reg_address(iommu, DMAR_PERFCNTROFF_REG);
 	iommu_pmu->overflow = get_perf_reg_address(iommu, DMAR_PERFOVFOFF_REG);
 
+	iommu_pmu->iommu = iommu;
+
 	/*
 	 * Check per-counter capabilities. All counters should have the
 	 * same capabilities on Interrupt on Overflow Support and Counter
@@ -694,7 +696,6 @@ int alloc_iommu_pmu(struct intel_iommu *iommu)
 		}
 	}
 
-	iommu_pmu->iommu = iommu;
 	iommu->pmu = iommu_pmu;
 
 	return 0;
