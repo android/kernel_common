@@ -1112,7 +1112,7 @@ static void debug_check_table_before_coalescing(
 	struct stage2_map_data *data,
 	kvm_pte_t *ptep, u64 pa)
 {
-#ifdef CONFIG_NVHE_EL2_DEBUG
+#ifdef CONFIG_PKVM_STRICT_CHECKS
 	u64 granule = kvm_granule_size(ctx->level + 1);
 	int i;
 

@@ -1265,7 +1265,7 @@ int __pkvm_host_share_hyp(u64 pfn)
 	ret = __host_check_page_state_range(phys, size, PKVM_PAGE_OWNED);
 	if (ret)
 		goto unlock;
-	if (IS_ENABLED(CONFIG_NVHE_EL2_DEBUG)) {
+	if (IS_ENABLED(CONFIG_PKVM_STRICT_CHECKS)) {
 		ret = __hyp_check_page_state_range((u64)virt, size, PKVM_NOPAGE);
 		if (ret)
 			goto unlock;
@@ -1586,7 +1586,7 @@ int __pkvm_host_donate_hyp_locked(u64 pfn, u64 nr_pages, enum kvm_pgtable_prot p
 	ret = __host_check_page_state_range(phys, size, PKVM_PAGE_OWNED);
 	if (ret)
 		goto unlock;
-	if (IS_ENABLED(CONFIG_NVHE_EL2_DEBUG)) {
+	if (IS_ENABLED(CONFIG_PKVM_STRICT_CHECKS)) {
 		ret = __hyp_check_page_state_range((u64)virt, size, PKVM_NOPAGE);
 		if (ret)
 			goto unlock;
@@ -1623,7 +1623,7 @@ int __pkvm_hyp_donate_host(u64 pfn, u64 nr_pages)
 	ret = __hyp_check_page_state_range(virt, size, PKVM_PAGE_OWNED);
 	if (ret)
 		goto unlock;
-	if (IS_ENABLED(CONFIG_NVHE_EL2_DEBUG)) {
+	if (IS_ENABLED(CONFIG_PKVM_STRICT_CHECKS)) {
 		ret = __host_check_page_state_range(phys, size, PKVM_NOPAGE);
 		if (ret)
 			goto unlock;
