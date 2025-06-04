@@ -1111,47 +1111,21 @@ out_unlock:
 static void do_ffa_direct_msg(struct kvm_cpu_context *ctxt,
 			      u64 vm_handle)
 {
-	DECLARE_REG(u32, func_id, ctxt, 0);
 	DECLARE_REG(u32, endp, ctxt, 1);
-	DECLARE_REG(u32, msg_flags, ctxt, 2);
-	DECLARE_REG(u32, w3, ctxt, 3);
-	DECLARE_REG(u32, w4, ctxt, 4);
-	DECLARE_REG(u32, w5, ctxt, 5);
-	DECLARE_REG(u32, w6, ctxt, 6);
-	DECLARE_REG(u32, w7, ctxt, 7);
 
-	struct arm_smccc_1_2_regs req, resp;
+	struct arm_smccc_1_2_regs *reg = (void *)&ctxt->regs.regs[0];
 
 	if (FIELD_GET(FFA_SRC_ENDPOINT_MASK, endp) != vm_handle) {
-		resp = (struct arm_smccc_1_2_regs) {
-			.a0	= FFA_ERROR,
-			.a2	= FFA_RET_INVALID_PARAMETERS,
-		};
+		struct arm_smccc_res res;
+
+		ffa_to_smccc_error(&res, FFA_RET_INVALID_PARAMETERS);
+		ffa_set_retval(ctxt, &res);
 		return;
 	}
 
-	req = (struct arm_smccc_1_2_regs) {
-		.a0	= func_id,
-		.a1	= endp,
-		.a2	= msg_flags,
-		.a3	= w3,
-		.a4	= w4,
-		.a5	= w5,
-		.a6	= w6,
-		.a7	= w7,
-	};
-
-	/*
-	 * In case SMCCC 1.2 is not supported we should preserve the
-	 * host registers.
-	 */
-	memcpy(&resp, &ctxt->regs.regs[0], sizeof(resp));
-
 	__hyp_exit();
-	arm_smccc_1_2_smc(&req, &resp);
+	arm_smccc_1_2_smc(reg, reg);
 	__hyp_enter();
-
-	memcpy(&ctxt->regs.regs[0], &resp, sizeof(resp));
 }
 
 bool kvm_host_ffa_handler(struct kvm_cpu_context *host_ctxt, u32 func_id)
