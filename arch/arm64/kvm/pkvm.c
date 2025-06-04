@@ -1485,7 +1485,7 @@ EXPORT_SYMBOL(__pkvm_register_el2_call);
 
 void pkvm_el2_mod_frob_sections(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs, char *secstrings)
 {
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 	int i;
 
 	for (i = 0; i < ehdr->e_shnum; i++) {

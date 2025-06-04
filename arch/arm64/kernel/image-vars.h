@@ -140,7 +140,7 @@ KVM_NVHE_ALIAS(__hyp_rodata_end);
 KVM_NVHE_ALIAS(__hyp_event_ids_start);
 KVM_NVHE_ALIAS(__hyp_event_ids_end);
 KVM_NVHE_ALIAS(__hyp_printk_fmts_start);
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 KVM_NVHE_ALIAS(__hyp_patchable_function_entries_start);
 KVM_NVHE_ALIAS(__hyp_patchable_function_entries_end);
 #endif

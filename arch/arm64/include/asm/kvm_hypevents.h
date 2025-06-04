@@ -11,7 +11,7 @@
  * Hypervisor events definitions.
  */
 
-#ifdef CONFIG_PROTECTED_NVHE_FTRACE
+#ifdef CONFIG_PKVM_FTRACE
 HYP_EVENT(func,
 	HE_PROTO(unsigned long ip, unsigned long parent),
 	HE_STRUCT(

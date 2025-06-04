@@ -122,7 +122,7 @@ config PTDUMP_STAGE2_DEBUGFS
 
 	  If in doubt, say N.
 
-config PROTECTED_NVHE_FTRACE
+config PKVM_FTRACE
 	bool "Protected KVM hypervisor function tracing"
 	depends on KVM
 	depends on TRACING
