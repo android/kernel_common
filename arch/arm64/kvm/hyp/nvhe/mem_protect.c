@@ -411,8 +411,10 @@ int __pkvm_guest_relinquish_to_host(struct pkvm_hyp_vcpu *vcpu,
 		goto end;
 
 	/* We don't support splitting non-leaf mappings */
-	if (level != KVM_PGTABLE_LAST_LEVEL)
+	if (level != KVM_PGTABLE_LAST_LEVEL) {
+		ret = -E2BIG;
 		goto end;
+	}
 
 	state = guest_get_page_state(pte, ipa);
 	if (state != PKVM_PAGE_OWNED) {
