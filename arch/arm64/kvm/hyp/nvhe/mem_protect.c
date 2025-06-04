@@ -433,8 +433,7 @@ int __pkvm_guest_relinquish_to_host(struct pkvm_hyp_vcpu *vcpu,
 	psci_mem_protect_dec(1);
 
 	/* Zap the guest stage2 pte and return ownership to the host */
-	ret = kvm_pgtable_stage2_annotate(&vm->pgt, ipa, PAGE_SIZE,
-					  &vcpu->vcpu.arch.stage2_mc, 0);
+	ret = kvm_pgtable_stage2_unmap(&vm->pgt, ipa, PAGE_SIZE);
 	if (ret)
 		goto end;
 
