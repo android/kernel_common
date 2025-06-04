@@ -1594,7 +1594,7 @@ static void handle___pkvm_selftest_event(struct kvm_cpu_context *host_ctxt)
 {
 	int smc_ret = SMCCC_RET_NOT_SUPPORTED, ret = -EOPNOTSUPP;
 
-#ifdef CONFIG_PROTECTED_NVHE_TESTING
+#ifdef CONFIG_PKVM_SELFTESTS
 	trace_selftest();
 	smc_ret = SMCCC_RET_SUCCESS;
 	ret = 0;

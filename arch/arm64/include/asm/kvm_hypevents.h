@@ -142,7 +142,7 @@ HYP_EVENT(vcpu_illegal_trap,
 	HE_PRINTK("esr_el2=%llx", __entry->esr)
 );
 
-#ifdef CONFIG_PROTECTED_NVHE_TESTING
+#ifdef CONFIG_PKVM_SELFTESTS
 HYP_EVENT(selftest,
 	  HE_PROTO(void),
 	  HE_STRUCT(),

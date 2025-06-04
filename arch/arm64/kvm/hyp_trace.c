@@ -884,7 +884,7 @@ static int hyp_trace_clock_show(struct seq_file *m, void *v)
 }
 DEFINE_SHOW_ATTRIBUTE(hyp_trace_clock);
 
-#ifdef CONFIG_PROTECTED_NVHE_TESTING
+#ifdef CONFIG_PKVM_SELFTESTS
 static int selftest_event_open(struct inode *inode, struct file *file)
 {
 	if (file->f_mode & FMODE_WRITE)

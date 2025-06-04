@@ -122,15 +122,6 @@ config PTDUMP_STAGE2_DEBUGFS
 
 	  If in doubt, say N.
 
-config PROTECTED_NVHE_TESTING
-	bool "Protected KVM hypervisor testing infrastructure"
-	depends on KVM
-	default n
-	help
-	  Say Y here to enable pKVM hypervisor testing infrastructure.
-
-	  If unsure, say N.
-
 config PROTECTED_NVHE_FTRACE
 	bool "Protected KVM hypervisor function tracing"
 	depends on KVM
