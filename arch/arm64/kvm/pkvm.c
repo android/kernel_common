@@ -1841,8 +1841,7 @@ kvm_pte_t *pkvm_pgtable_stage2_create_unlinked(struct kvm_pgtable *pgt, u64 phys
 	return NULL;
 }
 
-int pkvm_pgtable_stage2_split(struct kvm_pgtable *pgt, u64 addr, u64 size,
-			      struct kvm_mmu_memory_cache *mc)
+int pkvm_pgtable_stage2_split(struct kvm_pgtable *pgt, u64 addr, u64 size, void *mc)
 {
 	WARN_ON_ONCE(1);
 	return -EINVAL;
