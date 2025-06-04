@@ -134,6 +134,7 @@
   __traceiter_android_vh_lruvec_add_folio
   __traceiter_android_vh_lruvec_del_folio
   __traceiter_android_vh_mglru_aging_bypass
+  __traceiter_android_vh_mmap_region
   __traceiter_android_vh_mutex_unlock_slowpath
   __traceiter_android_vh_mutex_unlock_slowpath_before_wakeq
   __traceiter_android_vh_mutex_wait_finish
@@ -153,16 +154,19 @@
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_shmem_swapin_folio
   __traceiter_android_vh_shrink_folio_list
+  __traceiter_android_vh_shrink_node_memcgs
   __traceiter_android_vh_shrink_node_memcgs_bypass
   __traceiter_android_vh_sk_alloc
   __traceiter_android_vh_sk_free
   __traceiter_android_vh_swapmem_gather_add_bypass
   __traceiter_android_vh_swapmem_gather_finish
   __traceiter_android_vh_swapmem_gather_init
+  __traceiter_android_vh_swap_writepage
   __traceiter_android_vh_percpu_rwsem_down_read
   __traceiter_android_vh_percpu_rwsem_up_write
   __traceiter_android_vh_sync_txn_recvd
   __traceiter_android_vh_tcp_rtt_estimator
+  __traceiter_android_vh_try_to_unmap_one
   __traceiter_android_vh_udp_enqueue_schedule_skb
   __traceiter_android_vh_uprobes_replace_page
   __traceiter_cpu_frequency_limits
@@ -239,6 +243,7 @@
   __tracepoint_android_vh_lruvec_add_folio
   __tracepoint_android_vh_lruvec_del_folio
   __tracepoint_android_vh_mglru_aging_bypass
+  __tracepoint_android_vh_mmap_region
   __tracepoint_android_vh_mutex_unlock_slowpath
   __tracepoint_android_vh_mutex_unlock_slowpath_before_wakeq
   __tracepoint_android_vh_mutex_wait_finish
@@ -258,14 +263,17 @@
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_shmem_swapin_folio
   __tracepoint_android_vh_shrink_folio_list
+  __tracepoint_android_vh_shrink_node_memcgs
   __tracepoint_android_vh_shrink_node_memcgs_bypass
   __tracepoint_android_vh_sk_alloc
   __tracepoint_android_vh_sk_free
   __tracepoint_android_vh_swapmem_gather_add_bypass
   __tracepoint_android_vh_swapmem_gather_finish
   __tracepoint_android_vh_swapmem_gather_init
+  __tracepoint_android_vh_swap_writepage
   __tracepoint_android_vh_sync_txn_recvd
   __tracepoint_android_vh_tcp_rtt_estimator
+  __tracepoint_android_vh_try_to_unmap_one
   __tracepoint_android_vh_udp_enqueue_schedule_skb
   __tracepoint_android_vh_percpu_rwsem_down_read
   __tracepoint_android_vh_percpu_rwsem_up_write
