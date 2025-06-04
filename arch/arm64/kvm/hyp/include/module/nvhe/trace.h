@@ -37,6 +37,7 @@ void __pkvm_teardown_tracing(void);
 int __pkvm_enable_tracing(bool enable);
 int __pkvm_reset_tracing(unsigned int cpu);
 int __pkvm_swap_reader_tracing(unsigned int cpu);
+void __pkvm_panic_tracing(void);
 int __pkvm_enable_event(unsigned short id, bool enable);
 
 extern struct hyp_printk_fmt __hyp_printk_fmts_start[];
@@ -127,6 +128,7 @@ static inline void __pkvm_teardown_tracing(void) { }
 static inline int __pkvm_enable_tracing(bool enable) { return -ENODEV; }
 static inline int __pkvm_reset_tracing(unsigned int cpu) { return -ENODEV; }
 static inline int __pkvm_swap_reader_tracing(unsigned int cpu) { return -ENODEV; }
+static inline void __pkvm_panic_tracing(void) { }
 static inline int __pkvm_enable_event(unsigned short id, bool enable)  { return -ENODEV; }
 #define trace_hyp_printk(fmt, ...)
 

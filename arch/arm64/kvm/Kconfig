@@ -63,6 +63,14 @@ config PKVM_SELFTESTS
 
 	  If unsure, say N.
 
+config PKVM_DUMP_TRACE_ON_PANIC
+	bool "Dump Protected KVM hypervisor trace buffer on panic"
+	help
+	   Say Y here to dump the content of the pKVM hypervisor on either
+           hypervisor or host panic. In the case of a hyp panic, only the tail
+           page is dumped. It only has an effect if the command line option
+           hyp_trace_printk is set.
+
 config PROTECTED_NVHE_STACKTRACE
 	bool "Protected KVM hypervisor stacktraces"
 	depends on NVHE_EL2_DEBUG
