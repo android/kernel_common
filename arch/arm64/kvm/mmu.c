@@ -1730,9 +1730,8 @@ __pkvm_pages_to_ppages(struct kvm *kvm, struct kvm_memory_slot *memslot, gfn_t g
 	read_lock(&kvm->mmu_lock);
 	while (p < nr_pages) {
 		phys_addr_t ipa = gfn << PAGE_SHIFT;
+		long skip, page_size = PAGE_SIZE;
 		struct page *page = pages[p];
-		long page_size, skip;
-		unsigned long hva;
 		u64 pfn;
 
 		ppage = kvm_pinned_pages_iter_first(&kvm->arch.pkvm.pinned_pages,
@@ -1743,8 +1742,14 @@ __pkvm_pages_to_ppages(struct kvm *kvm, struct kvm_memory_slot *memslot, gfn_t g
 		}
 
 		pfn = page_to_pfn(page);
-		hva = gfn_to_hva_memslot_prot(memslot, gfn, NULL);
-		page_size = transparent_hugepage_adjust(kvm, memslot, hva, &pfn, &ipa);
+
+		if (!kvm_pinned_pages_iter_first(&kvm->arch.pkvm.pinned_pages,
+						 ALIGN_DOWN(ipa, PMD_SIZE),
+						 ALIGN(ipa + 1, PMD_SIZE) - 1)){
+			unsigned long hva = gfn_to_hva_memslot_prot(memslot, gfn, NULL);
+
+			page_size = transparent_hugepage_adjust(kvm, memslot, hva, &pfn, &ipa);
+		}
 
 		/* Pop a ppage from the pre-allocated list */
 		ppage = list_first_entry(&ppage_prealloc, struct kvm_pinned_page, list_node);
