@@ -79,7 +79,7 @@ config PKVM_DUMP_TRACE_ON_PANIC
            page is dumped. It only has an effect if the command line option
            hyp_trace_printk is set.
 
-config PROTECTED_NVHE_STACKTRACE
+config PKVM_STACKTRACE
 	bool "Protected KVM hypervisor stacktraces"
 	depends on NVHE_EL2_DEBUG
 	default n

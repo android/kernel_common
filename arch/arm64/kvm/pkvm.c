@@ -1113,7 +1113,7 @@ static struct module *pkvm_el2_mod_to_module(struct pkvm_el2_module *hyp_mod)
 	return container_of(arch, struct module, arch);
 }
 
-#ifdef CONFIG_PROTECTED_NVHE_STACKTRACE
+#ifdef CONFIG_PKVM_STACKTRACE
 unsigned long pkvm_el2_mod_kern_va(unsigned long addr)
 {
 	struct pkvm_el2_module *mod;
