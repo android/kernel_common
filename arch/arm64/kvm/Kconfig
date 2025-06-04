@@ -92,6 +92,19 @@ config PROTECTED_NVHE_STACKTRACE
 
 	  If unsure, or not using protected nVHE (pKVM), say N.
 
+config PKVM_DISABLE_STAGE2_ON_PANIC
+	bool "Disable the host stage-2 on panic"
+	default n
+	depends on NVHE_EL2_DEBUG
+	help
+	  If panic occurs while the host lock is held and if, plagued by bad
+	  luck the panic path triggers a host stage-2 memory abort, a lockup
+	  would happen. The only way out is to disable the stage-2 page-table.
+	  This however tamper the system security. This option should therefore
+	  solely be enabled to debug specific issues.
+
+	  Just say N.
+
 config PTDUMP_STAGE2_DEBUGFS
 	bool "Present the stage-2 pagetables to debugfs"
 	depends on KVM
