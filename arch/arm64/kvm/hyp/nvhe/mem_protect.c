@@ -1886,7 +1886,7 @@ static int __pkvm_use_dma_locked(phys_addr_t phys_addr, size_t size,
 		enum kvm_pgtable_prot prot;
 
 		if (hyp_vcpu)
-			return EINVAL;
+			return -EINVAL;
 
 		ret = ___host_check_page_state_range(phys_addr, size,
 						     PKVM_PAGE_TAINTED,
