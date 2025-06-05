@@ -1989,6 +1989,7 @@
   regmap_async_complete
   regmap_bulk_read
   regmap_bulk_write
+  regmap_check_range_table
   regmap_field_read
   regmap_field_update_bits_base
   regmap_get_device
@@ -2269,6 +2270,8 @@
   snd_soc_set_runtime_hwparams
   snd_soc_unregister_card
   snd_soc_unregister_component
+  snd_usb_register_platform_ops
+  snd_usb_unregister_platform_ops
   snprintf
   soc_device_register
   sock_alloc_send_pskb
@@ -2477,6 +2480,7 @@
   __traceiter_android_vh_check_new_page
   __traceiter_android_vh_cpu_idle_enter
   __traceiter_android_vh_cpu_idle_exit
+  __traceiter_android_vh_early_resume_begin
   __traceiter_android_vh_enable_thermal_genl_check
   __traceiter_android_vh_filemap_get_folio
   __traceiter_android_vh_free_pages_prepare_init
@@ -2485,6 +2489,7 @@
   __traceiter_android_vh_mm_compaction_end
   __traceiter_android_vh_mm_kcompactd_cpu_online
   __traceiter_android_vh_post_alloc_hook
+  __traceiter_android_vh_resume_end
   __traceiter_android_vh_rmqueue
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_si_meminfo_adjust
@@ -2540,6 +2545,7 @@
   __tracepoint_android_vh_check_new_page
   __tracepoint_android_vh_cpu_idle_enter
   __tracepoint_android_vh_cpu_idle_exit
+  __tracepoint_android_vh_early_resume_begin
   __tracepoint_android_vh_enable_thermal_genl_check
   __tracepoint_android_vh_filemap_get_folio
   __tracepoint_android_vh_free_pages_prepare_init
@@ -2548,6 +2554,7 @@
   __tracepoint_android_vh_mm_compaction_end
   __tracepoint_android_vh_mm_kcompactd_cpu_online
   __tracepoint_android_vh_post_alloc_hook
+  __tracepoint_android_vh_resume_end
   __tracepoint_android_vh_rmqueue
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_si_meminfo_adjust
@@ -2804,6 +2811,7 @@
   virtqueue_kick
   virtqueue_kick_prepare
   virtqueue_notify
+  virtqueue_set_dma_premapped
   vmalloc_noprof
   vmalloc_nr_pages
   vmalloc_to_page
@@ -2867,14 +2875,21 @@
   xas_pause
   __xa_store
   xa_store
-  __xfrm_state_destroy
   xfrm_state_alloc
   xfrm_state_delete
+  __xfrm_state_destroy
   xfrm_state_lookup_byspi
   xfrm_state_migrate
   xfrm_stateonly_find
   xhci_gen_setup
+  xhci_get_endpoint_index
   xhci_init_driver
   xhci_resume
   xhci_run
+  xhci_sideband_add_endpoint
+  xhci_sideband_create_interrupter
+  xhci_sideband_register
+  xhci_sideband_remove_endpoint
+  xhci_sideband_remove_interrupter
+  xhci_sideband_unregister
   xhci_suspend
