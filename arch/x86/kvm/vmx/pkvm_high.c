@@ -15,9 +15,9 @@
 #include <trace/events/ipi.h>
 #include "trace.h"
 
-static DEFINE_PER_CPU(union pkvm_pv_param, *pv_param);
+static DEFINE_PER_CPU(union pkvm_pv_param, pv_param);
 
-#define get_this_pv_param(f)		(&per_cpu(pv_param, get_cpu())->f)
+#define get_this_pv_param(f)		(&per_cpu(pv_param, get_cpu()).f)
 #define put_this_pv_param(ptr)		\
 ({					\
 	memset(ptr, 0, sizeof(*ptr));	\
@@ -729,36 +729,23 @@ static int pkvm_check_processor_compat(void)
 
 static int pkvm_enable_virtualization_cpu(void)
 {
-	size_t size = sizeof(union pkvm_pv_param);
-	void *page;
+	unsigned long pv_param_pa = __pa(this_cpu_ptr(&pv_param));
 	int r;
 
-	page = alloc_pages_exact(size, GFP_KERNEL_ACCOUNT | __GFP_ZERO);
-	if (!page)
-		return -ENOMEM;
-
 	/* TODO: share union pkvm_pv_param with pkvm */
-	r = kvm_call_pkvm(enable_virtualization_cpu, __pa(page));
-	if (r) {
-		free_pages_exact(page, size);
+	r = kvm_call_pkvm(enable_virtualization_cpu, pv_param_pa);
+	if (r)
 		return r;
-	}
 
-	this_cpu_write(pv_param, page);
 	intel_pt_handle_vmx(1);
 	return 0;
 }
 
 static void pkvm_disable_virtualization_cpu(void)
 {
-	size_t size = sizeof(union pkvm_pv_param);
-	void *page = this_cpu_read(pv_param);
-
 	intel_pt_handle_vmx(0);
 	kvm_call_pkvm(disable_virtualization_cpu);
 	/* TODO: unshare union pkvm_pv_param with pkvm */
-	free_pages_exact(page, size);
-	this_cpu_write(pv_param, NULL);
 }
 
 static void pkvm_emergency_disable_virtualization_cpu(void) { /* TODO */ }
