@@ -1615,11 +1615,15 @@ ddk_headers(
     hdrs = [
         "arch/arm64/kvm/hyp/include/module/nvhe/define_events.h",
         "arch/arm64/kvm/hyp/include/module/nvhe/trace.h",
+        "arch/arm64/kvm/hyp/include/nvhe/iommu.h",
+        "arch/arm64/kvm/hyp/include/nvhe/spinlock.h",
+        "arch/arm64/kvm/hyp/include/nvhe/trap_handler.h",
     ],
     includes = [
         # LINT.IfChange(pkvm_includes)
         "arch/arm64/kvm/hyp/include/module",
         # LINT.ThenChange(/arch/arm64/kvm/hyp/nvhe/Makefile.module:includes)
+        "arch/arm64/kvm/hyp/include",
     ],
     visibility = ["//visibility:private"],
 )
