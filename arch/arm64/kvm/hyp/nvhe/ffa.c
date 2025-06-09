@@ -938,6 +938,7 @@ static void do_ffa_guest_features(struct arm_smccc_res *res, struct kvm_cpu_cont
 	case FFA_FN64_MEM_SHARE:
 	case FFA_MEM_LEND:
 	case FFA_FN64_MEM_LEND:
+	case FFA_RX_RELEASE:
 		ret = FFA_RET_SUCCESS;
 		goto out_handled;
 	case FFA_RXTX_MAP:
