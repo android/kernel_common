@@ -127,11 +127,6 @@ struct pkvm_section {
 #define PKVM_PERCPU_PAGES (PKVM_PCPU_PAGES + PKVM_HOST_VCPU_PAGES + \
 			   PKVM_HOST_VCPU_VMCS_PAGES + pkvm_sym(pkvm_per_cpu_nr_pages)())
 
-extern char __pkvm_text_start[], __pkvm_text_end[];
-extern char __pkvm_rodata_start[], __pkvm_rodata_end[];
-extern char __pkvm_data_start[], __pkvm_data_end[];
-extern char __pkvm_bss_start[], __pkvm_bss_end[];
-
 extern unsigned long pkvm_sym(__page_base_offset);
 extern unsigned long pkvm_sym(__symbol_base_offset);
 extern struct pkvm_hyp *pkvm_sym(pkvm_hyp);
