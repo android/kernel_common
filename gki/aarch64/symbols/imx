@@ -974,6 +974,7 @@
   fwnode_get_phy_node
   fwnode_graph_get_endpoint_by_id
   fwnode_graph_get_next_endpoint
+  fwnode_graph_get_remote_endpoint
   fwnode_handle_get
   fwnode_irq_get_byname
   fwnode_mdio_find_device
@@ -1103,6 +1104,8 @@
   __hw_addr_init
   __hw_addr_sync
   __hw_addr_unsync
+  hwrng_register
+  hwrng_unregister
   i2c_adapter_type
   i2c_add_adapter
   i2c_add_numbered_adapter
@@ -1407,6 +1410,7 @@
   media_devnode_create
   media_devnode_remove
   media_entity_find_link
+  media_entity_get_fwnode_pad
   media_entity_pads_init
   media_entity_pipeline
   media_entity_remove_links
@@ -2744,10 +2748,14 @@
   v4l2_ctrl_new_std_menu_items
   v4l2_ctrl_poll
   __v4l2_ctrl_s_ctrl
+  __v4l2_ctrl_s_ctrl_compound
   __v4l2_ctrl_s_ctrl_int64
   v4l2_ctrl_subdev_log_status
   v4l2_ctrl_subdev_subscribe_event
   v4l2_ctrl_subscribe_event
+  v4l2_ctrl_type_op_equal
+  v4l2_ctrl_type_op_init
+  v4l2_ctrl_type_op_validate
   v4l2_device_register
   __v4l2_device_register_subdev
   __v4l2_device_register_subdev_nodes
