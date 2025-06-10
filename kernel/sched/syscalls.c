@@ -70,6 +70,7 @@ void set_user_nice(struct task_struct *p, long nice)
 	bool queued, running;
 	struct rq *rq;
 	int old_prio;
+	bool allowed = true;
 
 	trace_android_rvh_set_user_nice(p, &nice);
 	if (task_nice(p) == nice || nice < MIN_NICE || nice > MAX_NICE)
@@ -82,6 +83,10 @@ void set_user_nice(struct task_struct *p, long nice)
 	rq = rq_guard.rq;
 
 	update_rq_clock(rq);
+
+	trace_android_rvh_set_user_nice_locked(p, &nice, &allowed);
+	if (!allowed)
+		return;
 
 	/*
 	 * The RT priorities are set via sched_setscheduler(), but we still
