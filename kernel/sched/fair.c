@@ -7135,6 +7135,7 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	int task_new = !(flags & ENQUEUE_WAKEUP);
 	int rq_h_nr_running = rq->cfs.h_nr_running;
 	u64 slice = 0;
+	int should_iowait_boost;
 
 	/*
 	 * The code below (indirectly) updates schedutil which looks at
@@ -7155,7 +7156,9 @@ enqueue_task_fair(struct rq *rq, struct task_struct *p, int flags)
 	 * utilization updates, so do it here explicitly with the IOWAIT flag
 	 * passed.
 	 */
-	if (p->in_iowait)
+	should_iowait_boost = p->in_iowait;
+	trace_android_rvh_set_iowait(p, rq, &should_iowait_boost);
+	if (should_iowait_boost)
 		cpufreq_update_util(rq, SCHED_CPUFREQ_IOWAIT);
 
 	if (task_new)
