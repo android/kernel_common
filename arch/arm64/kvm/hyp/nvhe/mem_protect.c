@@ -1638,6 +1638,60 @@ unlock:
 	return ret;
 }
 
+int __pkvm_host_donate_ffa(u64 pfn, u64 nr_pages)
+{
+	u64 size, phys = hyp_pfn_to_phys(pfn), end;
+	struct kvm_mem_range range;
+	struct memblock_region *reg;
+	int ret;
+
+	if (check_shl_overflow(nr_pages, PAGE_SHIFT, &size) ||
+	    check_add_overflow(phys, size, &end))
+		return -EINVAL;
+
+	reg = find_mem_range(phys, &range);
+	if (!reg || !is_in_mem_range(end - 1, &range))
+		return -EPERM;
+
+	host_lock_component();
+
+	ret = __host_check_page_state_range(phys, size, PKVM_PAGE_OWNED);
+	if (ret)
+		goto unlock;
+
+	WARN_ON(host_stage2_set_owner_locked(phys, size, PKVM_ID_FFA));
+unlock:
+	host_unlock_component();
+	return ret;
+}
+
+int __pkvm_host_reclaim_ffa(u64 pfn, u64 nr_pages)
+{
+	u64 size, phys = hyp_pfn_to_phys(pfn), end;
+	struct memblock_region *reg;
+	struct kvm_mem_range range;
+	int ret;
+
+	if (check_shl_overflow(nr_pages, PAGE_SHIFT, &size) ||
+	    check_add_overflow(phys, size, &end))
+		return -EINVAL;
+
+	reg = find_mem_range(phys, &range);
+	if (!reg || !is_in_mem_range(end - 1, &range))
+		return -EPERM;
+
+	host_lock_component();
+
+	ret = __host_check_page_state_range(phys, size, PKVM_NOPAGE);
+	if (ret)
+		goto unlock;
+
+	WARN_ON(host_stage2_set_owner_locked(phys, size, PKVM_ID_HOST));
+unlock:
+	host_unlock_component();
+	return ret;
+}
+
 #define MODULE_PROT_ALLOWLIST (KVM_PGTABLE_PROT_RWX |		\
 			       KVM_PGTABLE_PROT_DEVICE |	\
 			       KVM_PGTABLE_PROT_NORMAL_NC |	\
