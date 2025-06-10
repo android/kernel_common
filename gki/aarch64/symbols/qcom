@@ -1614,9 +1614,9 @@
   irq_create_fwspec_mapping
   irq_create_mapping_affinity
   irq_dispose_mapping
+  __irq_domain_alloc_fwnode
   __irq_domain_alloc_irqs
   irq_domain_alloc_irqs_parent
-  __irq_domain_alloc_fwnode
   irq_domain_create_hierarchy
   irq_domain_disconnect_hierarchy
   irq_domain_free_fwnode
@@ -1651,9 +1651,9 @@
   irq_work_queue
   irq_work_queue_on
   irq_work_sync
-  is_vmalloc_addr
   isolate_and_split_free_page
   isolate_anon_lru_page
+  is_vmalloc_addr
   iterate_fd
   jiffies
   jiffies_to_msecs
@@ -2321,10 +2321,6 @@
   phy_init
   phy_init_eee
   phy_init_hw
-  phy_pm_runtime_get
-  phy_pm_runtime_get_sync
-  phy_pm_runtime_put
-  phy_pm_runtime_put_sync
   phylink_connect_phy
   phylink_create
   phylink_destroy
@@ -2355,6 +2351,10 @@
   phy_mac_interrupt
   phy_modify
   phy_modify_mmd
+  phy_pm_runtime_get
+  phy_pm_runtime_get_sync
+  phy_pm_runtime_put
+  phy_pm_runtime_put_sync
   phy_power_off
   phy_power_on
   phy_print_status
@@ -2509,12 +2509,12 @@
   ptp_clock_register
   ptp_clock_unregister
   ptp_parse_header
+  putback_movable_pages
   put_cmsg
   __put_cred
   put_device
   put_disk
   put_iova_domain
-  putback_movable_pages
   __put_net
   put_pid
   put_sg_io_hdr
@@ -3541,8 +3541,8 @@
   __tracepoint_android_vh_cpuidle_psci_enter
   __tracepoint_android_vh_cpuidle_psci_exit
   __tracepoint_android_vh_do_wake_up_sync
-  __tracepoint_android_vh_encrypt_page
   __tracepoint_android_vh_dump_throttled_rt_tasks
+  __tracepoint_android_vh_encrypt_page
   __tracepoint_android_vh_free_task
   __tracepoint_android_vh_freq_qos_add_request
   __tracepoint_android_vh_freq_qos_remove_request
