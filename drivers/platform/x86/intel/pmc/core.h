@@ -314,6 +314,9 @@ enum ppfear_regs {
 #define PMC_DEVID_MTL_IOEP	0x7ecf
 #define PMC_DEVID_MTL_IOEM	0x7ebf
 
+/* LNL */
+#define PMC_DEVID_LNL_SOCM	0xa87f
+
 extern const char *pmc_lpm_modes[];
 
 struct pmc_bit_map {
