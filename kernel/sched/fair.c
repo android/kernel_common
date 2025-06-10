@@ -5171,7 +5171,12 @@ static inline int util_fits_cpu(unsigned long util,
 {
 	unsigned long capacity = capacity_of(cpu);
 	unsigned long capacity_orig;
-	bool fits, uclamp_max_fits;
+	bool fits, uclamp_max_fits, done = false;
+
+	trace_android_rvh_util_fits_cpu(util, uclamp_min, uclamp_max, cpu, &fits, &done);
+
+	if (done)
+		return fits;
 
 	/*
 	 * Check if the real util fits without any uclamp boost/cap applied.
