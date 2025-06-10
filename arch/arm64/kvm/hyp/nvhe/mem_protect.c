@@ -1779,45 +1779,6 @@ unlock:
 	return ret;
 }
 
-int __pkvm_host_lazy_pte(u64 pfn, u64 nr_pages, bool enable)
-{
-	u64 size, end, addr = hyp_pfn_to_phys(pfn);
-	struct memblock_region *reg;
-	struct kvm_mem_range range;
-	int ret;
-
-	if (check_shl_overflow(nr_pages, PAGE_SHIFT, &size) ||
-	    check_add_overflow(addr, size, &end))
-		return -EINVAL;
-
-	/* Reject MMIO regions */
-	reg = find_mem_range(addr, &range);
-	if (!reg || !is_in_mem_range(end - 1, &range))
-		return -EPERM;
-
-	host_lock_component();
-
-	ret = ___host_check_page_state_range(addr, size, PKVM_PAGE_OWNED, reg, true);
-	if (ret)
-		goto unlock;
-
-	if (enable) {
-		ret = kvm_pgtable_stage2_get_pages(&host_mmu.pgt, addr, size,
-						   &host_s2_pool);
-	} else {
-		ret = kvm_pgtable_stage2_put_pages(&host_mmu.pgt, addr, size);
-		if (ret)
-			goto unlock;
-
-		WARN_ON(host_stage2_idmap_locked(addr, size, PKVM_HOST_MEM_PROT, false));
-	}
-
-unlock:
-	host_unlock_component();
-
-	return ret;
-}
-
 int hyp_pin_shared_mem(void *from, void *to)
 {
 	u64 cur, start = ALIGN_DOWN((u64)from, PAGE_SIZE);
