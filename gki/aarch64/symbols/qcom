@@ -3402,6 +3402,9 @@
   __traceiter_android_vh_dump_throttled_rt_tasks
   __traceiter_android_vh_encrypt_page
   __traceiter_android_vh_free_task
+  __traceiter_android_vh_freq_qos_add_request
+  __traceiter_android_vh_freq_qos_remove_request
+  __traceiter_android_vh_freq_qos_update_request
   __traceiter_android_vh_ftrace_dump_buffer
   __traceiter_android_vh_ftrace_format_check
   __traceiter_android_vh_ftrace_oops_enter
@@ -3541,6 +3544,9 @@
   __tracepoint_android_vh_encrypt_page
   __tracepoint_android_vh_dump_throttled_rt_tasks
   __tracepoint_android_vh_free_task
+  __tracepoint_android_vh_freq_qos_add_request
+  __tracepoint_android_vh_freq_qos_remove_request
+  __tracepoint_android_vh_freq_qos_update_request
   __tracepoint_android_vh_ftrace_dump_buffer
   __tracepoint_android_vh_ftrace_format_check
   __tracepoint_android_vh_ftrace_oops_enter
