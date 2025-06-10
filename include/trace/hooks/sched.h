@@ -494,6 +494,10 @@ DECLARE_HOOK(android_vh_prio_restore,
 	TP_PROTO(int saved_prio),
 	TP_ARGS(saved_prio));
 
+DECLARE_RESTRICTED_HOOK(android_rvh_update_rt_rq_load_avg,
+	TP_PROTO(u64 now, struct rq *rq, struct task_struct *tsk, int running),
+	TP_ARGS(now, rq, tsk, running), 1);
+
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */
