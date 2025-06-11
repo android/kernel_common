@@ -659,8 +659,22 @@ static int init_binder_logs(struct super_block *sb)
 		goto out;
 	}
 
+	dentry = binderfs_create_file(binder_logs_root_dir, "state_hashed",
+				      &binder_state_hashed_fops, NULL);
+	if (IS_ERR(dentry)) {
+		ret = PTR_ERR(dentry);
+		goto out;
+	}
+
 	dentry = binderfs_create_file(binder_logs_root_dir, "transactions",
 				      &binder_transactions_fops, NULL);
+	if (IS_ERR(dentry)) {
+		ret = PTR_ERR(dentry);
+		goto out;
+	}
+
+	dentry = binderfs_create_file(binder_logs_root_dir, "transactions_hashed",
+				      &binder_transactions_hashed_fops, NULL);
 	if (IS_ERR(dentry)) {
 		ret = PTR_ERR(dentry);
 		goto out;

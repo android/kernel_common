@@ -113,8 +113,14 @@ DEFINE_SHOW_ATTRIBUTE(binder_stats);
 int binder_state_show(struct seq_file *m, void *unused);
 DEFINE_SHOW_ATTRIBUTE(binder_state);
 
+int binder_state_hashed_show(struct seq_file *m, void *unused);
+DEFINE_SHOW_ATTRIBUTE(binder_state_hashed);
+
 int binder_transactions_show(struct seq_file *m, void *unused);
 DEFINE_SHOW_ATTRIBUTE(binder_transactions);
+
+int binder_transactions_hashed_show(struct seq_file *m, void *unused);
+DEFINE_SHOW_ATTRIBUTE(binder_transactions_hashed);
 
 int binder_transaction_log_show(struct seq_file *m, void *unused);
 DEFINE_SHOW_ATTRIBUTE(binder_transaction_log);
