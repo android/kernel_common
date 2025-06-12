@@ -228,7 +228,7 @@ void android_device_destroy(struct android_uevent_opts *opts)
 }
 EXPORT_SYMBOL_GPL(android_device_destroy);
 
-void __android_set_connected(struct android_uevent_opts *opts,
+static void __android_set_connected(struct android_uevent_opts *opts,
 		bool connected)
 {
 	unsigned long flags;
@@ -242,7 +242,7 @@ void __android_set_connected(struct android_uevent_opts *opts,
 	spin_unlock_irqrestore(&opts_lock, flags);
 }
 
-void __android_set_configured(struct android_uevent_opts *opts,
+static void __android_set_configured(struct android_uevent_opts *opts,
 		bool configured)
 {
 	unsigned long flags;
