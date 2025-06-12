@@ -51,6 +51,8 @@ struct cs35l56_private {
 	u8 asp_slot_count;
 	bool tdm_mode;
 	bool sysclk_set;
+	u8 sdw_link_num;
+	u8 sdw_unique_id;
 };
 
 extern const struct dev_pm_ops cs35l56_pm_ops_i2c_spi;
