@@ -662,7 +662,7 @@ static struct mt_usages *mt_allocate_usage(struct hid_device *hdev,
 }
 
 static void mt_set_modes(struct hid_device *hdev, enum latency_mode latency,
-			 bool surface_switch, bool button_switch);
+			 enum report_mode report_mode);
 
 static void lid_work_handler(struct work_struct *work)
 {
@@ -672,13 +672,13 @@ static void lid_work_handler(struct work_struct *work)
 	struct hid_device *hdev = td->hdev;
 
 	mutex_lock(&td->mode_mutex);
-	mt_set_modes(hdev, HID_LATENCY_NORMAL, false, false);
+	mt_set_modes(hdev, HID_LATENCY_NORMAL, TOUCHPAD_REPORT_NONE);
 	/* Elan's touchpad VID 323B needs this delay to handle both switch
 	 * surface off and switch surface on and trigger recalibration
 	 * properly.
 	 */
 	msleep(50);
-	mt_set_modes(hdev, HID_LATENCY_NORMAL, true, true);
+	mt_set_modes(hdev, HID_LATENCY_NORMAL, TOUCHPAD_REPORT_ALL);
 	mutex_unlock(&td->mode_mutex);
 }
 
