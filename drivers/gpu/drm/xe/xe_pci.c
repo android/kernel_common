@@ -367,6 +367,7 @@ static const struct gmdid_map graphics_ip_map[] = {
 	{ 2004, &graphics_xe2 },
 	{ 3000, &graphics_xe2 },
 	{ 3001, &graphics_xe2 },
+	{ 3003, &graphics_xe2 },
 };
 
 /* Map of GMD_ID values to media IP */
