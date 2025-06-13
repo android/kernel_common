@@ -21,7 +21,6 @@ per-file */TEST_MAPPING = *
 per-file */*.xml = *
 
 # Owners for the -desktop branch
-allenwebb@google.com
 biernacki@google.com
 bbujak@google.com
 hmazur@google.com
