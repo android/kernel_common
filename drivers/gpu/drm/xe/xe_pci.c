@@ -376,6 +376,7 @@ static const struct gmdid_map media_ip_map[] = {
 	{ 1301, &media_xe2 },
 	{ 2000, &media_xe2 },
 	{ 3000, &media_xe2 },
+	{ 3002, &media_xe2 },
 };
 
 /*
