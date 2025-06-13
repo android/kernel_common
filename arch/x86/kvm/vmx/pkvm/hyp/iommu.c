@@ -385,7 +385,7 @@ static int shadow_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, in
 	struct hyp_page *old_page = NULL, *new_page = NULL;
 	unsigned long map_phys;
 	int ret = 0;
-	u64 old, new;
+	u64 old, new, phys;
 
 	host_ept_lock();
 
@@ -399,11 +399,15 @@ static int shadow_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, in
 	ret = pgtable_map_leaf(pgt, vaddr, level, ptep, flush_data, arg);
 	new = *(u64 *)ptep;
 
-	if (pgt_ops->pgt_entry_present(&old))
-		old_page = hyp_phys_to_page(pgt_ops->pgt_entry_to_phys(&old));
+	if (pgt_ops->pgt_entry_present(&old)) {
+		phys = pgt_ops->pgt_entry_to_phys(&old);
+		old_page = hyp_phys_to_page_safe(phys);
+	}
 
-	if (pgt_ops->pgt_entry_present(&new))
-		new_page = hyp_phys_to_page(pgt_ops->pgt_entry_to_phys(&new));
+	if (pgt_ops->pgt_entry_present(&new)) {
+		phys = pgt_ops->pgt_entry_to_phys(&new);
+		new_page = hyp_phys_to_page_safe(phys);
+	}
 
 	if (new_page == old_page)
 		goto out;
@@ -423,9 +427,16 @@ static int shadow_pgt_unmap_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr,
 			      int level, void *ptep, struct pgt_flush_data *flush_data,
 			      void *const arg)
 {
-	if (pgt->pgt_ops->pgt_entry_present(ptep))
-		hyp_page_ref_dec(hyp_phys_to_page(pgt->pgt_ops
-					->pgt_entry_to_phys(ptep)));
+	struct hyp_page *page;
+	u64 phys;
+
+	if (pgt->pgt_ops->pgt_entry_present(ptep)) {
+		phys = pgt->pgt_ops->pgt_entry_to_phys(ptep);
+		page = hyp_phys_to_page_safe(phys);
+		if (page)
+			hyp_page_ref_dec(page);
+	}
+
 	pgtable_unmap_leaf(pgt, vaddr, level, ptep, flush_data, arg);
 	return 0;
 }

@@ -7,6 +7,8 @@
 
 #include <linux/types.h>
 
+#include "../hyp/memory.h"
+
 struct hyp_page {
 	unsigned short refcount;
 	unsigned short order;
@@ -69,5 +71,15 @@ static inline void hyp_set_page_refcounted(struct hyp_page *p)
 {
 	BUG_ON(p->refcount);
 	p->refcount = 1;
+}
+
+static inline struct hyp_page *hyp_phys_to_page_safe(phys_addr_t phys)
+{
+	struct mem_range range;
+
+	if (!find_mem_range(phys, &range))
+		return NULL;
+
+	return hyp_phys_to_page(phys);
 }
 #endif /* __PKVM_BUDDY_MEMORY_H */
