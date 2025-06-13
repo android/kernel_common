@@ -1,3 +1,4 @@
 /kvm-asm-offsets.s
 kvm-asm-offsets.h
 pkvm_constants.h
+retpoline.pkvm.S
