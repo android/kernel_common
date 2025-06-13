@@ -12,7 +12,6 @@ set noparent
 include kernel/common:android-mainline:/OWNERS_DrNo
 
 # Owners for the -desktop branch
-allenwebb@google.com
 damiendejean@google.com
 dianders@google.com
 hmazur@google.com
