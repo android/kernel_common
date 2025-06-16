@@ -333,11 +333,37 @@ static void calculate_version(struct version *version,
 	cache_free(&expansion_cache);
 }
 
-static void __type_expand(struct die *cache, struct type_expansion *type)
+static void __type_expand(struct die *cache, struct type_expansion *type,
+			  bool recursive);
+
+static void type_expand_child(struct die *cache, struct type_expansion *type,
+			      bool recursive)
+{
+	struct type_expansion child;
+	char *name;
+
+	name = get_type_name(cache);
+	if (!name) {
+		__type_expand(cache, type, recursive);
+		return;
+	}
+
+	if (recursive && !__cache_was_expanded(&expansion_cache, cache->addr)) {
+		__cache_mark_expanded(&expansion_cache, cache->addr);
+		type_expansion_init(&child);
+		__type_expand(cache, &child, true);
+		type_map_add(name, &child);
+		type_expansion_free(&child);
+	}
+
+	type_expansion_append(type, name, name);
+}
+
+static void __type_expand(struct die *cache, struct type_expansion *type,
+			  bool recursive)
 {
 	struct die_fragment *df;
 	struct die *child;
-	char *name;
 
 	list_for_each_entry(df, &cache->fragments, list) {
 		switch (df->type) {
@@ -353,12 +379,7 @@ static void __type_expand(struct die *cache, struct type_expansion *type)
 				error("unknown child: %" PRIxPTR,
 				      df->data.addr);
 
-			name = get_type_name(child);
-			if (name)
-				type_expansion_append(type, name, name);
-			else
-				__type_expand(child, type);
-
+			type_expand_child(child, type, recursive);
 			break;
 		case FRAGMENT_LINEBREAK:
 			/*
@@ -376,17 +397,12 @@ static void __type_expand(struct die *cache, struct type_expansion *type)
 	}
 }
 
-static void type_expand(const char *name, struct die *cache,
-			struct type_expansion *type)
+static void type_expand(struct die *cache, struct type_expansion *type,
+			bool recursive)
 {
-	const char *override;
-
 	type_expansion_init(type);
-
-	if (stable && kabi_get_type_string(name, &override))
-		type_parse(name, override, type);
-	else
-		__type_expand(cache, type);
+	__type_expand(cache, type, recursive);
+	cache_free(&expansion_cache);
 }
 
 static void type_parse(const char *name, const char *str,
@@ -399,6 +415,8 @@ static void type_parse(const char *name, const char *str,
 
 	if (!*str)
 		error("empty type string override for '%s'", name);
+
+	type_expansion_init(type);
 
 	for (pos = 0; str[pos]; ++pos) {
 		bool empty;
@@ -460,6 +478,7 @@ static void type_parse(const char *name, const char *str,
 static void expand_type(struct die *cache, void *arg)
 {
 	struct type_expansion type;
+	const char *override;
 	char *name;
 
 	if (cache->mapped)
@@ -485,7 +504,11 @@ static void expand_type(struct die *cache, void *arg)
 
 	debug("%s", name);
 
-	type_expand(name, cache, &type);
+	if (stable && kabi_get_type_string(name, &override))
+		type_parse(name, override, &type);
+	else
+		type_expand(cache, &type, true);
+
 	type_map_add(name, &type);
 	type_expansion_free(&type);
 	free(name);
@@ -495,6 +518,7 @@ static void expand_symbol(struct symbol *sym, void *arg)
 {
 	struct type_expansion type;
 	struct version version;
+	const char *override;
 	struct die *cache;
 
 	/*
@@ -508,7 +532,10 @@ static void expand_symbol(struct symbol *sym, void *arg)
 	if (__die_map_get(sym->die_addr, DIE_SYMBOL, &cache))
 		return; /* We'll warn about missing CRCs later. */
 
-	type_expand(sym->name, cache, &type);
+	if (stable && kabi_get_type_string(sym->name, &override))
+		type_parse(sym->name, override, &type);
+	else
+		type_expand(cache, &type, false);
 
 	/* If the symbol already has a version, don't calculate it again. */
 	if (sym->state != SYMBOL_PROCESSED) {
