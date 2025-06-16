@@ -396,6 +396,25 @@ int __pkvm_reclaim_dying_guest_ffa_resources(pkvm_handle_t handle)
 	return ret;
 }
 
+int __pkvm_notify_guest_vm_avail(pkvm_handle_t handle)
+{
+	struct pkvm_hyp_vm *hyp_vm;
+	int ret = 0;
+
+	hyp_read_lock(&vm_table_lock);
+	hyp_vm = get_vm_by_handle(handle);
+	if (!hyp_vm || !hyp_vm->kvm.arch.pkvm.ffa_support) {
+		ret = -EBUSY;
+		goto unlock;
+	}
+
+	ret = kvm_guest_notify_availability(vm_handle_to_ffa_handle(handle), &hyp_vm->ffa_buf,
+					    hyp_vm->is_dying);
+unlock:
+	hyp_read_unlock(&vm_table_lock);
+	return ret;
+}
+
 struct pkvm_hyp_vcpu *pkvm_load_hyp_vcpu(pkvm_handle_t handle,
 					 unsigned int vcpu_idx)
 {
@@ -761,6 +780,18 @@ static void remove_vm_table_entry(pkvm_handle_t handle)
 
 	hyp_assert_write_lock_held(&vm_table_lock);
 	hyp_vm = vm_table[vm_handle_to_idx(handle)];
+
+	/*
+	 * If we didn't send the destruction message leak the vmid to
+	 * prevent others from using it.
+	 */
+	if (hyp_vm->kvm.arch.pkvm.ffa_support &&
+	    hyp_vm->ffa_buf.vm_avail_bitmap) {
+		vm_table[vm_handle_to_idx(handle)] = (void *)0xdeadbeef;
+		list_del(&hyp_vm->vm_list);
+		return;
+	}
+
 	vm_table[vm_handle_to_idx(handle)] = NULL;
 	list_del(&hyp_vm->vm_list);
 }
@@ -1804,6 +1835,14 @@ bool kvm_handle_pvm_hvc64(struct kvm_vcpu *vcpu, u64 *exit_code)
 	return true;
 }
 
+u32 vm_handle_to_ffa_handle(pkvm_handle_t vm_handle)
+{
+	if (!vm_handle)
+		return HOST_FFA_ID;
+	else
+		return vm_handle_to_idx(vm_handle) + 1;
+}
+
 u32 hyp_vcpu_to_ffa_handle(struct pkvm_hyp_vcpu *hyp_vcpu)
 {
 	pkvm_handle_t vm_handle;
@@ -1812,5 +1851,5 @@ u32 hyp_vcpu_to_ffa_handle(struct pkvm_hyp_vcpu *hyp_vcpu)
 		return HOST_FFA_ID;
 
 	vm_handle = hyp_vcpu->vcpu.kvm->arch.pkvm.handle;
-	return vm_handle_to_idx(vm_handle) + 1;
+	return vm_handle_to_ffa_handle(vm_handle);
 }
