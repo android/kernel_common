@@ -1903,18 +1903,23 @@ static int __pkvm_use_dma_locked(phys_addr_t phys_addr, size_t size,
 		if (hyp_vcpu)
 			return -EINVAL;
 
-		ret = ___host_check_page_state_range(phys_addr, size,
-						     PKVM_PAGE_TAINTED,
-						     reg, false);
-		if (!ret)
-			return ret;
-		ret = ___host_check_page_state_range(phys_addr, size,
-						     PKVM_PAGE_OWNED,
-						     reg, false);
-		if (ret)
-			return ret;
+		for (i = 0; i < nr_pages; i++) {
+			u64 addr = phys_addr + i * PAGE_SIZE;
+
+			ret = ___host_check_page_state_range(addr, PAGE_SIZE,
+							     PKVM_PAGE_TAINTED,
+							     reg, false);
+			/* Page already tainted */
+			if (!ret)
+				continue;
+			ret = ___host_check_page_state_range(addr, PAGE_SIZE,
+							     PKVM_PAGE_OWNED,
+							     reg, false);
+			if (ret)
+				return ret;
+		}
 		prot = pkvm_mkstate(PKVM_HOST_MMIO_PROT, PKVM_PAGE_TAINTED);
-		ret = host_stage2_idmap_locked(phys_addr, size, prot, false);
+		WARN_ON(host_stage2_idmap_locked(phys_addr, size, prot, false));
 	} else {
 		/* For VMs, we know if we reach this point the VM has access to the page. */
 		if (!hyp_vcpu) {
