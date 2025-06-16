@@ -448,8 +448,16 @@ defined(CONFIG_AUTOFDO_CLANG)
 	. = ALIGN(PAGE_SIZE);						\
 	__pkvm_rodata_end = .;						\
 	}
+
+#define PERCPU_PKVM_SECTION						\
+	. = ALIGN(PAGE_SIZE);						\
+	pkvm_sym(__per_cpu_start) = .;					\
+	*(PKVM_SECTION_NAME(.data..percpu))				\
+	. = ALIGN(PAGE_SIZE);						\
+	pkvm_sym(__per_cpu_end) = .;
 #else
 #define PKVM_RODATA
+#define PERCPU_PKVM_SECTION
 #endif
 
 /*
@@ -1087,6 +1095,7 @@ defined(CONFIG_AUTOFDO_CLANG)
 	*(.data..percpu)						\
 	*(.data..percpu..shared_aligned)				\
 	PERCPU_DECRYPTED_SECTION					\
+	PERCPU_PKVM_SECTION						\
 	__per_cpu_end = .;
 
 /**

@@ -20,7 +20,11 @@ SECTIONS {
 	 */
 	. = ALIGN(PAGE_SIZE);
 	BEGIN_PKVM_SECTION(.data..percpu)
-		PERCPU_INPUT(INTERNODE_CACHE_BYTES)
+		. = ALIGN(INTERNODE_CACHE_BYTES);
+		*(.data..percpu..read_mostly)
+		. = ALIGN(INTERNODE_CACHE_BYTES);
+		*(.data..percpu)
+		*(.data..percpu..shared_aligned)
 	END_PKVM_SECTION
 	PKVM_SECTION(.data)
 	PKVM_SECTION(.init.data)

@@ -135,19 +135,10 @@ PHDRS {
 	. = ALIGN(PAGE_SIZE);						\
 	__pkvm_data_end = .;
 
-#define PKVM_PERCPU_DATA						\
-	PKVM_SECTION_NAME(.data..percpu) :				\
-		AT(ADDR(PKVM_SECTION_NAME(.data..percpu)) - 		\
-		   LOAD_OFFSET) {					\
-		. = ALIGN(PAGE_SIZE);					\
-		*(PKVM_SECTION_NAME(.data..percpu))			\
-		. = ALIGN(PAGE_SIZE);					\
-	}
 #else
 #define PKVM_TEXT
 #define PKVM_BSS
 #define PKVM_DATA
-#define PKVM_PERCPU_DATA
 #endif
 
 SECTIONS
@@ -265,8 +256,6 @@ SECTIONS
 	.init.begin : AT(ADDR(.init.begin) - LOAD_OFFSET) {
 		__init_begin = .; /* paired with __init_end */
 	}
-
-	PKVM_PERCPU_DATA
 
 #if defined(CONFIG_X86_64) && defined(CONFIG_SMP)
 	/*
