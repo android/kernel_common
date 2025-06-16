@@ -670,7 +670,6 @@ int ufshcd_mcq_abort(struct scsi_cmnd *cmd)
 	int tag = scsi_cmd_to_rq(cmd)->tag;
 	struct ufshcd_lrb *lrbp = &hba->lrb[tag];
 	struct ufs_hw_queue *hwq;
-	unsigned long flags;
 	int err;
 
 	if (!ufshcd_cmd_inflight(lrbp->cmd)) {
@@ -710,11 +709,6 @@ int ufshcd_mcq_abort(struct scsi_cmnd *cmd)
 		lrbp->req_abort_skip = true;
 		return FAILED;
 	}
-
-	spin_lock_irqsave(&hwq->cq_lock, flags);
-	if (ufshcd_cmd_inflight(lrbp->cmd))
-		ufshcd_release_scsi_cmd(hba, lrbp);
-	spin_unlock_irqrestore(&hwq->cq_lock, flags);
 
 	return SUCCESS;
 }
