@@ -2,3 +2,4 @@
 # CONFIG_ANDROID_VENDOR_OEM_DATA is not set
 # CONFIG_BLK_DEV_NVME is not set
 # CONFIG_KVM is not set
+# CONFIG_KALLSYMS_ALL is not set
