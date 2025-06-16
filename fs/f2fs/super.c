@@ -4778,7 +4778,7 @@ try_onemore:
 	sbi->sectors_written_start = f2fs_get_sectors_written(sbi);
 
 	/* get segno of first zoned block device */
-	sbi->first_seq_zone_segno = get_first_seq_zone_segno(sbi);
+	sbi->first_zoned_segno = get_first_seq_zone_segno(sbi);
 
 	/* Read accumulated write IO statistics if exists */
 	seg_i = CURSEG_I(sbi, CURSEG_HOT_NODE);

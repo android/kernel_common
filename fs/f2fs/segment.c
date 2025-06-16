@@ -2492,7 +2492,8 @@ static int update_sit_entry_for_release(struct f2fs_sb_info *sbi, struct seg_ent
 		if (!f2fs_test_bit(offset + i, se->ckpt_valid_map)) {
 			se->ckpt_valid_blocks -= 1;
 			if (__is_large_section(sbi))
-				get_sec_entry(sbi, segno)->ckpt_valid_blocks -= 1;
+				android_get_sec_entry(sbi, segno)->
+						ckpt_valid_blocks -= 1;
 		}
 	}
 
@@ -2539,14 +2540,16 @@ static int update_sit_entry_for_alloc(struct f2fs_sb_info *sbi, struct seg_entry
 		if (!f2fs_test_and_set_bit(offset, se->ckpt_valid_map)) {
 			se->ckpt_valid_blocks++;
 			if (__is_large_section(sbi))
-				get_sec_entry(sbi, segno)->ckpt_valid_blocks++;
+				android_get_sec_entry(sbi, segno)->
+						ckpt_valid_blocks++;
 		}
 	}
 
 	if (!f2fs_test_bit(offset, se->ckpt_valid_map)) {
 		se->ckpt_valid_blocks += del;
 		if (__is_large_section(sbi))
-			get_sec_entry(sbi, segno)->ckpt_valid_blocks += del;
+			android_get_sec_entry(sbi, segno)->
+						ckpt_valid_blocks += del;
 	}
 
 	if (__is_large_section(sbi))
@@ -2798,7 +2801,7 @@ static int get_new_segment(struct f2fs_sb_info *sbi,
 		if (sbi->blkzone_alloc_policy == BLKZONE_ALLOC_PRIOR_CONV || pinning)
 			segno = 0;
 		else
-			segno = max(sbi->first_seq_zone_segno, *newseg);
+			segno = max(sbi->first_zoned_segno, *newseg);
 		hint = GET_SEC_FROM_SEG(sbi, segno);
 	}
 #endif
@@ -2810,7 +2813,7 @@ find_other_zone:
 	if (secno >= MAIN_SECS(sbi) && f2fs_sb_has_blkzoned(sbi)) {
 		/* Write only to sequential zones */
 		if (sbi->blkzone_alloc_policy == BLKZONE_ALLOC_ONLY_SEQ) {
-			hint = GET_SEC_FROM_SEG(sbi, sbi->first_seq_zone_segno);
+			hint = GET_SEC_FROM_SEG(sbi, sbi->first_zoned_segno);
 			secno = find_next_zero_bit(free_i->free_secmap, MAIN_SECS(sbi), hint);
 		} else
 			secno = find_first_zero_bit(free_i->free_secmap,
@@ -3336,7 +3339,7 @@ retry:
 
 	if (f2fs_sb_has_blkzoned(sbi) && err == -EAGAIN && gc_required) {
 		f2fs_down_write(&sbi->gc_lock);
-		err = f2fs_gc_range(sbi, 0, sbi->first_seq_zone_segno - 1,
+		err = f2fs_gc_range(sbi, 0, sbi->first_zoned_segno - 1,
 				true, ZONED_PIN_SEC_REQUIRED_COUNT);
 		f2fs_up_write(&sbi->gc_lock);
 
@@ -4826,6 +4829,14 @@ static int build_sit_info(struct f2fs_sb_info *sbi)
 				      GFP_KERNEL);
 		if (!sit_i->sec_entries)
 			return -ENOMEM;
+
+		f2fs_bug_on(sbi, android_sec_entries);
+		android_sec_entries =
+			f2fs_kvzalloc(sbi, array_size(sizeof(struct android_sec_entry),
+						      MAIN_SECS(sbi)),
+				      GFP_KERNEL);
+		if (!android_sec_entries)
+			return -ENOMEM;
 	}
 
 	/* get information related with SIT */
@@ -5800,6 +5811,10 @@ static void destroy_sit_info(struct f2fs_sb_info *sbi)
 	kfree(sit_i->tmp_map);
 
 	kvfree(sit_i->sentries);
+	if (__is_large_section(sbi)) {
+		kvfree(android_sec_entries);
+		android_sec_entries = NULL;
+	}
 	kvfree(sit_i->sec_entries);
 	kvfree(sit_i->dirty_sentries_bitmap);
 
