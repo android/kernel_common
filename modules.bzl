@@ -120,6 +120,7 @@ _X86_64_GKI_MODULES_LIST = [
     "drivers/thermal/intel/int340x_thermal/int3402_thermal.ko",
     "drivers/thermal/intel/int340x_thermal/int3403_thermal.ko",
     "drivers/thermal/intel/int340x_thermal/int340x_thermal_zone.ko",
+    "drivers/thermal/intel/int340x_thermal/platform_temperature_control.ko",
     "drivers/thermal/intel/int340x_thermal/processor_thermal_device.ko",
     "drivers/thermal/intel/int340x_thermal/processor_thermal_device_pci.ko",
     "drivers/thermal/intel/int340x_thermal/processor_thermal_device_pci_legacy.ko",
