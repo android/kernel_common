@@ -3,3 +3,6 @@
 # CONFIG_BLK_DEV_NVME is not set
 # CONFIG_KVM is not set
 # CONFIG_KALLSYMS_ALL is not set
+# CONFIG_PAGE_OWNER is not set
+# CONFIG_PAGE_PINNER is not set
+# CONFIG_DEBUG_FS is not set
