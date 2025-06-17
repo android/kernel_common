@@ -550,11 +550,8 @@ static int __pkvm_create_hyp_vm(struct kvm *host_kvm)
 	WRITE_ONCE(host_kvm->arch.pkvm.handle, ret);
 
 	kvm_account_pgtable_pages(pgd, pgd_sz >> PAGE_SHIFT);
-	ret = __pkvm_notify_guest_vm_avail_retry(host_kvm, FFA_VM_CREATION_MSG);
-	if (ret)
-		goto free_pgd;
 
-	return ret;
+	return __pkvm_notify_guest_vm_avail_retry(host_kvm, FFA_VM_CREATION_MSG);
 free_pgd:
 	free_pages_exact(pgd, pgd_sz);
 	atomic64_sub(pgd_sz, &host_kvm->stat.protected_hyp_mem);
