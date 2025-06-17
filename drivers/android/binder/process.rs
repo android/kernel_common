@@ -27,7 +27,8 @@ use kernel::{
     seq_print,
     sync::poll::PollTable,
     sync::{
-        lock::Guard, Arc, ArcBorrow, CondVar, CondVarTimeoutResult, Mutex, SpinLock, UniqueArc,
+        lock::{spinlock::SpinLockBackend, Guard},
+        Arc, ArcBorrow, CondVar, CondVarTimeoutResult, Mutex, SpinLock, UniqueArc,
     },
     task::Task,
     types::{ARef, Either},
@@ -1246,6 +1247,18 @@ impl Process {
         }
     }
 
+    /// Locks the spinlock and move the `nodes` rbtree out.
+    ///
+    /// This allows you to iterate through `nodes` while also allowing you to give other parts of
+    /// the codebase exclusive access to `ProcessInner`.
+    pub(crate) fn lock_with_nodes(&self) -> WithNodes<'_> {
+        let mut inner = self.inner.lock();
+        WithNodes {
+            nodes: take(&mut inner.nodes),
+            inner,
+        }
+    }
+
     fn deferred_flush(&self) {
         let inner = self.inner.lock();
         for thread in inner.threads.values() {
@@ -1274,12 +1287,10 @@ impl Process {
 
         // Move oneway_todo into the process todolist.
         {
-            let mut inner = self.inner.lock();
-            let nodes = take(&mut inner.nodes);
-            for node in nodes.values() {
-                node.release(&mut inner);
+            let mut inner = self.lock_with_nodes();
+            for node in inner.nodes.values() {
+                node.release(&mut inner.inner);
             }
-            inner.nodes = nodes;
         }
 
         // Cancel all pending work items.
@@ -1642,10 +1653,7 @@ pub(crate) struct Registration<'a> {
 }
 
 impl<'a> Registration<'a> {
-    fn new(
-        thread: &'a Arc<Thread>,
-        guard: &mut Guard<'_, ProcessInner, kernel::sync::lock::spinlock::SpinLockBackend>,
-    ) -> Self {
+    fn new(thread: &'a Arc<Thread>, guard: &mut Guard<'_, ProcessInner, SpinLockBackend>) -> Self {
         assert!(core::ptr::eq(&thread.process.inner, guard.lock_ref()));
         // INVARIANT: We are pushing this thread to the right `ready_threads` list.
         if let Ok(list_arc) = ListArc::try_from_arc(thread.clone()) {
@@ -1667,5 +1675,19 @@ impl Drop for Registration<'_> {
         // the `ready_threads` list of its parent process. Therefore, the thread is either in that
         // list, or in no list.
         unsafe { inner.ready_threads.remove(self.thread) };
+    }
+}
+
+pub(crate) struct WithNodes<'a> {
+    pub(crate) inner: Guard<'a, ProcessInner, SpinLockBackend>,
+    pub(crate) nodes: RBTree<u64, DArc<Node>>,
+}
+
+impl Drop for WithNodes<'_> {
+    fn drop(&mut self) {
+        core::mem::swap(&mut self.nodes, &mut self.inner.nodes);
+        if self.nodes.iter().next().is_some() {
+            pr_err!("nodes array was modified while using lock_with_nodes\n");
+        }
     }
 }

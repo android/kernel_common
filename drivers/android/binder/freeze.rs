@@ -18,8 +18,6 @@ use crate::{
     DTRWrap, DeliverToRead,
 };
 
-use core::mem;
-
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub(crate) struct FreezeCookie(u64);
 
@@ -270,25 +268,22 @@ impl Process {
         let mut recipients =
             KVVec::with_capacity(8, GFP_KERNEL).unwrap_or_else(|_err| KVVec::new());
 
-        let mut inner = self.inner.lock();
-        let mut nodes = mem::take(&mut inner.nodes);
-        let mut curr = nodes.cursor_front();
+        let mut inner = self.lock_with_nodes();
+        let mut curr = inner.nodes.cursor_front();
         while let Some(cursor) = curr {
             let (key, node) = cursor.current();
             let key = *key;
-            let list = node.freeze_list(&inner);
+            let list = node.freeze_list(&inner.inner);
             let len = list.len();
 
             if recipients.spare_capacity_mut().len() < len {
-                inner.nodes = nodes;
                 drop(inner);
                 recipients.reserve(len, GFP_KERNEL)?;
-                inner = self.inner.lock();
-                nodes = mem::take(&mut inner.nodes);
+                inner = self.lock_with_nodes();
                 // Find the node we were looking at and try again. If the set of nodes was changed,
                 // then just proceed to the next node. This is ok because we don't guarantee the
                 // inclusion of nodes that are added or removed in parallel with this operation.
-                curr = nodes.cursor_lower_bound(&key);
+                curr = inner.nodes.cursor_lower_bound(&key);
                 continue;
             }
 
@@ -306,7 +301,6 @@ impl Process {
 
             curr = cursor.move_next();
         }
-        inner.nodes = nodes;
         Ok(recipients)
     }
 
