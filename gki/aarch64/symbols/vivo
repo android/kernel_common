@@ -100,6 +100,7 @@
   __traceiter_android_rvh_udpv6_recvmsg
   __traceiter_android_rvh_udpv6_sendmsg
   __traceiter_android_rvh_percpu_rwsem_wait_complete
+  __traceiter_android_rvh_pr_set_vma_name_bypass
   __traceiter_android_vh_alter_mutex_list_add
   __traceiter_android_vh_alter_rwsem_list_add
   __traceiter_android_vh_bd_link_disk_holder
@@ -198,6 +199,7 @@
   __tracepoint_android_rvh_enqueue_task_fair
   __tracepoint_android_rvh_inet_sock_create
   __tracepoint_android_rvh_inet_sock_release
+  __tracepoint_android_rvh_pr_set_vma_name_bypass
   __tracepoint_android_rvh_replace_next_task_fair
   __tracepoint_android_rvh_set_user_nice
   __tracepoint_android_rvh_set_gfp_zone_flags
