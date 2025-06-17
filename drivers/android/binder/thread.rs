@@ -1482,6 +1482,9 @@ impl Thread {
                 }
                 BC_ENTER_LOOPER => self.inner.lock().looper_enter(),
                 BC_EXIT_LOOPER => self.inner.lock().looper_exit(),
+                BC_REQUEST_FREEZE_NOTIFICATION => self.process.request_freeze_notif(&mut reader)?,
+                BC_CLEAR_FREEZE_NOTIFICATION => self.process.clear_freeze_notif(&mut reader)?,
+                BC_FREEZE_NOTIFICATION_DONE => self.process.freeze_notif_done(&mut reader)?,
 
                 // Fail if given an unknown error code.
                 // BC_ATTEMPT_ACQUIRE and BC_ACQUIRE_RESULT are no longer supported.

@@ -50,6 +50,10 @@ use crate::{
     BinderfsProcFile, DArc, DLArc, DTRWrap, DeliverToRead,
 };
 
+#[path = "freeze.rs"]
+mod freeze;
+use self::freeze::{FreezeCookie, FreezeListener};
+
 struct Mapping {
     address: usize,
     alloc: RangeAllocator<AllocationInfo>,
@@ -315,6 +319,8 @@ pub(crate) struct NodeRefInfo {
     /// The refcount that this process owns to the node.
     node_ref: ListArcField<NodeRef, { Self::LIST_PROC }>,
     death: ListArcField<Option<DArc<NodeDeath>>, { Self::LIST_PROC }>,
+    /// Cookie of the active freeze listener for this node.
+    freeze: ListArcField<Option<FreezeCookie>, { Self::LIST_PROC }>,
     /// Used to store this `NodeRefInfo` in the node's `refs` list.
     #[pin]
     links: ListLinks<{ Self::LIST_NODE }>,
@@ -335,6 +341,7 @@ impl NodeRefInfo {
             debug_id: super::next_debug_id(),
             node_ref: ListArcField::new(node_ref),
             death: ListArcField::new(None),
+            freeze: ListArcField::new(None),
             links <- ListLinks::new(),
             handle,
             process,
@@ -343,6 +350,7 @@ impl NodeRefInfo {
 
     kernel::list::define_list_arc_field_getter! {
         pub(crate) fn death(&mut self<{Self::LIST_PROC}>) -> &mut Option<DArc<NodeDeath>> { death }
+        pub(crate) fn freeze(&mut self<{Self::LIST_PROC}>) -> &mut Option<FreezeCookie> { freeze }
         pub(crate) fn node_ref(&mut self<{Self::LIST_PROC}>) -> &mut NodeRef { node_ref }
         pub(crate) fn node_ref2(&self<{Self::LIST_PROC}>) -> &NodeRef { node_ref }
     }
@@ -372,6 +380,11 @@ struct ProcessNodeRefs {
     /// Used to look up nodes without knowing their local 32-bit id. The usize is the address of
     /// the underlying `Node` struct as returned by `Node::global_id`.
     by_node: RBTree<usize, u32>,
+    /// Used to look up a `FreezeListener` by cookie.
+    ///
+    /// There might be multiple freeze listeners for the same node, but at most one of them is
+    /// active.
+    freeze_listeners: RBTree<FreezeCookie, FreezeListener>,
 }
 
 impl ProcessNodeRefs {
@@ -379,6 +392,7 @@ impl ProcessNodeRefs {
         Self {
             by_handle: RBTree::new(),
             by_node: RBTree::new(),
+            freeze_listeners: RBTree::new(),
         }
     }
 }
@@ -1294,6 +1308,7 @@ impl Process {
         // while holding the lock.
         let mut refs = self.node_refs.lock();
         let mut node_refs = take(&mut refs.by_handle);
+        let freeze_listeners = take(&mut refs.freeze_listeners);
         drop(refs);
         for info in node_refs.values_mut() {
             // SAFETY: We are removing the `NodeRefInfo` from the right node.
@@ -1308,6 +1323,10 @@ impl Process {
             death.set_cleared(false);
         }
         drop(node_refs);
+        for listener in freeze_listeners.values() {
+            listener.on_process_exit(&self);
+        }
+        drop(freeze_listeners);
 
         // Do similar dance for the state lock.
         let mut inner = self.inner.lock();
@@ -1354,10 +1373,13 @@ impl Process {
 
     pub(crate) fn ioctl_freeze(&self, info: &BinderFreezeInfo) -> Result {
         if info.enable == 0 {
+            let msgs = self.prepare_freeze_messages()?;
             let mut inner = self.inner.lock();
             inner.sync_recv = false;
             inner.async_recv = false;
             inner.is_frozen = false;
+            drop(inner);
+            msgs.send_messages();
             return Ok(());
         }
 
@@ -1395,7 +1417,17 @@ impl Process {
             inner.is_frozen = false;
             Err(EAGAIN)
         } else {
-            Ok(())
+            drop(inner);
+            match self.prepare_freeze_messages() {
+                Ok(batch) => {
+                    batch.send_messages();
+                    Ok(())
+                }
+                Err(kernel::alloc::AllocError) => {
+                    self.inner.lock().is_frozen = false;
+                    Err(ENOMEM)
+                }
+            }
         }
     }
 }
