@@ -3,13 +3,18 @@
 # TODO(b/236012223): Deprecate and remove this file once build-config-less
 #   builds are fully supported.
 
-echo 'WARNING: Do not source build.config.gki.aarch64. See warnings below for details.' >&2
+echo 'ERROR: Do not source build.config.gki.aarch64.
 
-. ${ROOT_DIR}/${KERNEL_DIR}/build.config.common
-. ${ROOT_DIR}/${KERNEL_DIR}/build.config.aarch64
-. ${ROOT_DIR}/${KERNEL_DIR}/build.config.gki
+    - If you need -D__ANDROID_COMMON_KERNEL__ in KCFLAGS, set kernel_build.kcflags.
+      Otherwise leave it empty.
+    - Set kernel_build.make_goals accordingly (e.g. ["modules"])
+    - Set kernel_build.defconfig accordingly (e.g. //common:arch/arm64/configs/gki_defconfig).
+    - Set kernel_build.check_defconfig if necessary (read docs for possible values)
 
-if [ -n "${GKI_BUILD_CONFIG_FRAGMENT}" ]; then
-    echo "ERROR: GKI_BUILD_CONFIG_FRAGMENT is deprecated; use --gki_build_config_fragment instead.">&2
-    exit 1
-fi
+    After you clean up the aforementioned build configs:
+    - If you still have build configs, use:
+        . ${ROOT_DIR}/${KERNEL_DIR}/build.config.constants
+      at the top of your build config, and file a bug with your existing build config.
+    - If you do not have any build configs, delete kernel_build.build_config entirely.
+' >&2
+exit 1
