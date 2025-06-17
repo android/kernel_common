@@ -157,6 +157,7 @@
   __traceiter_android_vh_shrink_folio_list
   __traceiter_android_vh_shrink_node_memcgs
   __traceiter_android_vh_shrink_node_memcgs_bypass
+  __traceiter_android_vh_free_unref_folios_to_pcp_bypass
   __traceiter_android_vh_sk_alloc
   __traceiter_android_vh_sk_free
   __traceiter_android_vh_swapmem_gather_add_bypass
@@ -267,6 +268,7 @@
   __tracepoint_android_vh_shrink_folio_list
   __tracepoint_android_vh_shrink_node_memcgs
   __tracepoint_android_vh_shrink_node_memcgs_bypass
+  __tracepoint_android_vh_free_unref_folios_to_pcp_bypass
   __tracepoint_android_vh_sk_alloc
   __tracepoint_android_vh_sk_free
   __tracepoint_android_vh_swapmem_gather_add_bypass
