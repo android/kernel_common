@@ -8,6 +8,7 @@
 #include <vmx/pkvm/hyp/pgtable.h>
 #include <vmx/pkvm/hyp/gfp.h>
 #include <vmx/pkvm/hyp/ept.h>	//FIXME
+#include <vmx/pkvm/hyp/mem_protect.h>
 #include <pkvm.h>
 
 const struct pkvm_pgtable_ops *guest_mmu_pgt_ops;
@@ -48,6 +49,87 @@ int pkvm_vm_mmu_init(struct pkvm_vm *pkvm_vm)
 
 	return pkvm_pgtable_init(&pkvm_vm->mmu, &guest_mmu_mm_ops,
 				 guest_mmu_pgt_ops, &guest_mmu_pgt_cap, true);
+}
+
+static int guest_mmu_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
+			      void *ptep, struct pgt_flush_data *flush_data, void *arg)
+{
+	struct pkvm_pgtable_map_data *data = arg;
+	u64 size = pgt->pgt_ops->pgt_level_to_size(level);
+	struct kvm *kvm = pgt_to_kvm(pgt);
+	int ret;
+
+	if (pgt->pgt_ops->pgt_entry_present(ptep)) {
+		/*
+		 * If the host wants to map the gpa to a different hpa,
+		 * it should unmap it first.
+		 *
+		 * FIXME: we should also check if the host is trying to change
+		 * permissions of a mapped page. Currently in such case we return
+		 * -EEXIST below, as a result KVM-high will think this is a "good"
+		 * error caused by a spurious page fault, and thus will let the
+		 * guest retry accessing the page, instead of properly letting the
+		 * VMM kill the guest right away. The best way to fix this would be
+		 * to implement tracking guest mappings on the host side, so that
+		 * the host can check for spurious page faults on its own before
+		 * making the hypercall, and thus we won't need to distinguish
+		 * these good vs bad errors here in pKVM.
+		 */
+		if (pgt->pgt_ops->pgt_entry_to_phys(ptep) != data->phys)
+			return -EBUSY;
+
+		/*
+		 * It is possible that another CPU has just created the same mapping
+		 * when multiple CPUs touch the same page simultaneously.
+		 * For simplicity check this on pKVM side, since the host doesn't
+		 * track guest mappings in any data structure yet.
+		 */
+		return -EEXIST;
+	}
+
+	/*
+	 * TODO: use a more suitable API than the existing page state API. Why walk
+	 * the page table once again to reach this PTE if we are already at it?
+	 * We could combine these 2 layers (MMU and page state API) into one layer.
+	 */
+	if (pkvm_is_protected_vm(kvm))
+		ret = __pkvm_host_donate_guest(data->phys, pgt, vaddr, size, data->prot);
+	else
+		ret = __pkvm_host_share_guest(data->phys, pgt, vaddr, size, data->prot);
+
+	return ret;
+}
+
+int pkvm_vm_mmu_map(struct kvm_vcpu *shared_vcpu, u64 gpa, u64 hpa, u64 size, bool writable)
+{
+	struct pkvm_vcpu *pkvm_vcpu;
+	struct pkvm_vm *pkvm_vm;
+	u64 prot;
+	int ret;
+
+	pkvm_vcpu = get_pkvm_vcpu_via_shared(shared_vcpu);
+	if (!pkvm_vcpu)
+		return -EINVAL;
+
+	pkvm_vm = pkvm_vcpu->pkvm_vm;
+
+	if (!writable && pkvm_is_protected_vm(to_kvm(pkvm_vm))) {
+		ret = -EPERM;
+		goto put_pkvm_vcpu;
+	}
+
+	/* permission bits */
+	prot = pkvm_vm->mmu.pgt_ops->pgt_entry_calc_perm(true, writable, true);
+	/* memory type bits */
+	prot |= kvm_x86_call(get_mt_mask)(to_kvm_vcpu(pkvm_vcpu), gpa >> PAGE_SHIFT, false);
+
+	pkvm_spin_lock(&pkvm_vm->mmu_lock);
+	ret = pkvm_pgtable_map(&pkvm_vm->mmu, gpa, hpa, size, 0, prot, guest_mmu_map_leaf);
+	pkvm_spin_unlock(&pkvm_vm->mmu_lock);
+
+put_pkvm_vcpu:
+	put_pkvm_vcpu(pkvm_vcpu);
+	return ret;
 }
 
 void pkvm_vm_mmu_destroy(struct pkvm_vm *pkvm_vm)

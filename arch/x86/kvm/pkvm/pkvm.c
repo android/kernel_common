@@ -471,7 +471,7 @@ void put_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
 	put_pkvm_vm(pkvm_vcpu->pkvm_vm);
 }
 
-static struct pkvm_vcpu *get_pkvm_vcpu_via_shared(struct kvm_vcpu *shared_vcpu)
+struct pkvm_vcpu *get_pkvm_vcpu_via_shared(struct kvm_vcpu *shared_vcpu)
 {
 	struct pkvm_vcpu *pkvm_vcpu;
 	struct kvm *shared_kvm;
@@ -1705,6 +1705,10 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 	case __pkvm__vm_destroy:
 		pkvm_vm_destroy((int)p1);
 		ret = 0;
+		break;
+	case __pkvm__vm_mmu_map:
+		ret = pkvm_vm_mmu_map((struct kvm_vcpu *)kern_pkvm_va((void *)p1),
+				      p2, p3, p4, p5);
 		break;
 	case __pkvm__vcpu_create:
 		ret = pkvm_vcpu_create((struct kvm_vcpu *)kern_pkvm_va((void *)p1), p2);

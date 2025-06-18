@@ -96,6 +96,16 @@ static inline struct pkvm_vm *to_pkvm(struct kvm *kvm)
 	return (struct pkvm_vm *)((unsigned long)kvm - sizeof(struct pkvm_vm));
 }
 
+static inline struct pkvm_vm *pgt_to_pkvm(struct pkvm_pgtable *pgt)
+{
+	return container_of(pgt, struct pkvm_vm, mmu);
+}
+
+static inline struct kvm *pgt_to_kvm(struct pkvm_pgtable *pgt)
+{
+	return to_kvm(pgt_to_pkvm(pgt));
+}
+
 static inline struct kvm_vcpu *to_kvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
 {
 	/* See comments for pkvm_vcpu */
@@ -164,6 +174,7 @@ extern struct pkvm_x86_ops pkvm_x86_ops;
 struct pkvm_vm *get_pkvm_vm(int handle);
 void put_pkvm_vm(struct pkvm_vm *pkvm_vm);
 struct pkvm_vcpu *get_pkvm_vcpu(int vm_handle, int vcpu_handle);
+struct pkvm_vcpu *get_pkvm_vcpu_via_shared(struct kvm_vcpu *shared_vcpu);
 void put_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu);
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 			      unsigned long p2, unsigned long p3,
