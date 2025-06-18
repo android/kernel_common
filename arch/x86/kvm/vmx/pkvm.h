@@ -4,38 +4,45 @@
 
 static inline unsigned long pkvm_hypercall(unsigned long nr, unsigned long p1,
 					   unsigned long p2, unsigned long p3,
-					   unsigned long p4)
+					   unsigned long p4, unsigned long p5)
 {
 	unsigned long ret;
 
 	asm volatile("vmcall"
 		     : "=a"(ret)
-		     : "a"(nr), "b"(p1), "c"(p2), "d"(p3), "S"(p4)
+		     : "a"(nr), "b"(p1), "c"(p2), "d"(p3), "S"(p4), "D"(p5)
 		     : "memory");
 	return ret;
 }
 
 #define CALL_PKVM(f)		CONCATENATE(__pkvm__, f)
 
-#define __kvm_call_pkvm_0(f)	pkvm_hypercall(PKVM_HC_KVM_CALL, f, 0, 0, 0)
+#define __kvm_call_pkvm_0(f)	pkvm_hypercall(PKVM_HC_KVM_CALL, f, 0, 0, 0, 0)
 
 #define __kvm_call_pkvm_1(f, a1)							\
 	({										\
 		pkvm_hypercall(PKVM_HC_KVM_CALL, f,					\
-			(unsigned long)(a1), 0, 0);					\
+			(unsigned long)(a1), 0, 0, 0);					\
 	})
 
 #define __kvm_call_pkvm_2(f, a1, a2)							\
 	({										\
 		pkvm_hypercall(PKVM_HC_KVM_CALL, f,					\
-			(unsigned long)(a1), (unsigned long)(a2), 0);			\
+			(unsigned long)(a1), (unsigned long)(a2), 0, 0);		\
 	})
 
 #define __kvm_call_pkvm_3(f, a1, a2, a3)						\
 	({										\
 		pkvm_hypercall(PKVM_HC_KVM_CALL, f,					\
 			(unsigned long)(a1), (unsigned long)(a2),			\
-			(unsigned long)(a3));						\
+			(unsigned long)(a3), 0);					\
+	})
+
+#define __kvm_call_pkvm_4(f, a1, a2, a3, a4)						\
+	({										\
+		pkvm_hypercall(PKVM_HC_KVM_CALL, f,					\
+			(unsigned long)(a1), (unsigned long)(a2),			\
+			(unsigned long)(a3), (unsigned long)(a4));			\
 	})
 
 #define kvm_call_pkvm(f, ...)								\

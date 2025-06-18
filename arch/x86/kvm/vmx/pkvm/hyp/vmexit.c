@@ -81,7 +81,7 @@ static void handle_cr(struct kvm_vcpu *vcpu)
 
 static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 {
-	u64 nr, a0, a1, a2, a3;
+	u64 nr, a0, a1, a2, a3, a4;
 	unsigned long ret = 0;
 
 	nr = vcpu->arch.regs[VCPU_REGS_RAX];
@@ -89,6 +89,7 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	a1 = vcpu->arch.regs[VCPU_REGS_RCX];
 	a2 = vcpu->arch.regs[VCPU_REGS_RDX];
 	a3 = vcpu->arch.regs[VCPU_REGS_RSI];
+	a4 = vcpu->arch.regs[VCPU_REGS_RDI];
 
 	switch (nr) {
 	case PKVM_HC_SET_VMEXIT_TRACE:
@@ -118,7 +119,7 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 		ret = pkvm_add_ptdev(a0, a1, a2);
 		break;
 	case PKVM_HC_KVM_CALL:
-		ret = handle_kvm_call(a0, a1, a2, a3);
+		ret = handle_kvm_call(a0, a1, a2, a3, a4);
 		break;
 
 	/*

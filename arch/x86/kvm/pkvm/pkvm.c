@@ -1681,7 +1681,8 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 }
 
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
-			      unsigned long p2, unsigned long p3)
+			      unsigned long p2, unsigned long p3,
+			      unsigned long p4)
 {
 	unsigned long ret = 0;
 

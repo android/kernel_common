@@ -166,7 +166,8 @@ void put_pkvm_vm(struct pkvm_vm *pkvm_vm);
 struct pkvm_vcpu *get_pkvm_vcpu(int vm_handle, int vcpu_handle);
 void put_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu);
 unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
-			      unsigned long p2, unsigned long p3);
+			      unsigned long p2, unsigned long p3,
+			      unsigned long p4);
 void pkvm_x86_ops_init(struct pkvm_x86_ops *ops);
 typedef int (*pkvm_vm_func_t)(struct pkvm_vm *vm, void *arg);
 int pkvm_walk_each_vm(pkvm_vm_func_t func, void *arg);
