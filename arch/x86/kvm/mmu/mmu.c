@@ -6448,7 +6448,7 @@ void kvm_configure_mmu(bool enable_tdp, int tdp_forced_root_level,
 	max_tdp_level = tdp_max_root_level;
 
 #ifdef CONFIG_X86_64
-	tdp_mmu_enabled = tdp_mmu_allowed && tdp_enabled;
+	tdp_mmu_enabled = tdp_mmu_allowed && tdp_enabled && !enable_pkvm;
 #endif
 	/*
 	 * max_huge_page_level reflects KVM's MMU capabilities irrespective

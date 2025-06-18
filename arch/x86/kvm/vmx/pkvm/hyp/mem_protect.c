@@ -52,14 +52,14 @@ struct pkvm_mem_transition {
 	struct pkvm_mem_trans_desc	completer;
 };
 
-static void guest_pgstate_pgt_lock(struct pkvm_pgtable *pgt)
+static void guest_mmu_lock(struct pkvm_pgtable *pgt)
 {
-	pkvm_spin_lock(&pgstate_pgt_to_shadow_vm(pgt)->lock);
+	pkvm_spin_lock(&pgt_to_pkvm(pgt)->mmu_lock);
 }
 
-static void guest_pgstate_pgt_unlock(struct pkvm_pgtable *pgt)
+static void guest_mmu_unlock(struct pkvm_pgtable *pgt)
 {
-	pkvm_spin_unlock(&pgstate_pgt_to_shadow_vm(pgt)->lock);
+	pkvm_spin_unlock(&pgt_to_pkvm(pgt)->mmu_lock);
 }
 
 static u64 pkvm_init_invalid_leaf_owner(pkvm_id owner_id)
@@ -135,10 +135,7 @@ static int __host_check_page_state_range(struct pkvm_pgtable *pgt_override, u64 
 
 static pkvm_id pkvm_guest_id(struct pkvm_pgtable *pgt)
 {
-	struct pkvm_shadow_vm *shadow_vm = pgstate_pgt_to_shadow_vm(pgt);
-
-	/* Using the pkvm_vm handle as guest_id. */
-	return shadow_to_kvm(shadow_vm)->arch.pkvm.pkvm_vm_handle;
+	return pgt_to_kvm(pgt)->arch.pkvm.pkvm_vm_handle;
 }
 
 static pkvm_id __pkvm_owner_id(const struct pkvm_mem_trans_desc *desc)
@@ -776,7 +773,7 @@ int __pkvm_guest_share_host(struct pkvm_pgtable *guest_pgt,
 	if (!PAGE_ALIGNED(size))
 		return -EINVAL;
 
-	guest_pgstate_pgt_lock(guest_pgt);
+	guest_mmu_lock(guest_pgt);
 	host_ept_lock();
 
 	while (size) {
@@ -795,7 +792,7 @@ int __pkvm_guest_share_host(struct pkvm_pgtable *guest_pgt,
 	}
 
 	host_ept_unlock();
-	guest_pgstate_pgt_unlock(guest_pgt);
+	guest_mmu_unlock(guest_pgt);
 
 
 	return ret;
@@ -1022,7 +1019,7 @@ int __pkvm_guest_unshare_host(struct pkvm_pgtable *guest_pgt,
 	u64 prot;
 	int ret = 0;
 
-	guest_pgstate_pgt_lock(guest_pgt);
+	guest_mmu_lock(guest_pgt);
 	host_ept_lock();
 
 	while (size) {
@@ -1041,7 +1038,7 @@ int __pkvm_guest_unshare_host(struct pkvm_pgtable *guest_pgt,
 	}
 
 	host_ept_unlock();
-	guest_pgstate_pgt_unlock(guest_pgt);
+	guest_mmu_unlock(guest_pgt);
 
 	return ret;
 }

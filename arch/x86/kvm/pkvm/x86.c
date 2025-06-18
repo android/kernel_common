@@ -2709,11 +2709,18 @@ EXPORT_SYMBOL_GPL(kvm_emulate_halt);
 int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 {
 #ifdef __PKVM_HYP__
+	struct pkvm_vm *pkvm_vm = to_pkvm(vcpu->kvm);
+
 	vcpu->arch.last_vmentry_cpu = -1;
 	vcpu->arch.regs_avail = ~0;
 	vcpu->arch.regs_dirty = ~0;
 
 	vcpu->arch.mp_state = KVM_MP_STATE_UNINITIALIZED;
+
+	vcpu->arch.root_mmu.root_role.level = pkvm_vm->mmu.level;
+	vcpu->arch.root_mmu.root.hpa = pkvm_vm->mmu.root_pa;
+	vcpu->arch.mmu = &vcpu->arch.root_mmu;
+
 	vcpu->arch.pat = MSR_IA32_CR_PAT_DEFAULT;
 
 	return kvm_x86_call(vcpu_create)(vcpu);

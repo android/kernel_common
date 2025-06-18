@@ -246,7 +246,7 @@ extern bool tdp_mmu_enabled;
 
 static inline bool kvm_memslots_have_rmaps(struct kvm *kvm)
 {
-	return !tdp_mmu_enabled || kvm_shadow_root_allocated(kvm);
+	return (!tdp_mmu_enabled && !enable_pkvm) || kvm_shadow_root_allocated(kvm);
 }
 
 static inline gfn_t gfn_to_index(gfn_t gfn, gfn_t base_gfn, int level)

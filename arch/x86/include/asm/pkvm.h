@@ -48,6 +48,7 @@ struct pkvm_iommu_driver {
 #ifdef CONFIG_PKVM_INTEL
 
 #ifndef __PKVM_HYP__
+
 extern bool __read_mostly enable_pkvm;	/* kernel command-line flag */
 
 extern struct static_key_false pkvm_enabled_key;
@@ -98,6 +99,12 @@ static inline void pkvm_writel(void __iomem *reg, unsigned long reg_phys,
 	else
 		writel(val, reg + offset);
 }
+
+#else /* __PKVM_HYP__ */
+
+/* we are in pkvm hypervisor, pkvm is enabled by definition */
+#define enable_pkvm true
+
 #endif /* __PKVM_HYP__ */
 
 static inline void pkvm_update_iommu_virtual_caps(u64 *cap, u64 *ecap)

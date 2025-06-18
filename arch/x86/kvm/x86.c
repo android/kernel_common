@@ -9814,7 +9814,7 @@ int kvm_x86_vendor_init(struct kvm_x86_init_ops *ops)
 		kvm_caps.supported_vm_types |= BIT(KVM_X86_SW_PROTECTED_VM);
 
 #ifdef CONFIG_PKVM_INTEL
-	if (enable_pkvm && tdp_mmu_enabled)
+	if (enable_pkvm)
 		kvm_caps.supported_vm_types |= BIT(KVM_X86_PKVM_PROTECTED_VM);
 #endif
 

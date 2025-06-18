@@ -132,16 +132,10 @@ int pkvm_init_shadow_vcpu(struct kvm_vcpu *vcpu)
 	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
 	int vm_handle = vcpu->kvm->arch.pkvm.pkvm_vm_handle;
 	struct pkvm_vcpu *pkvm_vcpu = to_pkvm_vcpu(vcpu);
-	struct shadow_ept_desc *sept_desc;
 
 	shadow_vcpu->shadow_vcpu_handle =
 		to_shadow_vcpu_handle(vm_handle, pkvm_vcpu->vcpu_idx);
 	shadow_vcpu->vm = kvm_to_shadow(vcpu->kvm);
-
-	sept_desc = &shadow_vcpu->vm->sept_desc;
-	vcpu->arch.root_mmu.root_role.level = sept_desc->sept.level;
-	vcpu->arch.root_mmu.root.hpa = sept_desc->sept.root_pa;
-	vcpu->arch.mmu = &vcpu->arch.root_mmu;
 
 	return 0;
 }
