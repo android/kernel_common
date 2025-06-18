@@ -3,6 +3,7 @@
 #include <asm/kvm_pkvm.h>
 #include "x86.h"
 #include "pkvm.h"
+#include "mmu.h"
 #include "cpuid.h"
 #include <asm/pkvm_spinlock.h>
 //FIXME: clean up the header files
@@ -177,12 +178,18 @@ static int pkvm_vm_init(struct kvm *shared_kvm, unsigned long gpa)
 	if (ret)
 		goto undonate;
 
-	ret = allocate_pkvm_vm_handle(pkvm_vm);
+	ret = pkvm_vm_mmu_init(pkvm_vm);
 	if (ret)
 		goto vm_destroy;
 
+	ret = allocate_pkvm_vm_handle(pkvm_vm);
+	if (ret)
+		goto mmu_destroy;
+
 	return kvm->arch.pkvm.pkvm_vm_handle;
 
+mmu_destroy:
+	pkvm_vm_mmu_destroy(pkvm_vm);
 vm_destroy:
 	kvm_x86_call(vm_destroy)(kvm);
 undonate:
@@ -416,6 +423,8 @@ static void pkvm_vm_destroy(int handle)
 					(void *)pkvm_vcpu, pkvm_vcpu->size);
 		/* TODO: unpin shared kvm_vcpu */
 	}
+
+	pkvm_vm_mmu_destroy(pkvm_vm);
 
 	kvm_arch_destroy_vm(to_kvm(pkvm_vm));
 	teardown_donated_memory(&shared_pkvm->teardown_mc,

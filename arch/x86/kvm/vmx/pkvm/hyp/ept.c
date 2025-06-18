@@ -31,7 +31,7 @@ static struct pkvm_pgtable host_ept;
 static struct pkvm_pgtable host_ept_notlbflush;
 static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
-static struct hyp_pool shadow_pgt_pool;
+struct hyp_pool shadow_pgt_pool;
 static struct rsvd_bits_validate ept_zero_check;
 
 static inline void pkvm_init_ept_page(void *page)

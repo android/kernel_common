@@ -65,6 +65,7 @@ static inline bool is_valid_eptp(u64 eptp)
 }
 
 extern const struct pkvm_pgtable_ops ept_ops;
+extern struct hyp_pool shadow_pgt_pool;
 
 int pkvm_handle_guest_ept_violation(struct kvm_vcpu *vcpu, u64 gpa);
 void pkvm_setup_virtual_ept(struct kvm_vcpu *vcpu, u64 veptp);
