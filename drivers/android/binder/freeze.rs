@@ -36,6 +36,23 @@ pub(crate) struct FreezeListener {
     /// `BR_CLEAR_FREEZE_NOTIFICATION_DONE` as soon as possible. If `is_pending` is set, then we
     /// must wait for it to be unset before we can reply.
     is_clearing: bool,
+    /// Number of cleared duplicates that can't be deleted until userspace sends
+    /// `BC_FREEZE_NOTIFICATION_DONE`.
+    num_pending_duplicates: u64,
+    /// Number of cleared duplicates that can be deleted.
+    num_cleared_duplicates: u64,
+}
+
+impl FreezeListener {
+    /// Is it okay to create a new listener with the same cookie as this one for the provided node?
+    ///
+    /// Under some scenarios, userspace may delete a freeze listener and immediately recreate it
+    /// with the same cookie. This results in duplicate listeners. To avoid issues with ambiguity,
+    /// we allow this only if the new listener is for the same node, and we also require that the
+    /// old listener has already been cleared.
+    fn allow_duplicate(&self, node: &DArc<Node>) -> bool {
+        Arc::ptr_eq(&self.node, node) && self.is_clearing
+    }
 }
 
 type UninitFM = UniqueArc<core::mem::MaybeUninit<DTRWrap<FreezeMessage>>>;
@@ -76,6 +93,14 @@ impl DeliverToRead for FreezeMessage {
             return Ok(true);
         };
         let freeze = freeze_entry.get_mut();
+
+        if freeze.num_cleared_duplicates > 0 {
+            freeze.num_cleared_duplicates -= 1;
+            drop(node_refs);
+            writer.write_code(BR_CLEAR_FREEZE_NOTIFICATION_DONE)?;
+            writer.write_payload(&self.cookie.0)?;
+            return Ok(true);
+        }
 
         if freeze.is_pending {
             return Ok(true);
@@ -142,13 +167,6 @@ impl Process {
 
         let mut node_refs_guard = self.node_refs.lock();
         let node_refs = &mut *node_refs_guard;
-        let listener_entry = match node_refs.freeze_listeners.entry(cookie) {
-            rbtree::Entry::Vacant(entry) => entry,
-            rbtree::Entry::Occupied(_) => {
-                pr_warn!("BC_REQUEST_FREEZE_NOTIFICATION duplicate cookie\n");
-                return Err(EINVAL);
-            }
-        };
         let Some(info) = node_refs.by_handle.get_mut(&handle) else {
             pr_warn!("BC_REQUEST_FREEZE_NOTIFICATION invalid ref {}\n", handle);
             return Err(EINVAL);
@@ -158,21 +176,49 @@ impl Process {
             return Err(EINVAL);
         }
         let node_ref = info.node_ref();
+        let freeze_entry = node_refs.freeze_listeners.entry(cookie);
+
+        if let rbtree::Entry::Occupied(ref dupe) = freeze_entry {
+            if !dupe.get().allow_duplicate(&node_ref.node) {
+                pr_warn!("BC_REQUEST_FREEZE_NOTIFICATION duplicate cookie\n");
+                return Err(EINVAL);
+            }
+        }
+
+        // All failure paths must come before this call, and all modifications must come after this
+        // call.
         node_ref.node.add_freeze_listener(self, GFP_KERNEL)?;
 
-        // From now on we added it to the node's list, so we can't fail.
-        let msg = FreezeMessage::init(msg, cookie);
-        listener_entry.insert(
-            FreezeListener {
-                cookie,
-                node: node_ref.node.clone(),
-                last_is_frozen: None,
-                is_pending: false,
-                is_clearing: false,
-            },
-            alloc,
-        );
+        match freeze_entry {
+            rbtree::Entry::Vacant(entry) => {
+                entry.insert(
+                    FreezeListener {
+                        cookie,
+                        node: node_ref.node.clone(),
+                        last_is_frozen: None,
+                        is_pending: false,
+                        is_clearing: false,
+                        num_pending_duplicates: 0,
+                        num_cleared_duplicates: 0,
+                    },
+                    alloc,
+                );
+            }
+            rbtree::Entry::Occupied(mut dupe) => {
+                let dupe = dupe.get_mut();
+                if dupe.is_pending {
+                    dupe.num_pending_duplicates += 1;
+                } else {
+                    dupe.num_cleared_duplicates += 1;
+                }
+                dupe.last_is_frozen = None;
+                dupe.is_pending = false;
+                dupe.is_clearing = false;
+            }
+        }
+
         *info.freeze() = Some(cookie);
+        let msg = FreezeMessage::init(msg, cookie);
         drop(node_refs_guard);
         let _ = self.push_work(msg);
         Ok(())
@@ -187,19 +233,25 @@ impl Process {
             pr_warn!("BC_FREEZE_NOTIFICATION_DONE {:016x} not found\n", cookie.0);
             return Err(EINVAL);
         };
-        if !freeze.is_pending {
-            pr_warn!(
-                "BC_FREEZE_NOTIFICATION_DONE {:016x} not pending\n",
-                cookie.0
-            );
-            return Err(EINVAL);
-        }
         let mut clear_msg = None;
-        if freeze.is_clearing {
-            // Immediately send another FreezeMessage for BR_CLEAR_FREEZE_NOTIFICATION_DONE.
+        if freeze.num_pending_duplicates > 0 {
             clear_msg = Some(FreezeMessage::init(alloc, cookie));
+            freeze.num_pending_duplicates -= 1;
+            freeze.num_cleared_duplicates += 1;
+        } else {
+            if !freeze.is_pending {
+                pr_warn!(
+                    "BC_FREEZE_NOTIFICATION_DONE {:016x} not pending\n",
+                    cookie.0
+                );
+                return Err(EINVAL);
+            }
+            if freeze.is_clearing {
+                // Immediately send another FreezeMessage for BR_CLEAR_FREEZE_NOTIFICATION_DONE.
+                clear_msg = Some(FreezeMessage::init(alloc, cookie));
+            }
+            freeze.is_pending = false;
         }
-        freeze.is_pending = false;
         drop(node_refs_guard);
         if let Some(clear_msg) = clear_msg {
             let _ = self.push_work(clear_msg);
