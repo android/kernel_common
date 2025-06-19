@@ -917,6 +917,7 @@ _ROCKPI4_MODULE_OUTS = [
     "drivers/gpu/drm/bridge/synopsys/dw-hdmi.ko",
     "drivers/gpu/drm/bridge/synopsys/dw-mipi-dsi.ko",
     "drivers/gpu/drm/display/drm_display_helper.ko",
+    "drivers/gpu/drm/display/drm_dp_aux_bus.ko",
     "drivers/gpu/drm/drm_dma_helper.ko",
     "drivers/gpu/drm/rockchip/rockchipdrm.ko",
     "drivers/i2c/busses/i2c-rk3x.ko",
