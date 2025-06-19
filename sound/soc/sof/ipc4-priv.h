@@ -72,6 +72,8 @@ struct sof_ipc4_fw_library {
  * @max_libs_count: Maximum number of libraries support by the FW including the
  *		    base firmware
  *
+ * @fw_context_save: Firmware supports full context save and restore
+ *
  * @load_library: Callback function for platform dependent library loading
  * @pipeline_state_mutex: Mutex to protect pipeline triggers, ref counts, states and deletion
  */
