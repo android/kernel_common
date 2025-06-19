@@ -82,6 +82,8 @@
   __tracepoint_android_vh_binder_data_preset
   __traceiter_android_rvh_init_binder_logs
   __tracepoint_android_rvh_init_binder_logs
+  __traceiter_android_vh_set_tsk_need_resched_lazy
+  __tracepoint_android_vh_set_tsk_need_resched_lazy
   __traceiter_android_rvh_vfree_bypass
   __traceiter_android_rvh_vmalloc_node_bypass
   __traceiter_android_vh_adjust_alloc_flags
