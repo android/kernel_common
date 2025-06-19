@@ -28,6 +28,8 @@
 # required by mi_mem_engine.ko
   __traceiter_android_vh_tune_swappiness
   __tracepoint_android_vh_tune_swappiness
+  __traceiter_android_vh_do_shrink_slab_ex
+  __tracepoint_android_vh_do_shrink_slab_ex
 
 # required by SAGT module
   __traceiter_android_rvh_before_do_sched_yield
