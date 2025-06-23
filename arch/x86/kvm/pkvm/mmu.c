@@ -89,6 +89,38 @@ int pkvm_vm_mmu_init(struct pkvm_vm *pkvm_vm)
 				 guest_mmu_pgt_ops, &guest_mmu_pgt_cap, true);
 }
 
+static bool gpa_range_overlaps_pvmfw(struct kvm *kvm, u64 gpa_start, u64 gpa_end,
+				     u64 *gpa_offset, u64 *pvmfw_offset, u64 *size)
+{
+	struct kvm_protected_vm *pkvm = &kvm->arch.pkvm;
+	u64 pvmfw_load_end;
+	u64 start, end;
+
+	if (!pkvm_vm_has_pvmfw(kvm))
+		return false;
+
+	pvmfw_load_end = pkvm->pvmfw_load_addr + pvmfw_size;
+
+	start = max(gpa_start, pkvm->pvmfw_load_addr);
+	end = min(gpa_end, pvmfw_load_end);
+
+	if (end <= start)
+		return false;
+
+	*gpa_offset = start - gpa_start;
+	*pvmfw_offset = start - pkvm->pvmfw_load_addr;
+	*size = end - start;
+	return true;
+}
+
+static void load_pvmfw(struct kvm *kvm, u64 phys, u64 offset, u64 size)
+{
+	BUG_ON(!pkvm_is_protected_vm(kvm));
+	BUG_ON(offset + size > pvmfw_size);
+
+	memcpy(__pkvm_va(phys), __pkvm_va(pvmfw_base + offset), size);
+}
+
 static int guest_mmu_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
 			      void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {
@@ -142,6 +174,8 @@ int pkvm_vm_mmu_map(struct kvm_vcpu *shared_vcpu, u64 gpa, u64 hpa, u64 size, bo
 {
 	struct pkvm_vcpu *pkvm_vcpu;
 	struct pkvm_vm *pkvm_vm;
+	struct kvm *kvm;
+	u64 gpa_offset, pvmfw_offset, load_size;
 	u64 prot;
 	int ret;
 
@@ -150,8 +184,9 @@ int pkvm_vm_mmu_map(struct kvm_vcpu *shared_vcpu, u64 gpa, u64 hpa, u64 size, bo
 		return -EINVAL;
 
 	pkvm_vm = pkvm_vcpu->pkvm_vm;
+	kvm = to_kvm(pkvm_vm);
 
-	if (!writable && pkvm_is_protected_vm(to_kvm(pkvm_vm))) {
+	if (!writable && pkvm_is_protected_vm(kvm)) {
 		ret = -EPERM;
 		goto put_pkvm_vcpu;
 	}
@@ -162,7 +197,13 @@ int pkvm_vm_mmu_map(struct kvm_vcpu *shared_vcpu, u64 gpa, u64 hpa, u64 size, bo
 	prot |= kvm_x86_call(get_mt_mask)(to_kvm_vcpu(pkvm_vcpu), gpa >> PAGE_SHIFT, false);
 
 	pkvm_spin_lock(&pkvm_vm->mmu_lock);
+
 	ret = pkvm_pgtable_map(&pkvm_vm->mmu, gpa, hpa, size, 0, prot, guest_mmu_map_leaf);
+
+	if (!ret && gpa_range_overlaps_pvmfw(kvm, gpa, gpa + size,
+					     &gpa_offset, &pvmfw_offset, &load_size))
+		load_pvmfw(kvm, hpa + gpa_offset, pvmfw_offset, load_size);
+
 	pkvm_spin_unlock(&pkvm_vm->mmu_lock);
 
 put_pkvm_vcpu:
