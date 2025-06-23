@@ -35,6 +35,42 @@ static void guest_mmu_put_page(void *vaddr)
 	hyp_put_page(&shadow_pgt_pool, vaddr);
 }
 
+static void guest_mmu_flush_tlb(struct pkvm_pgtable *pgt,
+				unsigned long addr,
+				unsigned long size)
+{
+	struct pkvm_vm *pkvm_vm = pgt_to_pkvm(pgt);
+	int i;
+
+	/*
+	 * If we are here because the VM is being torn down and we are
+	 * destroying the page table, the vCPUs are already unloaded and
+	 * freed, so we cannot request them to flush the TLBs, but we
+	 * don't need to flush the TLBs now. A pCPU's TLB will be flushed
+	 * next time when loading any VM's vCPU on that pCPU.
+	 */
+	if (pkvm_vm->is_dying)
+		return;
+
+	pkvm_spin_lock(&pkvm_vm->lock);
+
+	for (i = 0; i < to_kvm(pkvm_vm)->created_vcpus; i++) {
+		struct pkvm_vcpu *pkvm_vcpu;
+		struct kvm_vcpu *vcpu;
+
+		pkvm_vcpu = pkvm_vm->vcpus[i];
+		if (WARN_ON_ONCE(!pkvm_vcpu))
+			continue;
+
+		vcpu = to_kvm_vcpu(pkvm_vcpu);
+
+		kvm_make_request(KVM_REQ_TLB_FLUSH_CURRENT, vcpu);
+		pkvm_kick_vcpu(vcpu);
+	}
+
+	pkvm_spin_unlock(&pkvm_vm->lock);
+}
+
 static const struct pkvm_mm_ops guest_mmu_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
@@ -42,6 +78,7 @@ static const struct pkvm_mm_ops guest_mmu_mm_ops = {
 	.get_page = guest_mmu_get_page,
 	.put_page = guest_mmu_put_page,
 	.page_count = hyp_page_count,
+	.flush_tlb = guest_mmu_flush_tlb,
 };
 
 int pkvm_vm_mmu_init(struct pkvm_vm *pkvm_vm)

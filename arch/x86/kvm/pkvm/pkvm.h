@@ -75,6 +75,12 @@ struct pkvm_vm {
 	/* The guest's stage-2 page table managed by the hypervisor */
 	struct pkvm_pgtable mmu;
 	pkvm_spinlock_t mmu_lock;
+
+	/*
+	 * Indicates that the VM is being torn down, in particular its vCPUs
+	 * cannot be loaded anymore.
+	 */
+	bool is_dying;
 };
 
 struct pkvm_vm_ref {

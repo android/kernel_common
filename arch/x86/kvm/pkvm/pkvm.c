@@ -408,6 +408,9 @@ static void pkvm_vm_destroy(int handle)
 	pkvm_vm = free_pkvm_vm_handle(handle);
 	if (!pkvm_vm)
 		return;
+
+	pkvm_vm->is_dying = true;
+
 	shared_pkvm = &pkvm_vm->shared_kvm->arch.pkvm;
 
 	for (i = 0; i < to_kvm(pkvm_vm)->created_vcpus; i++) {
