@@ -8,8 +8,6 @@
 #include <linux/types.h>
 #include <asm/pgtable_types.h>
 
-#define SUPPRESS_VE	BIT(63)
-
 struct pkvm_pgtable;
 struct pkvm_pgtable_cap;
 
