@@ -11,6 +11,7 @@
 #include <vmx/nested.h>
 #include <vmx/sgx.h>
 #include "vmx.h"
+#include "ept.h"
 #include <trace.h>
 #include <pkvm/pkvm.h>
 #include <vmx/pkvm/hyp/pkvm_hyp.h>
@@ -7645,7 +7646,9 @@ __init int vmx_hardware_setup(void)
 
 	set_bit(0, vmx_vpid_bitmap); /* 0 is reserved for host */
 
-#ifndef __PKVM_HYP__ /* FIXME: Coordinate with PV EPT */
+#ifdef __PKVM_HYP__
+	pkvm_guest_ept_setup();
+#else
 	if (enable_ept)
 		kvm_mmu_set_ept_masks(enable_ept_ad_bits,
 				      cpu_has_vmx_ept_execute_only());

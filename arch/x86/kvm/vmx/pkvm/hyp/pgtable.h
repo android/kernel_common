@@ -30,6 +30,7 @@ struct pkvm_pgtable_ops {
 	void (*pgt_entry_mkhuge)(void *ptep);
 	unsigned long (*pgt_entry_to_phys)(void *pte);
 	u64 (*pgt_entry_to_prot)(void *pte);
+	u64 (*pgt_entry_calc_perm)(bool read, bool write, bool exec);
 	int (*pgt_entry_to_index)(unsigned long vaddr, int level);
 	u64 (*pgt_level_page_mask)(int level);
 	bool (*pgt_entry_is_leaf)(void *ptep, int level);
