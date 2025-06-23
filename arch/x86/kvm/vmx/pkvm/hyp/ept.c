@@ -34,11 +34,6 @@ static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 static struct hyp_pool shadow_pgt_pool;
 static struct rsvd_bits_validate ept_zero_check;
 
-static void flush_tlb_noop(struct pkvm_pgtable *pgt,
-			   unsigned long addr, unsigned long size)
-{
-}
-
 static inline void pkvm_init_ept_page(void *page)
 {
 	/*
@@ -126,7 +121,6 @@ static struct pkvm_mm_ops host_ept_mm_ops_no_tlbflush = {
 	.get_page = host_ept_get_page,
 	.put_page = host_ept_put_page,
 	.page_count = hyp_page_count,
-	.flush_tlb = flush_tlb_noop,
 	.flush_cache = host_ept_flush_cache,
 };
 
@@ -509,7 +503,6 @@ static struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops = {
 	.get_page = shadow_pgt_get_page,
 	.put_page = shadow_pgt_put_page,
 	.page_count = hyp_page_count,
-	.flush_tlb = flush_tlb_noop,
 };
 
 /*
@@ -525,7 +518,6 @@ static struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops_noncoherency = {
 	.get_page = shadow_pgt_get_page,
 	.put_page = shadow_pgt_put_page,
 	.page_count = hyp_page_count,
-	.flush_tlb = flush_tlb_noop,
 	.flush_cache = pkvm_clflush_cache_range,
 };
 

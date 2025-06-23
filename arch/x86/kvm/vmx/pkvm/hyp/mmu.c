@@ -36,11 +36,6 @@ static void mmu_put_page(void *vaddr)
 	hyp_put_page(&mmu_pool, vaddr);
 }
 
-static void flush_tlb_noop(struct pkvm_pgtable *pgt,
-			   unsigned long addr, unsigned long size)
-{
-}
-
 static struct pkvm_mm_ops mmu_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
@@ -48,7 +43,6 @@ static struct pkvm_mm_ops mmu_mm_ops = {
 	.get_page = mmu_get_page,
 	.put_page = mmu_put_page,
 	.page_count = hyp_page_count,
-	.flush_tlb = flush_tlb_noop,
 };
 
 static bool mmu_entry_present(void *ptep)
