@@ -157,8 +157,9 @@ PKVM_DECLARE(void, pkvm_early_alloc_init, (void *virt, unsigned long size));
 
 PKVM_DECLARE(void, init_msr_emulation, (struct vcpu_vmx *vmx));
 
-PKVM_DECLARE(void, noop_handler, (void));
-PKVM_DECLARE(void, nmi_handler, (void));
+#define GEN(x, ...) PKVM_DECLARE(void, handle_exception_##x, (void));
+#include "GEN-for-each-exc.h"
+#undef GEN
 
 PKVM_DECLARE(unsigned int, pkvm_per_cpu_nr_pages, (void));
 PKVM_DECLARE(int, setup_pkvm_per_cpu, (int cpu, unsigned long base));

@@ -760,6 +760,12 @@ static __init void init_gdt(struct pkvm_pcpu *pcpu)
 
 static __init void init_idt(struct pkvm_pcpu *pcpu)
 {
+	void (*pkvm_exception_handlers[X86_TRAP_IRET])(void) = {
+#define GEN(x, ...)	\
+		[x] = pkvm_sym(handle_exception_##x),
+#include <GEN-for-each-exc.h>
+#undef GEN
+	};
 	gate_desc *idt = pcpu->idt_page.idt;
 	struct idt_data d = {
 		.segment = __KERNEL_CS,
@@ -772,37 +778,13 @@ static __init void init_idt(struct pkvm_pcpu *pcpu)
 	gate_desc desc;
 	int i;
 
-#ifdef CONFIG_PKVM_INTEL_DEBUG
-	gate_desc *host_idt;
-	struct desc_ptr dt;
-
-	store_idt(&dt);
-	host_idt = (gate_desc *)dt.address;
-
-	/* reuse other exception handler but control nmi handler */
-	for (i = 0; i <= X86_TRAP_IRET; i++) {
-		if (i == X86_TRAP_NMI) {
-			d.vector = i;
-			d.bits.ist = 0;
-			d.addr = (const void *)pkvm_sym(nmi_handler);
-			idt_init_desc(&desc, &d);
-			write_idt_entry(idt, i, &desc);
-		} else {
-			memcpy(&idt[i], &host_idt[i], sizeof(gate_desc));
-		}
-	}
-#else
-	for (i = 0; i <= X86_TRAP_IRET; i++) {
+	for (i = 0; i < X86_TRAP_IRET; i++) {
 		d.vector = i;
 		d.bits.ist = 0;
-		if (i == X86_TRAP_NMI)
-			d.addr = (const void *)pkvm_sym(nmi_handler);
-		else
-			d.addr = (const void *)pkvm_sym(noop_handler);
+		d.addr = (const void *)pkvm_exception_handlers[i];
 		idt_init_desc(&desc, &d);
 		write_idt_entry(idt, i, &desc);
 	}
-#endif
 }
 
 static __init void init_tss(struct pkvm_pcpu *pcpu)

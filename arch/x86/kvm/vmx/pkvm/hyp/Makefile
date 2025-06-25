@@ -9,6 +9,7 @@ ccflags-y += -include $(srctree)/arch/x86/kvm/pkvm/def.h
 
 asflags-y += -D__PKVM_HYP__
 asflags-y += -I $(srctree)/arch/x86/kvm
+asflags-y += -I $(srctree)/arch/x86/kvm/vmx/pkvm/include
 
 pkvm-hyp-y	:= vmx_asm.o vmexit.o memory.o page_alloc.o early_alloc.o pgtable.o mmu.o pkvm.o \
 		   init_finalise.o ept.o idt.o irq.o vmx.o vmsr.o mem_protect.o lapic.o \

@@ -3,6 +3,7 @@
  * Copyright (C) 2022 Intel Corporation
  */
 
+#include <asm/trapnr.h>
 #include <pkvm.h>
 #include <capabilities.h>
 #include "cpu.h"
@@ -11,14 +12,8 @@
 #include "debug.h"
 #include "irq.h"
 
-void handle_noop(void)
+static void handle_nmi(int cpu_id)
 {
-	pkvm_err("%s: unexpected exception\n", __func__);
-}
-
-void handle_nmi(void)
-{
-	int cpu_id = smp_processor_id();
 	struct pkvm_host_vcpu *hvcpu =
 		pkvm_hyp->host_vm.host_vcpus[cpu_id];
 	struct vcpu_vmx *vmx = &hvcpu->vmx;
@@ -62,4 +57,21 @@ void handle_nmi(void)
 	/* Switch if the current one is not host vcpu vmcs */
 	if (cur_vmcs_pa != __pkvm_pa(vmx->loaded_vmcs->vmcs))
 		vmcs_load(__pkvm_va(cur_vmcs_pa));
+}
+
+void handle_exception(struct pt_regs *regs, int vector, bool has_error_code)
+{
+	int cpu = raw_smp_processor_id();
+
+	if (vector == X86_TRAP_NMI)
+		return handle_nmi(cpu);
+
+	if (has_error_code)
+		pkvm_err("pkvm: exception %d on CPU%d @ip %pS (0x%px), err code 0x%lx\n",
+			 vector, cpu, (void *)regs->ip, (void *)regs->ip, regs->orig_ax);
+	else
+		pkvm_err("pkvm: exception %d on CPU%d @ip %pS (0x%px), no err code\n",
+			 vector, cpu, (void *)regs->ip, (void *)regs->ip);
+
+	asm volatile("hlt" : : : "memory");
 }
