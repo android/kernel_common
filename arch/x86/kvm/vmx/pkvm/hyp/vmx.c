@@ -15,7 +15,17 @@ void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu)
 
 	vmcs_writel(HOST_CR0, native_read_cr0() & ~X86_CR0_TS);
 	vmcs_writel(HOST_CR3, pcpu->cr3);
-	vmcs_writel(HOST_CR4, native_read_cr4());
+	/*
+	 * Disable FRED for the pkvm hypervisor if it is enabled by the host.
+	 * There is no too much benifit for the pkvm hypervisor to use the FRED
+	 * event delivery as the NMI is the only event expected to be received
+	 * by the pkvm hypervisor. The exceptions are not expected to be
+	 * happened in the pkvm hypervisor and all hardware interrupts will
+	 * directly go to the host. Meanwhile, enabling the FRED in the pkvm
+	 * hypervisor will result in additional FRED MSRs switching overhead. So
+	 * keep the FRED being disabled in the pkvm hypervisor.
+	 */
+	vmcs_writel(HOST_CR4, native_read_cr4() & ~X86_CR4_FRED);
 
 #ifdef CONFIG_PKVM_INTEL_DEBUG
 	savesegment(cs, selector);
