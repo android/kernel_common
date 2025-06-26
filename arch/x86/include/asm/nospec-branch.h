@@ -367,18 +367,6 @@ extern void __x86_return_thunk(void);
 static inline void __x86_return_thunk(void) {}
 #endif
 
-#ifdef CONFIG_PKVM_INTEL
-extern retpoline_thunk_t __x86_indirect_thunk_array__pkvm[];
-extern retpoline_thunk_t __x86_indirect_call_thunk_array__pkvm[];
-extern retpoline_thunk_t __x86_indirect_jump_thunk_array__pkvm[];
-
-#ifdef CONFIG_MITIGATION_RETHUNK
-extern void __x86_return_thunk__pkvm(void);
-#else
-static inline void __x86_return_thunk__pkvm(void) {}
-#endif
-#endif /* CONFIG_PKVM_INTEL */
-
 #ifdef CONFIG_MITIGATION_UNRET_ENTRY
 extern void retbleed_return_thunk(void);
 #else

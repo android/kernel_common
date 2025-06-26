@@ -582,17 +582,10 @@ static int emit_indirect(int op, int reg, u8 *bytes)
 	return i;
 }
 
-#ifdef CONFIG_PKVM_INTEL
-static int emit_call_track_retpoline(void *addr, struct insn *insn, int reg, u8 *bytes, bool is_pkvm)
-#else
 static int emit_call_track_retpoline(void *addr, struct insn *insn, int reg, u8 *bytes)
-#endif
 {
 	u8 op = insn->opcode.bytes[0];
 	int i = 0;
-#ifdef CONFIG_PKVM_INTEL
-	retpoline_thunk_t *target;
-#endif
 
 	/*
 	 * Clang does 'weird' Jcc __x86_indirect_thunk_r11 conditional
@@ -609,33 +602,17 @@ static int emit_call_track_retpoline(void *addr, struct insn *insn, int reg, u8 
 
 	switch (op) {
 	case CALL_INSN_OPCODE:
-#ifdef CONFIG_PKVM_INTEL
-		target = is_pkvm ? __x86_indirect_call_thunk_array__pkvm :
-				   __x86_indirect_call_thunk_array;
-		__text_gen_insn(bytes+i, op, addr+i,
-				target[reg],
-				CALL_INSN_SIZE);
-#else
 		__text_gen_insn(bytes+i, op, addr+i,
 				__x86_indirect_call_thunk_array[reg],
 				CALL_INSN_SIZE);
-#endif
 		i += CALL_INSN_SIZE;
 		break;
 
 	case JMP32_INSN_OPCODE:
 clang_jcc:
-#ifdef CONFIG_PKVM_INTEL
-		target = is_pkvm ? __x86_indirect_jump_thunk_array__pkvm :
-				   __x86_indirect_jump_thunk_array;
-		__text_gen_insn(bytes+i, op, addr+i,
-				target[reg],
-				JMP32_INSN_SIZE);
-#else
 		__text_gen_insn(bytes+i, op, addr+i,
 				__x86_indirect_jump_thunk_array[reg],
 				JMP32_INSN_SIZE);
-#endif
 		i += JMP32_INSN_SIZE;
 		break;
 
@@ -669,20 +646,10 @@ static int patch_retpoline(void *addr, struct insn *insn, u8 *bytes)
 {
 	retpoline_thunk_t *target;
 	int reg, ret, i = 0;
-#ifdef CONFIG_PKVM_INTEL
-	bool is_pkvm = false;
-#endif
 	u8 op, cc;
 
 	target = addr + insn->length + insn->immediate.value;
 	reg = target - __x86_indirect_thunk_array;
-
-#ifdef CONFIG_PKVM_INTEL
-	if (reg & ~0xf) {
-		reg = target - __x86_indirect_thunk_array__pkvm;
-		is_pkvm = !(reg & ~0xf);
-	}
-#endif
 
 	if (WARN_ON_ONCE(reg & ~0xf))
 		return -1;
@@ -693,11 +660,7 @@ static int patch_retpoline(void *addr, struct insn *insn, u8 *bytes)
 	if (cpu_feature_enabled(X86_FEATURE_RETPOLINE) &&
 	    !cpu_feature_enabled(X86_FEATURE_RETPOLINE_LFENCE)) {
 		if (cpu_feature_enabled(X86_FEATURE_CALL_DEPTH))
-#ifdef CONFIG_PKVM_INTEL
-			return emit_call_track_retpoline(addr, insn, reg, bytes, is_pkvm);
-#else
 			return emit_call_track_retpoline(addr, insn, reg, bytes);
-#endif
 
 		return -1;
 	}
@@ -859,18 +822,10 @@ void __init_or_module noinline apply_returns(s32 *start, s32 *end)
 		if (op == JMP32_INSN_OPCODE)
 			dest = addr + insn.length + insn.immediate.value;
 
-#ifdef CONFIG_PKVM_INTEL
-		if (__static_call_fixup(addr, op, dest) ||
-		    WARN_ONCE(dest != &__x86_return_thunk &&
-			      dest != &__x86_return_thunk__pkvm,
-			      "missing return thunk: %pS-%pS: %*ph",
-			      addr, dest, 5, addr))
-#else
 		if (__static_call_fixup(addr, op, dest) ||
 		    WARN_ONCE(dest != &__x86_return_thunk,
 			      "missing return thunk: %pS-%pS: %*ph",
 			      addr, dest, 5, addr))
-#endif
 			continue;
 
 		DPRINTK(RET, "return thunk at: %pS (%px) len: %d to: %pS",
