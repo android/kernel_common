@@ -205,12 +205,14 @@ static __init int check_and_init_iommu(struct pkvm_hyp *pkvm)
 		iounmap(addr);
 
 		/*
-		 * If pkvm IOMMU works in scalable mode, it requires to use nested translation.
+		 * If pkvm IOMMU works in scalable mode, it requires to use nested translation,
+		 * unless the host will use this IOMMU in passthrough mode only.
 		 */
 		if (ecap_smts(ecap) && !ecap_nest(ecap)) {
-			pr_err("pkvm: drhd reg_base 0x%llx: nested translation not supported\n",
+			pr_warn("pkvm: drhd reg_base 0x%llx: nested translation not supported\n",
 				drhd->reg_base_addr);
-			return -EINVAL;
+			pr_warn("pkvm: drhd reg_base 0x%llx: do not use this iommu in non-passthrough mode!\n",
+				drhd->reg_base_addr);
 		}
 
 		/*
