@@ -18,6 +18,11 @@
  */
 bool tdp_enabled = true;
 DEFINE_PER_CPU(struct kvm_vcpu *, host_vcpu);
+/*
+ * In the pkvm hypervisor, the kvm_rebooting is never to be set as there is no
+ * notification from the host about the system shutting down or rebooting.
+ */
+__visible bool kvm_rebooting;
 
 size_t pkvm_vm_sz = sizeof(struct pkvm_vm);
 size_t pkvm_vcpu_sz = sizeof(struct pkvm_vcpu);
