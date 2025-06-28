@@ -21,7 +21,7 @@ static struct hyp_pool mmu_pool;
 static struct pkvm_pgtable hyp_mmu;
 static pkvm_spinlock_t _hyp_mmu_lock = __PKVM_SPINLOCK_UNLOCKED;
 
-static void *mmu_zalloc_page(void)
+static void *mmu_zalloc_page(struct pkvm_memcache *mc)
 {
 	return hyp_alloc_pages(&mmu_pool, 0);
 }

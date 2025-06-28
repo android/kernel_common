@@ -95,7 +95,7 @@ static inline void *iommu_zalloc_pages(size_t size)
 	return hyp_alloc_pages(&iommu_pool, get_order(size));
 }
 
-static void *iommu_zalloc_page(void)
+static void *iommu_zalloc_page(struct pkvm_memcache *mc)
 {
 	return hyp_alloc_pages(&iommu_pool, 0);
 }
@@ -1198,7 +1198,7 @@ static int sync_shadow_id_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 		 * size. As we fixed the pasid only support 15bits, which makes
 		 * the pasid dir is also one page with 4K size.
 		 */
-		void *shadow = shadow_id->mm_ops->zalloc_page();
+		void *shadow = shadow_id->mm_ops->zalloc_page(NULL);
 
 		if (!shadow)
 			return -ENOMEM;

@@ -10,11 +10,12 @@
 
 struct pkvm_pgtable;
 struct pkvm_pgtable_cap;
+struct pkvm_memcache;
 
 struct pkvm_mm_ops {
 	void *(*phys_to_virt)(unsigned long phys);
 	phys_addr_t (*virt_to_phys)(void *vaddr);
-	void *(*zalloc_page)(void);
+	void *(*zalloc_page)(struct pkvm_memcache *mc);
 	int (*page_count)(void *vaddr);
 	void (*get_page)(void *vaddr);
 	void (*put_page)(void *vaddr);

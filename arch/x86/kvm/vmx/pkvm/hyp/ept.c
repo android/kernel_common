@@ -33,7 +33,7 @@ static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
 struct hyp_pool shadow_pgt_pool;
 
-static void *host_ept_zalloc_page(void)
+static void *host_ept_zalloc_page(struct pkvm_memcache *mc)
 {
 	return hyp_alloc_pages(&host_ept_pool, 0);
 }
@@ -331,7 +331,7 @@ int pkvm_shadow_ept_pool_init(void *ept_pool_base, unsigned long ept_pool_pages)
 	return hyp_pool_init(&shadow_pgt_pool, pfn, ept_pool_pages, 0);
 }
 
-static void *shadow_pgt_zalloc_page(void)
+static void *shadow_pgt_zalloc_page(struct pkvm_memcache *mc)
 {
 	return hyp_alloc_pages(&shadow_pgt_pool, 0);
 }

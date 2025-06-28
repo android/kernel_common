@@ -71,7 +71,7 @@ static void *pgtable_alloc_page(const struct pkvm_mm_ops *mm_ops)
 	void *page = NULL;
 
 	if (mm_ops->zalloc_page)
-		page = mm_ops->zalloc_page();
+		page = mm_ops->zalloc_page(NULL);
 
 	if (page && mm_ops->flush_cache)
 		mm_ops->flush_cache(page, PAGE_SIZE);

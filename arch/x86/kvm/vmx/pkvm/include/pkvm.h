@@ -149,7 +149,7 @@ PKVM_DECLARE(void, __pkvm_vmexit_entry, (void));
 PKVM_DECLARE(void, pkvm_init_host_state_area, (struct pkvm_pcpu *pcpu, int cpu));
 
 PKVM_DECLARE(void *, pkvm_early_alloc_contig, (unsigned int nr_pages));
-PKVM_DECLARE(void *, pkvm_early_alloc_page, (void));
+PKVM_DECLARE(void *, pkvm_early_alloc_page, (struct pkvm_memcache *mc));
 PKVM_DECLARE(void, pkvm_early_alloc_init, (void *virt, unsigned long size));
 
 PKVM_DECLARE(void, init_msr_emulation, (struct vcpu_vmx *vmx));

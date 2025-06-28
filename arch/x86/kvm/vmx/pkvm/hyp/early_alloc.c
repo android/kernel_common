@@ -44,7 +44,7 @@ void *pkvm_early_alloc_contig(unsigned int nr_pages)
 	return ret;
 }
 
-void *pkvm_early_alloc_page(void)
+void *pkvm_early_alloc_page(struct pkvm_memcache *mc)
 {
 	return pkvm_early_alloc_contig(1);
 }
