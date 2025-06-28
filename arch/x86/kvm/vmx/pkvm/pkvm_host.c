@@ -956,7 +956,12 @@ static __init int pkvm_host_deprivilege_cpus(struct pkvm_hyp *pkvm)
 	return p.ret;
 }
 
-static int this_cpu_do_finalise_hc(struct pkvm_section *sections, unsigned long size)
+/*
+ * Called with interrupts disabled, so we don't race with the IOMMU driver's
+ * IRQ handler or any other kernel code that might run concurrently with pKVM
+ * initialization and relies on an up-to-date value of pkvm_enabled.
+ */
+static int __this_cpu_do_finalise_hc(struct pkvm_section *sections, unsigned long size)
 {
 	int ret = kvm_hypercall2(PKVM_HC_INIT_FINALISE, (unsigned long)sections, size);
 	if (!ret)
@@ -965,9 +970,21 @@ static int this_cpu_do_finalise_hc(struct pkvm_section *sections, unsigned long 
 	return ret;
 }
 
+/* Called with preemption disabled but interrupts enabled. */
+static int this_cpu_do_finalise_hc(struct pkvm_section *sections, unsigned long size)
+{
+	int ret;
+
+	local_irq_disable();
+	ret = __this_cpu_do_finalise_hc(sections, size);
+	local_irq_enable();
+
+	return ret;
+}
+
 static __init void do_pkvm_finalise(void *data)
 {
-	this_cpu_do_finalise_hc(NULL, 0);
+	__this_cpu_do_finalise_hc(NULL, 0);
 }
 
 static __init int pkvm_init_finalise(void)
