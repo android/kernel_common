@@ -1,3 +1,4 @@
 per-file crypto/**=file:/crypto/OWNERS
+per-file {coco,include,kernel,kvm,lib}/**=bgrzesik@google.com,dmaluka@google.com,jaszczyk@google.com,shraash@google.com,vineethrp@google.com
 per-file mm/**=file:/mm/OWNERS
 per-file net/**=file:/net/OWNERS
