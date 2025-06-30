@@ -15,3 +15,6 @@
   dev_change_flags
   netdev_master_upper_dev_get
   prandom_bytes
+  drm_client_dev_hotplug
+  drm_edid_to_sad
+  drm_edid_to_speaker_allocation
