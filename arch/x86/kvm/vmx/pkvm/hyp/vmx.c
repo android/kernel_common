@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-#include <pkvm/smp.h>
+#include <pkvm/cpu.h>
 #include <pkvm.h>
 #include "cpu.h"
 

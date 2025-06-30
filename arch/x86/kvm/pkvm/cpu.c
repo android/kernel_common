@@ -5,13 +5,18 @@
 #include <asm/kvm_pkvm.h>
 #include <asm/percpu.h>
 #include <asm/page.h>
-#include "smp.h"
+#include "cpu.h"
 
 unsigned long __per_cpu_offset[NR_CPUS];
 DEFINE_PER_CPU_READ_MOSTLY(unsigned long, this_cpu_off);
 DEFINE_PER_CPU_ALIGNED(struct pcpu_hot, pcpu_hot);
+DEFINE_PER_CPU(u64, x86_spec_ctrl_current);
+
 struct cpumask __cpu_possible_mask __ro_after_init;
+struct cpuinfo_x86 boot_cpu_data;
 unsigned int nr_cpu_ids;
+unsigned int tsc_khz;
+u64 x86_pred_cmd;
 
 unsigned int pkvm_per_cpu_nr_pages(void)
 {
