@@ -471,7 +471,7 @@ static void reset_timer(struct idletimer_tg * const info_timer,
 	}
 
 	info_timer->last_modified_timer = ktime_to_timespec64(ktime_get_boottime());
-	mod_timer(&info_timer->timer, msecs_to_jiffies(info_timeout * 1000) + now);
+	mod_timer(&info_timer->timer, secs_to_jiffies(info_timeout) + now);
 	spin_unlock_bh(&timestamp_lock);
 }
 
