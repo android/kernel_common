@@ -615,6 +615,12 @@ static void pkvm_vcpu_load(struct pkvm_vcpu *pkvm_vcpu, int cpu)
 		return;
 	}
 
+	/*
+	 * Flush the L1D if a guest vcpu is going to run, to hide the L1D
+	 * contents of the host/pkvm from the guest.
+	 */
+	vcpu->arch.l1tf_flush_l1d = true;
+
 	kvm_x86_call(vcpu_load)(vcpu, cpu);
 }
 

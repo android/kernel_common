@@ -3251,6 +3251,12 @@ void kvm_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags)
 }
 EXPORT_SYMBOL_GPL(kvm_set_rflags);
 
+bool noinstr kvm_arch_has_assigned_device(struct kvm *kvm)
+{
+	return raw_atomic_read(&kvm->arch.assigned_device_count);
+}
+EXPORT_SYMBOL_GPL(kvm_arch_has_assigned_device);
+
 int kvm_spec_ctrl_test_value(u64 value)
 {
 	/*

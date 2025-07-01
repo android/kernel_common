@@ -6671,6 +6671,7 @@ static noinstr void vmx_vcpu_enter_exit(struct kvm_vcpu *vcpu,
 
 #ifndef __PKVM_HYP__ /* For pkvm hypervisor, leave these to host KVM */
 	guest_state_enter_irqoff();
+#endif
 
 	/*
 	 * L1D Flush includes CPU buffer clear to mitigate MDS, but VERW
@@ -6683,7 +6684,6 @@ static noinstr void vmx_vcpu_enter_exit(struct kvm_vcpu *vcpu,
 	else if (static_branch_unlikely(&mmio_stale_data_clear) &&
 		 kvm_arch_has_assigned_device(vcpu->kvm))
 		mds_clear_cpu_buffers();
-#endif
 
 	vmx_disable_fb_clear(vmx);
 
