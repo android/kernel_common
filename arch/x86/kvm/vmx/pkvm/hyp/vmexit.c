@@ -177,11 +177,10 @@ static inline void set_vcpu_mode(struct kvm_vcpu *vcpu, int mode)
 
 /*
  * we take use of kvm_vcpu structure, but not used all the fields.
- * return: true/false to indicate using VMLAUNCH/VMRESUME
  */
-bool pkvm_vmexit_main(struct kvm_vcpu *vcpu)
+void pkvm_vmexit_main(struct vcpu_vmx *vmx)
 {
-	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	struct kvm_vcpu *vcpu = &vmx->vcpu;
 	bool skip_instruction = false;
 
 	vcpu->arch.cr2 = native_read_cr2();
@@ -258,6 +257,4 @@ handle_events:
 
 	native_write_cr2(vcpu->arch.cr2);
 	trace_vmexit_end(vcpu, vmx->exit_reason.basic);
-
-	return 0;
 }

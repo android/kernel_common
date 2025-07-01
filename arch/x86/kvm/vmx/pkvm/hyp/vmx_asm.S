@@ -30,20 +30,21 @@
 #define VCPU_R15	(__VCPU_REGS_R15 * WORD_SIZE)
 
 /*
- * __pkvm_vmexit_entry - Handle a VM-Exit event in pkvm.
+ * __pkvm_vmexit_entry - Handle a VM-Exit event from the host VM in pkvm.
  * The pkvm stack starts from fixed address, which is pkvm_sp_top
  * configured in VMCS.HOST_RSP.
- * Return:
- *	true to use vmlaunch instruction.
+ *
+ * No return from __pkvm_vmexit_entry and vmresume to enter host VM in
+ * the end, or a dead end if failed to vmresume.
  *
  * pkvm_sp_top = pcpu->stack + PKVM_STACK_SIZE - PKVM_STACK_TOP_RESV
- * pkvm_sp_top[0] --> pointer to vcpu->arch.regs
- * pkvm_sp_top[1] --> struct kvm_vcpu *vcpu
+ * pkvm_sp_top[0] --> pointer to vmx->vcpu.arch.regs
+ * pkvm_sp_top[1] --> struct vcpu_vmx *vmx
  *
  */
 SYM_FUNC_START(__pkvm_vmexit_entry)		// sp = pkvm_sp_top
 	push %_ASM_BX				// sp = pkvm_sp_top - 8
-	mov WORD_SIZE*1(%_ASM_SP), %_ASM_BX	// pointer to vcpu->arch.regs
+	mov WORD_SIZE*1(%_ASM_SP), %_ASM_BX	// pointer to vmx->vcpu.arch.regs
 
 	mov %_ASM_AX, VCPU_RAX(%_ASM_BX)
 	mov %_ASM_CX, VCPU_RCX(%_ASM_BX)
@@ -61,11 +62,10 @@ SYM_FUNC_START(__pkvm_vmexit_entry)		// sp = pkvm_sp_top
 	mov %r15, VCPU_R15(%_ASM_BX)
 	pop VCPU_RBX(%_ASM_BX)			//  sp = pkvm_sp_top
 
-	mov WORD_SIZE*1(%_ASM_SP), %_ASM_DI	// RDI: point to kvm_vcpu
+	mov WORD_SIZE*1(%_ASM_SP), %_ASM_DI	// RDI: point to vcpu_vmx
 
 	/* pkvm never enable interrupr */
 	call pkvm_vmexit_main
-	cmp $1, %_ASM_AX			// use vmlaunch ?
 
 	/*
 	 * Restore registers to reflect the vm-exit handling/emulation result
@@ -87,12 +87,8 @@ SYM_FUNC_START(__pkvm_vmexit_entry)		// sp = pkvm_sp_top
 	mov VCPU_R15(%_ASM_BX), %r15
 	mov VCPU_RBX(%_ASM_BX), %_ASM_BX
 
-	jne 1f
-	vmlaunch
-	jmp 2f
-1:
 	vmresume
-2:
+
 	// should not come here
 	mov $0x4400, %_ASM_CX
 	vmread %_ASM_CX, %_ASM_AX

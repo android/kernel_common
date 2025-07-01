@@ -499,8 +499,8 @@ static __init void init_guest_state_area(struct pkvm_host_vcpu *hvcpu, int cpu)
  *
  * ------------ Stack layout ----------
  * stack_top:
- * stack_resv + 8:	struct kvm_vcpu *vcpu
- * stack_resv + 0:	pointer to vcpu->arch.regs
+ * stack_resv + 8:	struct vcpu_vmx *vmx
+ * stack_resv + 0:	pointer to vmx->vcpu.arch.regs
  * stack_resv: (stack_top - PKVM_STACK_TOP_RESV)
  * 		VMCS.HOST_RSP for host VCPU
  *              .........
@@ -512,12 +512,12 @@ static __init void init_host_state_area(struct pkvm_host_vcpu *hvcpu, int cpu)
 {
 	struct pkvm_pcpu *pcpu = hvcpu->pcpu;
 	unsigned long host_rsp = get_host_stack_top(pcpu) - PKVM_STACK_TOP_RESV;
-	struct kvm_vcpu *vcpu = &hvcpu->vmx.vcpu;
+	struct vcpu_vmx *vmx = &hvcpu->vmx;
 
 	pkvm_sym(pkvm_init_host_state_area)(pcpu, cpu);
 
-	*((struct kvm_vcpu **) (host_rsp + 8)) = vcpu;
-	*((unsigned long **) host_rsp) = vcpu->arch.regs;
+	*((struct vcpu_vmx **) (host_rsp + 8)) = vmx;
+	*((unsigned long **) host_rsp) = vmx->vcpu.arch.regs;
 
 	vmcs_writel(HOST_RIP, (unsigned long)pkvm_sym(__pkvm_vmexit_entry));
 }

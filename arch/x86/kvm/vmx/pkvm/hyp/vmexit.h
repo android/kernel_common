@@ -6,6 +6,6 @@
 #ifndef _PKVM_VMEXIT_H_
 #define _PKVM_VMEXIT_H_
 
-int __pkvm_vmx_vcpu_run(unsigned long *regs, int launch);
+void pkvm_vmexit_main(struct vcpu_vmx *vmx);
 
 #endif
