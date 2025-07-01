@@ -127,18 +127,23 @@ void ivpu_file_priv_put(struct ivpu_file_priv **link)
 	kref_put(&file_priv->ref, file_priv_release);
 }
 
-bool ivpu_is_capable(struct ivpu_device *vdev, u32 capability)
+static int ivpu_get_capabilities(struct ivpu_device *vdev, struct drm_ivpu_param *args)
 {
-	switch (capability) {
+	switch (args->index) {
 	case DRM_IVPU_CAP_METRIC_STREAMER:
-		return true;
+		args->value = 1;
+		break;
 	case DRM_IVPU_CAP_DMA_MEMORY_RANGE:
-		return true;
+		args->value = 1;
+		break;
 	case DRM_IVPU_CAP_MANAGE_CMDQ:
-		return vdev->fw->sched_mode == VPU_SCHEDULING_MODE_HW;
+		args->value = 1;
+		break;
 	default:
-		return false;
+		return -EINVAL;
 	}
+
+	return 0;
 }
 
 static int ivpu_get_param_ioctl(struct drm_device *dev, void *data, struct drm_file *file)
@@ -198,7 +203,7 @@ static int ivpu_get_param_ioctl(struct drm_device *dev, void *data, struct drm_f
 		args->value = vdev->hw->sku;
 		break;
 	case DRM_IVPU_PARAM_CAPABILITIES:
-		args->value = ivpu_is_capable(vdev, args->index);
+		ret = ivpu_get_capabilities(vdev, args);
 		break;
 	default:
 		ret = -EINVAL;

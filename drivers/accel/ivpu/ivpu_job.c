@@ -123,6 +123,7 @@ static struct ivpu_cmdq *ivpu_cmdq_create(struct ivpu_file_priv *file_priv, u8 p
 
 	cmdq->priority = priority;
 	cmdq->is_legacy = is_legacy;
+	cmdq->is_valid = true;
 
 	ret = xa_alloc_cyclic(&file_priv->cmdq_xa, &cmdq->id, cmdq, file_priv->cmdq_limit,
 			      &file_priv->cmdq_id_next, GFP_KERNEL);
@@ -306,7 +307,7 @@ static struct ivpu_cmdq *ivpu_cmdq_acquire(struct ivpu_file_priv *file_priv, u32
 	lockdep_assert_held(&file_priv->lock);
 
 	cmdq = xa_load(&file_priv->cmdq_xa, cmdq_id);
-	if (!cmdq) {
+	if (!cmdq || !cmdq->is_valid) {
 		ivpu_warn_ratelimited(vdev, "Failed to find command queue with ID: %u\n", cmdq_id);
 		return NULL;
 	}
@@ -831,9 +832,6 @@ int ivpu_cmdq_submit_ioctl(struct drm_device *dev, void *data, struct drm_file *
 	struct ivpu_file_priv *file_priv = file->driver_priv;
 	struct drm_ivpu_cmdq_submit *args = data;
 
-	if (!ivpu_is_capable(file_priv->vdev, DRM_IVPU_CAP_MANAGE_CMDQ))
-		return -ENODEV;
-
 	if (args->cmdq_id < IVPU_CMDQ_MIN_ID || args->cmdq_id > IVPU_CMDQ_MAX_ID)
 		return -EINVAL;
 
@@ -859,9 +857,6 @@ int ivpu_cmdq_create_ioctl(struct drm_device *dev, void *data, struct drm_file *
 	struct drm_ivpu_cmdq_create *args = data;
 	struct ivpu_cmdq *cmdq;
 
-	if (!ivpu_is_capable(file_priv->vdev, DRM_IVPU_CAP_MANAGE_CMDQ))
-		return -ENODEV;
-
 	if (args->priority > DRM_IVPU_JOB_PRIORITY_REALTIME)
 		return -EINVAL;
 
@@ -885,14 +880,21 @@ int ivpu_cmdq_destroy_ioctl(struct drm_device *dev, void *data, struct drm_file 
 	u32 cmdq_id;
 	int ret = 0;
 
-	if (!ivpu_is_capable(vdev, DRM_IVPU_CAP_MANAGE_CMDQ))
-		return -ENODEV;
-
 	mutex_lock(&file_priv->lock);
 
 	cmdq = xa_load(&file_priv->cmdq_xa, args->cmdq_id);
-	if (!cmdq || cmdq->is_legacy) {
+	if (!cmdq || !cmdq->is_valid || cmdq->is_legacy) {
 		ret = -ENOENT;
+		goto unlock;
+	}
+
+	/*
+	 * There is no way to stop executing jobs per command queue
+	 * in OS scheduling mode, mark command queue as invalid instead
+	 * and it will be freed together with context release.
+	 */
+	if (vdev->fw->sched_mode == VPU_SCHEDULING_MODE_OS) {
+		cmdq->is_valid = false;
 		goto unlock;
 	}
 
