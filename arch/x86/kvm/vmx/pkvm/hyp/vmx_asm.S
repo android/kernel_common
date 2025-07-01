@@ -71,6 +71,8 @@ SYM_FUNC_START(__pkvm_vmexit_entry)		// sp = pkvm_sp_top
 
 	mov WORD_SIZE*1(%_ASM_SP), %_ASM_DI
 
+	CLEAR_BRANCH_HISTORY_VMEXIT
+
 	/* pkvm never enable interrupr */
 	call pkvm_vmexit_main
 
@@ -115,6 +117,9 @@ SYM_FUNC_START(__pkvm_vmexit_entry)		// sp = pkvm_sp_top
 	mov VCPU_R14(%_ASM_BX), %r14
 	mov VCPU_R15(%_ASM_BX), %r15
 	mov VCPU_RBX(%_ASM_BX), %_ASM_BX
+
+	/* Clobbers EFLAGS.ZF */
+	CLEAR_CPU_BUFFERS
 
 	vmresume
 
