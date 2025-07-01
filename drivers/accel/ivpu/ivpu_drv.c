@@ -386,7 +386,10 @@ int ivpu_boot(struct ivpu_device *vdev)
 	ret = ivpu_wait_for_ready(vdev);
 	if (ret) {
 		ivpu_err(vdev, "Failed to boot the firmware: %d\n", ret);
-		goto err_diagnose_failure;
+		ivpu_hw_diagnose_failure(vdev);
+		ivpu_mmu_evtq_dump(vdev);
+		ivpu_dev_coredump(vdev);
+		return ret;
 	}
 
 	ivpu_hw_irq_clear(vdev);
@@ -397,20 +400,12 @@ int ivpu_boot(struct ivpu_device *vdev)
 	if (ivpu_fw_is_cold_boot(vdev)) {
 		ret = ivpu_pm_dct_init(vdev);
 		if (ret)
-			goto err_diagnose_failure;
+			return ret;
 
-		ret = ivpu_hw_sched_init(vdev);
-		if (ret)
-			goto err_diagnose_failure;
+		return ivpu_hw_sched_init(vdev);
 	}
 
 	return 0;
-
-err_diagnose_failure:
-	ivpu_hw_diagnose_failure(vdev);
-	ivpu_mmu_evtq_dump(vdev);
-	ivpu_dev_coredump(vdev);
-	return ret;
 }
 
 void ivpu_prepare_for_reset(struct ivpu_device *vdev)
