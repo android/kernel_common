@@ -612,21 +612,17 @@ int ivpu_mmu_reserved_context_init(struct ivpu_device *vdev)
 	if (!ivpu_mmu_ensure_pgd(vdev, &vdev->rctx.pgtable)) {
 		ivpu_err(vdev, "Failed to allocate root page table for reserved context\n");
 		ret = -ENOMEM;
-		goto err_ctx_fini;
+		goto unlock;
 	}
 
 	ret = ivpu_mmu_cd_set(vdev, vdev->rctx.id, &vdev->rctx.pgtable);
 	if (ret) {
 		ivpu_err(vdev, "Failed to set context descriptor for reserved context\n");
-		goto err_ctx_fini;
+		goto unlock;
 	}
 
+unlock:
 	mutex_unlock(&vdev->rctx.lock);
-	return ret;
-
-err_ctx_fini:
-	mutex_unlock(&vdev->rctx.lock);
-	ivpu_mmu_context_fini(vdev, &vdev->rctx);
 	return ret;
 }
 
