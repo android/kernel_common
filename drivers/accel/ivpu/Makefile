@@ -24,6 +24,4 @@ intel_vpu-$(CONFIG_DEV_COREDUMP) += ivpu_coredump.o
 
 obj-$(CONFIG_DRM_ACCEL_IVPU) += intel_vpu.o
 
-subdir-ccflags-$(CONFIG_DRM_ACCEL_IVPU_DEBUG) += -DDEBUG
-
 CFLAGS_ivpu_trace_points.o = -I$(src)
