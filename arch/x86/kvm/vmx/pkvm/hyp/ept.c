@@ -32,7 +32,6 @@ static struct pkvm_pgtable host_ept_notlbflush;
 static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
 struct hyp_pool shadow_pgt_pool;
-static struct rsvd_bits_validate ept_zero_check;
 
 static inline void pkvm_init_ept_page(void *page)
 {
@@ -267,61 +266,15 @@ void pkvm_flush_host_ept(void)
 	flush_ept(eptp);
 }
 
-static void reset_rsvds_bits_mask_ept(struct rsvd_bits_validate *rsvd_check,
-				      u64 pa_bits_rsvd, bool execonly,
-				      int huge_page_level)
-{
-	u64 high_bits_rsvd = pa_bits_rsvd & rsvd_bits(0, 51);
-	u64 large_1g_rsvd = 0, large_2m_rsvd = 0;
-	u64 bad_mt_xwr;
-
-	if (huge_page_level < PG_LEVEL_1G)
-		large_1g_rsvd = rsvd_bits(7, 7);
-	if (huge_page_level < PG_LEVEL_2M)
-		large_2m_rsvd = rsvd_bits(7, 7);
-
-	rsvd_check->rsvd_bits_mask[0][4] = high_bits_rsvd | rsvd_bits(3, 7);
-	rsvd_check->rsvd_bits_mask[0][3] = high_bits_rsvd | rsvd_bits(3, 7);
-	rsvd_check->rsvd_bits_mask[0][2] = high_bits_rsvd | rsvd_bits(3, 6) | large_1g_rsvd;
-	rsvd_check->rsvd_bits_mask[0][1] = high_bits_rsvd | rsvd_bits(3, 6) | large_2m_rsvd;
-	rsvd_check->rsvd_bits_mask[0][0] = high_bits_rsvd;
-
-	/* large page */
-	rsvd_check->rsvd_bits_mask[1][4] = rsvd_check->rsvd_bits_mask[0][4];
-	rsvd_check->rsvd_bits_mask[1][3] = rsvd_check->rsvd_bits_mask[0][3];
-	rsvd_check->rsvd_bits_mask[1][2] = high_bits_rsvd | rsvd_bits(12, 29) | large_1g_rsvd;
-	rsvd_check->rsvd_bits_mask[1][1] = high_bits_rsvd | rsvd_bits(12, 20) | large_2m_rsvd;
-	rsvd_check->rsvd_bits_mask[1][0] = rsvd_check->rsvd_bits_mask[0][0];
-
-	bad_mt_xwr = 0xFFull << (2 * 8);	/* bits 3..5 must not be 2 */
-	bad_mt_xwr |= 0xFFull << (3 * 8);	/* bits 3..5 must not be 3 */
-	bad_mt_xwr |= 0xFFull << (7 * 8);	/* bits 3..5 must not be 7 */
-	bad_mt_xwr |= REPEAT_BYTE(1ull << 2);	/* bits 0..2 must not be 010 */
-	bad_mt_xwr |= REPEAT_BYTE(1ull << 6);	/* bits 0..2 must not be 110 */
-	if (!execonly) {
-		/* bits 0..2 must not be 100 unless VMX capabilities allow it */
-		bad_mt_xwr |= REPEAT_BYTE(1ull << 4);
-	}
-	rsvd_check->bad_mt_xwr = bad_mt_xwr;
-}
-
 int pkvm_host_ept_init(struct pkvm_pgtable_cap *cap,
 		void *ept_pool_base, unsigned long ept_pool_pages)
 {
 	unsigned long pfn = __pkvm_pa(ept_pool_base) >> PAGE_SHIFT;
 	int ret;
-	u8 pa_bits;
 
 	ret = hyp_pool_init(&host_ept_pool, pfn, ept_pool_pages, 0);
 	if (ret)
 		return ret;
-
-	pa_bits = get_max_physaddr_bits();
-	if (!pa_bits)
-		return -EINVAL;
-	reset_rsvds_bits_mask_ept(&ept_zero_check, rsvd_bits(pa_bits, 63),
-				  vmx_has_ept_execute_only(),
-				  fls(cap->allowed_pgsz) - 1);
 
 	pkvm_hyp->host_vm.ept = &host_ept;
 	ret = pkvm_pgtable_init(&host_ept, &host_ept_mm_ops, &ept_ops, cap, true);
@@ -520,83 +473,6 @@ static const struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops_noncoherency = {
 	.page_count = hyp_page_count,
 	.flush_cache = pkvm_clflush_cache_range,
 };
-
-static int pkvm_pgstate_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
-				     void *ptep, struct pgt_flush_data *flush_data, void *arg)
-{
-	struct pkvm_pgtable_map_data *data = arg;
-	const struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
-	unsigned long level_size = pgt_ops->pgt_level_to_size(level);
-	unsigned long map_phys = data->phys & PAGE_MASK;
-	struct pkvm_shadow_vm *vm = pgstate_pgt_to_shadow_vm(pgt);
-	int ret;
-
-	/*
-	 * It is possible that another CPU just created same mapping when
-	 * multiple EPT violations happen on different CPUs.
-	 */
-	if (pgt_ops->pgt_entry_present(ptep)) {
-		unsigned long phys = pgt_ops->pgt_entry_to_phys(ptep);
-
-		/*
-		 * Check if the existing mapping is the same as the wanted one.
-		 * If not the same, report an error so that the map_leaf caller
-		 * will not map the different addresses in its shadow EPT.
-		 */
-		if (phys != map_phys) {
-			pkvm_err("%s: gpa 0x%lx @level%d old_phys 0x%lx != new_phys 0x%lx\n",
-				 __func__, vaddr, level, phys, map_phys);
-			return -EPERM;
-		}
-
-		/*
-		 * The pgstate_pgt now is EPT format with fixed property bits. No
-		 * need to check and update property bits for pgstate_pgt.
-		 */
-		goto out;
-	}
-
-	if (!shadow_vm_is_protected(vm))
-		ret = __pkvm_host_share_guest(map_phys, pgt, vaddr, level_size, data->prot);
-	else {
-		if (gpa_range_has_pvmfw(vm, vaddr, vaddr + level_size)) {
-			ret = pkvm_load_pvmfw_pages(vm, vaddr, map_phys, level_size);
-			if (ret) {
-				pkvm_err("%s: failed to load pvmfw at gpa 0x%lx, hpa 0x%lx, size 0x%lx\n",
-					 __func__, vaddr, map_phys, level_size);
-				return ret;
-			}
-		}
-
-		if (vm->need_prepopulation)
-			/*
-			 * As pgstate pgt is the source of the shadow EPT, only after pgstate
-			 * pgt is set up, shadow EPT can be set up. So protected VM will not be
-			 * able to use the memory donated in pgstate pgt before its shadow EPT
-			 * is setting up. So it is safe to use the fastpath to donate all the
-			 * pages to improve the pre-population performance. TLB flushing
-			 * can be done in the caller after the pre-population is done but before
-			 * setting up its shadow EPT.
-			 */
-			ret = __pkvm_host_donate_guest_fastpath(map_phys, pgt, vaddr,
-								level_size, data->prot);
-		else
-			ret = __pkvm_host_donate_guest(map_phys, pgt, vaddr,
-						       level_size, data->prot);
-	}
-
-	if (ret) {
-		pkvm_err("%s failed: ret %d vm_type %d L2 GPA 0x%lx level %d HPA 0x%lx prot 0x%llx\n",
-			 __func__, ret, vm->vm_type, vaddr, level, map_phys, data->prot);
-		return ret;
-	}
-
-out:
-	/* Increase the physical address for the next mapping */
-	data->phys += level_size;
-
-	return 0;
-}
 
 static int pkvm_pgstate_pgt_free_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
 				      void *ptep, struct pgt_flush_data *flush_data, void *arg)
@@ -798,203 +674,6 @@ void pkvm_guest_ept_init(struct shadow_vcpu_state *shadow_vcpu, u64 guest_eptp)
 	shadow_vcpu->vept.root_pa = host_gpa2hpa(guest_eptp & SPTE_BASE_ADDR_MASK);
 }
 
-static bool is_access_violation(u64 ept_entry, u64 exit_qual)
-{
-	bool access_violation = false;
-
-	if (/* Caused by data read */
-	    (((exit_qual & 0x1UL) != 0UL) && ((ept_entry & VMX_EPT_READABLE_MASK) == 0)) ||
-	    /* Caused by data write */
-	    (((exit_qual & 0x2UL) != 0UL) && ((ept_entry & VMX_EPT_WRITABLE_MASK) == 0)) ||
-	    /* Caused by instruction fetch */
-	    (((exit_qual & 0x4UL) != 0UL) && ((ept_entry & VMX_EPT_EXECUTABLE_MASK) == 0))) {
-		access_violation = true;
-	}
-
-	return access_violation;
-}
-
-static int populate_pgstate_pgt(struct pkvm_pgtable *pgt)
-{
-	struct pkvm_shadow_vm *vm = pgstate_pgt_to_shadow_vm(pgt);
-	struct list_head *ptdev_head = &vm->ptdev_head;
-	struct pkvm_ptdev *ptdev, *tmp;
-	u64 *prot_override;
-	bool populated;
-	u64 prot;
-	int ret;
-
-	list_for_each_entry(ptdev, ptdev_head, vm_node) {
-		/* No need to populate if vpgt.root_pa doesn't exist */
-		if (!ptdev->vpgt.root_pa)
-			continue;
-
-		populated = false;
-		list_for_each_entry(tmp, ptdev_head, vm_node) {
-			if (tmp == ptdev)
-				break;
-			if (tmp->vpgt.root_pa == ptdev->vpgt.root_pa) {
-				populated = true;
-				break;
-			}
-		}
-
-		if (populated)
-			continue;
-
-		if (ptdev->vpgt.pgt_ops != pgt->pgt_ops) {
-			/* Populate with EPT format */
-			if (is_pgt_ops_ept(pgt)) {
-				prot = VMX_EPT_RWX_MASK;
-			} else {
-				pkvm_err("pkvm: not supported populating\n");
-				return -EOPNOTSUPP;
-			}
-			prot_override = &prot;
-		} else {
-			prot_override = NULL;
-		}
-
-		ret = pkvm_pgtable_sync_map(&ptdev->vpgt, pgt, prot_override,
-					    pkvm_pgstate_pgt_map_leaf, NULL);
-		if (ret)
-			return ret;
-	}
-
-	return 0;
-}
-
-static bool allow_shadow_ept_mapping(struct pkvm_shadow_vm *vm,
-				     u64 gpa, unsigned long hpa,
-				     unsigned long size)
-{
-	struct pkvm_pgtable *pgstate_pgt = &vm->pgstate_pgt;
-	unsigned long mapped_hpa;
-	int level;
-
-	/*
-	 * VM will be marked as need_prepopulation when a passthrough device is
-	 * attached. With this flag being set, VM's pgstate_pgt will be pre-populated
-	 * before handling EPT violation. After the population is done, this flag
-	 * can be cleared.
-	 */
-	if (vm->need_prepopulation) {
-		unsigned long size;
-
-		if (populate_pgstate_pgt(pgstate_pgt))
-			return false;
-		/*
-		 * Explicitly flush TLB of the host EPT after populating the page
-		 * state pgt.
-		 *
-		 * During the population, some pages are donated from primary VM to
-		 * this VM with the fastpath interface to avoid doing TLB flushing
-		 * during each iteration of the page donation so that to have a fast
-		 * population performance. So still need to do TLB flushing in the
-		 * end after finishing all the donations.
-		 */
-		size = host_ept.pgt_ops->pgt_level_to_size(host_ept.level + 1);
-		host_ept_flush_tlb(&host_ept, 0, size);
-		pkvm_iommu_flush_iotlb(&host_ept, 0, size);
-
-		vm->need_prepopulation = false;
-	}
-
-	/*
-	 * Lookup the page state pgt to check if the mapping is already created
-	 * or not.
-	 */
-	pkvm_pgtable_lookup(pgstate_pgt, gpa, &mapped_hpa, NULL, &level);
-
-	if ((pgstate_pgt->pgt_ops->pgt_level_to_size(level) < size) ||
-	    mapped_hpa == INVALID_ADDR) {
-		u64 prot;
-		/*
-		 * Page state pgt doesn't have mapping yet, or it has mapping
-		 * but with a smaller size, so try to map with the desired size
-		 * in page state pgt first. Although page state pgt may already
-		 * have all the desired mappings with smaller size, map_leaf
-		 * can help to check if the mapped phys matches with the desired
-		 * hpa to guarantee shadow EPT maps GPA to the right HPA.
-		 */
-		if (is_pgt_ops_ept(pgstate_pgt)) {
-			prot = VMX_EPT_RWX_MASK;
-		} else {
-			pkvm_err("%s: pgstate_pgt format not supported\n", __func__);
-			return false;
-		}
-
-		if (pkvm_pgtable_map(pgstate_pgt, gpa, hpa, size,
-				     0, prot, pkvm_pgstate_pgt_map_leaf)) {
-			pkvm_err("%s: pgstate_pgt map gpa 0x%llx hpa 0x%lx size 0x%lx failed\n",
-				 __func__, gpa, hpa, size);
-			return false;
-		}
-	} else if (mapped_hpa != hpa) {
-		/*
-		 * Page state pgt has mapping already, so check if the mapped
-		 * phys matches with the hpa, and report an error if doesn't
-		 * match.
-		 */
-		pkvm_err("pgstate_pgt not match: mapped_hpa 0x%lx != 0x%lx for gpa 0x%llx\n",
-			 mapped_hpa, hpa, gpa);
-		return false;
-	}
-
-	return true;
-}
-
-enum sept_handle_ret
-pkvm_handle_shadow_ept_violation(struct shadow_vcpu_state *shadow_vcpu, u64 l2_gpa, u64 exit_quali)
-{
-	struct pkvm_shadow_vm *vm = shadow_vcpu->vm;
-	struct shadow_ept_desc *desc = &vm->sept_desc;
-	struct pkvm_pgtable *sept = &desc->sept;
-	const struct pkvm_pgtable_ops *pgt_ops = sept->pgt_ops;
-	struct pkvm_pgtable *vept = &shadow_vcpu->vept;
-	enum sept_handle_ret ret = PKVM_NOT_HANDLED;
-	unsigned long phys;
-	int level;
-	u64 gprot, rsvd_chk_gprot;
-
-	pkvm_spin_lock(&vm->lock);
-
-	pkvm_pgtable_lookup(vept, l2_gpa, &phys, &gprot, &level);
-	if (phys == INVALID_ADDR)
-		/* Geust EPT not valid, back to kvm-high */
-		goto out;
-
-	if (is_access_violation(gprot, exit_quali))
-		/* Guest EPT error, refuse to handle in shadow ept */
-		goto out;
-
-	rsvd_chk_gprot = gprot;
-	/* is_rsvd_spte() need based on PAGE_SIZE bit */
-	if (level != PG_LEVEL_4K)
-		pgt_ops->pgt_entry_mkhuge(&rsvd_chk_gprot);
-
-	if (is_rsvd_spte(&ept_zero_check, rsvd_chk_gprot, level)) {
-		ret = PKVM_INJECT_EPT_MISC;
-	} else {
-		unsigned long level_size = pgt_ops->pgt_level_to_size(level);
-		unsigned long gpa = ALIGN_DOWN(l2_gpa, level_size);
-		unsigned long hpa = ALIGN_DOWN(host_gpa2hpa(phys), level_size);
-		/*
-		 * Still set SUPPRESS_VE bit here as some mapping may still
-		 * cause EPT_VIOLATION and we want these EPT_VIOLATION to cause
-		 * vmexit.
-		 */
-		u64 prot = (gprot & EPT_PROT_MASK) | EPT_PROT_DEF;
-
-		if (allow_shadow_ept_mapping(vm, gpa, hpa, level_size) &&
-		    !pkvm_pgtable_map(sept, gpa, hpa, level_size, 0, prot, NULL))
-			ret = PKVM_HANDLED;
-	}
-out:
-	pkvm_spin_unlock(&vm->lock);
-	return ret;
-}
-
 void pkvm_flush_shadow_ept(struct shadow_ept_desc *desc)
 {
 	if (!is_valid_eptp(desc->shadow_eptp))
@@ -1020,34 +699,6 @@ void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 	 * "Suppress #VE" bit cleared. Accessing this pte will trigger #VE.
 	 */
 	pkvm_pgtable_annotate(sept, gpa, PAGE_SIZE, SHADOW_EPT_MMIO_ENTRY);
-}
-
-int pkvm_handle_guest_ept_violation(struct kvm_vcpu *vcpu, u64 gpa)
-{
-	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
-	struct vcpu_vmx *vmx = to_vmx(vcpu);
-	enum sept_handle_ret ret;
-	int handled = 0;
-
-	ret = pkvm_handle_shadow_ept_violation(shadow_vcpu,
-					       gpa, vmx->exit_qualification);
-	switch (ret) {
-	case PKVM_INJECT_EPT_MISC:
-		/*
-		 * Inject EPT_MISCONFIG vmexit reason if can directly modify
-		 * the read-only fields. Otherwise still deliver EPT_VIOLATION
-		 * for simplification.
-		 */
-		vmx->exit_reason.full = EXIT_REASON_EPT_MISCONFIG;
-		break;
-	case PKVM_HANDLED:
-		handled = 1;
-		break;
-	default:
-		break;
-	}
-
-	return handled;
 }
 
 void pkvm_setup_virtual_ept(struct kvm_vcpu *vcpu, u64 veptp)

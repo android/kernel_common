@@ -11,16 +11,9 @@
 				(MTRR_TYPE_WRBACK << VMX_EPT_MT_EPTE_SHIFT))
 #define HOST_EPT_DEF_MMIO_PROT	(VMX_EPT_RWX_MASK |				\
 				(MTRR_TYPE_UNCACHABLE << VMX_EPT_MT_EPTE_SHIFT))
-#define EPT_PROT_MASK		(VMX_EPT_RWX_MASK | VMX_EPT_MT_MASK | VMX_EPT_IPAT_BIT)
 #define EPT_PROT_DEF		VMX_EPT_SUPPRESS_VE_BIT
 
 #define SHADOW_EPT_MMIO_ENTRY	0
-
-enum sept_handle_ret {
-	PKVM_NOT_HANDLED,
-	PKVM_HANDLED,
-	PKVM_INJECT_EPT_MISC,
-};
 
 void host_ept_lock(void);
 void host_ept_unlock(void);
@@ -39,8 +32,6 @@ int pkvm_shadow_ept_init(struct shadow_ept_desc *desc);
 void pkvm_shadow_ept_deinit(struct shadow_ept_desc *desc);
 void pkvm_guest_ept_init(struct shadow_vcpu_state *shadow_vcpu, u64 guest_eptp);
 void pkvm_guest_ept_deinit(struct shadow_vcpu_state *shadow_vcpu);
-enum sept_handle_ret
-pkvm_handle_shadow_ept_violation(struct shadow_vcpu_state *shadow_vcpu, u64 l2_gpa, u64 exit_quali);
 void pkvm_invalidate_shadow_ept(struct shadow_ept_desc *desc);
 void pkvm_invalidate_shadow_ept_with_range(struct shadow_ept_desc *desc,
 					   unsigned long vaddr, unsigned long size);
@@ -67,7 +58,6 @@ static inline bool is_valid_eptp(u64 eptp)
 extern const struct pkvm_pgtable_ops ept_ops;
 extern struct hyp_pool shadow_pgt_pool;
 
-int pkvm_handle_guest_ept_violation(struct kvm_vcpu *vcpu, u64 gpa);
 void pkvm_setup_virtual_ept(struct kvm_vcpu *vcpu, u64 veptp);
 void pkvm_invalidate_guest_ept(int shadow_handle, u64 start_gpa, u64 size);
 

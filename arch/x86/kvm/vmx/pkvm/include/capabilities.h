@@ -12,12 +12,6 @@
 #define PKVM_HYP pkvm_sym(pkvm_hyp)
 #endif
 
-static inline bool vmx_has_vmwrite_any_field(void)
-{
-	return !!(PKVM_HYP->vmcs_config.nested.misc_low &
-			VMX_MISC_VMWRITE_SHADOW_RO_FIELDS);
-}
-
 static inline bool vmx_ept_capability_check(u32 bit)
 {
 	struct vmx_capability *vmx_cap = &PKVM_HYP->vmx_cap;

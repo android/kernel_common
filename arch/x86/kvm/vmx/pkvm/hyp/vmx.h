@@ -7,7 +7,6 @@
 #define __PKVM_VMX_H
 
 #include <capabilities.h>
-#include "pkvm_hyp.h"
 
 static inline u64 pkvm_construct_eptp(unsigned long root_hpa, int level)
 {
