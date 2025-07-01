@@ -4,7 +4,6 @@
  */
 
 #include <drm/drm_file.h>
-#include <linux/pm_runtime.h>
 
 #include "ivpu_drv.h"
 #include "ivpu_gem.h"
@@ -282,9 +281,6 @@ unlock:
 void ivpu_ms_cleanup(struct ivpu_file_priv *file_priv)
 {
 	struct ivpu_ms_instance *ms, *tmp;
-	struct ivpu_device *vdev = file_priv->vdev;
-
-	pm_runtime_get_sync(vdev->drm.dev);
 
 	mutex_lock(&file_priv->ms_lock);
 
@@ -297,8 +293,6 @@ void ivpu_ms_cleanup(struct ivpu_file_priv *file_priv)
 		free_instance(file_priv, ms);
 
 	mutex_unlock(&file_priv->ms_lock);
-
-	pm_runtime_put_autosuspend(vdev->drm.dev);
 }
 
 void ivpu_ms_cleanup_all(struct ivpu_device *vdev)
