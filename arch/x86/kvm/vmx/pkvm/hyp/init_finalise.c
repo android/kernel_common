@@ -42,7 +42,7 @@ static void *shadow_ept_base;
 
 static int divide_memory_pool(phys_addr_t phys, unsigned long size)
 {
-	int data_struct_size = pkvm_data_struct_pages(PKVM_PAGES,
+	int data_struct_size = pkvm_data_struct_pages(PKVM_GLOBAL_PAGES,
 						      PKVM_PERCPU_PAGES,
 						      pkvm_hyp->num_cpus) << PAGE_SHIFT;
 	void *virt = __pkvm_va(phys + data_struct_size);

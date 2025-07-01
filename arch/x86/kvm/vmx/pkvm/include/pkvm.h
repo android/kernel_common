@@ -115,7 +115,10 @@ struct pkvm_section {
 	u64 prot;
 };
 
+#define PKVM_REQUIRES_L1D_FLUSH_PAGES \
+	(boot_cpu_has_bug(X86_BUG_L1TF) && !boot_cpu_has(X86_FEATURE_FLUSH_L1D))
 #define PKVM_PAGES (ALIGN(sizeof(struct pkvm_hyp), PAGE_SIZE) >> PAGE_SHIFT)
+#define PKVM_GLOBAL_PAGES (PKVM_PAGES + (PKVM_REQUIRES_L1D_FLUSH_PAGES ? 1 << L1D_CACHE_ORDER : 0))
 #define PKVM_PCPU_PAGES (ALIGN(sizeof(struct pkvm_pcpu), PAGE_SIZE) >> PAGE_SHIFT)
 #define PKVM_HOST_VCPU_PAGES (ALIGN(sizeof(struct pkvm_host_vcpu), PAGE_SIZE) >> PAGE_SHIFT)
 #define PKVM_HOST_VCPU_VMCS_PAGES 3 /*vmxarea+vmcs+msr_bitmap*/
@@ -129,6 +132,7 @@ extern unsigned int pkvm_sym(tsc_khz);
 extern struct cpumask pkvm_sym(__cpu_possible_mask);
 extern unsigned int pkvm_sym(nr_cpu_ids);
 extern u64 pkvm_sym(x86_pred_cmd);
+extern unsigned long pkvm_sym(l1d_flush_phys);
 
 extern bool pkvm_sym(pvmfw_present);
 extern phys_addr_t pkvm_sym(pvmfw_base);

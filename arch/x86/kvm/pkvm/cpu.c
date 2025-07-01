@@ -14,6 +14,7 @@ DEFINE_PER_CPU_ALIGNED(struct pcpu_hot, pcpu_hot);
 DEFINE_PER_CPU(u64, x86_spec_ctrl_current);
 
 struct cpumask __cpu_possible_mask __ro_after_init;
+unsigned long l1d_flush_phys = INVALID_PAGE;
 struct cpuinfo_x86 boot_cpu_data;
 unsigned int nr_cpu_ids;
 unsigned int tsc_khz;
