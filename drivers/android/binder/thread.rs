@@ -1614,7 +1614,7 @@ impl Thread {
         ret
     }
 
-    pub(crate) fn poll(&self, file: &File, table: &mut PollTable) -> (bool, u32) {
+    pub(crate) fn poll(&self, file: &File, table: PollTable<'_>) -> (bool, u32) {
         table.register_wait(file, &self.work_condvar);
         let mut inner = self.inner.lock();
         (inner.should_use_process_work_queue(), inner.poll())

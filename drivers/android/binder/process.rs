@@ -1633,7 +1633,7 @@ impl Process {
     pub(crate) fn poll(
         this: ArcBorrow<'_, Process>,
         file: &File,
-        table: &mut PollTable,
+        table: PollTable<'_>,
     ) -> Result<u32> {
         let thread = this.get_current_thread()?;
         let (from_proc, mut mask) = thread.poll(file, table);

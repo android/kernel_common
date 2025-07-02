@@ -472,7 +472,7 @@ unsafe extern "C" fn rust_binder_poll(
     // SAFETY: The caller ensures that the file is valid.
     let fileref = unsafe { File::from_raw_file(file) };
     // SAFETY: The caller ensures that the `PollTable` is valid.
-    match Process::poll(f, fileref, unsafe { PollTable::from_ptr(wait) }) {
+    match Process::poll(f, fileref, unsafe { PollTable::from_raw(wait) }) {
         Ok(v) => v,
         Err(_) => bindings::POLLERR,
     }
