@@ -2426,6 +2426,7 @@ __rmqueue(struct zone *zone, unsigned int order, int migratetype,
 			}
 		}
 	}
+
 	return NULL;
 }
 
@@ -2454,7 +2455,8 @@ static int rmqueue_bulk(struct zone *zone, unsigned int order,
 		if (cma_redirect_restricted() && is_migrate_cma(migratetype))
 			page = __rmqueue_cma_fallback(zone, order);
 		else
-			page = __rmqueue(zone, order, migratetype, alloc_flags, &rmqm);
+			page = __rmqueue(zone, order, migratetype, alloc_flags,
+					 &rmqm);
 
 		if (unlikely(page == NULL))
 			break;
@@ -3074,16 +3076,14 @@ struct page *rmqueue_buddy(struct zone *preferred_zone, struct zone *zone,
 		if (alloc_flags & ALLOC_HIGHATOMIC)
 			page = __rmqueue_smallest(zone, order, MIGRATE_HIGHATOMIC);
 		if (!page) {
+			enum rmqueue_mode rmqm = RMQUEUE_NORMAL;
 			if (cma_redirect_restricted() &&
 			    alloc_flags & ALLOC_CMA)
 				page = __rmqueue_cma_fallback(zone, order);
 
-			if (!page) {
-				enum rmqueue_mode rmqm = RMQUEUE_NORMAL;
-
+			if (!page)
 				page = __rmqueue(zone, order, migratetype,
 						 alloc_flags, &rmqm);
-			}
 			/*
 			 * If the allocation fails, allow OOM handling and
 			 * order-0 (atomic) allocs access to HIGHATOMIC
@@ -7496,9 +7496,6 @@ bool has_managed_dma(void)
 
 #ifdef CONFIG_UNACCEPTED_MEMORY
 
-/* Counts number of zones with unaccepted pages. */
-static DEFINE_STATIC_KEY_FALSE(zones_with_unaccepted_pages);
-
 static bool lazy_accept = true;
 
 static int __init accept_memory_parse(char *p)
@@ -7525,11 +7522,7 @@ static bool page_contains_unaccepted(struct page *page, unsigned int order)
 static void __accept_page(struct zone *zone, unsigned long *flags,
 			  struct page *page)
 {
-	bool last;
-
 	list_del(&page->lru);
-	last = list_empty(&zone->unaccepted_pages);
-
 	account_freepages(zone, -MAX_ORDER_NR_PAGES, MIGRATE_MOVABLE);
 	__mod_zone_page_state(zone, NR_UNACCEPTED, -MAX_ORDER_NR_PAGES);
 	__ClearPageUnaccepted(page);
@@ -7538,9 +7531,6 @@ static void __accept_page(struct zone *zone, unsigned long *flags,
 	accept_memory(page_to_phys(page), PAGE_SIZE << MAX_PAGE_ORDER);
 
 	__free_pages_ok(page, MAX_PAGE_ORDER, FPI_TO_TAIL);
-
-	if (last)
-		static_branch_dec(&zones_with_unaccepted_pages);
 }
 
 void accept_page(struct page *page)
@@ -7577,18 +7567,10 @@ static bool try_to_accept_memory_one(struct zone *zone)
 	return true;
 }
 
-static inline bool has_unaccepted_memory(void)
-{
-	return static_branch_unlikely(&zones_with_unaccepted_pages);
-}
-
 static bool cond_accept_memory(struct zone *zone, unsigned int order)
 {
 	long to_accept, wmark;
 	bool ret = false;
-
-	if (!has_unaccepted_memory())
-		return false;
 
 	if (list_empty(&zone->unaccepted_pages))
 		return false;
@@ -7623,21 +7605,16 @@ static bool __free_unaccepted(struct page *page)
 {
 	struct zone *zone = page_zone(page);
 	unsigned long flags;
-	bool first = false;
 
 	if (!lazy_accept)
 		return false;
 
 	spin_lock_irqsave(&zone->lock, flags);
-	first = list_empty(&zone->unaccepted_pages);
 	list_add_tail(&page->lru, &zone->unaccepted_pages);
 	account_freepages(zone, MAX_ORDER_NR_PAGES, MIGRATE_MOVABLE);
 	__mod_zone_page_state(zone, NR_UNACCEPTED, MAX_ORDER_NR_PAGES);
 	__SetPageUnaccepted(page);
 	spin_unlock_irqrestore(&zone->lock, flags);
-
-	if (first)
-		static_branch_inc(&zones_with_unaccepted_pages);
 
 	return true;
 }
