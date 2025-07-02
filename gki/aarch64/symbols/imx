@@ -2478,6 +2478,7 @@
   snd_soc_daifmt_clock_provider_from_bitmap
   snd_soc_daifmt_parse_clock_provider_raw
   snd_soc_daifmt_parse_format
+  snd_soc_dai_is_dummy
   snd_soc_dai_name_get
   snd_soc_dai_set_bclk_ratio
   snd_soc_dai_set_fmt
