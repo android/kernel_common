@@ -122,7 +122,7 @@ impl Transaction {
             debug_id,
             target_node: Some(target_node),
             from_parent,
-            sender_euid: from.process.cred.euid(),
+            sender_euid: from.process.task.euid(),
             from: from.clone(),
             to,
             code: trd.code,
