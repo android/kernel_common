@@ -8,6 +8,12 @@
   #required by perf_helper.ko
   __traceiter_android_rvh_dequeue_entity_delayed
   __tracepoint_android_rvh_dequeue_entity_delayed
+  __traceiter_f2fs_submit_folio_write
+  __tracepoint_f2fs_submit_folio_write
+  __traceiter_android_vh_fuse_request_send
+  __tracepoint_android_vh_fuse_request_send
+  __traceiter_android_vh_fuse_request_end
+  __tracepoint_android_vh_fuse_request_end
 
 # commonly used symbols
   __traceiter_android_vh_logbuf
