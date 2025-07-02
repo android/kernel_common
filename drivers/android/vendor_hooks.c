@@ -388,6 +388,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_fuse_request_end);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lruvec_add_folio);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_lruvec_del_folio);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_do_async_mmap_readahead);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mm_free_page);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tcp_sock_error);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tcp_fastsyn);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tcp_state_change);
