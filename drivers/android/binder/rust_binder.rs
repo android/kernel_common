@@ -283,9 +283,9 @@ impl DeliverToRead for DeliverCode {
     }
 }
 
-const fn ptr_align(value: usize) -> usize {
+fn ptr_align(value: usize) -> Option<usize> {
     let size = core::mem::size_of::<usize>() - 1;
-    (value + size) & !size
+    Some(value.checked_add(size)? & !size)
 }
 
 // SAFETY: We call register in `init`.
