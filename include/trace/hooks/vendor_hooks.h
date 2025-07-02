@@ -13,7 +13,7 @@
 
 #if defined(CONFIG_TRACEPOINTS) && defined(CONFIG_ANDROID_VENDOR_HOOKS)
 
-#define DECLARE_HOOK DECLARE_TRACE
+#define DECLARE_HOOK DECLARE_TRACE_EVENT
 
 int android_rvh_probe_register(struct tracepoint *tp, void *probe, void *data);
 
