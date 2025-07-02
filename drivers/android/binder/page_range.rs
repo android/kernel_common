@@ -282,7 +282,7 @@ impl ShrinkablePageRange {
     }
 
     /// Register a vma with this page range. Returns the size of the region.
-    pub(crate) fn register_with_vma(&self, vma: &virt::VmAreaNew) -> Result<usize> {
+    pub(crate) fn register_with_vma(&self, vma: &virt::VmaNew) -> Result<usize> {
         let num_bytes = usize::min(vma.end() - vma.start(), bindings::SZ_4M as usize);
         let num_pages = num_bytes >> PAGE_SHIFT;
 

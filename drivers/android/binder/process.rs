@@ -1069,7 +1069,7 @@ impl Process {
         }
     }
 
-    fn create_mapping(&self, vma: &mm::virt::VmAreaNew) -> Result {
+    fn create_mapping(&self, vma: &mm::virt::VmaNew) -> Result {
         use kernel::page::PAGE_SIZE;
         let size = usize::min(vma.end() - vma.start(), bindings::SZ_4M as usize);
         let mapping = Mapping::new(vma.start(), size);
@@ -1622,7 +1622,7 @@ impl Process {
     pub(crate) fn mmap(
         this: ArcBorrow<'_, Process>,
         _file: &File,
-        vma: &mm::virt::VmAreaNew,
+        vma: &mm::virt::VmaNew,
     ) -> Result {
         // We don't allow mmap to be used in a different process.
         if !core::ptr::eq(kernel::current!().group_leader(), &*this.task) {
