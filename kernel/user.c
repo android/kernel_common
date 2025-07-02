@@ -21,6 +21,8 @@
 #include <linux/binfmts.h>
 #include <linux/proc_ns.h>
 
+#include <trace/hooks/user.h>
+
 #if IS_ENABLED(CONFIG_BINFMT_MISC)
 struct binfmt_misc init_binfmt_misc = {
 	.entries = LIST_HEAD_INIT(init_binfmt_misc.entries),
@@ -165,6 +167,7 @@ static void user_epoll_free(struct user_struct *up)
 static void free_user(struct user_struct *up, unsigned long flags)
 	__releases(&uidhash_lock)
 {
+	trace_android_vh_free_user(up);
 	uid_hash_remove(up);
 	spin_unlock_irqrestore(&uidhash_lock, flags);
 	user_epoll_free(up);
@@ -217,6 +220,7 @@ struct user_struct *alloc_uid(kuid_t uid)
 
 		new->uid = uid;
 		refcount_set(&new->__count, 1);
+		trace_android_vh_alloc_uid(new);
 		if (user_epoll_alloc(new)) {
 			kmem_cache_free(uid_cachep, new);
 			return NULL;
