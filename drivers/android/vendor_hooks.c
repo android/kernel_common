@@ -33,6 +33,7 @@
 #include <trace/hooks/pm_domain.h>
 #include <trace/hooks/cpuidle_psci.h>
 #include <trace/hooks/vmscan.h>
+#include <trace/hooks/health_report.h>
 #include <trace/hooks/avc.h>
 #include <trace/hooks/creds.h>
 #include <trace/hooks/selinux.h>
@@ -203,6 +204,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_tune_mmap_readaround);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_hw_protection_shutdown);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_shrink_slab_bypass);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_do_shrink_slab_ex);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_health_report);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_drain_all_pages_bypass);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_security_audit_log_setid);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_selinux_avc_insert);
