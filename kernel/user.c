@@ -22,6 +22,17 @@
 #include <linux/proc_ns.h>
 
 #include <trace/hooks/user.h>
+#include <linux/android_kabi.h>
+
+ANDROID_KABI_DECLONLY(address_space);
+ANDROID_KABI_DECLONLY(cred);
+ANDROID_KABI_DECLONLY(dentry);
+ANDROID_KABI_DECLONLY(file);
+ANDROID_KABI_DECLONLY(io_context);
+ANDROID_KABI_DECLONLY(module);
+ANDROID_KABI_DECLONLY(pid);
+ANDROID_KABI_DECLONLY(sighand_struct);
+ANDROID_KABI_DECLONLY(signal_struct);
 
 #if IS_ENABLED(CONFIG_BINFMT_MISC)
 struct binfmt_misc init_binfmt_misc = {
