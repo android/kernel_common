@@ -156,6 +156,16 @@ struct drm_colorop_state {
 	uint64_t multiplier;
 
 	/**
+	 * @hw_caps:
+	 *
+	 * This blob will be of type struct drm_color_lut_range which contains the
+	 * hardware capabilities of 1D LUT. These include number of LUT segments,
+	 * number of LUT samples per segment, start and end point of respective
+	 * segments and the precision of the LUT sample along with the normalization factor
+	 */
+	struct drm_property_blob *hw_caps;
+
+	/**
 	 * @data:
 	 *
 	 * Data blob for any TYPE that requires such a blob. The
@@ -304,6 +314,13 @@ struct drm_colorop {
 	 * Sub-type for DRM_COLOROP_1D_CURVE type.
 	 */
 	struct drm_property *curve_1d_type_property;
+
+	/**
+	 * @hw_caps_property:
+	 *
+	 * Property to expose hardware lut capabilities.
+	 */
+	struct drm_property *hw_caps_property;
 
 	/**
 	 * @multiplier_property:
