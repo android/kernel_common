@@ -3968,6 +3968,20 @@ static const struct intel_color_funcs ilk_color_funcs = {
 };
 
 /* TODO: Move to another file */
+static void
+intel_color_load_plane_csc_matrix(struct intel_dsb *dsb,
+				  const struct intel_plane_state *plane_state)
+{
+	/* CTM programming */
+}
+
+void intel_color_plane_program_pipeline(struct intel_dsb *dsb,
+					const struct intel_plane_state *plane_state)
+{
+	if (plane_state->hw.ctm)
+		intel_color_load_plane_csc_matrix(dsb, plane_state);
+}
+
 struct intel_plane_colorop *intel_colorop_alloc(void)
 {
 	struct intel_plane_colorop *colorop;
