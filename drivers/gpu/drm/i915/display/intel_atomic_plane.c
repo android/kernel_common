@@ -339,6 +339,10 @@ intel_plane_colorop_replace_blob(struct intel_plane_state *plane_state,
 {
 	if (intel_colorop->id == CB_PLANE_CSC)
 		drm_property_replace_blob(&plane_state->hw.ctm, blob);
+	else if (intel_colorop->id == CB_PLANE_PRE_CSC_LUT)
+		drm_property_replace_blob(&plane_state->hw.degamma_lut, blob);
+	else if (intel_colorop->id == CB_PLANE_POST_CSC_LUT)
+		drm_property_replace_blob(&plane_state->hw.gamma_lut, blob);
 }
 
 static void
