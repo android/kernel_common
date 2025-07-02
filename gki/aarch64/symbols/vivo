@@ -136,6 +136,7 @@
   __traceiter_android_vh_lruvec_add_folio
   __traceiter_android_vh_lruvec_del_folio
   __traceiter_android_vh_mglru_aging_bypass
+  __traceiter_android_vh_mm_free_page
   __traceiter_android_vh_mmap_region
   __traceiter_android_vh_mutex_unlock_slowpath
   __traceiter_android_vh_mutex_unlock_slowpath_before_wakeq
@@ -248,6 +249,7 @@
   __tracepoint_android_vh_lruvec_add_folio
   __tracepoint_android_vh_lruvec_del_folio
   __tracepoint_android_vh_mglru_aging_bypass
+  __tracepoint_android_vh_mm_free_page
   __tracepoint_android_vh_mmap_region
   __tracepoint_android_vh_mutex_unlock_slowpath
   __tracepoint_android_vh_mutex_unlock_slowpath_before_wakeq
