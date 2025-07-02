@@ -511,9 +511,13 @@ impl Process {
         Ok(process)
     }
 
+    pub(crate) fn pid_in_current_ns(&self) -> kernel::task::Pid {
+        self.task.tgid_nr_ns(None)
+    }
+
     #[inline(never)]
     pub(crate) fn debug_print_stats(&self, m: &SeqFile, ctx: &Context) -> Result<()> {
-        seq_print!(m, "proc {}\n", self.task.pid_in_current_ns());
+        seq_print!(m, "proc {}\n", self.pid_in_current_ns());
         seq_print!(m, "context {}\n", &*ctx.name);
 
         let inner = self.inner.lock();
@@ -561,7 +565,7 @@ impl Process {
 
     #[inline(never)]
     pub(crate) fn debug_print(&self, m: &SeqFile, ctx: &Context, print_all: bool) -> Result<()> {
-        seq_print!(m, "proc {}\n", self.task.pid_in_current_ns());
+        seq_print!(m, "proc {}\n", self.pid_in_current_ns());
         seq_print!(m, "context {}\n", &*ctx.name);
 
         let mut all_threads = KVec::new();

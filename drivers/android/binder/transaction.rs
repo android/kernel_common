@@ -429,7 +429,7 @@ impl DeliverToRead for Transaction {
         tr.sender_pid = 0;
         if self.target_node.is_some() && self.flags & TF_ONE_WAY == 0 {
             // Not a reply and not one-way.
-            tr.sender_pid = self.from.process.task.pid_in_current_ns();
+            tr.sender_pid = self.from.process.pid_in_current_ns();
         }
         let code = if self.target_node.is_none() {
             BR_REPLY

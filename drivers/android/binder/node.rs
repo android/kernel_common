@@ -723,7 +723,7 @@ impl Node {
         if len == inner.freeze_list.len() {
             pr_warn!(
                 "Could not remove freeze listener for {}\n",
-                p.task.pid_in_current_ns()
+                p.pid_in_current_ns()
             );
         }
         if inner.freeze_list.is_empty() {
