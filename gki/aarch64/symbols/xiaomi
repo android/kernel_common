@@ -89,6 +89,7 @@
 
 #required by stability
   sock_from_file
+  get_dmabuf_debugfs_data
   __traceiter_android_vh_cma_alloc_fail
   __tracepoint_android_vh_cma_alloc_fail
   __traceiter_android_vh_warn_alloc_show_mem_bypass
