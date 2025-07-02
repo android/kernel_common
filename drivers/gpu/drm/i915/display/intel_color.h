@@ -52,4 +52,5 @@ int intel_plane_tf_pipeline_init(struct drm_plane *plane, struct drm_prop_enum_l
 int intel_plane_color_init(struct drm_plane *plane);
 void intel_color_plane_program_pipeline(struct intel_dsb *dsb,
 					const struct intel_plane_state *plane_state);
+int intel_plane_tf_multseg_pipeline_init(struct drm_plane *plane, struct drm_prop_enum_list *list);
 #endif /* __INTEL_COLOR_H__ */
