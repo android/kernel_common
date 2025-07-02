@@ -82,6 +82,9 @@ struct cros_typec_port {
 	struct usb_power_delivery_capabilities *partner_sink_caps;
 
 	struct cros_typec_data *typec_data;
+
+	/* Mutex to protect port data against concurrent access */
+	struct mutex lock;
 };
 
 #endif /*  __CROS_EC_TYPEC__ */
