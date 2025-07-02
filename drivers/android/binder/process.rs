@@ -1141,11 +1141,10 @@ impl Process {
             return Err(EPERM);
         }
 
-        let node_ref = self
-            .get_node_from_handle(out.handle, true)
-            .or(Err(EINVAL))?;
-        // Get the counts from the node.
         {
+            let mut node_refs = self.node_refs.lock();
+            let node_info = node_refs.by_handle.get_mut(&out.handle).ok_or(ENOENT)?;
+            let node_ref = node_info.node_ref();
             let owner_inner = node_ref.node.owner.inner.lock();
             node_ref.node.populate_counts(&mut out, &owner_inner);
         }
