@@ -133,6 +133,9 @@ extern struct cpumask pkvm_sym(__cpu_possible_mask);
 extern unsigned int pkvm_sym(nr_cpu_ids);
 extern u64 pkvm_sym(x86_pred_cmd);
 extern unsigned long pkvm_sym(l1d_flush_phys);
+DECLARE_STATIC_KEY_FALSE(pkvm_sym(mmio_stale_data_clear));
+DECLARE_STATIC_KEY_FALSE(pkvm_sym(vmx_l1d_should_flush));
+DECLARE_STATIC_KEY_FALSE(pkvm_sym(vmx_l1d_flush_cond));
 
 extern bool pkvm_sym(pvmfw_present);
 extern phys_addr_t pkvm_sym(pvmfw_base);

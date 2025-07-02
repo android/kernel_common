@@ -1299,20 +1299,56 @@ static void __init setup_pkvm_syms(void)
 	cpumask_copy(&pkvm_sym(__cpu_possible_mask), cpu_possible_mask);
 	pkvm_sym(nr_cpu_ids) = nr_cpu_ids;
 	pkvm_sym(x86_pred_cmd) = x86_pred_cmd;
+	if (static_branch_unlikely(&mmio_stale_data_clear))
+		static_branch_enable(&pkvm_sym(mmio_stale_data_clear));
+	else
+		static_branch_disable(&pkvm_sym(mmio_stale_data_clear));
 }
 
 static int __init setup_pkvm_l1d(void)
 {
-	void *virt;
+	enum vmx_l1d_flush_state l1tf = VMENTER_L1D_FLUSH_AUTO;
 
-	if (!PKVM_REQUIRES_L1D_FLUSH_PAGES)
+	if (!boot_cpu_has_bug(X86_BUG_L1TF))
 		return 0;
 
-	virt = pkvm_sym(pkvm_early_alloc_contig)(1 << L1D_CACHE_ORDER);
-	if (!virt)
-		return -ENOMEM;
+	if (boot_cpu_has(X86_FEATURE_ARCH_CAPABILITIES) &&
+	    (__rdmsr(MSR_IA32_ARCH_CAPABILITIES) & ARCH_CAP_SKIP_VMENTRY_L1DFLUSH))
+		return 0;
 
-	pkvm_sym(l1d_flush_phys) = __pa(virt);
+	switch (l1tf_mitigation) {
+	case L1TF_MITIGATION_OFF:
+		l1tf = VMENTER_L1D_FLUSH_NEVER;
+		break;
+	case L1TF_MITIGATION_FLUSH_NOWARN:
+	case L1TF_MITIGATION_FLUSH:
+	case L1TF_MITIGATION_FLUSH_NOSMT:
+		l1tf = VMENTER_L1D_FLUSH_COND;
+		break;
+	case L1TF_MITIGATION_FULL:
+	case L1TF_MITIGATION_FULL_FORCE:
+		l1tf = VMENTER_L1D_FLUSH_ALWAYS;
+		break;
+	}
+
+	if (l1tf != VMENTER_L1D_FLUSH_NEVER && !boot_cpu_has(X86_FEATURE_FLUSH_L1D)) {
+		void *virt = pkvm_sym(pkvm_early_alloc_contig)(1 << L1D_CACHE_ORDER);
+
+		if (!virt)
+			return -ENOMEM;
+
+		pkvm_sym(l1d_flush_phys) = __pa(virt);
+	}
+
+	if (l1tf != VMENTER_L1D_FLUSH_NEVER)
+		static_branch_enable(&pkvm_sym(vmx_l1d_should_flush));
+	else
+		static_branch_disable(&pkvm_sym(vmx_l1d_should_flush));
+
+	if (l1tf == VMENTER_L1D_FLUSH_COND)
+		static_branch_enable(&pkvm_sym(vmx_l1d_flush_cond));
+	else
+		static_branch_disable(&pkvm_sym(vmx_l1d_flush_cond));
 
 	return 0;
 }

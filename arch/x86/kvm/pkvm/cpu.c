@@ -12,6 +12,8 @@ unsigned long __per_cpu_offset[NR_CPUS];
 DEFINE_PER_CPU_READ_MOSTLY(unsigned long, this_cpu_off);
 DEFINE_PER_CPU_ALIGNED(struct pcpu_hot, pcpu_hot);
 DEFINE_PER_CPU(u64, x86_spec_ctrl_current);
+DEFINE_STATIC_KEY_FALSE(mmio_stale_data_clear);
+DEFINE_PER_CPU_SHARED_ALIGNED(irq_cpustat_t, irq_stat);
 
 struct cpumask __cpu_possible_mask __ro_after_init;
 unsigned long l1d_flush_phys = INVALID_PAGE;

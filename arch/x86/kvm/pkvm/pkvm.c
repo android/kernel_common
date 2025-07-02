@@ -567,6 +567,17 @@ static struct pkvm_vcpu *load_pkvm_vcpu(struct kvm_vcpu *shared_vcpu, unsigned l
 
 	pkvm_x86_call(switch_to_guest_vcpu)(vcpu);
 
+	if (pkvm_is_protected_vcpu(vcpu) && fn == __pkvm__vcpu_run) {
+		struct kvm_vcpu *hvcpu = this_cpu_read(host_vcpu);
+
+		/*
+		 * A protected vcpu is going to run. Before returning back to
+		 * the host, request to flush the L1D to hide the contents of
+		 * the protected vcpu from the host.
+		 */
+		hvcpu->arch.l1tf_flush_l1d = true;
+	}
+
 	return pkvm_vcpu;
 out:
 	put_pkvm_vcpu(pkvm_vcpu);
