@@ -37,6 +37,8 @@ const ASHMEM_FULL_NAME_LEN: usize = bindings::ASHMEM_FULL_NAME_LEN as usize;
 const ASHMEM_NAME_PREFIX_LEN: usize = bindings::ASHMEM_NAME_PREFIX_LEN as usize;
 const ASHMEM_NAME_PREFIX: [u8; ASHMEM_NAME_PREFIX_LEN] = *b"dev/ashmem/";
 
+const ASHMEM_MAX_SIZE: usize = usize::MAX >> 1;
+
 const PROT_READ: usize = bindings::PROT_READ as usize;
 const PROT_EXEC: usize = bindings::PROT_EXEC as usize;
 const PROT_WRITE: usize = bindings::PROT_WRITE as usize;
@@ -157,7 +159,7 @@ impl MiscDevice for Ashmem {
         let asma = &mut *me.inner.lock();
 
         // User needs to SET_SIZE before mapping.
-        if asma.size == 0 {
+        if asma.size == 0 || asma.size >= ASHMEM_MAX_SIZE {
             return Err(EINVAL);
         }
 
