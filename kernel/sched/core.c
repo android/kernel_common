@@ -8269,6 +8269,7 @@ void rt_mutex_setprio(struct task_struct *p, struct task_struct *pi_task)
 
 	p->sched_class = next_class;
 	p->prio = prio;
+	trace_android_rvh_setscheduler_prio(p);
 
 	check_class_changing(rq, p, prev_class);
 
