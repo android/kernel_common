@@ -33,7 +33,8 @@ static int gunyah_mmio_guard_ioremap_hook(phys_addr_t phys, size_t size, pgprot_
 	ret = gunyah_hypercall_addrspc_configure_vmmio_range(our_addrspace_capid,
 				phys, size, GUNYAH_ADDRSPACE_VMMIO_CONFIGURE_OP_ADD_RANGE);
 
-	if (ret == GUNYAH_ERROR_UNIMPLEMENTED || ret == GUNYAH_ERROR_BUSY)
+	if (ret == GUNYAH_ERROR_UNIMPLEMENTED || ret == GUNYAH_ERROR_BUSY
+			|| ret == GUNYAH_ERROR_CSPACE_INSUF_RIGHTS)
 		/* Gunyah would have configured VMMIO via DT */
 		ret = GUNYAH_ERROR_OK;
 
