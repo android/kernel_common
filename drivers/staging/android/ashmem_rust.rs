@@ -415,18 +415,17 @@ impl Ashmem {
             None => return Err(EINVAL),
         };
 
+        let max_size = page_align(asma.size);
+        let remaining = max_size.checked_sub(offset).ok_or(EINVAL)?;
+
         // Per custom, you can pass zero for len to mean "everything onward".
-        let len = if cmd_len == 0 {
-            page_align(asma.size) - offset
-        } else {
-            cmd_len
-        };
+        let len = if cmd_len == 0 { remaining } else { cmd_len };
 
         if (offset | len) & !PAGE_MASK != 0 {
             return Err(EINVAL);
         }
         let len_plus_offset = offset.checked_add(len).ok_or(EINVAL)?;
-        if page_align(asma.size) < len_plus_offset {
+        if max_size < len_plus_offset {
             return Err(EINVAL);
         }
 
