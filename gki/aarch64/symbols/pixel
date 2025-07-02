@@ -2558,6 +2558,7 @@
   __traceiter_android_rvh_set_cpus_allowed_by_task
   __traceiter_android_rvh_set_iowait
   __traceiter_android_rvh_setscheduler
+  __traceiter_android_rvh_setscheduler_prio
   __traceiter_android_rvh_set_task_comm
   __traceiter_android_rvh_set_task_cpu
   __traceiter_android_rvh_set_user_nice_locked
@@ -2673,6 +2674,7 @@
   __tracepoint_android_rvh_set_cpus_allowed_by_task
   __tracepoint_android_rvh_set_iowait
   __tracepoint_android_rvh_setscheduler
+  __tracepoint_android_rvh_setscheduler_prio
   __tracepoint_android_rvh_set_task_comm
   __tracepoint_android_rvh_set_task_cpu
   __tracepoint_android_rvh_set_user_nice_locked
