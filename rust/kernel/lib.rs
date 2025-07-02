@@ -52,6 +52,7 @@ pub mod mm;
 pub mod net;
 pub mod page;
 pub mod page_size_compat;
+pub mod pid_namespace;
 pub mod prelude;
 pub mod print;
 pub mod rbtree;
