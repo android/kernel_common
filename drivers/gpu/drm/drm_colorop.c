@@ -90,6 +90,48 @@ static const struct drm_prop_enum_list drm_colorop_lut3d_interpolation_list[] = 
 };
 
 /* Init Helpers */
+static int drm_create_colorop_capability_prop(struct drm_device *dev,
+					      struct drm_colorop *colorop,
+					      struct drm_property_blob *blob)
+{
+	struct drm_property *prop = NULL;
+
+	prop = drm_property_create(dev, DRM_MODE_PROP_BLOB |
+				   DRM_MODE_PROP_ATOMIC |
+				   DRM_MODE_PROP_IMMUTABLE,
+				   "HW_CAPS", 1);
+	if (!prop)
+		return -ENOMEM;
+
+	colorop->hw_caps_property = prop;
+	drm_object_attach_property(&colorop->base,
+				   colorop->hw_caps_property,
+				   blob->base.id);
+
+	return 0;
+}
+
+static int drm_plane_colorop_lutcaps_init(struct drm_colorop *colorop,
+					  struct drm_plane *plane,
+					  const struct drm_color_lut_range *ranges,
+					  size_t length)
+{
+	struct drm_device *dev = plane->dev;
+	struct drm_property_blob *blob;
+
+	/* Create Color Caps property for multi-segmented 1D LUT */
+	if (colorop->type != DRM_COLOROP_1D_LUT_MULTSEG)
+		return -EINVAL;
+
+	if (WARN_ON(length == 0 || length % sizeof(ranges[0]) != 0))
+		return -EINVAL;
+
+	blob = drm_property_create_blob(plane->dev, length, ranges);
+	if (IS_ERR(blob))
+		return PTR_ERR(blob);
+
+	return drm_create_colorop_capability_prop(dev, colorop, blob);
+}
 
 static int drm_plane_colorop_init(struct drm_device *dev, struct drm_colorop *colorop,
 			    struct drm_plane *plane, enum drm_colorop_type type, uint32_t flags)
@@ -336,6 +378,32 @@ int drm_plane_colorop_curve_1d_lut_init(struct drm_device *dev, struct drm_color
 	return 0;
 }
 EXPORT_SYMBOL(drm_plane_colorop_curve_1d_lut_init);
+
+int drm_plane_colorop_curve_1d_lut_multseg_init(struct drm_device *dev, struct drm_colorop *colorop,
+						struct drm_plane *plane,
+						const struct drm_color_lut_range *ranges,
+						size_t length, uint32_t flags)
+{
+	int ret;
+
+	ret = drm_plane_colorop_init(dev, colorop, plane, DRM_COLOROP_1D_LUT_MULTSEG, flags);
+	if (ret)
+		return ret;
+
+	ret = drm_plane_colorop_lutcaps_init(colorop, plane, ranges, length);
+	if (ret)
+		return ret;
+
+	/* data */
+	ret = drm_colorop_create_data_prop(dev, colorop);
+	if (ret)
+		return ret;
+
+	drm_colorop_reset(colorop);
+
+	return 0;
+}
+EXPORT_SYMBOL(drm_plane_colorop_curve_1d_lut_multseg_init);
 
 int drm_plane_colorop_ctm_3x4_init(struct drm_device *dev, struct drm_colorop *colorop,
 				   struct drm_plane *plane, uint32_t flags)
