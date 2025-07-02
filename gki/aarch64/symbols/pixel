@@ -1934,6 +1934,7 @@
   proc_create_single_data
   proc_dointvec
   proc_dostring
+  proc_douintvec_minmax
   proc_mkdir
   proc_mkdir_data
   proc_remove
@@ -2530,6 +2531,7 @@
   trace_handle_return
   __traceiter_android_rvh_attach_entity_load_avg
   __traceiter_android_rvh_can_migrate_task
+  __traceiter_android_rvh_cgroup_force_kthread_migration
   __traceiter_android_rvh_check_preempt_wakeup_fair
   __traceiter_android_rvh_cpu_overutilized
   __traceiter_android_rvh_dequeue_task
@@ -2543,11 +2545,15 @@
   __traceiter_android_rvh_iommu_alloc_insert_iova
   __traceiter_android_rvh_iommu_iovad_init_alloc_algo
   __traceiter_android_rvh_iommu_limit_align_shift
+  __traceiter_android_rvh_irqs_disable
+  __traceiter_android_rvh_irqs_enable
   __traceiter_android_rvh_madvise_pageout_begin
   __traceiter_android_rvh_madvise_pageout_end
   __traceiter_android_rvh_mapping_shrinkable
   __traceiter_android_rvh_meminfo_proc_show
   __traceiter_android_rvh_post_init_entity_util_avg
+  __traceiter_android_rvh_preempt_disable
+  __traceiter_android_rvh_preempt_enable
   __traceiter_android_rvh_reclaim_folio_list
   __traceiter_android_rvh_remove_entity_load_avg
   __traceiter_android_rvh_rtmutex_prepare_setprio
@@ -2646,6 +2652,7 @@
   trace_output_call
   __tracepoint_android_rvh_attach_entity_load_avg
   __tracepoint_android_rvh_can_migrate_task
+  __tracepoint_android_rvh_cgroup_force_kthread_migration
   __tracepoint_android_rvh_check_preempt_wakeup_fair
   __tracepoint_android_rvh_cpu_overutilized
   __tracepoint_android_rvh_dequeue_task
@@ -2659,11 +2666,15 @@
   __tracepoint_android_rvh_iommu_alloc_insert_iova
   __tracepoint_android_rvh_iommu_iovad_init_alloc_algo
   __tracepoint_android_rvh_iommu_limit_align_shift
+  __tracepoint_android_rvh_irqs_disable
+  __tracepoint_android_rvh_irqs_enable
   __tracepoint_android_rvh_madvise_pageout_begin
   __tracepoint_android_rvh_madvise_pageout_end
   __tracepoint_android_rvh_mapping_shrinkable
   __tracepoint_android_rvh_meminfo_proc_show
   __tracepoint_android_rvh_post_init_entity_util_avg
+  __tracepoint_android_rvh_preempt_disable
+  __tracepoint_android_rvh_preempt_enable
   __tracepoint_android_rvh_reclaim_folio_list
   __tracepoint_android_rvh_remove_entity_load_avg
   __tracepoint_android_rvh_rtmutex_prepare_setprio
