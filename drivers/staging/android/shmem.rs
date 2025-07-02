@@ -10,7 +10,7 @@ use kernel::{
     ffi::{c_int, c_ulong},
     fs::file::{File, LocalFile},
     miscdevice::{loff_t, IovIter},
-    mm::virt::{vm_flags_t, VmAreaNew},
+    mm::virt::{vm_flags_t, VmaNew},
     prelude::*,
     str::CStr,
     types::ARef,
@@ -37,8 +37,8 @@ pub(crate) unsafe fn file_set_fpos(file: &LocalFile, pos: loff_t) {
     unsafe { (*file.as_ptr()).f_pos = pos };
 }
 
-pub(crate) fn vma_set_anonymous(vma: &VmAreaNew) {
-    // SAFETY: The `VmAreaNew` type is only used when the vma is being set up, so this operation is
+pub(crate) fn vma_set_anonymous(vma: &VmaNew) {
+    // SAFETY: The `VmaNew` type is only used when the vma is being set up, so this operation is
     // safe.
     unsafe { (*vma.as_ptr()).vm_ops = core::ptr::null_mut() };
 }
@@ -152,13 +152,13 @@ fn set_inode_lockdep_class(vmfile: &File) {
     }
 }
 
-pub(crate) fn zero_setup(vma: &VmAreaNew) -> Result<()> {
-    // SAFETY: The `VmAreaNew` type is only used when the vma is being set up, so we can set up the
+pub(crate) fn zero_setup(vma: &VmaNew) -> Result<()> {
+    // SAFETY: The `VmaNew` type is only used when the vma is being set up, so we can set up the
     // vma.
     to_result(unsafe { bindings::shmem_zero_setup(vma.as_ptr()) })
 }
 
-pub(crate) fn set_file(vma: &VmAreaNew, file: &File) {
+pub(crate) fn set_file(vma: &VmaNew, file: &File) {
     let file = ARef::from(file);
     // SAFETY: We're setting up the vma, so we can read the file pointer.
     let old_file = unsafe { (*vma.as_ptr()).vm_file };

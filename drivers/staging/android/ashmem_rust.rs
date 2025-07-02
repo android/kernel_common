@@ -22,7 +22,7 @@ use kernel::{
     fs::{File, LocalFile},
     ioctl::_IOC_SIZE,
     miscdevice::{loff_t, IovIter, Kiocb, MiscDevice, MiscDeviceOptions, MiscDeviceRegistration},
-    mm::virt::{flags as vma_flags, VmAreaNew},
+    mm::virt::{flags as vma_flags, VmaNew},
     page::{page_align, PAGE_MASK, PAGE_SIZE},
     page_size_compat::__page_align,
     prelude::*,
@@ -155,7 +155,7 @@ impl MiscDevice for Ashmem {
         )
     }
 
-    fn mmap(me: Pin<&Ashmem>, _file: &File, vma: &VmAreaNew) -> Result<()> {
+    fn mmap(me: Pin<&Ashmem>, _file: &File, vma: &VmaNew) -> Result<()> {
         let asma = &mut *me.inner.lock();
 
         // User needs to SET_SIZE before mapping.
