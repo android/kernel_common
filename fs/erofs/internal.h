@@ -51,7 +51,7 @@ struct erofs_device_info {
 	struct erofs_fscache *fscache;
 	struct file *file;
 	struct dax_device *dax_dev;
-	u64 dax_part_off;
+	u64 fsoff, dax_part_off;
 
 	u32 blocks;
 	u32 mapped_blkaddr;
@@ -213,6 +213,7 @@ enum erofs_kmap_type {
 struct erofs_buf {
 	struct address_space *mapping;
 	struct file *file;
+	u64 off;
 	struct page *page;
 	void *base;
 	enum erofs_kmap_type kmap_type;
