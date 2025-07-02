@@ -95,15 +95,6 @@ config GKI_HIDDEN_GPIO_CONFIGS
 	  These are normally selected implicitly when a module
 	  that relies on it is configured.
 
-config GKI_HIDDEN_I2C_CONFIGS
-	bool "Hidden I2C configs needed for GKI"
-	select P2SB if (X86)
-	select CHECK_SIGNATURE if (X86 && DMI)
-	help
-	  Dummy config option used to enable hidden I2C configs.
-	  These are normally selected implicitly when a module
-	  that relies on it is configured.
-
 config GKI_HIDDEN_X86_CONFIGS
 	bool "Hidden X86 configs needed for GKI"
 	select ACPI_THERMAL_LIB if (X86 && ACPI)
@@ -322,7 +313,6 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_UFS_CONFIGS
 	select GKI_HIDDEN_MMC_CONFIGS
 	select GKI_HIDDEN_GPIO_CONFIGS
-	select GKI_HIDDEN_I2C_CONFIGS
 	select GKI_HIDDEN_X86_CONFIGS
 	select GKI_HIDDEN_QCOM_CONFIGS
 	select GKI_LEGACY_WEXT_ALLCONFIG
