@@ -31,6 +31,7 @@
 #include "intel_dsb.h"
 #include "intel_vrr.h"
 #include "skl_universal_plane.h"
+#include "skl_universal_plane_regs.h"
 
 #define PLANE_DEGAMMA_SIZE 128
 #define PLANE_GAMMA_SIZE 32
@@ -89,6 +90,10 @@ struct intel_color_funcs {
 	 * Read config other than LUTs and CSCs, before them. Optional.
 	 */
 	void (*get_config)(struct intel_crtc_state *crtc_state);
+
+	/* Plane CSC*/
+	void (*load_plane_csc_matrix)(struct intel_dsb *dsb,
+				      const struct intel_plane_state *plane_state);
 };
 
 #define CTM_COEFF_SIGN	(1ULL << 63)
@@ -3972,7 +3977,10 @@ static void
 intel_color_load_plane_csc_matrix(struct intel_dsb *dsb,
 				  const struct intel_plane_state *plane_state)
 {
-	/* CTM programming */
+	struct intel_display *display = to_intel_display(plane_state);
+
+	if (display->funcs.color->load_plane_csc_matrix)
+		display->funcs.color->load_plane_csc_matrix(dsb, plane_state);
 }
 
 void intel_color_plane_program_pipeline(struct intel_dsb *dsb,
