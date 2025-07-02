@@ -13,6 +13,8 @@ CONFIG_IKCONFIG_PROC=y
 # CONFIG_TIME_NS is not set
 # CONFIG_PID_NS is not set
 # CONFIG_NET_NS is not set
+CONFIG_CGROUPS=y
+CONFIG_MEMCG=y
 # CONFIG_RD_GZIP is not set
 # CONFIG_RD_BZIP2 is not set
 # CONFIG_RD_LZMA is not set
