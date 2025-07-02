@@ -890,6 +890,13 @@ impl NodeRef {
             }
             *count += 1;
         } else {
+            if *count == 0 {
+                pr_warn!(
+                    "pid {} performed invalid decrement on ref\n",
+                    kernel::current!().pid()
+                );
+                return false;
+            }
             *count -= 1;
             if *count == 0 {
                 self.node.update_refcount(false, *node_count, strong);

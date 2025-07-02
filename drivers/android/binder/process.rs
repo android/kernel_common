@@ -926,6 +926,8 @@ impl Process {
                 refs.by_handle.remove(&handle);
                 refs.by_node.remove(&id);
             }
+        } else {
+            pr_warn!("{}: no such ref {handle}\n", kernel::current!().pid());
         }
         Ok(())
     }
