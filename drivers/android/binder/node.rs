@@ -827,6 +827,22 @@ impl NodeRef {
         other.weak_count = 0;
         other.strong_node_count = 0;
         other.weak_node_count = 0;
+
+        if self.strong_node_count >= 2 || self.weak_node_count >= 2 {
+            let mut guard = self.node.owner.inner.lock();
+            let inner = self.node.inner.access_mut(&mut guard);
+
+            if self.strong_node_count >= 2 {
+                inner.strong.count -= self.strong_node_count - 1;
+                self.strong_node_count = 1;
+                assert_ne!(inner.strong.count, 0);
+            }
+            if self.weak_node_count >= 2 {
+                inner.weak.count -= self.weak_node_count - 1;
+                self.weak_node_count = 1;
+                assert_ne!(inner.weak.count, 0);
+            }
+        }
     }
 
     pub(crate) fn get_count(&self) -> (usize, usize) {
