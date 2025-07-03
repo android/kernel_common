@@ -260,15 +260,6 @@ config GKI_HIDDEN_DMA_CONFIGS
 	  Dummy config option used to enable the hidden DMA configs,
 	  required by various SoC platforms.
 
-config GKI_HIDDEN_THERMAL_CONFIGS
-	bool "Hidden thermal configs needed for GKI"
-	select ACPI_THERMAL_LIB if (X86 && ACPI)
-	select INTEL_TCC if (X86)
-	help
-	  Dummy config option used to enable hidden thermal configs.
-	  These are normally selected implicitly when a module that
-	  relies on it is configured.
-
 config GKI_DYNAMIC_TASK_STRUCT_SIZE
 	bool "Dynamic task_struct size needed for GKI"
 	select ARCH_WANTS_DYNAMIC_TASK_STRUCT
@@ -322,7 +313,6 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_PHY_CONFIGS
 	select GKI_HIDDEN_MM_CONFIGS
 	select GKI_HIDDEN_ETHERNET_CONFIGS
-	select GKI_HIDDEN_THERMAL_CONFIGS
 	select GKI_HIDDEN_DMA_CONFIGS
 	select GKI_DYNAMIC_TASK_STRUCT_SIZE
 
