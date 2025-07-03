@@ -8686,20 +8686,18 @@ static int __init vmx_init(void)
 		return -EOPNOTSUPP;
 
 #ifdef CONFIG_PKVM_INTEL
-	if (enable_pkvm) {
-		if (!vmx_pkvm_init()) {
-			x86_ops = &pkvm_host_x86_ops;
-			x86_init_ops = &pkvm_host_init_ops;
-			enable_pmu = false;
-			nested = false;
+	if (!vmx_pkvm_init()) {
+		x86_ops = &pkvm_host_x86_ops;
+		x86_init_ops = &pkvm_host_init_ops;
+		enable_pmu = false;
+		nested = false;
 #ifdef CONFIG_X86_SGX_KVM
-			enable_sgx = false;
+		enable_sgx = false;
 #endif
-			enable_ept_ad_bits = false;
-			enable_preemption_timer = false;
-		} else {
-			enable_pkvm = false;
-		}
+		enable_ept_ad_bits = false;
+		enable_preemption_timer = false;
+	} else {
+		enable_pkvm = false;
 	}
 #endif
 

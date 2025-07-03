@@ -1303,7 +1303,7 @@ int __init vmx_pkvm_init(void)
 
 	if (!enable_pkvm) {
 		pkvm_firmware_rmem_clear();
-		return 0;
+		return -EOPNOTSUPP;
 	}
 
 	if (pkvm_sym(pkvm_hyp)) {
