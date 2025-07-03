@@ -248,8 +248,9 @@ static int create_host_ept_mapping(void)
 static int protect_pkvm_pages(const struct pkvm_section sections[],
 		       int section_sz, phys_addr_t phys, unsigned long size)
 {
+	int ret;
 #ifndef CONFIG_PKVM_INTEL_DEBUG
-	int i, ret;
+	int i;
 
 	for (i = 0; i < section_sz; i++) {
 		u64 pa, size;
@@ -264,6 +265,7 @@ static int protect_pkvm_pages(const struct pkvm_section sections[],
 			}
 		}
 	}
+#endif
 
 	ret = pkvm_host_ept_unmap(phys, phys, size);
 	if (ret) {
@@ -279,7 +281,6 @@ static int protect_pkvm_pages(const struct pkvm_section sections[],
 		}
 	}
 
-#endif
 	return 0;
 }
 
