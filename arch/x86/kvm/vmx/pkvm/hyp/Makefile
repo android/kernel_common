@@ -61,6 +61,16 @@ $(obj)/pkvm.o: $(obj)/pkvm.tmp.o FORCE
 quiet_cmd_pkvmcopy = PKVMPCOPY $@
 cmd_pkvmcopy = $(NM) $< | awk '!seen[$$NF]++ {print $$NF}' | awk '{idx=index($$1,".");if(idx>0){print $$1, substr($$1, 1, idx-1)"__pkvm"substr($$1, idx)}else{print $$1, $$1"__pkvm"}}' > $<.syms && $(OBJCOPY) --redefine-syms=$<.syms $< $@ && rm -f $<.syms
 
-# Remove ftrace, Shadow Call Stack, and CFI CFLAGS.
+# Remove ftrace and Shadow Call Stack.
 # This is equivalent to the 'notrace' and '__noscs' annotations.
+#
+# NOTE: do not remove CC_FLAGS_CFI. Since CFI code chunks don't depend
+# on the host kernel's global data, we can keep CFI coverage enabled
+# for the hypervisor as well, and we _should_ keep it enabled, for the
+# following reasons (apart from its security advantages):
+# 1. To avoid problems with the boot time kernel patching which assumes
+#    that if CFI is enabled, it covers the entire kernel text (see
+#    apply_seal_endbr()).
+# 2. To keep the calling convention compatible in cases when hypervisor
+#    functions are called from host kernel code (before deprivilege).
 KBUILD_CFLAGS := $(filter-out $(CC_FLAGS_FTRACE) $(CC_FLAGS_SCS), $(KBUILD_CFLAGS))
