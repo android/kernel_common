@@ -1262,7 +1262,7 @@ static int __init pkvm_firmware_rmem_init(void)
 	end = cmdline_pvmfw_base + cmdline_pvmfw_size - 1;
 	size = cmdline_pvmfw_size;
 
-	if (e820__get_entry_type(start, end) != E820_TYPE_RESERVED) {
+	if (!e820__mapped_all(start, end, E820_TYPE_RESERVED)) {
 		pr_err("pkvm: pvmfw memory [0x%llx-0x%llx] is not reserved in e820\n",
 		       start, end);
 		return -EINVAL;
