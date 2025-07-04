@@ -211,6 +211,48 @@ put_pkvm_vcpu:
 	return ret;
 }
 
+static int guest_mmu_unmap_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
+				void *ptep, struct pgt_flush_data *flush_data, void *arg)
+{
+	unsigned long phys = pgt->pgt_ops->pgt_entry_to_phys(ptep);
+	unsigned long size = pgt->pgt_ops->pgt_level_to_size(level);
+	int ret;
+
+	if (WARN_ON_ONCE(!pgt->pgt_ops->pgt_entry_present(ptep)))
+		return 0;
+
+	pgt->mm_ops->get_page(ptep);
+	ret = __pkvm_host_unshare_guest(phys, pgt, vaddr, size);
+	pgt->mm_ops->put_page(ptep);
+
+	flush_data->flushtlb = true;
+
+	return ret;
+}
+
+int pkvm_vm_mmu_unmap(int vm_handle, u64 gpa, u64 size)
+{
+	struct pkvm_vm *pkvm_vm;
+	int ret;
+
+	pkvm_vm = get_pkvm_vm(vm_handle);
+	if (!pkvm_vm)
+		return -EINVAL;
+
+	if (pkvm_is_protected_vm(to_kvm(pkvm_vm))) {
+		ret = -EPERM;
+		goto put_pkvm_vm;
+	}
+
+	pkvm_spin_lock(&pkvm_vm->mmu_lock);
+	ret = pkvm_pgtable_unmap(&pkvm_vm->mmu, gpa, size, guest_mmu_unmap_leaf);
+	pkvm_spin_unlock(&pkvm_vm->mmu_lock);
+
+put_pkvm_vm:
+	put_pkvm_vm(pkvm_vm);
+	return ret;
+}
+
 static int guest_mmu_free_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
 			       void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {

@@ -13,5 +13,6 @@ extern struct pkvm_pgtable_cap guest_mmu_pgt_cap;
 int pkvm_vm_mmu_init(struct pkvm_vm *pkvm_vm);
 void pkvm_vm_mmu_destroy(struct pkvm_vm *pkvm_vm);
 int pkvm_vm_mmu_map(struct kvm_vcpu *shared_vcpu, u64 gpa, u64 hpa, u64 size, bool writable);
+int pkvm_vm_mmu_unmap(int vm_handle, u64 gpa, u64 size);
 
 #endif /* __PKVM_X86_MMU_H */

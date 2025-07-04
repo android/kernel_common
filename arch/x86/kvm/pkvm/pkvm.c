@@ -1713,6 +1713,9 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 		ret = pkvm_vm_mmu_map((struct kvm_vcpu *)kern_pkvm_va((void *)p1),
 				      p2, p3, p4, p5);
 		break;
+	case __pkvm__vm_mmu_unmap:
+		ret = pkvm_vm_mmu_unmap((int)p1, p2, p3);
+		break;
 	case __pkvm__vcpu_create:
 		ret = pkvm_vcpu_create((struct kvm_vcpu *)kern_pkvm_va((void *)p1), p2);
 		break;
