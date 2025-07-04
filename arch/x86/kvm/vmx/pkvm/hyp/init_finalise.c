@@ -29,6 +29,7 @@
 #include <vmx/vmx.h>
 #include <pkvm/vmx/vmx.h>
 #include <pkvm/pkvm.h>
+#include <pkvm/fpu/fpu.h>
 
 #include "bug.h"
 
@@ -460,6 +461,8 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 	ret = setup_vmx();
 	if (ret)
 		goto out;
+
+	pkvm_setup_xstate_cache();
 
 	pkvm_setup_done = true;
 
