@@ -767,6 +767,9 @@ static void pkvm_vcpu_load(struct pkvm_vcpu *pkvm_vcpu, int cpu)
 	vcpu->arch.l1tf_flush_l1d = true;
 
 	kvm_x86_call(vcpu_load)(vcpu, cpu);
+
+	/* Save host pkru register if supported */
+	vcpu->arch.host_pkru = read_pkru();
 }
 
 static void pkvm_vcpu_put(struct pkvm_vcpu *pkvm_vcpu)
