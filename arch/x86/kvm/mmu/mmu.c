@@ -1554,6 +1554,47 @@ static bool __kvm_rmap_zap_gfn_range(struct kvm *kvm,
 				 start, end - 1, can_yield, true, flush);
 }
 
+#ifdef CONFIG_PKVM_INTEL
+static bool pkvm_unmap_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range)
+{
+	int err;
+
+	if (pkvm_is_protected_vm(kvm))
+		return false;
+
+	err = kvm_call_pkvm(vm_mmu_unmap, kvm->arch.pkvm.pkvm_vm_handle,
+			    range->start << PAGE_SHIFT,
+			    (range->end - range->start) << PAGE_SHIFT);
+	WARN_ONCE(err, "pkvm unmap gfn[%llx..%llx] failed, err = %d\n",
+		  range->start, range->end, err);
+
+	/* pKVM itself always flushes TLB on unmap */
+	return false;
+}
+
+static bool pkvm_age_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range,
+			       bool mkold)
+{
+	if (pkvm_is_protected_vm(kvm))
+		return false;
+
+	return kvm_call_pkvm(vm_mmu_age, kvm->arch.pkvm.pkvm_vm_handle,
+			     range->start << PAGE_SHIFT,
+			     (range->end - range->start) << PAGE_SHIFT,
+			     mkold);
+}
+#else
+static bool pkvm_unmap_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range)
+{
+	return false;
+}
+static bool pkvm_age_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range,
+			       bool mkold)
+{
+	return false;
+}
+#endif
+
 bool kvm_unmap_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range)
 {
 	bool flush = false;
@@ -1576,6 +1617,8 @@ bool kvm_unmap_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range)
 
 	if (tdp_mmu_enabled)
 		flush = kvm_tdp_mmu_unmap_gfn_range(kvm, range, flush);
+	else if (enable_pkvm)
+		flush = pkvm_unmap_gfn_range(kvm, range);
 
 	if (kvm_x86_ops.set_apic_access_page_addr &&
 	    range->slot->id == APIC_ACCESS_PAGE_PRIVATE_MEMSLOT)
@@ -1667,6 +1710,8 @@ bool kvm_age_gfn(struct kvm *kvm, struct kvm_gfn_range *range)
 
 	if (tdp_mmu_enabled)
 		young |= kvm_tdp_mmu_age_gfn_range(kvm, range);
+	else if (enable_pkvm)
+		young |= pkvm_age_gfn_range(kvm, range, true);
 
 	return young;
 }
@@ -1680,6 +1725,8 @@ bool kvm_test_age_gfn(struct kvm *kvm, struct kvm_gfn_range *range)
 
 	if (tdp_mmu_enabled)
 		young |= kvm_tdp_mmu_test_age_gfn(kvm, range);
+	else if (enable_pkvm)
+		young |= pkvm_age_gfn_range(kvm, range, false);
 
 	return young;
 }
