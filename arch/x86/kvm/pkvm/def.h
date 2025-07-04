@@ -27,11 +27,14 @@
 /* FIXME: Disable SGX to simplify POC */
 #undef CONFIG_X86_SGX_KVM
 #undef CONFIG_PREEMPT_COUNT
+#undef CONFIG_CALL_THUNKS_DEBUG
 #define __NO_FORTIFY
 
+#ifndef __ASSEMBLER__
 #include <linux/types.h>
 phys_addr_t pkvm_virt_to_phys(void *virt);
 #undef __pa
 #define __pa(x) pkvm_virt_to_phys((void *)(x))
+#endif
 
 #endif /* __PKVM_X86_DEF_H */
