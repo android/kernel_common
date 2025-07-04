@@ -1351,6 +1351,8 @@ static void __init setup_pkvm_syms(void)
 		static_branch_enable(&pkvm_sym(mmio_stale_data_clear));
 	else
 		static_branch_disable(&pkvm_sym(mmio_stale_data_clear));
+	pkvm_sym(fpu_kernel_cfg) = fpu_kernel_cfg;
+	pkvm_sym(fpu_user_cfg) = fpu_user_cfg;
 }
 
 static int __init setup_pkvm_l1d(void)

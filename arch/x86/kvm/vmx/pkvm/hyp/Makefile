@@ -19,7 +19,7 @@ pkvm-hyp-y	:= vmx_asm.o vmexit.o memory.o page_alloc.o early_alloc.o pgtable.o m
 
 pkvm		:= ../../../pkvm
 pkvm-hyp-y	+= $(pkvm)/cpu.o $(pkvm)/pkvm.o $(pkvm)/x86.o $(pkvm)/vmx/vmx.o $(pkvm)/vmx/ept.o \
-		   $(pkvm)/cpuid.o $(pkvm)/lapic.o $(pkvm)/entry.o $(pkvm)/mmu.o
+		   $(pkvm)/cpuid.o $(pkvm)/lapic.o $(pkvm)/entry.o $(pkvm)/mmu.o $(pkvm)/fpu/core.o
 
 pkvm-kvm	:= ../../..
 pkvm-hyp-y	+= $(pkvm-kvm)/vmx/vmenter.o
