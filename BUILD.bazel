@@ -1511,6 +1511,7 @@ ddk_headers(
 ddk_headers(
     name = "all_headers_allowlist_aarch64",
     hdrs = [
+        "drivers/dma/dmaengine.h",
         "drivers/extcon/extcon.h",
         "drivers/pci/controller/dwc/pcie-designware.h",
         "drivers/pci/pci.h",
@@ -1535,6 +1536,7 @@ ddk_headers(
     linux_includes = [
         "arch/arm64/include",
         "arch/arm64/include/uapi",
+        "drivers/dma",
         "drivers/extcon",
         "drivers/pci",
         "drivers/pci/controller/dwc",
