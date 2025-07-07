@@ -1511,25 +1511,14 @@ enqueue_task_rt(struct rq *rq, struct task_struct *p, int flags)
 
 	enqueue_rt_entity(rt_se, flags);
 
-	/*
-	 * Current can't be pushed away. Selected is tied to current,
-	 * so don't push it either.
-	 */
-	if (task_current(rq, p) || task_current_donor(rq, p))
-		return;
-	/*
-	 * Pinned tasks can't be pushed.
-	 */
-	if (p->nr_cpus_allowed == 1)
-		return;
-
 	if (should_honor_rt_sync(rq, p, sync))
 		return;
 
 	if (task_is_blocked(p))
 		return;
 
-	enqueue_pushable_task(rq, p);
+	if (!task_current(rq, p) && p->nr_cpus_allowed > 1)
+		enqueue_pushable_task(rq, p);
 }
 
 static bool dequeue_task_rt(struct rq *rq, struct task_struct *p, int flags)
@@ -2035,42 +2024,18 @@ static struct task_struct *pick_next_pushable_task(struct rq *rq)
 }
 
 static inline bool __rt_revalidate_rq_state(struct task_struct *task, struct rq *rq,
-					    struct rq *lowest, bool *retry)
+					    struct rq *lowest)
 {
-	/*
-	 * We had to unlock the run queue. In the mean time, task could have
-	 * migrated already or had its affinity changed. Also make sure that it
-	 * wasn't scheduled on its rq. It is possible the task was scheduled,
-	 * set "migrate_disabled" and then got preempted, so we must check the
-	 * task migration disable flag here too.
-	 */
-	if (task_rq(task) != rq)
-		return false;
-
-	if (!cpumask_test_cpu(lowest->cpu, &task->cpus_mask))
-		return false;
-
-	if (task_on_cpu(rq, task))
-		return false;
-
 	if (!rt_task(task))
 		return false;
-
-	if (is_migration_disabled(task))
-		return false;
-
-	if (!task_on_rq_queued(task))
-		return false;
-
-	return true;
+	return __revalidate_rq_state(task, rq, lowest);
 }
 
-/* XXX: TODO: Consolidate this w/ dl_revalidate_rq_state */
 static inline bool rt_revalidate_rq_state(struct task_struct *task, struct rq *rq,
 					  struct rq *lowest, bool *retry)
 {
 	if (!sched_proxy_exec())
-		return __rt_revalidate_rq_state(task, rq, lowest, retry);
+		return __rt_revalidate_rq_state(task, rq, lowest);
 	/*
 	 * Releasing the rq lock means we need to re-check pushability.
 	 * Some scenarios:

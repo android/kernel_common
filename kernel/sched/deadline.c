@@ -2485,6 +2485,10 @@ static void put_prev_task_dl(struct rq *rq, struct task_struct *p, struct task_s
 	update_curr_dl(rq);
 
 	update_dl_rq_load_avg(rq_clock_pelt(rq), rq, 1);
+
+	if (task_is_blocked(p))
+		return;
+
 	if (on_dl_rq(&p->dl) && p->nr_cpus_allowed > 1)
 		enqueue_pushable_dl_task(rq, p);
 }
@@ -2679,34 +2683,18 @@ static struct task_struct *pick_next_pushable_dl_task(struct rq *rq)
 }
 
 static inline bool __dl_revalidate_rq_state(struct task_struct *task, struct rq *rq,
-					    struct rq *later, bool *retry)
+					    struct rq *later)
 {
-	if (task_rq(task) != rq)
-		return false;
-
-	if (!cpumask_test_cpu(later->cpu, &task->cpus_mask))
-		return false;
-
-	if (task_on_cpu(rq, task))
-		return false;
-
 	if (!dl_task(task))
 		return false;
-
-	if (is_migration_disabled(task))
-		return false;
-
-	if (!task_on_rq_queued(task))
-		return false;
-
-	return true;
+	return __revalidate_rq_state(task, rq, later);
 }
 
 static inline bool dl_revalidate_rq_state(struct task_struct *task, struct rq *rq,
 					  struct rq *later, bool *retry)
 {
 	if (!sched_proxy_exec())
-		return __dl_revalidate_rq_state(task, rq, later, retry);
+		return __dl_revalidate_rq_state(task, rq, later);
 
 	if (!dl_task(task) || is_migration_disabled(task))
 		return false;

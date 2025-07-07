@@ -652,7 +652,7 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
 	}
 
 	trace_android_vh_mutex_wait_start(lock);
-	set_task_blocked_on(current, lock);
+	__set_task_blocked_on(current, lock);
 	set_current_state(state);
 	trace_contention_begin(lock, LCB_F_MUTEX);
 	for (;;) {
@@ -713,8 +713,10 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
 			bool opt_acquired;
 
 			/*
-			 * mutex_optimistic_spin() can schedule, so  we need to
-			 * release these locks before calling it.
+			 * mutex_optimistic_spin() can call schedule(), so
+			 * we need to release these locks before calling it,
+			 * and clear blocked on so we don't become unselectable
+			 * to run.
 			 */
 			current->blocked_on_state = BO_RUNNABLE;
 			raw_spin_unlock(&current->blocked_lock);
@@ -729,7 +731,7 @@ __mutex_lock_common(struct mutex *lock, unsigned int state, unsigned int subclas
 			trace_contention_begin(lock, LCB_F_MUTEX);
 		}
 	}
-	set_task_blocked_on(current, NULL);
+	__clear_task_blocked_on(current, lock);
 	__set_current_state(TASK_RUNNING);
 	trace_android_vh_mutex_wait_finish(lock);
 
@@ -763,12 +765,12 @@ skip_wait:
 	return 0;
 
 err:
-	set_task_blocked_on(current, NULL);
+	__clear_task_blocked_on(current, lock);
 	__set_current_state(TASK_RUNNING);
 	trace_android_vh_mutex_wait_finish(lock);
 	__mutex_remove_waiter(lock, &waiter);
 err_early_kill:
-	WARN_ON(get_task_blocked_on(current));
+	WARN_ON(__get_task_blocked_on(current));
 	trace_contention_end(lock, ret);
 	raw_spin_unlock(&current->blocked_lock);
 	raw_spin_unlock_irqrestore(&lock->wait_lock, flags);
@@ -990,10 +992,10 @@ static noinline void __sched __mutex_unlock_slowpath(struct mutex *lock, unsigne
 			struct mutex *next_lock;
 
 			raw_spin_lock_nested(&donor->blocked_lock, SINGLE_DEPTH_NESTING);
-			next_lock = get_task_blocked_on(donor);
+			next_lock = __get_task_blocked_on(donor);
 			if (next_lock == lock) {
 				next = donor;
-				set_blocked_on_waking(donor);
+				__set_blocked_on_waking(donor);
 				wake_q_add(&wake_q, donor);
 				current->blocked_donor = NULL;
 			}
@@ -1014,10 +1016,10 @@ static noinline void __sched __mutex_unlock_slowpath(struct mutex *lock, unsigne
 
 		raw_spin_lock_nested(&next->blocked_lock, SINGLE_DEPTH_NESTING);
 		debug_mutex_wake_waiter(lock, waiter);
-		WARN_ON(get_task_blocked_on(next) != lock);
-		set_blocked_on_waking(next);
-		wake_q_add(&wake_q, next);
+		WARN_ON_ONCE(__get_task_blocked_on(next) != lock);
+		__set_blocked_on_waking(next);
 		raw_spin_unlock(&next->blocked_lock);
+		wake_q_add(&wake_q, next);
 	}
 
 	if (owner & MUTEX_FLAG_HANDOFF)
