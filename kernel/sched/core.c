@@ -3899,7 +3899,7 @@ static void do_activate_blocked_waiter(struct rq *target_rq, struct task_struct 
 			 */
 			return;
 		}
-		if (READ_ONCE(p->on_cpu)) {
+		if (task_on_cpu(task_rq(p), p)) {
 			/*
 			 * Its possible this activation is very late, and
 			 * we already were woken up and are running on a

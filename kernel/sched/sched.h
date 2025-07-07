@@ -2336,7 +2336,7 @@ static inline bool task_is_blocked(struct task_struct *p)
 static inline int task_on_cpu(struct rq *rq, struct task_struct *p)
 {
 #ifdef CONFIG_SMP
-	return p->on_cpu;
+	return READ_ONCE(p->on_cpu);
 #else
 	return task_current(rq, p);
 #endif
@@ -3957,6 +3957,7 @@ void move_queued_task_locked(struct rq *rq, struct rq *dst_rq, struct task_struc
 int task_is_pushable(struct rq *rq, struct task_struct *p, int cpu);
 struct task_struct *find_exec_ctx(struct rq *rq, struct task_struct *p);
 #else /* !CONFIG_SCHED_PROXY_EXEC */
+#ifdef CONFIG_SMP
 static inline
 void move_queued_task_locked(struct rq *rq, struct rq *dst_rq, struct task_struct *task)
 {
@@ -3968,7 +3969,7 @@ int task_is_pushable(struct rq *rq, struct task_struct *p, int cpu)
 {
 	return __task_is_pushable(rq, p, cpu);
 }
-
+#endif
 static inline
 struct task_struct *find_exec_ctx(struct rq *rq, struct task_struct *p)
 {
