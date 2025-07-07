@@ -38,6 +38,7 @@
   folio_referenced
   reclaim_pages
   percpu_ref_is_zero
+  vm_normal_folio_pmd
   __mod_lruvec_state
   __mod_zone_page_state
   __pte_offset_map_lock
