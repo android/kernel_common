@@ -1659,6 +1659,7 @@
   mempool_free
   mempool_free_slab
   mempool_init_noprof
+  mempool_resize
   memremap
   memscan
   mem_section
