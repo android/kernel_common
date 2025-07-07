@@ -4661,6 +4661,8 @@ void slab_free(struct kmem_cache *s, struct slab *slab, void *object,
 
 	if (likely(slab_free_hook(s, object, slab_want_init_on_free(s), false)))
 		do_slab_free(s, slab, object, object, 1, addr);
+
+	trace_android_vh_slab_free(addr, s);
 }
 
 #ifdef CONFIG_MEMCG
