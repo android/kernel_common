@@ -3270,7 +3270,12 @@ int __init intel_iommu_init(void)
 	if (list_empty(&dmar_satc_units))
 		pr_info("No SATC found\n");
 
-	init_no_remapping_devices();
+	/*
+	 * Do not ignore any dmars if pkvm is enabled so as to
+	 * guarantee memory protection from devices.
+	 */
+	if (!pkvm_enabled())
+		init_no_remapping_devices();
 
 	ret = init_dmars();
 	if (ret) {
