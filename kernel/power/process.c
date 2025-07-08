@@ -102,13 +102,15 @@ static int try_to_freeze_tasks(bool user_only)
 			for_each_process_thread(g, p) {
 				if (p != current && freezing(p) && !frozen(p)) {
 					sched_show_task(p);
-					trace_android_vh_try_to_freeze_todo_unfrozen(p);
+					if (!wakeup)
+						trace_android_vh_try_to_freeze_todo_unfrozen(p);
 				}
 			}
 			read_unlock(&tasklist_lock);
 		}
 
-		trace_android_vh_try_to_freeze_todo(todo, elapsed_msecs, wq_busy);
+		if (!wakeup)
+			trace_android_vh_try_to_freeze_todo(todo, elapsed_msecs, wq_busy);
 	} else {
 		pr_info("Freezing %s completed (elapsed %d.%03d seconds)\n",
 			what, elapsed_msecs / 1000, elapsed_msecs % 1000);
