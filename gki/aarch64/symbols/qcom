@@ -1259,6 +1259,9 @@
   get_user_ifreq
   get_user_pages
   get_zeroed_page_noprof
+  gic_v3_cpu_init
+  gic_v3_dist_init
+  gic_v3_dist_wait_for_rwp
   gov_attr_set_init
   gov_attr_set_put
   governor_sysfs_ops
