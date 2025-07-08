@@ -384,45 +384,6 @@ static void shadow_pgt_put_page(void *vaddr)
 	hyp_put_page(&shadow_pgt_pool, vaddr);
 }
 
-static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt,
-				 unsigned long addr,
-				 unsigned long size)
-{
-	struct pkvm_shadow_vm *shadow_vm = sept_to_shadow_vm(pgt);
-	struct pkvm_vcpu *pkvm_vcpu;
-	struct kvm_vcpu *vcpu;
-	struct kvm *kvm;
-	int i;
-
-	kvm = shadow_to_kvm(shadow_vm);
-	for (i = 0; i < kvm->created_vcpus; i++) {
-		pkvm_vcpu = get_pkvm_vcpu(kvm->arch.pkvm.pkvm_vm_handle, i);
-		/*
-		 * For a pkvm_vcpu which is already teardown, no need to kick
-		 * it as its shadow EPT tlb entries are already flushed when
-		 * this shadow vcpu is doing vmclear before teardown.
-		 */
-		if (!pkvm_vcpu)
-			continue;
-
-		vcpu = to_kvm_vcpu(pkvm_vcpu);
-		kvm_make_request(KVM_REQ_TLB_FLUSH_CURRENT, vcpu);
-		pkvm_kick_vcpu(vcpu);
-
-		put_pkvm_vcpu(pkvm_vcpu);
-	}
-}
-
-static const struct pkvm_mm_ops shadow_ept_mm_ops = {
-	.phys_to_virt = pkvm_phys_to_virt,
-	.virt_to_phys = pkvm_virt_to_phys,
-	.zalloc_page = shadow_pgt_zalloc_page,
-	.get_page = shadow_pgt_get_page,
-	.put_page = shadow_pgt_put_page,
-	.page_count = hyp_page_count,
-	.flush_tlb = shadow_ept_flush_tlb,
-};
-
 /*
  * mm_ops for shadow second-level IOMMU page tables. These tables
  * are similar to shadow EPT tables, as they also have the EPT
@@ -569,41 +530,6 @@ void pkvm_invalidate_shadow_ept_with_range(struct shadow_ept_desc *desc,
 					   unsigned long vaddr, unsigned long size)
 {
 	__invalidate_shadow_ept_with_range(desc, vaddr, size);
-}
-
-void pkvm_shadow_ept_deinit(struct shadow_ept_desc *desc)
-{
-	struct pkvm_shadow_vm *vm = sept_desc_to_shadow_vm(desc);
-
-	pkvm_spin_lock(&vm->lock);
-
-	if (desc->shadow_eptp)
-		pkvm_pgtable_destroy(&desc->sept, NULL);
-
-	memset(desc, 0, sizeof(struct shadow_ept_desc));
-
-	pkvm_spin_unlock(&vm->lock);
-}
-
-int pkvm_shadow_ept_init(struct shadow_ept_desc *desc)
-{
-	struct pkvm_pgtable_cap cap = {
-		.level = pkvm_hyp->ept_cap.level,
-		.allowed_pgsz = pkvm_hyp->ept_cap.allowed_pgsz,
-		.table_prot = pkvm_hyp->ept_cap.table_prot,
-	};
-	int ret;
-
-	memset(desc, 0, sizeof(struct shadow_ept_desc));
-
-	ret = pkvm_pgtable_init(&desc->sept, &shadow_ept_mm_ops, &ept_ops, &cap, true);
-	if (ret)
-		return ret;
-
-	desc->shadow_eptp = pkvm_construct_eptp(desc->sept.root_pa, cap.level);
-	flush_ept(desc->shadow_eptp);
-
-	return 0;
 }
 
 void pkvm_pgstate_pgt_deinit(struct pkvm_shadow_vm *vm)
