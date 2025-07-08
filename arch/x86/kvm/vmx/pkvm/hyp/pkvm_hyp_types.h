@@ -49,9 +49,6 @@ struct shadow_vcpu_state {
 
 	struct pkvm_shadow_vm *vm;
 
-	/* represents for the virtual EPT configured by kvm-high */
-	struct pkvm_pgtable vept;
-
 	struct pkvm_ve_info ve_info __aligned(PAGE_SIZE);
 } __aligned(PAGE_SIZE);
 

@@ -1404,8 +1404,6 @@ static void pkvm_load_mmu_pgd(struct pkvm_vcpu *pkvm_vcpu, hpa_t root_hpa, int r
 
 	vcpu = to_kvm_vcpu(pkvm_vcpu);
 
-	pkvm_x86_call(setup_virtual_mmu)(vcpu, root_hpa, root_level);
-
 	kvm_x86_call(load_mmu_pgd)(vcpu, vcpu->arch.mmu->root.hpa,
 				   vcpu->arch.mmu->root_role.level);
 }

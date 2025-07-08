@@ -567,47 +567,6 @@ void pkvm_shadow_sl_iommu_pgt_update_coherency(struct pkvm_pgtable *pgt, bool co
 		pkvm_pgtable_set_mm_ops(pgt, &shadow_sl_iommu_pgt_mm_ops_noncoherency);
 }
 
-/*
- * virtual_ept_mm_ops is used as the ops for the ept constructed by
- * KVM high in host.
- * The physical address in this ept is the host VM GPA, which is
- * the same with HPA.
- */
-const struct pkvm_mm_ops virtual_ept_mm_ops = {
-	.phys_to_virt = host_gpa2hva,
-};
-
-void pkvm_guest_ept_deinit(struct shadow_vcpu_state *shadow_vcpu)
-{
-	struct pkvm_pgtable *vept = &shadow_vcpu->vept;
-
-	memset(vept, 0, sizeof(struct pkvm_pgtable));
-}
-
-void pkvm_guest_ept_init(struct shadow_vcpu_state *shadow_vcpu, u64 guest_eptp)
-{
-	/*
-	 * TODO: we just assume guest will use page level the HW supported,
-	 * it actually need align with KVM high
-	 */
-	struct pkvm_pgtable_cap cap = {
-		.level = pkvm_hyp->ept_cap.level,
-		.allowed_pgsz = pkvm_hyp->ept_cap.allowed_pgsz,
-		.table_prot = pkvm_hyp->ept_cap.table_prot,
-	};
-
-	pkvm_pgtable_init(&shadow_vcpu->vept, &virtual_ept_mm_ops, &ept_ops, &cap, false);
-	shadow_vcpu->vept.root_pa = host_gpa2hpa(guest_eptp & SPTE_BASE_ADDR_MASK);
-}
-
-void pkvm_flush_shadow_ept(struct shadow_ept_desc *desc)
-{
-	if (!is_valid_eptp(desc->shadow_eptp))
-		return;
-
-	flush_ept(desc->shadow_eptp);
-}
-
 void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 {
 	struct pkvm_vcpu_vmx *pkvm_vcpu_vmx;
@@ -625,31 +584,6 @@ void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 	 * "Suppress #VE" bit cleared. Accessing this pte will trigger #VE.
 	 */
 	pkvm_pgtable_annotate(sept, gpa, PAGE_SIZE, SHADOW_EPT_MMIO_ENTRY);
-}
-
-void pkvm_setup_virtual_ept(struct kvm_vcpu *vcpu, u64 veptp)
-{
-	struct shadow_vcpu_state *shadow_vcpu = kvm_vcpu_to_shadow(vcpu);
-	struct pkvm_shadow_vm *vm = shadow_vcpu->vm;
-	bool invalidate = false;
-
-	if (!is_valid_eptp(veptp))
-		pkvm_guest_ept_deinit(shadow_vcpu);
-	else if (shadow_vcpu->vept.root_pa !=
-			host_gpa2hpa(veptp & SPTE_BASE_ADDR_MASK)) {
-		pkvm_guest_ept_deinit(shadow_vcpu);
-		pkvm_guest_ept_init(shadow_vcpu, veptp);
-	}
-
-	pkvm_spin_lock(&vm->lock);
-	if (vm->sept_desc.last_guest_eptp != veptp) {
-		vm->sept_desc.last_guest_eptp = veptp;
-		invalidate = true;
-	}
-	pkvm_spin_unlock(&vm->lock);
-
-	if (invalidate)
-		pkvm_invalidate_shadow_ept(&vm->sept_desc);
 }
 
 void pkvm_invalidate_guest_ept(int shadow_vm_handle, u64 start_gpa, u64 size)
