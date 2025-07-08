@@ -1283,7 +1283,10 @@ static void dm_bow_status(struct dm_target *ti, status_type_t type,
 	}
 }
 
-static int dm_bow_prepare_ioctl(struct dm_target *ti, struct block_device **bdev)
+static int dm_bow_prepare_ioctl(struct dm_target *ti,
+				struct block_device **bdev,
+				unsigned int cmd, unsigned long arg,
+				bool *forward)
 {
 	struct bow_context *bc = ti->private;
 	struct dm_dev *dev = bc->dev;
