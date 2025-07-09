@@ -403,7 +403,7 @@ common_kernel(
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("x86_64") + get_kunit_modules_list("x86_64"),
     system_dlkm_extra_archive_files = [":generate_gki_module_info_x86_64"],
-    trim_nonlisted_kmi = False,
+    trim_nonlisted_kmi = True,
     visibility = ["//visibility:public"],
 )
 
