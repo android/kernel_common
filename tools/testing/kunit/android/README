@@ -175,3 +175,197 @@ Troubleshooting
 
    If kunit.ko or \<module_name\>.ko fails to install, check for whether they
    are already installed with `adb shell lsmod`.
+
+HOW TO WRITE KUNIT TESTS
+========================
+
+If you want to
+just run the example test and skip through the walkthrough, it is sufficient to
+apply [patch1.txt](patch1.txt) and [patch2.txt](patch2.txt) and
+then [run the test](#run-tests-on-a-physical-or-virtual-device).
+
+Walkthrough
+-----------
+
+This section follows the
+[Writing Your First Test](https://docs.kernel.org/dev-tools/kunit/start.html#writing-your-first-test)
+example from the KUnit docs.
+
+### Create an example driver to test
+
+1. Create the header file for the driver `common/drivers/misc/example.h`:
+
+   ```c
+   int misc_example_add(int left, int right);
+   ```
+
+2. Define and export `misc_example_add` that will be tested later
+   `common/drivers/misc/example.c`:
+
+   ```c
+   #include <linux/module.h>
+
+   #include "example.h"
+
+   int misc_example_add(int left, int right)
+   {
+           return left + right;
+   }
+   EXPORT_SYMBOL_GPL(misc_example_add);
+   ```
+
+3. Add a kconfig option for the driver to `common/drivers/misc/Kconfig`:
+
+   ```
+   config MISC_EXAMPLE
+   	bool "My example"
+   ```
+
+4. Add the build rule to `common/drivers/misc/Makefile`:
+
+   ```makefile
+   obj-$(CONFIG_MISC_EXAMPLE)	+= example.o
+   ```
+
+### Write the test case
+
+1. Define the test functions and suite `common/drivers/misc/example_test.c`:
+
+   ```c
+   #include <kunit/test.h>
+   #include "example.h"
+
+   /* Define the test cases. */
+
+   static void misc_example_add_test_basic(struct kunit *test)
+   {
+           KUNIT_EXPECT_EQ(test, 1, misc_example_add(1, 0));
+           KUNIT_EXPECT_EQ(test, 2, misc_example_add(1, 1));
+           KUNIT_EXPECT_EQ(test, 0, misc_example_add(-1, 1));
+           KUNIT_EXPECT_EQ(test, INT_MAX, misc_example_add(0, INT_MAX));
+           KUNIT_EXPECT_EQ(test, -1, misc_example_add(INT_MAX, INT_MIN));
+   }
+
+   static void misc_example_test_failure(struct kunit *test)
+   {
+           KUNIT_FAIL(test, "This test never passes.");
+   }
+
+   static struct kunit_case misc_example_test_cases[] = {
+           KUNIT_CASE(misc_example_add_test_basic),
+           KUNIT_CASE(misc_example_test_failure),
+           {}
+   };
+
+   static struct kunit_suite misc_example_test_suite = {
+           .name = "misc-example",
+           .test_cases = misc_example_test_cases,
+   };
+   kunit_test_suite(misc_example_test_suite);
+
+   MODULE_DESCRIPTION("KUnit test for misc_example_add");
+   MODULE_LICENSE("GPL");
+   ```
+
+   Consult the
+   [KUnit usage guide](https://docs.kernel.org/dev-tools/kunit/usage.html#) and
+   the
+   [KUnit API reference](https://docs.kernel.org/dev-tools/kunit/api/index.html)
+   for more in-depth guidance on the test API.
+
+2. Create a kconfig option for the test `common/drivers/misc/Kconfig`:
+
+   ```
+   config MISC_EXAMPLE_TEST
+   	tristate "Test for my example" if !KUNIT_ALL_TESTS
+   	depends on MISC_EXAMPLE && KUNIT
+   	default KUNIT_ALL_TESTS
+   ```
+
+3. Add the build rule to the makefile `common/drivers/misc/Makefile`:
+
+   ```makefile
+   obj-$(CONFIG_MISC_EXAMPLE_TEST)	+= example_test.o
+   ```
+
+4. Add the kconfig options for kunit.py `common/drivers/misc/.kunitconfig`:
+
+   ```bash
+   CONFIG_KUNIT=y
+   CONFIG_MISC_EXAMPLE=y
+   CONFIG_MISC_EXAMPLE_TEST=y
+   ```
+
+### Run the test against User-mode Linux
+
+1. The test can then be run against User-mode Linux using the kunit.py script:
+
+   ```
+   $ cd $REPO/common
+   $ tools/testing/kunit/kunit.py run --kunitconfig drivers/misc
+   [01:21:36] Configuring KUnit Kernel ...
+   Regenerating .config ...
+   Populating config with:
+   $ make ARCH=um O=.kunit olddefconfig
+   [01:21:38] Building KUnit Kernel ...
+   Populating config with:
+   $ make ARCH=um O=.kunit olddefconfig
+   Building with:
+   $ make ARCH=um O=.kunit --jobs=96
+   [01:21:49] Starting KUnit Kernel (1/1)...
+   [01:21:49] ============================================================
+   Running tests with:
+   $ .kunit/linux kunit.enable=1 mem=1G console=tty kunit_shutdown=halt
+   [01:22:01] ================ misc-example (2 subtests) =================
+   [01:22:01] [PASSED] misc_example_add_test_basic
+   [01:22:01]     # misc_example_test_failure: EXPECTATION FAILED at drivers/misc/example_test.c:17
+   [01:22:01] This test never passes.
+   [01:22:01] [FAILED] misc_example_test_failure
+   [01:22:01]     # module: example_test
+   [01:22:01] # misc-example: pass:1 fail:1 skip:0 total:2
+   [01:22:01] # Totals: pass:1 fail:1 skip:0 total:2
+   [01:22:01] ================== [FAILED] misc-example ===================
+   [01:22:01] ============================================================
+   [01:22:01] Testing complete. Ran 2 tests: passed: 1, failed: 1
+   [01:22:01] Elapsed time: 24.906s total, 2.271s configuring, 10.889s building, 11.694s running
+   ```
+
+2. `kunit.py` will create symlinks under the `.kunit` directory that interfere
+   with Kleaf/Bazel. This directory is ignored by `.bazelignore`.
+
+### Configure the test for Android
+
+Now that the example test is created, the test needs to be configured for
+Android. We will need to add build rules for Kleaf/Bazel and create a Tradefed
+test config.
+
+1. Set `CONFIG_MISC_EXAMPLE=y` and `CONFIG_MISC_EXAMPLE_TEST=m` in
+   [gki_defconfig](https://source.corp.google.com/h/android/kernel/superproject/+/common-android-mainline:common/arch/x86/configs/gki_defconfig).
+   (This can be done using menuconfig; refer to the
+   [Kleaf documentation](https://android.googlesource.com/kernel/build/+/refs/heads/main-kernel/kleaf/docs/kernel_config.md)):
+
+   ```
+   $ cd $REPO
+   $ tools/bazel run //common:kernel_x86_64_config -- menuconfig
+   ```
+
+2. Add the test module to `_KUNIT_COMMON_MODULES_LIST` in `common/modules.bzl`:
+
+   ```bazel
+   _KUNIT_COMMON_MODULES_LIST = [
+       ....
+       "drivers/misc/example_test.ko",
+       ....
+   ]
+   ```
+
+3. Add the test under `KUnitModuleTest` in the tradefed configuration
+   `common/tools/testing/kunit/android/tradefed_configs/config_x86_64.xml`:
+
+   ```xml
+       <test class="com.android.tradefed.testtype.binary.KUnitModuleTest" >
+           ....
+           <option name='binary' key='drivers/misc/example_test' value='/data/kunit/arm64/example_test.ko' />
+           ....
+       </test>
+   ```

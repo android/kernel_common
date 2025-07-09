@@ -1,0 +1,80 @@
+From c74fd0410a9ecbd9cb5735b5215e5fbf1789b7f5 Mon Sep 17 00:00:00 2001
+From: Developer <developer@example.com>
+Date: Mon, 26 Aug 2024 19:11:30 +0000
+Subject: [PATCH 2/2] ANDROID: Configure example KUnit test
+
+Configures an example KUnit test to run on Android devices.
+
+Test: common/tools/testing/android/bin/kunit.sh -t example_test.ko
+Change-Id: I335407e917012d2126cce4dfcb8bb82d3320b66f
+Signed-off-by: Developer <developer@example.com>
+---
+ arch/arm64/configs/gki_defconfig                               | 2 ++
+ arch/x86/configs/gki_defconfig                                 | 2 ++
+ modules.bzl                                                    | 1 +
+ tools/testing/kunit/android/tradefed_configs/config_arm64.xml  | 1 +
+ tools/testing/kunit/android/tradefed_configs/config_x86_64.xml | 1 +
+ 5 files changed, 7 insertions(+)
+
+diff --git a/arch/arm64/configs/gki_defconfig b/arch/arm64/configs/gki_defconfig
+index 01b5114a322d..b25e053e6797 100644
+--- a/arch/arm64/configs/gki_defconfig
++++ b/arch/arm64/configs/gki_defconfig
+@@ -323,6 +323,8 @@ CONFIG_VIRTIO_BLK=m
+ CONFIG_BLK_DEV_UBLK=y
+ CONFIG_BLK_DEV_NVME=y
+ CONFIG_NVME_MULTIPATH=y
++CONFIG_MISC_EXAMPLE=y
++CONFIG_MISC_EXAMPLE_TEST=m
+ CONFIG_SRAM=y
+ CONFIG_UID_SYS_STATS=y
+ CONFIG_OPEN_DICE=m
+diff --git a/arch/x86/configs/gki_defconfig b/arch/x86/configs/gki_defconfig
+index fc8e18d6861b..447429e8f3c1 100644
+--- a/arch/x86/configs/gki_defconfig
++++ b/arch/x86/configs/gki_defconfig
+@@ -312,6 +312,8 @@ CONFIG_VIRTIO_BLK=m
+ CONFIG_BLK_DEV_UBLK=y
+ CONFIG_BLK_DEV_NVME=y
+ CONFIG_NVME_MULTIPATH=y
++CONFIG_MISC_EXAMPLE=y
++CONFIG_MISC_EXAMPLE_TEST=m
+ CONFIG_SRAM=y
+ CONFIG_UID_SYS_STATS=y
+ CONFIG_VCPU_STALL_DETECTOR=m
+diff --git a/modules.bzl b/modules.bzl
+index 3085b9833bce..fc2b76932063 100644
+--- a/modules.bzl
++++ b/modules.bzl
+@@ -155,6 +155,7 @@ _KUNIT_COMMON_MODULES_LIST = [
+     "drivers/iio/test/iio-test-format.ko",
+     "drivers/input/tests/input_test.ko",
+     "drivers/of/of_kunit_helpers.ko",
++    "drivers/misc/example_test.ko",
+     "drivers/rtc/lib_test.ko",
+     "fs/ext4/ext4-inode-test.ko",
+     "fs/fat/fat_test.ko",
+diff --git a/tools/testing/kunit/android/tradefed_configs/config_arm64.xml b/tools/testing/kunit/android/tradefed_configs/config_arm64.xml
+index 7906f8caef1d..43cb7bca296d 100644
+--- a/tools/testing/kunit/android/tradefed_configs/config_arm64.xml
++++ b/tools/testing/kunit/android/tradefed_configs/config_arm64.xml
+@@ -29,6 +29,7 @@
+         <option name='binary' key='drivers/hid/hid-uclogic-test' value='/data/kunit/arm64/hid-uclogic-test.ko' />
+         <!-- <option name='binary' key='drivers/iio/test/iio-test-format' value='/data/kunit/arm64/iio-test-format.ko' /> -->
+         <option name='binary' key='drivers/input/tests/input_test' value='/data/kunit/arm64/input_test.ko' />
++        <option name='binary' key='drivers/misc/example_test' value='/data/kunit/arm64/example_test.ko' />
+         <option name='binary' key='drivers/rtc/lib_test' value='/data/kunit/arm64/lib_test.ko' />
+         <option name='binary' key='fs/ext4/ext4-inode-test' value='/data/kunit/arm64/ext4-inode-test.ko' />
+         <option name='binary' key='fs/fat/fat_test' value='/data/kunit/arm64/fat_test.ko' />
+diff --git a/tools/testing/kunit/android/tradefed_configs/config_x86_64.xml b/tools/testing/kunit/android/tradefed_configs/config_x86_64.xml
+index b7fc9a93170a..1a4d54d20192 100644
+--- a/tools/testing/kunit/android/tradefed_configs/config_x86_64.xml
++++ b/tools/testing/kunit/android/tradefed_configs/config_x86_64.xml
+@@ -29,6 +29,7 @@
+         <option name='binary' key='drivers/hid/hid-uclogic-test' value='/data/kunit/x86_64/hid-uclogic-test.ko' />
+         <!-- <option name='binary' key='drivers/iio/test/iio-test-format' value='/data/kunit/x86_64/iio-test-format.ko' /> -->
+         <option name='binary' key='drivers/input/tests/input_test' value='/data/kunit/x86_64/input_test.ko' />
++        <option name='binary' key='drivers/misc/example_test' value='/data/kunit/x86_64/example_test.ko' />
+         <option name='binary' key='drivers/rtc/lib_test' value='/data/kunit/x86_64/lib_test.ko' />
+         <option name='binary' key='fs/ext4/ext4-inode-test' value='/data/kunit/x86_64/ext4-inode-test.ko' />
+         <option name='binary' key='fs/fat/fat_test' value='/data/kunit/x86_64/fat_test.ko' />
