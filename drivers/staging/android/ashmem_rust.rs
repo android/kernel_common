@@ -12,7 +12,8 @@
 
 use core::{
     pin::Pin,
-    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
+    ptr::null_mut,
+    sync::atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering},
 };
 use kernel::{
     bindings::{self, ASHMEM_GET_PIN_STATUS, ASHMEM_PIN, ASHMEM_UNPIN},
@@ -71,6 +72,7 @@ fn has_cap_sys_admin() -> bool {
 static NUM_PIN_IOCTLS_WAITING: AtomicUsize = AtomicUsize::new(0);
 static IGNORE_UNSET_PROT_READ: AtomicBool = AtomicBool::new(false);
 static IGNORE_UNSET_PROT_EXEC: AtomicBool = AtomicBool::new(false);
+static ASHMEM_FOPS_PTR: AtomicPtr<bindings::file_operations> = AtomicPtr::new(null_mut());
 
 fn shrinker_should_stop() -> bool {
     NUM_PIN_IOCTLS_WAITING.load(Ordering::Relaxed) > 0
@@ -104,13 +106,20 @@ impl kernel::Module for AshmemModule {
 
         ashmem_range::set_shrinker_enabled(true)?;
 
+        let ashmem_miscdevice_registration = KBox::pin_init(
+            MiscDeviceRegistration::register(MiscDeviceOptions {
+                name: c_str!("ashmem"),
+            }),
+            GFP_KERNEL,
+        )?;
+        let ashmem_miscdevice_ptr = ashmem_miscdevice_registration.as_raw();
+        // SAFETY: ashmem_miscdevice_registration is pinned and is never destroyed, so reading
+        // and storing the fops pointer this way should be fine.
+        let fops_ptr = unsafe { (*ashmem_miscdevice_ptr).fops };
+        ASHMEM_FOPS_PTR.store(fops_ptr.cast_mut(), Ordering::Relaxed);
+
         Ok(Self {
-            _misc: KBox::pin_init(
-                MiscDeviceRegistration::register(MiscDeviceOptions {
-                    name: c_str!("ashmem"),
-                }),
-                GFP_KERNEL,
-            )?,
+            _misc: ashmem_miscdevice_registration,
             _toggle_unpin: AshmemToggleMisc::<AshmemToggleShrinker>::new()?,
             _toggle_read: AshmemToggleMisc::<AshmemToggleRead>::new()?,
             _toggle_exec: AshmemToggleMisc::<AshmemToggleExec>::new()?,
@@ -637,4 +646,19 @@ fn ashmem_memfd_ioctl_inner(file: &File, cmd: u32, arg: usize) -> Result<isize> 
         bindings::ASHMEM_SET_SIZE => Err(EINVAL),
         _ => Err(EINVAL),
     }
+}
+
+/// # Safety
+///
+/// The caller must ensure that `file` is valid for the duration of this function.
+#[no_mangle]
+unsafe extern "C" fn is_ashmem_file(file: *mut bindings::file) -> bool {
+    let ashmem_fops_ptr = ASHMEM_FOPS_PTR.load(Ordering::Relaxed);
+    if file.is_null() || ashmem_fops_ptr.is_null() {
+        return false;
+    }
+
+    // SAFETY: Accessing the f_op field of a non-NULL file structure is always okay.
+    let fops_ptr = unsafe { (*file).f_op };
+    fops_ptr == ashmem_fops_ptr
 }

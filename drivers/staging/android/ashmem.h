@@ -31,4 +31,6 @@ enum {
 };
 #endif
 
+bool is_ashmem_file(struct file *file);
+
 #endif	/* _LINUX_ASHMEM_H */
