@@ -2722,7 +2722,7 @@ next:
 		consumed = ops->consume_deferred_map_sg(cookie_sg);
 		if (consumed != mapped) {
 			mapped = consumed;
-			ret = EINVAL;
+			ret = -EINVAL;
 			goto out_err;
 		}
 	}
