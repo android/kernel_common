@@ -7,3 +7,11 @@ type 'enum prs_errcode' changed
 type 'struct sched_dl_entity' changed
   member 'unsigned int dl_server_idle:1' was added
 
+function symbol 'int __traceiter_f2fs_submit_folio_write(void*, struct folio*, struct f2fs_io_info*)' changed
+  CRC changed from 0x3f6478e5 to 0xb523f1d5
+
+type 'struct f2fs_sb_info' changed
+  member 'unsigned int reserved_pin_section' was added
+  member 'unsigned short gc_pin_file_threshold' changed
+    offset changed by 32
+
