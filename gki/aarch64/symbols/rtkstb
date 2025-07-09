@@ -1367,6 +1367,7 @@
   rpmsg_register_device
   rpmsg_register_device_override
   rproc_get_by_phandle
+  rpmsg_chrdev_eptdev_create
 
 # required by rtc-rtk.ko
   mktime64
