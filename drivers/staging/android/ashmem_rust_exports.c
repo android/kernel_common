@@ -19,3 +19,4 @@
 EXPORT_SYMBOL_GPL(is_ashmem_file);
 EXPORT_SYMBOL_GPL(ashmem_area_name);
 EXPORT_SYMBOL_GPL(ashmem_area_size);
+EXPORT_SYMBOL_GPL(ashmem_area_vmfile);

@@ -34,5 +34,6 @@ enum {
 bool is_ashmem_file(struct file *file);
 int ashmem_area_name(struct file *file, char *name);
 long ashmem_area_size(struct file *file);
+struct file *ashmem_area_vmfile(struct file *file);
 
 #endif	/* _LINUX_ASHMEM_H */
