@@ -402,6 +402,7 @@ common_kernel(
     make_goals = _GKI_X86_64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("x86_64") + get_kunit_modules_list("x86_64"),
+    protected_module_names_list = ":gki_x86_64_protected_module_names",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_x86_64"],
     trim_nonlisted_kmi = True,
     visibility = ["//visibility:public"],
