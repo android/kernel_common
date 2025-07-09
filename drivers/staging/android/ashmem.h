@@ -32,5 +32,6 @@ enum {
 #endif
 
 bool is_ashmem_file(struct file *file);
+int ashmem_area_name(struct file *file, char *name);
 
 #endif	/* _LINUX_ASHMEM_H */

@@ -30,6 +30,7 @@ use kernel::{
     seq_file::{seq_print, SeqFile},
     sync::{new_mutex, Mutex, UniqueArc},
     task::Task,
+    types::ForeignOwnable,
     uaccess::{UserSlice, UserSliceReader, UserSliceWriter},
 };
 
@@ -661,4 +662,48 @@ unsafe extern "C" fn is_ashmem_file(file: *mut bindings::file) -> bool {
     // SAFETY: Accessing the f_op field of a non-NULL file structure is always okay.
     let fops_ptr = unsafe { (*file).f_op };
     fops_ptr == ashmem_fops_ptr
+}
+
+/// # Safety
+///
+/// The caller must ensure that `file` references a valid file for the duration of 'a.
+unsafe fn get_ashmem_area<'a>(file: *mut bindings::file) -> Result<&'a Ashmem, Error> {
+    // SAFETY: Caller ensures that file is valid, so this should be safe.
+    if unsafe { is_ashmem_file(file) } {
+        return Err(EINVAL);
+    }
+
+    // SAFETY: Given that this is an ashmem file, it should be safe to access the private_data
+    // field containing the Ashmem struct.
+    let private = unsafe { (*file).private_data };
+    // SAFETY: Since this is an ashmem file, we know the type of the struct and can reference it
+    // safely.
+    let ashmem = unsafe { <<Ashmem as MiscDevice>::Ptr as ForeignOwnable>::borrow(private) };
+    Ok(ashmem.get_ref())
+}
+
+/// # Safety
+///
+/// The caller must ensure the following prior to invoking this function:
+/// 1. `name` is valid for writing and at least of size ASHMEM_FULL_NAME_LEN.
+/// 2. `file` is valid for the duration of this function.
+#[no_mangle]
+unsafe extern "C" fn ashmem_area_name(
+    file: *mut bindings::file,
+    name: *mut kernel::ffi::c_char,
+) -> c_int {
+    if name.is_null() {
+        return EINVAL.to_errno() as c_int;
+    }
+
+    // SAFETY: file is valid for the duration of this function.
+    match unsafe { get_ashmem_area(file) } {
+        Ok(ashmem) => {
+            let name_buffer = name.cast::<[u8; ASHMEM_FULL_NAME_LEN]>();
+            // SAFETY: Caller guarantees that the pointer is valid for writing.
+            ashmem.inner.lock().full_name(unsafe { &mut *name_buffer });
+            0
+        }
+        Err(err) => err.to_errno() as c_int,
+    }
 }
