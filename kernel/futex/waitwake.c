@@ -705,8 +705,10 @@ int futex_wait(u32 __user *uaddr, unsigned int flags, u32 val, ktime_t *abs_time
 	ret = __futex_wait(uaddr, flags, val, to, bitset);
 
 	/* No timeout, nothing to clean up. */
-	if (!to)
+	if (!to) {
+		trace_android_vh_futex_wait_end(flags, bitset);
 		return ret;
+	}
 
 	hrtimer_cancel(&to->timer);
 	destroy_hrtimer_on_stack(&to->timer);
@@ -719,6 +721,7 @@ int futex_wait(u32 __user *uaddr, unsigned int flags, u32 val, ktime_t *abs_time
 		restart->futex.bitset = bitset;
 		restart->futex.flags = flags | FLAGS_HAS_TIMEOUT;
 
+		trace_android_vh_futex_wait_end(flags, bitset);
 		return set_restart_fn(restart, futex_wait_restart);
 	}
 
