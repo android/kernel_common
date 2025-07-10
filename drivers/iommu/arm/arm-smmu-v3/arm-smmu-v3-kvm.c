@@ -411,6 +411,7 @@ struct kvm_arm_smmu_map_sg {
 	int prot;
 	gfp_t gfp;
 	unsigned int nents;
+	size_t total_mapped;
 };
 
 static struct iommu_map_cookie_sg *kvm_arm_smmu_alloc_cookie_sg(unsigned long iova,
@@ -424,16 +425,17 @@ static struct iommu_map_cookie_sg *kvm_arm_smmu_alloc_cookie_sg(unsigned long io
 	if (!map_sg)
 		return NULL;
 
-	map_sg->sg = kvm_iommu_sg_alloc(nents, gfp);
+	/* Rounds nents to allocate to page aligned size. */
+	map_sg->nents = kvm_iommu_sg_nents_round(nents);
+	map_sg->sg = kvm_iommu_sg_alloc(map_sg->nents, gfp);
 	if (!map_sg->sg)
 		return NULL;
 	map_sg->iova = iova;
 	map_sg->prot = prot;
 	map_sg->gfp = gfp;
-	map_sg->nents = nents;
-	ret = kvm_iommu_share_hyp_sg(map_sg->sg, nents);
+	ret = kvm_iommu_share_hyp_sg(map_sg->sg, map_sg->nents);
 	if (ret) {
-		kvm_iommu_sg_free(map_sg->sg, nents);
+		kvm_iommu_sg_free(map_sg->sg, map_sg->nents);
 		kfree(map_sg);
 		return NULL;
 	}
@@ -447,6 +449,17 @@ static int kvm_arm_smmu_add_deferred_map_sg(struct iommu_map_cookie_sg *cookie,
 	struct kvm_arm_smmu_map_sg *map_sg = container_of(cookie, struct kvm_arm_smmu_map_sg,
 							  cookie);
 	struct kvm_iommu_sg *sg = map_sg->sg;
+	struct kvm_arm_smmu_domain *kvm_smmu_domain = to_kvm_smmu_domain(map_sg->cookie.domain);
+	size_t mapped;
+
+	/* Out of space, flush the list. */
+	if (map_sg->nents == map_sg->ptr) {
+		mapped = kvm_iommu_map_sg(kvm_smmu_domain->id, sg, map_sg->iova,
+					  map_sg->ptr, map_sg->prot, map_sg->gfp);
+		map_sg->ptr = 0;
+		map_sg->iova += mapped;
+		map_sg->total_mapped += mapped;
+	}
 
 	sg[map_sg->ptr].phys = paddr;
 	sg[map_sg->ptr].pgsize = pgsize;
@@ -461,11 +474,10 @@ static size_t kvm_arm_smmu_consume_deferred_map_sg(struct iommu_map_cookie_sg *c
 							  cookie);
 	struct kvm_iommu_sg *sg = map_sg->sg;
 	struct kvm_arm_smmu_domain *kvm_smmu_domain = to_kvm_smmu_domain(map_sg->cookie.domain);
-	size_t total_mapped;
+	size_t total_mapped = map_sg->total_mapped;
 
-	total_mapped = kvm_iommu_map_sg(kvm_smmu_domain->id, sg, map_sg->iova, map_sg->ptr,
-					map_sg->prot, map_sg->gfp);
-
+	total_mapped += kvm_iommu_map_sg(kvm_smmu_domain->id, sg, map_sg->iova,
+					 map_sg->ptr, map_sg->prot, map_sg->gfp);
 	kvm_iommu_unshare_hyp_sg(sg, map_sg->nents);
 	kvm_iommu_sg_free(sg, map_sg->nents);
 	kfree(map_sg);

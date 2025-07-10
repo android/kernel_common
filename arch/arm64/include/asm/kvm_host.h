@@ -1747,14 +1747,22 @@ struct kvm_iommu_sg {
 	unsigned int pgcount;
 };
 
+
+#define kvm_iommu_sg_nents_size(n) (PAGE_ALIGN((n) * sizeof(struct kvm_iommu_sg)))
+
+static inline unsigned int kvm_iommu_sg_nents_round(unsigned int nents)
+{
+	return kvm_iommu_sg_nents_size(nents) / sizeof(struct kvm_iommu_sg);
+}
+
 static inline struct kvm_iommu_sg *kvm_iommu_sg_alloc(unsigned int nents, gfp_t gfp)
 {
-	return alloc_pages_exact(PAGE_ALIGN(nents * sizeof(struct kvm_iommu_sg)), gfp);
+	return alloc_pages_exact(kvm_iommu_sg_nents_size(nents), gfp);
 }
 
 static inline void kvm_iommu_sg_free(struct kvm_iommu_sg *sg, unsigned int nents)
 {
-	free_pages_exact(sg, PAGE_ALIGN(nents * sizeof(struct kvm_iommu_sg)));
+	free_pages_exact(sg, kvm_iommu_sg_nents_size(nents));
 }
 
 
