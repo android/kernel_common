@@ -75,6 +75,7 @@
 #include <trace/hooks/ogki_honor.h>
 #include <trace/hooks/suspend.h>
 #include <trace/hooks/user.h>
+#include <trace/hooks/gzvm.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -575,3 +576,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_shrink_node);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_cpuset_fork);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alloc_uid);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_free_user);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_vcpu_exit_reason);
