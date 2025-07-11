@@ -20,7 +20,7 @@ pkvm-hyp-y	:= vmx_asm.o vmexit.o memory.o page_alloc.o early_alloc.o pgtable.o m
 pkvm		:= ../../../pkvm
 pkvm-hyp-y	+= $(pkvm)/cpu.o $(pkvm)/pkvm.o $(pkvm)/x86.o $(pkvm)/vmx/vmx.o $(pkvm)/vmx/ept.o \
 		   $(pkvm)/cpuid.o $(pkvm)/lapic.o $(pkvm)/entry.o $(pkvm)/mmu.o $(pkvm)/fpu/core.o \
-		   $(pkvm)/fpu/xstate.o
+		   $(pkvm)/fpu/xstate.o $(pkvm)/fpu/fpu.o
 
 pkvm-kvm	:= ../../..
 pkvm-hyp-y	+= $(pkvm-kvm)/vmx/vmenter.o
@@ -43,6 +43,8 @@ $(obj)/$(pkvm-kvm)/vmx/vmenter.pkvm.o:	$(obj)/$(pkvm)/kvm-asm-offsets.h
 AFLAGS_vmx_asm.pkvm.o			+= -iquote $(obj)/$(pkvm)
 $(obj)/vmx_asm.pkvm.o:			$(obj)/$(pkvm)/kvm-asm-offsets.h
 CFLAGS_$(pkvm)/fpu/xstate.pkvm.o	+= -iquote $(srctree)/arch/x86/kernel/fpu
+CFLAGS_$(pkvm)/fpu/fpu.pkvm.o		+= -iquote $(srctree)/arch/x86/kernel/fpu
+CFLAGS_$(pkvm)/fpu/core.pkvm.o		+= -iquote $(srctree)/arch/x86/kernel/fpu
 
 $(obj)/$(pkvm)/kvm-asm-offsets.s: $(obj)/../../../kvm-asm-offsets.c FORCE
 	$(call if_changed_dep,cc_s_c)

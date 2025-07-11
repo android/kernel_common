@@ -14,6 +14,7 @@ DEFINE_PER_CPU_ALIGNED(struct pcpu_hot, pcpu_hot);
 DEFINE_PER_CPU(u64, x86_spec_ctrl_current);
 DEFINE_STATIC_KEY_FALSE(mmio_stale_data_clear);
 DEFINE_PER_CPU_SHARED_ALIGNED(irq_cpustat_t, irq_stat);
+DEFINE_PER_CPU(struct task_struct, cur_task);
 
 struct cpumask __cpu_possible_mask __ro_after_init;
 unsigned long l1d_flush_phys = INVALID_PAGE;
@@ -32,6 +33,8 @@ unsigned int pkvm_per_cpu_nr_pages(void)
 
 int setup_pkvm_per_cpu(int cpu, unsigned long base)
 {
+	struct task_struct *task;
+
 	if (cpu >= ARRAY_SIZE(__per_cpu_offset))
 		return -EINVAL;
 
@@ -43,6 +46,10 @@ int setup_pkvm_per_cpu(int cpu, unsigned long base)
 #endif
 	per_cpu(this_cpu_off, cpu) = __per_cpu_offset[cpu];
 	per_cpu(pcpu_hot.cpu_number, cpu) = cpu;
+
+	task = per_cpu_ptr(&cur_task, cpu);
+	task->group_leader = task;
+	per_cpu(pcpu_hot.current_task, cpu) = task;
 
 	return 0;
 }
