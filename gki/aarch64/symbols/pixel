@@ -2531,6 +2531,7 @@
   trace_event_reg
   trace_handle_return
   __traceiter_android_rvh_attach_entity_load_avg
+  __traceiter_android_rvh_build_perf_domains
   __traceiter_android_rvh_can_migrate_task
   __traceiter_android_rvh_cgroup_force_kthread_migration
   __traceiter_android_rvh_check_preempt_wakeup_fair
@@ -2652,6 +2653,7 @@
   __traceiter_workqueue_execute_start
   trace_output_call
   __tracepoint_android_rvh_attach_entity_load_avg
+  __tracepoint_android_rvh_build_perf_domains
   __tracepoint_android_rvh_can_migrate_task
   __tracepoint_android_rvh_cgroup_force_kthread_migration
   __tracepoint_android_rvh_check_preempt_wakeup_fair
@@ -2979,6 +2981,7 @@
   vb2_streamon
   vb2_vmalloc_memops
   vb2_wait_for_all_buffers
+  vendor_data_pad
   verify_pkcs7_signature
   vfree
   video_devdata
