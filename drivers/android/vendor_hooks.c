@@ -76,6 +76,7 @@
 #include <trace/hooks/suspend.h>
 #include <trace/hooks/user.h>
 #include <trace/hooks/gzvm.h>
+#include <trace/hooks/usb.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -580,3 +581,5 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_vcpu_exit_reason);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_handle_demand_page_pre);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_handle_demand_page_post);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_destroy_vm_post_process);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_usb_dev_suspend);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_usb_dev_resume);
