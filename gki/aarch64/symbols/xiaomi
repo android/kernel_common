@@ -180,6 +180,10 @@
   blk_mq_sched_try_insert_merge
   elv_rqhash_add
 
+# required by mi_damon.ko
+  folio_deactivate
+  folio_mark_accessed
+
 #required by cifs.ko
   add_swap_extent
   asn1_ber_decoder
