@@ -8,6 +8,7 @@
 #include <uapi/asm/kvm_para.h>
 
 #include <asm/tdx.h>
+#include <asm/pkvm_guest.h>
 
 #ifdef CONFIG_KVM_GUEST
 bool kvm_check_and_clear_guest_paused(void);
@@ -20,6 +21,10 @@ static inline bool kvm_check_and_clear_guest_paused(void)
 
 #define KVM_HYPERCALL \
         ALTERNATIVE("vmcall", "vmmcall", X86_FEATURE_VMMCALL)
+
+static inline long kvm_hypercall4(unsigned int nr, unsigned long p1,
+				  unsigned long p2, unsigned long p3,
+				  unsigned long p4);
 
 /* For KVM hypercalls, a three-byte sequence of either the vmcall or the vmmcall
  * instruction.  The hypervisor may replace it with something else but only the
@@ -38,6 +43,16 @@ static inline long kvm_hypercall0(unsigned int nr)
 	if (cpu_feature_enabled(X86_FEATURE_TDX_GUEST))
 		return tdx_kvm_hypercall(nr, 0, 0, 0, 0);
 
+	/*
+	 * The pkvm hypervisor will share RAX/RBX/RCX/RDX/RSI if some hypercalls
+	 * need to be emulated by the pkvm host. Use the kvm_hypercall4() to
+	 * explicitly overwrite these 5 registers to make sure no valuable
+	 * information will be shared. The same reason for the change in
+	 * kvm_hypercall1/2/3.
+	 */
+	if (pkvm_is_protected_guest())
+		return kvm_hypercall4(nr, 0, 0, 0, 0);
+
 	asm volatile(KVM_HYPERCALL
 		     : "=a"(ret)
 		     : "a"(nr)
@@ -51,6 +66,9 @@ static inline long kvm_hypercall1(unsigned int nr, unsigned long p1)
 
 	if (cpu_feature_enabled(X86_FEATURE_TDX_GUEST))
 		return tdx_kvm_hypercall(nr, p1, 0, 0, 0);
+
+	if (pkvm_is_protected_guest())
+		return kvm_hypercall4(nr, p1, 0, 0, 0);
 
 	asm volatile(KVM_HYPERCALL
 		     : "=a"(ret)
@@ -67,6 +85,9 @@ static inline long kvm_hypercall2(unsigned int nr, unsigned long p1,
 	if (cpu_feature_enabled(X86_FEATURE_TDX_GUEST))
 		return tdx_kvm_hypercall(nr, p1, p2, 0, 0);
 
+	if (pkvm_is_protected_guest())
+		return kvm_hypercall4(nr, p1, p2, 0, 0);
+
 	asm volatile(KVM_HYPERCALL
 		     : "=a"(ret)
 		     : "a"(nr), "b"(p1), "c"(p2)
@@ -81,6 +102,9 @@ static inline long kvm_hypercall3(unsigned int nr, unsigned long p1,
 
 	if (cpu_feature_enabled(X86_FEATURE_TDX_GUEST))
 		return tdx_kvm_hypercall(nr, p1, p2, p3, 0);
+
+	if (pkvm_is_protected_guest())
+		return kvm_hypercall4(nr, p1, p2, p3, 0);
 
 	asm volatile(KVM_HYPERCALL
 		     : "=a"(ret)
