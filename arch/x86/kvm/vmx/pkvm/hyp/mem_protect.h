@@ -215,4 +215,33 @@ int __pkvm_guest_share_host(struct pkvm_pgtable *guest_pgt,
  */
 int __pkvm_guest_unshare_host(struct pkvm_pgtable *guest_pgt,
 			      u64 gpa, u64 size);
+
+/**
+ * __pkvm_host_share_hyp() - Share host pages with pKVM hypervisor.
+ *
+ * @phys:	Start physical address of being shared pages, must be continuous.
+ * @size:	The size of memory to be shared.
+ *
+ * The shared range is the minimum PAGE_SIZE-aligned range covering [@phys,
+ * @phys + @size). The host page state will be modified from PAGE_OWNED to
+ * PAGE_SHARED_OWNED. So the host still can access these pages after that.
+ *
+ * Return: 0 on success, negative value on failure.
+ */
+int __pkvm_host_share_hyp(u64 phys, u64 size);
+
+/**
+ * __pkvm_host_unshare_hyp() - Unshare host pages with pKVM hypervisor.
+ *
+ * @phys:	Start physical address of being unshared pages, must be continuous.
+ * @size:	The size of memory to be unshared.
+ *
+ * The unshared range is the minimum PAGE_SIZE-aligned range covering [@phys,
+ * @phys + @size). The host page state will be modified from PAGE_SHARED_OWNED
+ * to PAGE_OWNED.
+ *
+ * Return: 0 on success, negative value on failure.
+ */
+int __pkvm_host_unshare_hyp(u64 phys, u64 size);
+
 #endif

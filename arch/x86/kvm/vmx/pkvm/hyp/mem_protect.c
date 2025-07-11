@@ -531,6 +531,15 @@ static int guest_request_share(const struct pkvm_mem_transition *tx)
 					      addr, size, PKVM_PAGE_OWNED);
 }
 
+static int hyp_ack_share(const struct pkvm_mem_transition *tx)
+{
+	/*
+	 * Only allow host to share normal memory pages with the pKVM
+	 * hypervisor, not MMIO pages.
+	 */
+	return is_mem_range(tx->completer.hyp.addr, tx->size) ? 0 : -EPERM;
+}
+
 static int host_ack_share(const struct pkvm_mem_transition *tx)
 {
 	u64 addr = tx->completer.host.addr;
@@ -568,6 +577,9 @@ static int check_share(const struct pkvm_mem_transition *tx)
 		return ret;
 
 	switch (tx->completer.id) {
+	case PKVM_ID_HYP:
+		ret = hyp_ack_share(tx);
+		break;
 	case PKVM_ID_HOST:
 		ret = host_ack_share(tx);
 		break;
@@ -641,6 +653,9 @@ static int __do_share(const struct pkvm_mem_transition *tx, struct pkvm_memcache
 		return ret;
 
 	switch (tx->completer.id) {
+	case PKVM_ID_HYP:
+		ret = 0;
+		break;
 	case PKVM_ID_HOST:
 		ret = host_complete_share(tx);
 		break;
@@ -784,6 +799,15 @@ static int guest_request_unshare(const struct pkvm_mem_transition *tx)
 					      addr, size, PKVM_PAGE_SHARED_OWNED);
 }
 
+static int hyp_ack_unshare(const struct pkvm_mem_transition *tx)
+{
+	/*
+	 * Only allow host to unshare normal memory pages with the pKVM
+	 * hypervisor, not MMIO pages.
+	 */
+	return is_mem_range(tx->completer.hyp.addr, tx->size) ? 0 : -EPERM;
+}
+
 static int host_ack_unshare(const struct pkvm_mem_transition *tx)
 {
 	u64 addr = tx->completer.host.addr;
@@ -821,6 +845,9 @@ static int check_unshare(const struct pkvm_mem_transition *tx)
 		return ret;
 
 	switch (tx->completer.id) {
+	case PKVM_ID_HYP:
+		ret = hyp_ack_unshare(tx);
+		break;
 	case PKVM_ID_HOST:
 		ret = host_ack_unshare(tx);
 		break;
@@ -892,6 +919,9 @@ static int __do_unshare(struct pkvm_mem_transition *tx)
 		return ret;
 
 	switch (tx->completer.id) {
+	case PKVM_ID_HYP:
+		ret = 0;
+		break;
 	case PKVM_ID_HOST:
 		ret = host_complete_unshare(tx);
 		break;
@@ -1008,6 +1038,68 @@ int __pkvm_guest_unshare_host(struct pkvm_pgtable *guest_pgt,
 
 	host_ept_unlock();
 	guest_mmu_unlock(pkvm_vm);
+
+	return ret;
+}
+
+int __pkvm_host_share_hyp(u64 phys, u64 size)
+{
+	u64 start = PAGE_ALIGN_DOWN(phys);
+	u64 end = PAGE_ALIGN(phys + size);
+	struct pkvm_mem_transition share = {
+		.size = end - start,
+		.initiator	= {
+			.id	= PKVM_ID_HOST,
+			.host = {
+				.addr	= start,
+			},
+			.prot	= HOST_EPT_DEF_MEM_PROT,
+		},
+		.completer	= {
+			.id	= PKVM_ID_HYP,
+			.hyp	= {
+				.addr = start,
+			},
+		},
+	};
+	int ret;
+
+	host_ept_lock();
+
+	ret = do_share(&share, NULL);
+
+	host_ept_unlock();
+
+	return ret;
+}
+
+int __pkvm_host_unshare_hyp(u64 phys, u64 size)
+{
+	u64 start = PAGE_ALIGN_DOWN(phys);
+	u64 end = PAGE_ALIGN(phys + size);
+	struct pkvm_mem_transition unshare = {
+		.size = end - start,
+		.initiator	= {
+			.id	= PKVM_ID_HOST,
+			.host = {
+				.addr	= start,
+			},
+			.prot	= HOST_EPT_DEF_MEM_PROT,
+		},
+		.completer	= {
+			.id	= PKVM_ID_HYP,
+			.hyp	= {
+				.addr = start,
+			},
+		},
+	};
+	int ret;
+
+	host_ept_lock();
+
+	ret = do_unshare(&unshare);
+
+	host_ept_unlock();
 
 	return ret;
 }

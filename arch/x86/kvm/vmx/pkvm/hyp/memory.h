@@ -32,6 +32,20 @@ struct mem_range {
 bool find_mem_range(unsigned long addr, struct mem_range *range);
 bool mem_range_included(struct mem_range *child, struct mem_range *parent);
 
+static inline bool is_mem_range(unsigned long phys, unsigned long size)
+{
+	struct mem_range target = {
+		.start = PAGE_ALIGN_DOWN(phys),
+		.end = PAGE_ALIGN(phys + size) - 1,
+	};
+	struct mem_range range;
+
+	if (!find_mem_range(phys, &range))
+		return false;
+
+	return mem_range_included(&target, &range);
+}
+
 #include <linux/kvm_host.h>
 void *host_gpa2hva(unsigned long gpa);
 unsigned long host_gpa2hpa(unsigned long gpa);
