@@ -36,6 +36,9 @@
 
 #include <trace/hooks/usb.h>
 
+#include <linux/android_kabi.h>
+ANDROID_KABI_DECLONLY(trace_eval_map);
+
 /*
  * Adds a new dynamic USBdevice ID to this driver,
  * and cause the driver to probe for all devices again.
