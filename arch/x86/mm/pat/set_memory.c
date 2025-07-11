@@ -34,7 +34,7 @@
 #include <asm/memtype.h>
 #include <asm/hyperv-tlfs.h>
 #include <asm/mshyperv.h>
-#include <asm/pkvm.h>
+#include <asm/pkvm_guest.h>
 
 #include "../mm_internal.h"
 
