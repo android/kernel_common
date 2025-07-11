@@ -8093,6 +8093,7 @@ struct kvm_x86_ops vt_x86_ops __initdata = {
 	.enable_virtualization_cpu = vmx_enable_virtualization_cpu,
 	.disable_virtualization_cpu = vmx_disable_virtualization_cpu,
 
+	.vm_size = sizeof(struct kvm_vmx),
 	.vm_init = vmx_vm_init,
 	.vm_destroy = vmx_vm_destroy,
 
@@ -8235,6 +8236,7 @@ int setup_vmx(void)
 
 	pkvm_vm_sz = sizeof(struct pkvm_vm) + sizeof(struct pkvm_vm_vmx);
 	pkvm_vcpu_sz = sizeof(struct pkvm_vcpu) + sizeof(struct pkvm_vcpu_vmx);
+	kvm_vcpu_sz = sizeof(struct vcpu_vmx);
 
 	vmx_l1d_flush_pages = __pkvm_va(l1d_flush_phys);
 

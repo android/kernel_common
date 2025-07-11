@@ -15,6 +15,7 @@ DECLARE_PER_CPU(struct kvm_vcpu *, host_vcpu);
 
 extern size_t pkvm_vm_sz;
 extern size_t pkvm_vcpu_sz;
+extern size_t kvm_vcpu_sz;
 
 /*
  * Struct kvm_vcpu can be appended in the end of pkvm_vcpu as below:
