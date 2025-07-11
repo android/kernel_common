@@ -1303,6 +1303,13 @@ impl Process {
             work.into_arc().cancel();
         }
 
+        // Take all threads and release them.
+        let threads = take(&mut self.inner.lock().threads);
+        for thread in threads.values() {
+            thread.release();
+        }
+        drop(threads);
+
         // Free any resources kept alive by allocated buffers.
         let omapping = self.inner.lock().mapping.take();
         if let Some(mut mapping) = omapping {
@@ -1344,18 +1351,8 @@ impl Process {
         }
         drop(freeze_listeners);
 
-        // Do similar dance for the state lock.
-        let mut inner = self.inner.lock();
-        let threads = take(&mut inner.threads);
-        let nodes = take(&mut inner.nodes);
-        drop(inner);
-
-        // Release all threads.
-        for thread in threads.values() {
-            thread.release();
-        }
-
         // Deliver death notifications.
+        let nodes = take(&mut self.inner.lock().nodes);
         for node in nodes.values() {
             loop {
                 let death = {
