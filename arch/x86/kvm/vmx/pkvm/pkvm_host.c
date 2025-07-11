@@ -879,9 +879,10 @@ static __init int pkvm_setup_pcpu(struct pkvm_hyp *pkvm, int cpu)
 	 * as the same percpu base will be used by the pkvm and the host in the
 	 * debug build.
 	 */
-	pkvm_sym(__per_cpu_offset)[cpu] = __per_cpu_offset[cpu];
-	per_cpu(pkvm_sym(this_cpu_off), cpu) = __per_cpu_offset[cpu];
-	per_cpu(pkvm_sym(pcpu_hot).cpu_number, cpu) = cpu;
+	if (pkvm_sym(setup_pkvm_per_cpu)(cpu, __pa(__per_cpu_offset[cpu]))) {
+		pr_err("%s: Setup pkvm percpu data failed\n", __func__);
+		return -EINVAL;
+	}
 #endif
 
 	pcpu = pkvm_sym(pkvm_early_alloc_contig)(PKVM_PCPU_PAGES);

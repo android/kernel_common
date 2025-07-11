@@ -157,16 +157,13 @@ PKVM_DECLARE(void, init_msr_emulation, (struct vcpu_vmx *vmx));
 
 #ifndef CONFIG_PKVM_INTEL_DEBUG
 PKVM_DECLARE(unsigned int, pkvm_per_cpu_nr_pages, (void));
-PKVM_DECLARE(int, setup_pkvm_per_cpu, (int cpu, unsigned long base));
 #define PKVM_PERCPU_PAGES (PKVM_PCPU_PAGES + PKVM_HOST_VCPU_PAGES + \
 			   PKVM_HOST_VCPU_VMCS_PAGES + pkvm_sym(pkvm_per_cpu_nr_pages)())
 #else
-extern unsigned long pkvm_sym(__per_cpu_offset)[NR_CPUS];
-DECLARE_PER_CPU_READ_MOSTLY(unsigned long, pkvm_sym(this_cpu_off));
-DECLARE_PER_CPU_ALIGNED(struct pcpu_hot, pkvm_sym(pcpu_hot));
 #define PKVM_PERCPU_PAGES (PKVM_PCPU_PAGES + PKVM_HOST_VCPU_PAGES + \
 			   PKVM_HOST_VCPU_VMCS_PAGES)
 #endif
+PKVM_DECLARE(int, setup_pkvm_per_cpu, (int cpu, unsigned long base));
 PKVM_DECLARE(void, set_x86_spec_ctrl, (u64 spec_ctrl));
 
 #endif

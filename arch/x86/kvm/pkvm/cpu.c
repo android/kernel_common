@@ -32,13 +32,15 @@ unsigned int pkvm_per_cpu_nr_pages(void)
 
 int setup_pkvm_per_cpu(int cpu, unsigned long base)
 {
-	unsigned long elf_base;
-
 	if (cpu >= ARRAY_SIZE(__per_cpu_offset))
 		return -EINVAL;
 
-	elf_base = (unsigned long)__per_cpu_start;
-	__per_cpu_offset[cpu] = (unsigned long)__pkvm_va(base) - elf_base;
+#ifndef CONFIG_PKVM_INTEL_DEBUG
+	__per_cpu_offset[cpu] = (unsigned long)__pkvm_va(base) -
+				(unsigned long)__per_cpu_start;
+#else
+	__per_cpu_offset[cpu] = (unsigned long)__pkvm_va(base);
+#endif
 	per_cpu(this_cpu_off, cpu) = __per_cpu_offset[cpu];
 	per_cpu(pcpu_hot.cpu_number, cpu) = cpu;
 
