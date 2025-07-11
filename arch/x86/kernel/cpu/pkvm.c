@@ -4,7 +4,7 @@
  */
 
 #include <asm/hypervisor.h>
-#include <asm/pkvm.h>
+#include <asm/pkvm_guest.h>
 
 static u32 __init pkvm_detect(void)
 {

@@ -8,7 +8,7 @@
 #include <linux/io.h>
 #include <asm/coco.h>
 #include <asm/vmx.h>
-#include <asm/pkvm.h>
+#include <asm/pkvm_guest.h>
 #include <asm/insn.h>
 #include <asm/insn-eval.h>
 #include <asm/pgtable.h>
