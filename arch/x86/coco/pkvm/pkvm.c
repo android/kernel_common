@@ -14,12 +14,7 @@
 #include <asm/pgtable.h>
 #include <asm/virt_exception.h>
 
-static bool pkvm_guest_detected;
-
-bool pkvm_is_protected_guest(void)
-{
-	return pkvm_guest_detected;
-}
+DEFINE_STATIC_KEY_FALSE(pkvm_guest_detected);
 
 int pkvm_set_mem_host_visibility(unsigned long addr, int numpages, bool enc)
 {
@@ -185,7 +180,7 @@ __init void pkvm_guest_init_coco(void)
 {
 	cc_vendor = CC_VENDOR_PKVM;
 
-	pkvm_guest_detected = true;
+	static_branch_enable(&pkvm_guest_detected);
 
 	ve_x86_ops.mmio_read = mmio_read;
 	ve_x86_ops.mmio_write = mmio_write;
