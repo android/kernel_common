@@ -12,7 +12,12 @@ u64 __pkvm_module_call(u64 fn, struct tdx_module_args *out);
 
 void pkvm_guest_init_coco(void);
 int pkvm_set_mem_host_visibility(unsigned long addr, int numpages, bool enc);
-bool pkvm_is_protected_guest(void);
+DECLARE_STATIC_KEY_FALSE(pkvm_guest_detected);
+
+static inline bool pkvm_is_protected_guest(void)
+{
+	return static_branch_likely(&pkvm_guest_detected);
+}
 
 #else
 
