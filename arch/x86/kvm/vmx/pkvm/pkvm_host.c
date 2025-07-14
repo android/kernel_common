@@ -304,7 +304,6 @@ u64 hyp_total_reserve_pages(void)
 	total += pkvm_vmemmap_pages(PKVM_VMEMMAP_ENTRY_SIZE);
 	total += pkvm_mmu_pgtable_pages();
 	total += host_ept_pgtable_pages();
-	total += pkvm_shadow_ept_pgtable_pages(PKVM_MAX_VM_NUM);
 	total += pkvm_iommu_pages(PKVM_MAX_PASID, PKVM_PASIDDEV_NUM,
 				  PKVM_PDEV_NUM, PKVM_IOMMU_NUM,
 				  PKVM_IOMMU_QI_DESC_SIZE,

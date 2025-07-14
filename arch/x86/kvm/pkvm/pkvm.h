@@ -9,9 +9,7 @@
 #include <vmx/pkvm/hyp/pgtable.h>
 #include <vmx/pkvm/hyp/gfp.h>
 
-#define PKVM_MAX_NORMAL_VM_NUM		8
-#define PKVM_MAX_PROTECTED_VM_NUM	2
-#define MAX_PKVM_VMS			(PKVM_MAX_NORMAL_VM_NUM + PKVM_MAX_PROTECTED_VM_NUM)
+#define MAX_PKVM_VMS 10
 
 DECLARE_PER_CPU(struct kvm_vcpu *, host_vcpu);
 
