@@ -7480,6 +7480,14 @@ void __init kvm_mmu_x86_module_init(void)
 	kvm_mmu_spte_module_init();
 }
 
+static void pkvm_mmu_vendor_module_init(void)
+{
+	if (nx_huge_pages)
+		pr_warn("disabling iTLB multihit mitigation due to pKVM enabled\n");
+	__set_nx_huge_pages(false);
+	nx_hugepage_mitigation_hard_disabled = true;
+}
+
 /*
  * The bulk of the MMU initialization is deferred until the vendor module is
  * loaded as many of the masks/values may be modified by VMX or SVM, i.e. need
@@ -7488,6 +7496,9 @@ void __init kvm_mmu_x86_module_init(void)
 int kvm_mmu_vendor_module_init(void)
 {
 	int ret = -ENOMEM;
+
+	if (enable_pkvm)
+		pkvm_mmu_vendor_module_init();
 
 	/*
 	 * MMU roles use union aliasing which is, generally speaking, an
