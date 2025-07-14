@@ -253,6 +253,34 @@ put_pkvm_vm:
 	return ret;
 }
 
+int pkvm_vm_mmu_age(int vm_handle, u64 gpa, u64 size, bool mkold)
+{
+	struct pkvm_vm *pkvm_vm;
+	int ret;
+
+	pkvm_vm = get_pkvm_vm(vm_handle);
+	if (!pkvm_vm)
+		return -EINVAL;
+
+	if (pkvm_is_protected_vm(to_kvm(pkvm_vm))) {
+		ret = -EPERM;
+		goto put_pkvm_vm;
+	}
+
+	pkvm_spin_lock(&pkvm_vm->mmu_lock);
+	ret = pkvm_pgtable_test_clear_young(&pkvm_vm->mmu, gpa, size, mkold);
+	pkvm_spin_unlock(&pkvm_vm->mmu_lock);
+
+	/*
+	 * Do not flush TLB. It will be flushed by the MMU notifier in KVM-high
+	 * if needed.
+	 */
+
+put_pkvm_vm:
+	put_pkvm_vm(pkvm_vm);
+	return ret;
+}
+
 static int guest_mmu_free_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
 			       void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {
