@@ -485,6 +485,15 @@ static bool sync_root_entry(struct id_sync_data *sdata)
 	return false;
 }
 
+static bool is_dev_in_satc(u16 bdf)
+{
+	for (int idx = 0; idx < pkvm_hyp->satc_dev_cnt; idx++)
+		if (bdf == pkvm_hyp->satc_dev_bdf[idx])
+			return true;
+
+	return false;
+}
+
 /* sync context entry when guest_ptep & shadow_pa valid, otherwise un-present it */
 static bool sync_shadow_context_entry(struct id_sync_data *sdata)
 {
@@ -499,11 +508,16 @@ static bool sync_shadow_context_entry(struct id_sync_data *sdata)
 
 	if (ecap_smts(sdata->iommu_ecap)) {
 		if (sdata->guest_ptep && sdata->shadow_pa) {
+			bdf = sdata->vaddr >> DEVFN_SHIFT;
 			tmp.hi = guest_ce->hi;
 			tmp.lo = sdata->shadow_pa | (guest_ce->lo & 0xfff);
 
-			/* Clear DTE to make sure device TLB is disabled for security */
-			context_sm_clear_dte(&tmp);
+			/*
+			 * Make sure device TLB is disabled for security, unless
+			 * the device is explicitly trusted to use it.
+			 */
+			if (!is_dev_in_satc(bdf))
+				context_sm_clear_dte(&tmp);
 		}
 	} else {
 		/*

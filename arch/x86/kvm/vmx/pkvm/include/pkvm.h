@@ -15,6 +15,7 @@
 #define PKVM_MAX_IOMMU_NUM	32
 #define PKVM_MAX_PASID_PDEV_NUM	32
 #define PKVM_MAX_PDEV_NUM	512
+#define PKVM_MAX_DEVS_IN_SATC	16
 
 struct pkvm_pgtable_cap {
 	int level;
@@ -89,6 +90,10 @@ struct pkvm_hyp {
 	int ept_iommu_pgsz_mask;
 
 	bool iommu_coherent;
+
+	/* Store BDF of all devices in the SATC ACPI table */
+	u16 satc_dev_bdf[PKVM_MAX_DEVS_IN_SATC];
+	int satc_dev_cnt;
 };
 
 static inline struct pkvm_host_vcpu *vmx_to_pkvm_hvcpu(struct vcpu_vmx *vmx)

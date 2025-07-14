@@ -118,22 +118,6 @@ static inline void pkvm_update_iommu_virtual_caps(u64 *cap, u64 *ecap)
 		tmp = min_t(u64, (PKVM_MAX_PASID_BITS - 1),
 			    (*ecap & GENMASK_ULL(39, 35)) >> 35);
 		*ecap = (*ecap & ~GENMASK_ULL(39, 35)) | (tmp << 35);
-
-		/*
-		 * Disable Device TLB capability for security.
-		 *
-		 * ATS is only enabled for trusted device by the host OS.
-		 * However with pkvm, the host OS including the device driver
-		 * is treated as untrusted software. A malicious software in
-		 * host OS may enable ATS for untrusted device so that the
-		 * untrusted device can still exploit the ATS weekness to bypass
-		 * VT-d's translation protection and access the isolated memory.
-		 *
-		 * To resolve this, tell the host IOMMU driver not to enable
-		 * any device's ATS as pkvm controls IOMMU not to enable the
-		 * device TLB.
-		 */
-		*ecap &= ~(1UL << 2);
 	}
 }
 #endif

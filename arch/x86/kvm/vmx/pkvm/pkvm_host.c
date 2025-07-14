@@ -111,6 +111,28 @@ static __init int check_pci_device_count(void)
 	return 0;
 }
 
+static void scan_devices_in_satc(void)
+{
+	struct dmar_satc_unit *satc;
+	struct device *satc_dev;
+	u16  *bdf = pkvm->satc_dev_bdf;
+	int i, cnt = 0;
+
+	for_each_satc_unit(satc)
+		for_each_active_dev_scope(satc->devices, satc->devices_cnt,
+					i, satc_dev) {
+			if (cnt == PKVM_MAX_DEVS_IN_SATC) {
+				pr_err("pkvm: too many devices in SATC, not adding %s\n",
+						dev_name(satc_dev));
+				continue;
+			}
+			bdf[cnt++] = pci_dev_id(to_pci_dev(satc_dev));
+			pr_info("pkvm: found dev %s in SATC\n", dev_name(satc_dev));
+		}
+
+	pkvm->satc_dev_cnt = cnt;
+}
+
 /*
  * Check for the coherency of paging structures accessed through pasid table
  * entries (in scalable mode) or context table entries (in legacy mode).
@@ -242,6 +264,8 @@ static __init int check_and_init_iommu(struct pkvm_hyp *pkvm)
 
 		index++;
 	}
+
+	scan_devices_in_satc();
 
 	/*
 	 * There may be no supported page table level for both IOMMU and EPT.
