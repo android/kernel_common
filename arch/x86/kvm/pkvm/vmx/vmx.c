@@ -19,6 +19,7 @@
 #include <vmx/hyperv.h>
 #include <kvm_onhyperv.h>
 #include <pkvm.h>
+#include <vmx/pkvm/hyp/trace.h>
 
 #ifdef __PKVM_HYP__
 #undef module_param_named
@@ -6613,8 +6614,14 @@ static noinstr void vmx_vcpu_enter_exit(struct kvm_vcpu *vcpu,
 	if (vcpu->arch.cr2 != native_read_cr2())
 		native_write_cr2(vcpu->arch.cr2);
 
+#ifdef __PKVM_HYP__
+	trace_vmexit_end(vcpu, vmx->exit_reason.basic);
+#endif
 	vmx->fail = __vmx_vcpu_run(vmx, (unsigned long *)&vcpu->arch.regs,
 				   flags);
+#ifdef __PKVM_HYP__
+	trace_vmexit_start(vcpu, true);
+#endif
 
 	vcpu->arch.cr2 = native_read_cr2();
 	vcpu->arch.regs_avail &= ~VMX_REGS_LAZY_LOAD_SET;
