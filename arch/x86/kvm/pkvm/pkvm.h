@@ -77,6 +77,7 @@ struct pkvm_vm {
 
 	/* The guest's stage-2 page table managed by the hypervisor */
 	struct pkvm_pgtable mmu;
+	struct hyp_pool pool;
 	pkvm_spinlock_t mmu_lock;
 
 	/*

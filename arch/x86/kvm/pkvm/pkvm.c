@@ -170,7 +170,7 @@ static void teardown_donated_memory(struct pkvm_memcache *mc, void *addr, size_t
 	__pkvm_hyp_donate_host(pkvm_virt_to_phys(addr), size, false);
 }
 
-static int pkvm_vm_init(struct kvm *shared_kvm, unsigned long gpa)
+static int pkvm_vm_init(struct kvm *shared_kvm, unsigned long gpa, unsigned long pgd_gpa)
 {
 	unsigned long pkvm_vm_pa;
 	struct pkvm_vm *pkvm_vm;
@@ -204,7 +204,7 @@ static int pkvm_vm_init(struct kvm *shared_kvm, unsigned long gpa)
 	if (ret)
 		goto undonate;
 
-	ret = pkvm_vm_mmu_init(pkvm_vm);
+	ret = pkvm_vm_mmu_init(pkvm_vm, pgd_gpa);
 	if (ret)
 		goto vm_destroy;
 
@@ -1947,7 +1947,7 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 		ret = kvm_x86_call(check_processor_compatibility)();
 		break;
 	case __pkvm__vm_init:
-		ret = pkvm_vm_init((struct kvm *)kern_pkvm_va((void *)p1), p2);
+		ret = pkvm_vm_init((struct kvm *)kern_pkvm_va((void *)p1), p2, p3);
 		break;
 	case __pkvm__vm_finalize:
 		ret = pkvm_vm_finalize((int)p1);

@@ -14,6 +14,9 @@
 #include "memory.h"
 #include <pkvm/vmx/vmx.h>
 
+DEFINE_PER_CPU(struct pkvm_vm *, __current_vm);
+#define current_vm (*this_cpu_ptr(&__current_vm))
+
 struct check_walk_data {
 	int 			nstate;
 	enum pkvm_page_state	*desired;
@@ -52,14 +55,16 @@ struct pkvm_mem_transition {
 	struct pkvm_mem_trans_desc	completer;
 };
 
-static void guest_mmu_lock(struct pkvm_pgtable *pgt)
+void guest_mmu_lock(struct pkvm_vm *vm)
 {
-	pkvm_spin_lock(&pgt_to_pkvm(pgt)->mmu_lock);
+	pkvm_spin_lock(&vm->mmu_lock);
+	current_vm = vm;
 }
 
-static void guest_mmu_unlock(struct pkvm_pgtable *pgt)
+void guest_mmu_unlock(struct pkvm_vm *vm)
 {
-	pkvm_spin_unlock(&pgt_to_pkvm(pgt)->mmu_lock);
+	current_vm = NULL;
+	pkvm_spin_unlock(&vm->mmu_lock);
 }
 
 static u64 pkvm_init_invalid_leaf_owner(pkvm_id owner_id)
@@ -729,6 +734,7 @@ static int __pkvm_guest_share_host_page(struct pkvm_pgtable *guest_pgt,
 int __pkvm_guest_share_host(struct pkvm_pgtable *guest_pgt,
 			    u64 gpa, u64 size, struct pkvm_memcache *mc)
 {
+	struct pkvm_vm *pkvm_vm = pgt_to_pkvm(guest_pgt);
 	unsigned long hpa;
 	u64 prot;
 	int ret = 0;
@@ -736,7 +742,7 @@ int __pkvm_guest_share_host(struct pkvm_pgtable *guest_pgt,
 	if (!PAGE_ALIGNED(size))
 		return -EINVAL;
 
-	guest_mmu_lock(guest_pgt);
+	guest_mmu_lock(pkvm_vm);
 	host_ept_lock();
 
 	while (size) {
@@ -755,8 +761,7 @@ int __pkvm_guest_share_host(struct pkvm_pgtable *guest_pgt,
 	}
 
 	host_ept_unlock();
-	guest_mmu_unlock(guest_pgt);
-
+	guest_mmu_unlock(pkvm_vm);
 
 	return ret;
 }
@@ -978,11 +983,12 @@ static int __pkvm_guest_unshare_host_page(struct pkvm_pgtable *guest_pgt,
 int __pkvm_guest_unshare_host(struct pkvm_pgtable *guest_pgt,
 			      u64 gpa, u64 size)
 {
+	struct pkvm_vm *pkvm_vm = pgt_to_pkvm(guest_pgt);
 	unsigned long hpa;
 	u64 prot;
 	int ret = 0;
 
-	guest_mmu_lock(guest_pgt);
+	guest_mmu_lock(pkvm_vm);
 	host_ept_lock();
 
 	while (size) {
@@ -1001,7 +1007,7 @@ int __pkvm_guest_unshare_host(struct pkvm_pgtable *guest_pgt,
 	}
 
 	host_ept_unlock();
-	guest_mmu_unlock(guest_pgt);
+	guest_mmu_unlock(pkvm_vm);
 
 	return ret;
 }

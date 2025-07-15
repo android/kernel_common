@@ -56,6 +56,10 @@ typedef u32 pkvm_id;
 #define OWNER_ID_INV	(~(u32)0UL)
 
 struct pkvm_pgtable;
+struct pkvm_vm;
+
+void guest_mmu_lock(struct pkvm_vm *vm);
+void guest_mmu_unlock(struct pkvm_vm *vm);
 
 static inline void pkvm_clear_memory(void *va, size_t size)
 {
