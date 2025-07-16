@@ -22,8 +22,6 @@
 #include <trace/events/f2fs.h>
 #include <trace/hooks/fs.h>
 
-EXPORT_TRACEPOINT_SYMBOL_GPL(f2fs_write_checkpoint);
-
 #define DEFAULT_CHECKPOINT_IOPRIO (IOPRIO_PRIO_VALUE(IOPRIO_CLASS_RT, 3))
 
 static struct kmem_cache *ino_entry_slab;
