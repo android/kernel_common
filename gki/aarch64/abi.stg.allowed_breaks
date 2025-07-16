@@ -10,3 +10,6 @@ type 'struct sched_dl_entity' changed
 type 'struct f2fs_sb_info' changed
   member 'union { unsigned int reserved_pin_section; unsigned char __kabi_ignored0; }' was added
 
+type 'enum gunyah_rm_vm_status' changed
+  enumerator 'GUNYAH_RM_VM_STATUS_RESET_FAILED' (12) was added
+
