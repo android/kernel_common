@@ -1271,6 +1271,10 @@ struct task_struct {
 #endif
 	raw_spinlock_t			blocked_lock;
 
+#ifdef CONFIG_DETECT_HUNG_TASK_BLOCKER
+	struct mutex			*blocker_mutex;
+#endif
+
 #ifdef CONFIG_DEBUG_ATOMIC_SLEEP
 	int				non_block_count;
 #endif
