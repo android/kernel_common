@@ -550,6 +550,7 @@
   devm_memremap
   devm_memunmap
   devm_mfd_add_devices
+  devm_mmc_alloc_host
   devm_nvmem_cell_get
   devm_nvmem_device_get
   devm_nvmem_register
