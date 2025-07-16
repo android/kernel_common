@@ -7,3 +7,6 @@ type 'enum prs_errcode' changed
 type 'struct sched_dl_entity' changed
   member 'unsigned int dl_server_idle:1' was added
 
+type 'struct f2fs_sb_info' changed
+  member 'union { unsigned int reserved_pin_section; unsigned char __kabi_ignored0; }' was added
+
