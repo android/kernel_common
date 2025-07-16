@@ -15,7 +15,6 @@
 
 #include "pkvm_hyp.h"
 #include "gfp.h"
-#include "early_alloc.h"
 #include "pgtable.h"
 #include "ept.h"
 #include "memory.h"
@@ -23,7 +22,6 @@
 #include "vmx.h"
 #include "mem_protect.h"
 #include "debug.h"
-#include "ptdev.h"
 #include <pkvm/vmx/vmx.h>
 
 static struct hyp_pool host_ept_pool;

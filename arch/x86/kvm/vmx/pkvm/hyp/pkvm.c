@@ -11,8 +11,6 @@
 #include "mem_protect.h"
 #include "lapic.h"
 #include "ptdev.h"
-#include "memory.h"
-#include "debug.h"
 #include <pkvm/pkvm.h>
 #include <pkvm/vmx/vmx.h>
 
