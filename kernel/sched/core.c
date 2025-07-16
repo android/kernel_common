@@ -5588,7 +5588,7 @@ static void zap_balance_callbacks(struct rq *rq)
 	}
 	rq->balance_callback = found ? &balance_push_callback : NULL;
 }
-#endif /* CONFIG_SCHED_PROXY_EXEC */
+#endif
 
 static void balance_push(struct rq *rq);
 
@@ -5658,11 +5658,9 @@ void balance_callbacks(struct rq *rq, struct balance_callback *head)
 
 #else
 
-#ifdef CONFIG_SCHED_PROXY_EXEC
 static inline void zap_balance_callbacks(struct rq *rq)
 {
 }
-#endif /* CONFIG_SCHED_PROXY_EXEC */
 
 static inline void __balance_callbacks(struct rq *rq)
 {
@@ -7143,11 +7141,13 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 /*
  * Helper function for __schedule()
  *
- * If a task does not have signals pending, deactivate it
- * Otherwise marks the task's __state as RUNNING
+ * Tries to deactivate the task, unless the should_block arg
+ * is false or if a signal is pending. In the case a signal
+ * is pending, marks the task's __state as RUNNING (and clear
+ * blocked_on).
  */
 static bool try_to_block_task(struct rq *rq, struct task_struct *p,
-			      unsigned long task_state, bool deactivate_cond)
+			      unsigned long task_state, bool should_block)
 {
 	int flags = DEQUEUE_NOCLOCK;
 
@@ -7156,7 +7156,14 @@ static bool try_to_block_task(struct rq *rq, struct task_struct *p,
 		return false;
 	}
 
-	if (!deactivate_cond)
+	/*
+	 * We check should_block after signal_pending because we
+	 * will want to wake the task in that case. But if
+	 * should_block is false, its likely due to the task being
+	 * blocked on a mutex, and we want to keep it on the runqueue
+	 * to be selectable for proxy-execution.
+	 */
+	if (!should_block)
 		return false;
 
 	p->sched_contributes_to_load =
@@ -7307,6 +7314,7 @@ static inline
 void proxy_force_return(struct rq *rq, struct rq_flags *rf,
 			struct task_struct *p)
 {
+	force_blocked_on_runnable(p);
 }
 
 static inline bool proxy_can_run_here(struct rq *rq, struct task_struct *p)
@@ -7690,6 +7698,12 @@ static void __sched notrace __schedule(int sched_mode)
 			goto picked;
 		}
 	} else if (!preempt && prev_state) {
+		/*
+		 * We pass task_is_blocked() as the should_block arg
+		 * in order to keep mutex-blocked tasks on the runqueue
+		 * for slection with proxy-exec (without proxy-exec
+		 * task_is_blocked() will always be false).
+		 */
 		block = try_to_block_task(rq, prev, prev_state,
 					  !task_is_blocked(prev));
 		switch_count = &prev->nvcsw;

@@ -2336,7 +2336,7 @@ static inline bool task_is_blocked(struct task_struct *p)
 static inline int task_on_cpu(struct rq *rq, struct task_struct *p)
 {
 #ifdef CONFIG_SMP
-	return READ_ONCE(p->on_cpu);
+	return p->on_cpu;
 #else
 	return task_current(rq, p);
 #endif

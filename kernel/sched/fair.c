@@ -1270,9 +1270,7 @@ static inline bool do_preempt_short(struct cfs_rq *cfs_rq,
  */
 s64 update_curr_common(struct rq *rq)
 {
-	struct task_struct *donor = rq->donor;
-
-	return update_se(rq, &donor->se);
+	return update_se(rq, &rq->donor->se);
 }
 
 /*

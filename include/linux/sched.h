@@ -2239,6 +2239,29 @@ static inline void __set_blocked_on_waking(struct task_struct *p)
 		p->blocked_on_state = BO_WAKING;
 }
 
+static inline struct mutex *__get_task_blocked_on(struct task_struct *p)
+{
+	lockdep_assert_held_once(&p->blocked_lock);
+	return p->blocked_on;
+}
+
+#ifndef CONFIG_PREEMPT_RT
+static inline void set_blocked_on_waking_nested(struct task_struct *p, struct mutex *m)
+{
+	raw_spin_lock_nested(&p->blocked_lock, SINGLE_DEPTH_NESTING);
+	WARN_ON_ONCE(__get_task_blocked_on(p) != m);
+	__set_blocked_on_waking(p);
+	raw_spin_unlock(&p->blocked_lock);
+}
+#else
+static inline void set_blocked_on_waking_nested(struct task_struct *p, struct rt_mutex *m)
+{
+	raw_spin_lock_nested(&p->blocked_lock, SINGLE_DEPTH_NESTING);
+	__set_blocked_on_waking(p);
+	raw_spin_unlock(&p->blocked_lock);
+}
+#endif
+
 static inline void __set_task_blocked_on(struct task_struct *p, struct mutex *m)
 {
 	WARN_ON_ONCE(!m);
@@ -2265,12 +2288,6 @@ static inline void __clear_task_blocked_on(struct task_struct *p, struct mutex *
 	WARN_ON_ONCE(p->blocked_on != m);
 	p->blocked_on = NULL;
 	p->blocked_on_state = BO_RUNNABLE;
-}
-
-static inline struct mutex *__get_task_blocked_on(struct task_struct *p)
-{
-	lockdep_assert_held_once(&p->blocked_lock);
-	return p->blocked_on;
 }
 
 static __always_inline bool need_resched(void)
