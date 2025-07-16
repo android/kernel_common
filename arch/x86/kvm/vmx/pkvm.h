@@ -2,9 +2,9 @@
 #ifndef __KVM_X86_VMX_PKVM_H
 #define __KVM_X86_VMX_PKVM_H
 
-static unsigned long pkvm_hypercall(unsigned long nr, unsigned long p1,
-				    unsigned long p2, unsigned long p3,
-				    unsigned long p4)
+static inline unsigned long pkvm_hypercall(unsigned long nr, unsigned long p1,
+					   unsigned long p2, unsigned long p3,
+					   unsigned long p4)
 {
 	unsigned long ret;
 
