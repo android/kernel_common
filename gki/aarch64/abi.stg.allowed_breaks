@@ -13,3 +13,19 @@ type 'struct f2fs_sb_info' changed
 type 'enum gunyah_rm_vm_status' changed
   enumerator 'GUNYAH_RM_VM_STATUS_RESET_FAILED' (12) was added
 
+6 function symbol(s) removed
+  'int __traceiter_f2fs_gc_begin(void*, struct super_block*, int, bool, unsigned int, long long, long long, long long, unsigned int, unsigned int, int, unsigned int)'
+  'int __traceiter_f2fs_gc_end(void*, struct super_block*, int, int, int, long long, long long, long long, unsigned int, unsigned int, int, unsigned int)'
+  'int __traceiter_f2fs_sync_file_enter(void*, struct inode*)'
+  'int __traceiter_f2fs_sync_file_exit(void*, struct inode*, int, int, int)'
+  'int __traceiter_f2fs_write_checkpoint(void*, struct super_block*, int, const char*)'
+  'int __traceiter_ufshcd_command(void*, struct scsi_device*, struct ufs_hba*, enum ufs_trace_str_t, unsigned int, u32, u32, int, u32, u64, u8, u8)'
+
+6 variable symbol(s) removed
+  'struct tracepoint __tracepoint_f2fs_gc_begin'
+  'struct tracepoint __tracepoint_f2fs_gc_end'
+  'struct tracepoint __tracepoint_f2fs_sync_file_enter'
+  'struct tracepoint __tracepoint_f2fs_sync_file_exit'
+  'struct tracepoint __tracepoint_f2fs_write_checkpoint'
+  'struct tracepoint __tracepoint_ufshcd_command'
+
