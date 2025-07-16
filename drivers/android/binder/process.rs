@@ -277,7 +277,7 @@ impl ProcessInner {
 
     /// Finds a delivered death notification with the given cookie, removes it from the thread's
     /// delivered list, and returns it.
-    fn pull_delivered_death(&mut self, cookie: usize) -> Option<DArc<NodeDeath>> {
+    fn pull_delivered_death(&mut self, cookie: u64) -> Option<DArc<NodeDeath>> {
         let mut cursor = self.delivered_deaths.cursor_front();
         while let Some(next) = cursor.peek_next() {
             if next.cookie == cookie {
@@ -1176,7 +1176,7 @@ impl Process {
         thread: &Thread,
     ) -> Result {
         let handle: u32 = reader.read()?;
-        let cookie: usize = reader.read()?;
+        let cookie: u64 = reader.read()?;
 
         // TODO: First two should result in error, but not the others.
 
@@ -1224,7 +1224,7 @@ impl Process {
 
     pub(crate) fn clear_death(&self, reader: &mut UserSliceReader, thread: &Thread) -> Result {
         let handle: u32 = reader.read()?;
-        let cookie: usize = reader.read()?;
+        let cookie: u64 = reader.read()?;
 
         let mut refs = self.node_refs.lock();
         let info = refs.by_handle.get_mut(&handle).ok_or(EINVAL)?;
@@ -1246,7 +1246,7 @@ impl Process {
         Ok(())
     }
 
-    pub(crate) fn dead_binder_done(&self, cookie: usize, thread: &Thread) {
+    pub(crate) fn dead_binder_done(&self, cookie: u64, thread: &Thread) {
         if let Some(death) = self.inner.lock().pull_delivered_death(cookie) {
             death.set_notification_done(thread);
         }

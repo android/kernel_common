@@ -959,7 +959,7 @@ struct NodeDeathInner {
 pub(crate) struct NodeDeath {
     node: DArc<Node>,
     process: Arc<Process>,
-    pub(crate) cookie: usize,
+    pub(crate) cookie: u64,
     #[pin]
     links_track: AtomicTracker<0>,
     /// Used by the owner `Node` to store a list of registered death notifications.
@@ -988,7 +988,7 @@ impl NodeDeath {
     pub(crate) fn new(
         node: DArc<Node>,
         process: Arc<Process>,
-        cookie: usize,
+        cookie: u64,
     ) -> impl PinInit<DTRWrap<Self>> {
         DTRWrap::new(pin_init!(
             Self {
