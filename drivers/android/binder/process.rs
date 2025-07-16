@@ -1178,20 +1178,20 @@ impl Process {
         let handle: u32 = reader.read()?;
         let cookie: u64 = reader.read()?;
 
-        // TODO: First two should result in error, but not the others.
-
-        // TODO: Do we care about the context manager dying?
-
         // Queue BR_ERROR if we can't allocate memory for the death notification.
         let death = UniqueArc::new_uninit(GFP_KERNEL).map_err(|err| {
             thread.push_return_work(BR_ERROR);
             err
         })?;
         let mut refs = self.node_refs.lock();
-        let info = refs.by_handle.get_mut(&handle).ok_or(EINVAL)?;
+        let Some(info) = refs.by_handle.get_mut(&handle) else {
+            pr_warn!("BC_REQUEST_DEATH_NOTIFICATION invalid ref {handle}\n");
+            return Ok(());
+        };
 
         // Nothing to do if there is already a death notification request for this handle.
         if info.death().is_some() {
+            pr_warn!("BC_REQUEST_DEATH_NOTIFICATION death notification already set\n");
             return Ok(());
         }
 
@@ -1227,12 +1227,19 @@ impl Process {
         let cookie: u64 = reader.read()?;
 
         let mut refs = self.node_refs.lock();
-        let info = refs.by_handle.get_mut(&handle).ok_or(EINVAL)?;
+        let Some(info) = refs.by_handle.get_mut(&handle) else {
+            pr_warn!("BC_CLEAR_DEATH_NOTIFICATION invalid ref {handle}\n");
+            return Ok(());
+        };
 
-        let death = info.death().take().ok_or(EINVAL)?;
+        let Some(death) = info.death().take() else {
+            pr_warn!("BC_CLEAR_DEATH_NOTIFICATION death notification not active\n");
+            return Ok(());
+        };
         if death.cookie != cookie {
             *info.death() = Some(death);
-            return Err(EINVAL);
+            pr_warn!("BC_CLEAR_DEATH_NOTIFICATION death notification cookie mismatch\n");
+            return Ok(());
         }
 
         // Update state and determine if we need to queue a work item. We only need to do it when
