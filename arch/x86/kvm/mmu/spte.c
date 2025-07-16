@@ -375,7 +375,7 @@ void kvm_mmu_set_mmio_spte_mask(u64 mmio_value, u64 mmio_mask, u64 access_mask)
 	 * to (dis)allow MMIO caching.  Update the param itself so that
 	 * userspace can see whether or not KVM is actually using MMIO caching.
 	 */
-	enable_mmio_caching = allow_mmio_caching;
+	enable_mmio_caching = allow_mmio_caching && !enable_pkvm;
 	if (!enable_mmio_caching)
 		mmio_value = 0;
 
