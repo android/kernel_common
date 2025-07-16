@@ -552,6 +552,7 @@
   device_match_name
   device_match_of_node
   device_move
+  device_node_to_regmap
   device_property_match_string
   device_property_present
   device_property_read_string
