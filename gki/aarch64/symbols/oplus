@@ -331,6 +331,7 @@
   __traceiter_android_vh_tune_swappiness
   __traceiter_android_vh_unreserve_highatomic_bypass
   __traceiter_android_vh_vmscan_kswapd_done
+  __traceiter_android_vh_page_cache_ra_order_bypass
   __traceiter_block_bio_queue
   __traceiter_block_getrq
   __traceiter_block_rq_complete
@@ -470,6 +471,7 @@
   __tracepoint_android_vh_tune_swappiness
   __tracepoint_android_vh_unreserve_highatomic_bypass
   __tracepoint_android_vh_vmscan_kswapd_done
+  __tracepoint_android_vh_page_cache_ra_order_bypass
   __tracepoint_block_bio_queue
   __tracepoint_block_getrq
   __tracepoint_block_rq_complete
@@ -535,5 +537,7 @@
   zstd_init_cctx
   zstd_init_dctx
   zstd_is_error
-
-
+  is_ashmem_file
+  ashmem_area_name
+  ashmem_area_size
+  ashmem_area_vmfile
