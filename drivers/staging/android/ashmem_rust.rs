@@ -297,20 +297,12 @@ impl MiscDevice for Ashmem {
 }
 
 impl Ashmem {
-    fn set_name(&self, mut reader: UserSliceReader) -> Result<isize> {
-        let mut local_name = [0u8; ASHMEM_NAME_LEN];
-        reader.read_slice(&mut local_name)?;
+    fn set_name(&self, reader: UserSliceReader) -> Result<isize> {
+        let mut buf = [0u8; ASHMEM_NAME_LEN];
+        let name = reader.strcpy_into_buf(&mut buf)?.as_bytes();
 
-        // Find the zero terminator. If the zero terminator is missing, the string is truncated to
-        // `ASHMEM_NAME_LEN-1` so that `get_name` can return it and has enough space to add a zero
-        // terminator.
-        let len = local_name
-            .iter()
-            .position(|&c| c == 0)
-            .unwrap_or(local_name.len() - 1);
-
-        let mut v = KVec::with_capacity(len, GFP_KERNEL)?;
-        v.extend_from_slice(&local_name[..len], GFP_KERNEL)?;
+        let mut v = KVec::with_capacity(name.len(), GFP_KERNEL)?;
+        v.extend_from_slice(name, GFP_KERNEL)?;
 
         let mut asma = self.inner.lock();
         if asma.file.is_some() {
