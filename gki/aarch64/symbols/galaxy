@@ -11,6 +11,8 @@
   file_write_and_wait_range
   fixed_size_llseek
   free_hpage
+  gcma_alloc_range
+  gcma_free_range
   generic_file_read_iter
   generic_perform_write
   get_pfnblock_flags_mask
@@ -28,6 +30,7 @@
   proc_set_size
   pstore_register
   pstore_unregister
+  register_gcma_area
   scsi_device_quiesce
   scsi_device_resume
   swp_swapcount
