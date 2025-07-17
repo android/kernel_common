@@ -929,6 +929,13 @@ static __init void pkvm_host_deprivilege_cpu(void *data)
 		goto out;
 	}
 
+	/*
+	 * Setup the x86_spec_ctrl percpu value for the pkvm hypervisor before
+	 * the deprivileging so that the pkvm hypervisor can properly restore
+	 * the spec ctrl when exits from the host.
+	 */
+	pkvm_sym(setup_x86_spec_ctrl)(cpu);
+
 	ret = local_deprivilege_cpu(hvcpu);
 	if (ret == 0) {
 		vcpu = &hvcpu->vmx.vcpu;

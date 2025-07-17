@@ -5,6 +5,7 @@
 #include <asm/kvm_pkvm.h>
 #include <asm/percpu.h>
 #include <asm/page.h>
+#include <pkvm.h>
 #include "cpu.h"
 
 unsigned long __per_cpu_offset[NR_CPUS];
@@ -44,4 +45,12 @@ int setup_pkvm_per_cpu(int cpu, unsigned long base)
 void warn_thunk_thunk(void)
 {
 	WARN_ONCE(1, "pkvm: Unpatched return thunk in use. This should not happen!\n");
+}
+
+void setup_x86_spec_ctrl(int cpu)
+{
+	if (cpu_feature_enabled(X86_FEATURE_MSR_SPEC_CTRL))
+		per_cpu(x86_spec_ctrl_current, cpu) = __rdmsr(MSR_IA32_SPEC_CTRL);
+	else
+		per_cpu(x86_spec_ctrl_current, cpu) = 0;
 }

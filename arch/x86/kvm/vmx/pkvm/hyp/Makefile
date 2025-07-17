@@ -39,6 +39,8 @@ obj-$(CONFIG_PKVM_INTEL)	+= pkvm.o
 
 AFLAGS_$(pkvm-kvm)/vmx/vmenter.pkvm.o	+= -iquote $(obj)/$(pkvm)
 $(obj)/$(pkvm-kvm)/vmx/vmenter.pkvm.o:	$(obj)/$(pkvm)/kvm-asm-offsets.h
+AFLAGS_vmx_asm.pkvm.o			+= -iquote $(obj)/$(pkvm)
+$(obj)/vmx_asm.pkvm.o:			$(obj)/$(pkvm)/kvm-asm-offsets.h
 
 $(obj)/$(pkvm)/kvm-asm-offsets.s: $(obj)/../../../kvm-asm-offsets.c FORCE
 	$(call if_changed_dep,cc_s_c)
