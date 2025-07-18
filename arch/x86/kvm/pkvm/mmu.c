@@ -218,7 +218,7 @@ static int refill_memcache(struct pkvm_memcache *mc, unsigned long min_pages,
 	return ret;
 }
 
-static int pkvm_refill_mmu_memcache(struct pkvm_vcpu *pkvm_vcpu)
+int pkvm_refill_mmu_memcache(struct pkvm_vcpu *pkvm_vcpu)
 {
 	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
 	struct pkvm_memcache *host_mc;
