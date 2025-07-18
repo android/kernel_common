@@ -1282,6 +1282,22 @@ static void dpm_async_suspend_parent(struct device *dev, async_func_t func)
 		dpm_async_with_cleanup(dev->parent, func);
 }
 
+static void dpm_async_suspend_complete_all(struct list_head *device_list)
+{
+	struct device *dev;
+
+	guard(mutex)(&async_wip_mtx);
+
+	list_for_each_entry_reverse(dev, device_list, power.entry) {
+		/*
+		 * In case the device is being waited for and async processing
+		 * has not started for it yet, let the waiters make progress.
+		 */
+		if (!dev->power.work_in_progress)
+			complete_all(&dev->power.completion);
+	}
+}
+
 /**
  * resume_event - Return a "resume" message for given "suspend" sleep state.
  * @sleep_state: PM message representing a sleep state.
@@ -1460,6 +1476,7 @@ static int dpm_noirq_suspend_devices(pm_message_t state)
 		mutex_lock(&dpm_list_mtx);
 
 		if (error || async_error) {
+			dpm_async_suspend_complete_all(&dpm_late_early_list);
 			/*
 			 * Move all devices to the target list to resume them
 			 * properly.
@@ -1664,6 +1681,7 @@ int dpm_suspend_late(pm_message_t state)
 		mutex_lock(&dpm_list_mtx);
 
 		if (error || async_error) {
+			dpm_async_suspend_complete_all(&dpm_suspended_list);
 			/*
 			 * Move all devices to the target list to resume them
 			 * properly.
@@ -1960,6 +1978,7 @@ int dpm_suspend(pm_message_t state)
 		mutex_lock(&dpm_list_mtx);
 
 		if (error || async_error) {
+			dpm_async_suspend_complete_all(&dpm_prepared_list);
 			/*
 			 * Move all devices to the target list to resume them
 			 * properly.
