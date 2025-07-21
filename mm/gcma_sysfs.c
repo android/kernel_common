@@ -23,6 +23,11 @@ void gcma_stat_add(enum gcma_stat_type type, unsigned long delta)
 	atomic64_add(delta, &gcma_stats[type]);
 }
 
+void gcma_stat_sub(enum gcma_stat_type type, unsigned long delta)
+{
+	atomic64_sub(delta, &gcma_stats[type]);
+}
+
 u64 gcma_stat_get(enum gcma_stat_type type)
 {
 	return (u64)atomic64_read(&gcma_stats[type]);
@@ -35,6 +40,13 @@ EXPORT_SYMBOL_GPL(gcma_stat_get);
 
 #define GCMA_ATTR_RO(_name) \
 	static struct kobj_attribute _name##_attr = __ATTR_RO(_name)
+
+static ssize_t allocated_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "%llu\n", (u64)atomic64_read(&gcma_stats[ALLOCATED_PAGE]));
+}
+GCMA_ATTR_RO(allocated);
 
 static ssize_t stored_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf)
@@ -71,12 +83,21 @@ static ssize_t discarded_show(struct kobject *kobj,
 }
 GCMA_ATTR_RO(discarded);
 
+static ssize_t total_show(struct kobject *kobj,
+		struct kobj_attribute *attr, char *buf)
+{
+	return sysfs_emit(buf, "%llu\n", (u64)atomic64_read(&gcma_stats[TOTAL_PAGE]));
+}
+GCMA_ATTR_RO(total);
+
 static struct attribute *gcma_attrs[] = {
+	&allocated_attr.attr,
 	&stored_attr.attr,
 	&loaded_attr.attr,
 	&evicted_attr.attr,
 	&cached_attr.attr,
 	&discarded_attr.attr,
+	&total_attr.attr,
 	NULL,
 };
 ATTRIBUTE_GROUPS(gcma);

@@ -307,6 +307,7 @@ int register_gcma_area(const char *name, phys_addr_t base, phys_addr_t size)
 	INIT_LIST_HEAD(&area->free_pages);
 	spin_lock_init(&area->free_pages_lock);
 
+	gcma_stat_add(TOTAL_PAGE, page_count);
 	for (i = 0; i < page_count; i++) {
 		page = pfn_to_page(pfn + i);
 		set_area_id(page, area_id);
@@ -621,6 +622,7 @@ void gcma_alloc_range(unsigned long start_pfn, unsigned long end_pfn)
 
 		__gcma_discard_range(area, s_pfn, e_pfn);
 	}
+	gcma_stat_add(ALLOCATED_PAGE, end_pfn - start_pfn + 1);
 }
 EXPORT_SYMBOL_GPL(gcma_alloc_range);
 
@@ -659,6 +661,7 @@ void gcma_free_range(unsigned long start_pfn, unsigned long end_pfn)
 	}
 
 	local_irq_enable();
+	gcma_stat_sub(ALLOCATED_PAGE, end_pfn - start_pfn + 1);
 }
 EXPORT_SYMBOL_GPL(gcma_free_range);
 
