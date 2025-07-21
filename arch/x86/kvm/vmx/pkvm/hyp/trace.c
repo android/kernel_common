@@ -67,6 +67,9 @@ void trace_vmexit_end(struct kvm_vcpu *vcpu, u32 index)
 	if (!perf->on || !perf->start || !perf_data)
 		return;
 
+	if (index >= MAX_EXIT_REASONS)
+		return;
+
 	pkvm_spin_lock(&perf->lock);
 	cycles = pkvm_rdtsc_ordered() - perf_data->tsc;
 	perf_data->data.cycles[index] += cycles;

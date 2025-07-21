@@ -5,11 +5,13 @@
 #ifndef _PKVM_TRACE_H_
 #define _PKVM_TRACE_H_
 
+#include <asm/vmx.h>
+
 struct vmexit_data {
 	u64 total_count;
 	u64 total_cycles;
-	u64 reasons[74];
-	u64 cycles[74];
+	u64 reasons[MAX_EXIT_REASONS];
+	u64 cycles[MAX_EXIT_REASONS];
 };
 
 struct perf_data {

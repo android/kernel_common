@@ -61,7 +61,7 @@ static void __pkvm_vmexit_perf_dump_percpu(struct vmexit_perf_dump *perf,
 		count_perf_data = count ? &count->l1data : NULL;
 	}
 
-	for (i = 0 ; i < 74; i++) {
+	for (i = 0 ; i < MAX_EXIT_REASONS; i++) {
 		if (!perf_data->data.reasons[i])
 			continue;
 
@@ -98,7 +98,7 @@ static void __pkvm_vmexit_perf_dump_summary(struct vmexit_perf_dump *perf, bool 
 	else
 		perf_data = &perf->l1data;
 
-	for (i = 0 ; i < 74; i++) {
+	for (i = 0 ; i < MAX_EXIT_REASONS; i++) {
 		if (!perf_data->data.reasons[i])
 			continue;
 
