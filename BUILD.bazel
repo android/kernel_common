@@ -198,6 +198,7 @@ filegroup(
         "gki/aarch64/symbols/mtktv",
         "gki/aarch64/symbols/oplus",
         "gki/aarch64/symbols/pixel",
+        "gki/aarch64/symbols/pixel_watch",
         "gki/aarch64/symbols/qcom",
         "gki/aarch64/symbols/rtkstb",
         "gki/aarch64/symbols/rtktv",
