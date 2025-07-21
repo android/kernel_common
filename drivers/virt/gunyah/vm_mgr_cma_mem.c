@@ -257,6 +257,9 @@ static long gunyah_cma_create_mem_fd(struct gunyah_cma *cma)
 	struct file *file;
 	int fd, err;
 
+	if (cma->page)
+		return -EBUSY;
+
 	flags |= O_CLOEXEC;
 	fd = get_unused_fd_flags(flags);
 	if (fd < 0)
