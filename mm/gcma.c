@@ -13,6 +13,7 @@
 #include <linux/idr.h>
 #include <linux/slab.h>
 #include <linux/xarray.h>
+#include <trace/hooks/mm.h>
 #include "gcma_sysfs.h"
 
 /*
@@ -747,7 +748,11 @@ static void gcma_cc_store_page(int hash_id, struct cleancache_filekey key,
 	void *src, *dst;
 	bool is_new = false;
 	bool workingset = PageWorkingset(page);
+	bool bypass = false;
 
+	trace_android_vh_gcma_cc_store_page_bypass(&bypass);
+	if (bypass)
+		return;
 	/*
 	 * This cleancache function is called under irq disabled so every
 	 * locks in this function should take of the irq if they are
