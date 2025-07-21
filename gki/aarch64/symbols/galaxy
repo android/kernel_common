@@ -13,6 +13,7 @@
   free_hpage
   gcma_alloc_range
   gcma_free_range
+  gcma_stat_get
   generic_file_read_iter
   generic_perform_write
   get_pfnblock_flags_mask
