@@ -5,6 +5,21 @@
 #include <linux/types.h>
 
 #ifdef CONFIG_GCMA
+enum gcma_stat_type {
+	STORED_PAGE,
+	LOADED_PAGE,
+	EVICTED_PAGE,
+	CACHED_PAGE,
+	DISCARDED_PAGE,
+	NUM_OF_GCMA_STAT,
+};
+
+#ifdef CONFIG_GCMA_SYSFS
+u64 gcma_stat_get(enum gcma_stat_type type);
+#else
+static inline u64 gcma_stat_get(enum gcma_stat_type type) { return 0; }
+#endif
+
 extern void gcma_alloc_range(unsigned long start_pfn, unsigned long end_pfn);
 extern void gcma_free_range(unsigned long start_pfn, unsigned long end_pfn);
 extern int register_gcma_area(const char *name, phys_addr_t base,
