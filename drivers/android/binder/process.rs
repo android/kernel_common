@@ -931,7 +931,7 @@ impl Process {
                 refs.by_node.remove(&id);
             }
         } else {
-            pr_warn!("{}: no such ref {handle}\n", kernel::current!().pid());
+            pr_warn!("{}: no such ref {handle}\n", self.pid_in_current_ns());
         }
         Ok(())
     }
@@ -1310,37 +1310,9 @@ impl Process {
             work.into_arc().cancel();
         }
 
-        // Take all threads and release them.
-        let threads = take(&mut self.inner.lock().threads);
-        for thread in threads.values() {
-            thread.release();
-        }
-        drop(threads);
-
-        // Free any resources kept alive by allocated buffers.
-        let omapping = self.inner.lock().mapping.take();
-        if let Some(mut mapping) = omapping {
-            let address = mapping.address;
-            mapping
-                .alloc
-                .take_for_each(|offset, size, debug_id, odata| {
-                    let ptr = offset + address;
-                    let mut alloc =
-                        Allocation::new(self.clone(), debug_id, offset, size, ptr, false);
-                    if let Some(data) = odata {
-                        alloc.set_info(data);
-                    }
-                    drop(alloc)
-                });
-        }
-
         // Drop all references. We do this dance with `swap` to avoid destroying the references
         // while holding the lock.
-        let mut refs = self.node_refs.lock();
-        let mut node_refs = take(&mut refs.by_handle);
-        let freeze_listeners = take(&mut refs.freeze_listeners);
-        drop(refs);
-        for info in node_refs.values_mut() {
+        for info in self.node_refs.lock().by_handle.values_mut() {
             // SAFETY: We are removing the `NodeRefInfo` from the right node.
             unsafe { info.node_ref2().node.remove_node_info(&info) };
 
@@ -1352,14 +1324,24 @@ impl Process {
             };
             death.set_cleared(false);
         }
-        drop(node_refs);
+        let freeze_listeners = take(&mut self.node_refs.lock().freeze_listeners);
         for listener in freeze_listeners.values() {
             listener.on_process_exit(&self);
         }
         drop(freeze_listeners);
 
+        // Do similar dance for the state lock.
+        let mut inner = self.inner.lock();
+        let threads = take(&mut inner.threads);
+        let nodes = take(&mut inner.nodes);
+        drop(inner);
+
+        // Release all threads.
+        for thread in threads.values() {
+            thread.release();
+        }
+
         // Deliver death notifications.
-        let nodes = take(&mut self.inner.lock().nodes);
         for node in nodes.values() {
             loop {
                 let death = {
@@ -1372,6 +1354,27 @@ impl Process {
                 };
                 death.set_dead();
             }
+        }
+
+        // Free any resources kept alive by allocated buffers.
+        let omapping = self.inner.lock().mapping.take();
+        if let Some(mut mapping) = omapping {
+            let address = mapping.address;
+            mapping
+                .alloc
+                .take_for_each(|offset, size, debug_id, odata| {
+                    let ptr = offset + address;
+                    pr_warn!(
+                        "{}: removing orphan mapping {offset}:{size}\n",
+                        self.pid_in_current_ns()
+                    );
+                    let mut alloc =
+                        Allocation::new(self.clone(), debug_id, offset, size, ptr, false);
+                    if let Some(data) = odata {
+                        alloc.set_info(data);
+                    }
+                    drop(alloc)
+                });
         }
     }
 
