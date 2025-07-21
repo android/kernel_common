@@ -53,6 +53,7 @@
   __traceiter_android_vh_filemap_read
   __traceiter_android_vh_free_pages_ok_bypass
   __traceiter_android_vh_free_pages_prepare_bypass
+  __traceiter_android_vh_gcma_cc_store_page_bypass
   __traceiter_android_vh_is_fpsimd_save
   __traceiter_android_vh_logbuf
   __traceiter_android_vh_logbuf_pr_cont
@@ -99,6 +100,7 @@
   __tracepoint_android_vh_filemap_read
   __tracepoint_android_vh_free_pages_ok_bypass
   __tracepoint_android_vh_free_pages_prepare_bypass
+  __tracepoint_android_vh_gcma_cc_store_page_bypass
   __tracepoint_android_vh_is_fpsimd_save
   __tracepoint_android_vh_logbuf
   __tracepoint_android_vh_logbuf_pr_cont
