@@ -6,6 +6,7 @@
 #include <linux/kvm_host.h>
 #include <asm/vmx.h>
 #include <asm/kvm_para.h>
+#include <asm/kvm_pkvm.h>
 #include <pkvm_trace.h>
 #include <pkvm_debugfs.h>
 
@@ -157,16 +158,23 @@ static void pkvm_dump_vmexit_trace(struct seq_file *m, struct perf_data *dump,
 
 static int vmexit_trace_show(struct seq_file *m, void *unused)
 {
+	struct kvm *kvm = (struct kvm *)m->private;
 	struct perf_data *perf;
 	unsigned long size;
-	struct kvm *kvm;
+	int vm_handle = 0;
 
-	/* Dump vmexit trace for all VMs including the host VM */
-	size = sizeof(struct perf_data) * num_possible_cpus();
-	mutex_lock(&kvm_lock);
-	list_for_each_entry(kvm, &vm_list, vm_list)
-		size += atomic_read(&kvm->online_vcpus) * sizeof(struct perf_data);
-	mutex_unlock(&kvm_lock);
+	if (kvm) {
+		/* Dump vmexit trace for a specific VM */
+		size = atomic_read(&kvm->online_vcpus) * sizeof(struct perf_data);
+		vm_handle = kvm->arch.pkvm.pkvm_vm_handle;
+	} else {
+		/* Dump vmexit trace for all VMs including the host VM */
+		size = sizeof(struct perf_data) * num_possible_cpus();
+		mutex_lock(&kvm_lock);
+		list_for_each_entry(kvm, &vm_list, vm_list)
+			size += atomic_read(&kvm->online_vcpus) * sizeof(struct perf_data);
+		mutex_unlock(&kvm_lock);
+	}
 
 	perf = alloc_pages_exact(size, GFP_KERNEL_ACCOUNT);
 	if (!perf) {
@@ -176,7 +184,7 @@ static int vmexit_trace_show(struct seq_file *m, void *unused)
 
 	/*TODO: Share perf memory with the pkvm hypervisor */
 
-	kvm_hypercall2(PKVM_HC_DUMP_VMEXIT_TRACE, __pa(perf), size);
+	kvm_hypercall3(PKVM_HC_DUMP_VMEXIT_TRACE, vm_handle, __pa(perf), size);
 
 	/*TODO: Unshare perf memory with the pkvm hypervisor */
 
@@ -197,7 +205,7 @@ struct debugfs_item {
 
 struct debugfs_item debugfs_files[] = {
 	{ "set_vmexit_trace", 0222, &set_vmexit_trace_fops},
-	{ "dump_vmexit_trace", 0444, &vmexit_trace_fops},
+	{ "vmexit_trace", 0444, &vmexit_trace_fops},
 	{ NULL }
 };
 
@@ -231,4 +239,10 @@ out_dir:
 	debugfs_remove(debugfs_dir);
 failed_dir:
 	debugfs_dir = NULL;
+}
+
+void pkvm_create_vm_debugfs(struct kvm *kvm)
+{
+	debugfs_create_file("pkvm_vmexit_trace", 0444, kvm->debugfs_dentry,
+			    kvm, &vmexit_trace_fops);
 }

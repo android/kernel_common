@@ -133,6 +133,7 @@ static void *copy_host_vm_trace(void *dst, unsigned long *size)
 }
 
 struct copy_arg {
+	int vm_handle;
 	void *dst;
 	unsigned long size;
 };
@@ -142,6 +143,9 @@ static int copy_pkvm_vm_trace(struct pkvm_vm *vm, void *param)
 	struct copy_arg *arg = param;
 	struct vmexit_perf *perf;
 	int i;
+
+	if (arg->vm_handle && (arg->vm_handle != to_kvm(vm)->arch.pkvm.pkvm_vm_handle))
+		return 0;
 
 	pkvm_spin_lock(&vm->lock);
 	for (i = 0; i < to_kvm(vm)->created_vcpus; i++) {
@@ -157,12 +161,18 @@ static int copy_pkvm_vm_trace(struct pkvm_vm *vm, void *param)
 	}
 	pkvm_spin_unlock(&vm->lock);
 
-	return 0;
+	/*
+	 * If vm_handle == 0, the pkvm will continue to walk for the rest of VMs.
+	 * If vm_handle !=0, means the host wants to get the trace for specific
+	 * vm. The pkvm will stop walking for this case.
+	 */
+	return arg->vm_handle;
 }
 
-static void copy_guest_vm_trace(void *dst, unsigned long size)
+static void copy_guest_vm_trace(int vm_handle, void *dst, unsigned long size)
 {
 	struct copy_arg arg = {
+		.vm_handle = vm_handle,
 		.dst = dst,
 		.size = size,
 	};
@@ -170,7 +180,7 @@ static void copy_guest_vm_trace(void *dst, unsigned long size)
 	pkvm_walk_each_vm(copy_pkvm_vm_trace, &arg);
 }
 
-void pkvm_handle_dump_vmexit_trace(unsigned long pa, unsigned long size)
+void pkvm_handle_dump_vmexit_trace(int vm_handle, unsigned long pa, unsigned long size)
 {
 	void *dst;
 
@@ -187,9 +197,10 @@ void pkvm_handle_dump_vmexit_trace(unsigned long pa, unsigned long size)
 	 * Copy host_vcpu perf data first as this will be dumpped first by
 	 * the host. Then the guest perf data.
 	 */
-	dst = copy_host_vm_trace(dst, &size);
+	if (!vm_handle)
+		dst = copy_host_vm_trace(dst, &size);
 
-	copy_guest_vm_trace(dst, size);
+	copy_guest_vm_trace(vm_handle, dst, size);
 }
 
 void pkvm_vcpu_perf_init(struct kvm_vcpu *vcpu)

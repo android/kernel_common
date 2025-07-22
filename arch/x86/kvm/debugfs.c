@@ -8,6 +8,7 @@
 
 #include <linux/kvm_host.h>
 #include <linux/debugfs.h>
+#include <asm/kvm_pkvm.h>
 #include "lapic.h"
 #include "mmu.h"
 #include "mmu/mmu_internal.h"
@@ -193,4 +194,5 @@ void kvm_arch_create_vm_debugfs(struct kvm *kvm)
 {
 	debugfs_create_file("mmu_rmaps_stat", 0644, kvm->debugfs_dentry, kvm,
 			    &mmu_rmaps_stat_fops);
+	pkvm_create_vm_debugfs(kvm);
 }
