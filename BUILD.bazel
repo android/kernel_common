@@ -218,6 +218,7 @@ filegroup(
     srcs = [
         # keep sorted
         "gki/x86_64/symbols/desktop",
+        "gki/x86_64/symbols/virtual_device",
     ],
     visibility = ["//visibility:public"],
 )
