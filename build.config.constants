@@ -1,6 +1,6 @@
 BRANCH=android-mainline
 CLANG_VERSION=r547379
-RUSTC_VERSION=1.82.0
+RUSTC_VERSION=1.85.1
 AARCH64_NDK_TRIPLE=aarch64-linux-android31
 X86_64_NDK_TRIPLE=x86_64-linux-android31
 ARM_NDK_TRIPLE=arm-linux-androideabi31
