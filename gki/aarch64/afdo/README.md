@@ -6,22 +6,22 @@ optimize kernel builds for specific architectures and kernel versions.
 
 ## kernel.afdo
 
-kernel.afdo is an AArch64 kernel profile collected on kernel version 6.12.18 (
-SHA fbd1fef4d7283d210845f8609599efd53c0905a4, build server ID 13287522) using Pixel 6.
+kernel.afdo is an AArch64 kernel profile collected on kernel version 6.12.30 (
+SHA 21ed84930c160ed721c131a67e5ae6181ac40e1e, build server ID 13771236) using Pixel 6.
 
 ### Performance improvements
 
-| Benchmark             | Improvement |
-| --------------------- | ----------- |
-| Boot time             | 2.6%        |
-| Cold App launch time  | 3.7%        |
-| Binder-rpc            | 9.4%        |
-| Binder-addints        | 31.9%       |
-| Hwbinder              | 16.5%       |
-| Bionic (syscall_mmap) | 7.1%        |
-| Bionic (pthread)      | 3.3%        |
-| Bionic (stdio)        | 3.7%        |
-| Bionic (all)          | 3.4%        |
+| Benchmark             | Improvement                                                            |
+| --------------------- | ---------------------------------------------------------------------- |
+| Boot time             | 2.2%                                                                   |
+| Cold App launch time  | 3.3% (Only for two apps, most app launch tests are broken b/432087996) |
+| Binder-rpc            | 8.3%                                                                   |
+| Binder-addints        | 15.2%                                                                  |
+| Hwbinder              | 17.8%                                                                  |
+| Bionic (syscall_mmap) | 6.6%                                                                   |
+| Bionic (pthread)      | 2.8%                                                                   |
+| Bionic (stdio)        | 1.2%                                                                   |
+| Bionic (all)          | 1.4%                                                                   |
 
 Benchmark results were tested on Pixel 6.
 
