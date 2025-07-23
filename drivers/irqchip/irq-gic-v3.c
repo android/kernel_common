@@ -1583,7 +1583,6 @@ static void gic_syscore_init(void)
 
 #else
 static inline void gic_syscore_init(void) { }
-static int gic_v3_suspend(void) { return 0; }
 #endif /* CONFIG_PM */
 
 static struct irq_chip gic_chip = {
