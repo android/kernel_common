@@ -8,6 +8,7 @@
 //FIXME: clean up the header files
 #include <vmx/pkvm/hyp/mem_protect.h>
 #include <vmx/pkvm/hyp/memory.h>
+#include <vmx/pkvm/hyp/trace.h>
 #include <pkvm.h>
 
 /*
@@ -218,6 +219,8 @@ static int attach_pkvm_vcpu_to_vm(struct pkvm_vcpu *pkvm_vcpu, struct pkvm_vm *p
 	ret = kvm_arch_vcpu_create(vcpu);
 	if (ret)
 		goto out;
+
+	pkvm_vcpu_perf_init(vcpu);
 
 	pkvm_vm->vcpus[pkvm_vcpu->vcpu_idx] = pkvm_vcpu;
 	kvm->created_vcpus++;
@@ -1667,4 +1670,25 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 void pkvm_x86_ops_init(struct pkvm_x86_ops *ops)
 {
 	memcpy(&pkvm_x86_ops, ops, sizeof(struct pkvm_x86_ops));
+}
+
+int pkvm_walk_each_vm(pkvm_vm_func_t func, void *arg)
+{
+	struct pkvm_vm *vm;
+	int i, ret = 0;
+
+	pkvm_spin_lock(&pkvm_vms_lock);
+
+	for (i = 0; i < MAX_PKVM_VMS; i++) {
+		vm = pkvm_vms_ref[i].pkvm_vm;
+		if (!vm)
+			continue;
+		ret = func(vm, arg);
+		if (ret)
+			break;
+	}
+
+	pkvm_spin_unlock(&pkvm_vms_lock);
+
+	return ret;
 }

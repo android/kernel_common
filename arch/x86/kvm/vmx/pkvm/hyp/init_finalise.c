@@ -26,6 +26,7 @@
 #include "lapic.h"
 #include "pci.h"
 #include "init_finalise.h"
+#include "trace.h"
 #include <vmx/vmx.h>
 #include <pkvm/vmx/vmx.h>
 #include <pkvm/pkvm.h>
@@ -413,6 +414,8 @@ switch_pgt:
 	}
 
 	ept_sync_global();
+
+	pkvm_vcpu_perf_init(vcpu);
 
 	ret = pkvm_setup_lapic(pcpu, vcpu->cpu);
 out:

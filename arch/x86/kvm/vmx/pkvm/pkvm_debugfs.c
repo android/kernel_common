@@ -3,6 +3,7 @@
  * Copyright (C) 2022 Intel Corporation
  */
 #include <linux/debugfs.h>
+#include <linux/kvm_host.h>
 #include <asm/vmx.h>
 #include <asm/kvm_para.h>
 #include <pkvm_trace.h>
@@ -45,114 +46,138 @@ static const char *get_vmexit_reason(int index)
 	return NULL;
 }
 
-static void __pkvm_vmexit_perf_dump_percpu(struct vmexit_perf_dump *perf,
-					   struct vmexit_perf_dump *count,
-					   bool dump_l2)
+static void dump_perf_data(struct perf_data *perf, struct perf_data *summary)
 {
-	struct perf_data *perf_data, *count_perf_data;
-	int cpu = perf->cpu;
 	int i;
 
-	if (dump_l2) {
-		perf_data = &perf->l2data;
-		count_perf_data = count ? &count->l2data : NULL;
-	} else {
-		perf_data = &perf->l1data;
-		count_perf_data = count ? &count->l1data : NULL;
-	}
-
 	for (i = 0 ; i < MAX_EXIT_REASONS; i++) {
-		if (!perf_data->data.reasons[i])
+		if (!perf->vmexit.reasons[i])
 			continue;
 
-		pr_info("CPU%d vmexit_from_%s reason %s %lld cycles %lld each-handler-cycle %lld\n",
-			  cpu, dump_l2 ? "l2" : "l1", get_vmexit_reason(i),
-			  perf_data->data.reasons[i], perf_data->data.cycles[i],
-			  perf_data->data.cycles[i] / perf_data->data.reasons[i]);
+		if (perf->vm_handle)
+			pr_info("VM%d-vcpu%d: %s %lld cycles %lld each-handler-cycle %lld\n",
+				perf->vm_handle, perf->vcpu_id, get_vmexit_reason(i),
+				perf->vmexit.reasons[i], perf->vmexit.cycles[i],
+				perf->vmexit.cycles[i] / perf->vmexit.reasons[i]);
+		else
+			pr_info("Host-vcpu%d: %s %lld cycles %lld each-handler-cycle %lld\n",
+				perf->vcpu_id, get_vmexit_reason(i), perf->vmexit.reasons[i],
+				perf->vmexit.cycles[i],
+				perf->vmexit.cycles[i] / perf->vmexit.reasons[i]);
 
-		if (count_perf_data) {
-			count_perf_data->data.reasons[i] += perf_data->data.reasons[i];
-			count_perf_data->data.cycles[i] += perf_data->data.cycles[i];
-		}
+		summary->vmexit.reasons[i] += perf->vmexit.reasons[i];
+		summary->vmexit.cycles[i] += perf->vmexit.cycles[i];
 
 		if (need_resched())
 			cond_resched();
 	}
-
-	if (perf_data->data.total_count) {
-		pr_info("CPU%d total_vmexit_from_%s %lld total_cycles %lld\n",
-			  cpu, dump_l2 ? "l2" : "l1",
-			  perf_data->data.total_count,
-			  perf_data->data.total_cycles);
-		memset(perf_data, 0, sizeof(struct perf_data));
-	}
 }
 
-static void __pkvm_vmexit_perf_dump_summary(struct vmexit_perf_dump *perf, bool dump_l2)
+static void print_summary(struct perf_data *summary)
 {
-	struct perf_data *perf_data;
 	int i;
 
-	if (dump_l2)
-		perf_data = &perf->l2data;
-	else
-		perf_data = &perf->l1data;
-
 	for (i = 0 ; i < MAX_EXIT_REASONS; i++) {
-		if (!perf_data->data.reasons[i])
+		if (!summary->vmexit.reasons[i])
 			continue;
 
-		pr_info("AllCPU: vmexit_from_%s reason %s %lld cycles %lld each-handler-cycle %lld\n",
-			  dump_l2 ? "l2" : "l1", get_vmexit_reason(i),
-			  perf_data->data.reasons[i], perf_data->data.cycles[i],
-			  perf_data->data.cycles[i] / perf_data->data.reasons[i]);
-
-		perf_data->data.total_count += perf_data->data.reasons[i];
-		perf_data->data.total_cycles += perf_data->data.cycles[i];
+		if (summary->vm_handle)
+			pr_info("VM%d: %s %lld cycles %lld each-handler-cycle %lld\n",
+				summary->vm_handle, get_vmexit_reason(i),
+				summary->vmexit.reasons[i], summary->vmexit.cycles[i],
+				summary->vmexit.cycles[i] / summary->vmexit.reasons[i]);
+		else
+			pr_info("Host: %s %lld cycles %lld each-handler-cycle %lld\n",
+				get_vmexit_reason(i), summary->vmexit.reasons[i],
+				summary->vmexit.cycles[i],
+				summary->vmexit.cycles[i] / summary->vmexit.reasons[i]);
 
 		if (need_resched())
 			cond_resched();
 	}
-
-	pr_info("AllCPU: total_vmexit_from_%s %lld total_cycles %lld\n",
-		  dump_l2 ? "l2" : "l1",
-		  perf_data->data.total_count,
-		  perf_data->data.total_cycles);
 }
 
-static struct vmexit_perf_dump pkvm_perf;
-static void pkvm_dump_vmexit_trace(struct vmexit_perf_dump *hvcpu_perf)
+static struct perf_data *dump_host_vcpu_perf_data(struct perf_data *dump, unsigned long *size)
 {
-	struct vmexit_perf_dump *perf;
+	struct perf_data summary = { 0 };
+	struct perf_data *perf = dump;
 	int cpu;
 
-	memset(&pkvm_perf.l1data, 0, sizeof(struct perf_data));
-	memset(&pkvm_perf.l2data, 0, sizeof(struct perf_data));
+	/* Not a host vcpu perf data */
+	if (perf->vm_handle)
+		return perf;
 
-	for (cpu = 0; cpu < num_possible_cpus(); cpu++) {
-		perf = &hvcpu_perf[cpu];
+	for (cpu = 0;
+	     cpu < num_possible_cpus() && *size >= sizeof(struct perf_data);
+	     cpu++, *size -= sizeof(struct perf_data), perf++)
+		dump_perf_data(perf, &summary);
 
-		__pkvm_vmexit_perf_dump_percpu(perf, &pkvm_perf, false);
-		__pkvm_vmexit_perf_dump_percpu(perf, &pkvm_perf, true);
+	print_summary(&summary);
+
+	return perf;
+}
+
+static void dump_guest_vcpu_perf_data(struct perf_data *dump, unsigned long size)
+{
+	struct perf_data summary = { 0 };
+	struct perf_data *perf;
+
+	for (perf = dump, summary.vm_handle = perf->vm_handle;
+	     size >= sizeof(struct perf_data);
+	     size -= sizeof(struct perf_data), perf++) {
+		/* Should have no host vcpu perf data already */
+		if (WARN_ON_ONCE(perf->vm_handle == 0))
+			continue;
+
+		if (summary.vm_handle != perf->vm_handle) {
+			/* Start to dump another VM, print summary */
+			print_summary(&summary);
+			memset(&summary, 0, sizeof(struct perf_data));
+			summary.vm_handle = perf->vm_handle;
+		}
+
+		dump_perf_data(perf, &summary);
 	}
 
-	__pkvm_vmexit_perf_dump_summary(&pkvm_perf, false);
-	__pkvm_vmexit_perf_dump_summary(&pkvm_perf, true);
+	print_summary(&summary);
+}
+
+static void pkvm_dump_vmexit_trace(struct perf_data *dump, unsigned long size)
+{
+	/* Try to dump host vcpu perf as this is first copied by the pkvm */
+	struct perf_data *guest_perf = dump_host_vcpu_perf_data(dump, &size);
+
+	dump_guest_vcpu_perf_data(guest_perf, size);
 }
 
 static int dump_vmexit_trace(void *data, u64 *val)
 {
-	struct vmexit_perf_dump *hvcpu_perf;
-	unsigned long size = sizeof(struct vmexit_perf_dump) * num_possible_cpus();
+	struct perf_data *perf;
+	unsigned long size;
+	struct kvm *kvm;
 
-	hvcpu_perf = alloc_pages_exact(size, GFP_KERNEL_ACCOUNT);
+	/* Dump vmexit trace for all VMs including the host VM */
+	size = sizeof(struct perf_data) * num_possible_cpus();
+	mutex_lock(&kvm_lock);
+	list_for_each_entry(kvm, &vm_list, vm_list)
+		size += atomic_read(&kvm->online_vcpus) * sizeof(struct perf_data);
+	mutex_unlock(&kvm_lock);
 
-	kvm_hypercall2(PKVM_HC_DUMP_VMEXIT_TRACE, __pa(hvcpu_perf), size);
-	barrier();
+	perf = alloc_pages_exact(size, GFP_KERNEL_ACCOUNT);
+	if (!perf) {
+		pr_err("Failed to allocate perf buffer\n");
+		return -ENOMEM;
+	}
 
-	pkvm_dump_vmexit_trace(hvcpu_perf);
+	/*TODO: Share perf memory with the pkvm hypervisor */
 
-	free_pages_exact(hvcpu_perf, size);
+	kvm_hypercall2(PKVM_HC_DUMP_VMEXIT_TRACE, __pa(perf), size);
+
+	/*TODO: Unshare perf memory with the pkvm hypervisor */
+
+	pkvm_dump_vmexit_trace(perf, size);
+
+	free_pages_exact(perf, size);
 
 	*val = 0;
 	return 0;

@@ -6620,7 +6620,7 @@ static noinstr void vmx_vcpu_enter_exit(struct kvm_vcpu *vcpu,
 	vmx->fail = __vmx_vcpu_run(vmx, (unsigned long *)&vcpu->arch.regs,
 				   flags);
 #ifdef __PKVM_HYP__
-	trace_vmexit_start(vcpu, true);
+	trace_vmexit_start(vcpu);
 #endif
 
 	vcpu->arch.cr2 = native_read_cr2();

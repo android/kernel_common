@@ -8,6 +8,7 @@
 #include <pkvm.h>
 #include "trace.h"
 #include "debug.h"
+#include "pkvm/pkvm.h"
 
 /*
  * memset/memcpy can be re-defined by include/linux/fortify-string.h, which
@@ -17,16 +18,12 @@
 #undef memset
 #undef memcpy
 
-struct vmexit_perf {
-	struct perf_data l1data;
-	struct perf_data l2data;
-	struct perf_data *cur;
+struct perf_ctrl {
+	unsigned int age;
 	bool on;
-	bool start;
-	int cpu;
-	pkvm_spinlock_t lock;
 };
-static struct vmexit_perf hvcpu_perf[CONFIG_NR_CPUS];
+static DEFINE_PER_CPU(struct vmexit_perf, hvcpu_perf);
+static DEFINE_PER_CPU(struct perf_ctrl, perf_ctrl);
 
 static inline unsigned long long pkvm_rdtsc_ordered(void)
 {
@@ -37,94 +34,173 @@ static inline unsigned long long pkvm_rdtsc_ordered(void)
 	return EAX_EDX_VAL(val, low, high);
 }
 
-void trace_vmexit_start(struct kvm_vcpu *vcpu, bool nested_vmexit)
+static inline struct vmexit_perf *vcpu_to_perf(struct kvm_vcpu *vcpu)
 {
-	int cpu = vcpu->cpu;
-	struct vmexit_perf *perf = &hvcpu_perf[cpu];
+	return (this_cpu_read(host_vcpu) == vcpu) ? this_cpu_ptr(&hvcpu_perf) :
+						    &to_pkvm_vcpu(vcpu)->perf;
+}
 
-	if (!perf->on)
+static void refresh_vmexit_perf(struct perf_ctrl *pctrl, struct vmexit_perf *perf)
+{
+	perf->age = pctrl->age;
+	memset(&perf->data.vmexit, 0, sizeof(struct vmexit_data));
+}
+
+void trace_vmexit_start(struct kvm_vcpu *vcpu)
+{
+	struct perf_ctrl *pctrl = this_cpu_ptr(&perf_ctrl);
+	struct vmexit_perf *perf;
+
+	if (!pctrl->on)
 		return;
 
-	perf->start = true;
-	perf->cpu = cpu;
-	if (nested_vmexit)
-		perf->cur = &perf->l2data;
-	else
-		perf->cur = &perf->l1data;
+	perf = vcpu_to_perf(vcpu);
+	if (pctrl->age != perf->age)
+		refresh_vmexit_perf(pctrl, perf);
 
-	pkvm_spin_lock(&perf->lock);
-	perf->cur->tsc = pkvm_rdtsc_ordered();
-	pkvm_spin_unlock(&perf->lock);
+	perf->tsc = pkvm_rdtsc_ordered();
 }
 
 void trace_vmexit_end(struct kvm_vcpu *vcpu, u32 index)
 {
-	int cpu = vcpu->cpu;
-	struct vmexit_perf *perf = &hvcpu_perf[cpu];
-	struct perf_data *perf_data = perf->cur;
+	struct perf_ctrl *pctrl = this_cpu_ptr(&perf_ctrl);
+	struct vmexit_perf *perf;
 	unsigned long long cycles;
 
-	if (!perf->on || !perf->start || !perf_data)
+	if (!pctrl->on)
 		return;
+
+	perf = vcpu_to_perf(vcpu);
+	if (pctrl->age != perf->age) {
+		refresh_vmexit_perf(pctrl, perf);
+		return;
+	}
 
 	if (index >= MAX_EXIT_REASONS)
 		return;
 
+	cycles = pkvm_rdtsc_ordered() - perf->tsc;
+
 	pkvm_spin_lock(&perf->lock);
-	cycles = pkvm_rdtsc_ordered() - perf_data->tsc;
-	perf_data->data.cycles[index] += cycles;
-	perf_data->data.total_cycles += cycles;
-	perf_data->data.total_count++;
-	perf_data->data.reasons[index]++;
+	perf->data.vmexit.cycles[index] += cycles;
+	perf->data.vmexit.total_cycles += cycles;
+	perf->data.vmexit.total_count++;
+	perf->data.vmexit.reasons[index]++;
 	pkvm_spin_unlock(&perf->lock);
 }
 
-void pkvm_handle_set_vmexit_trace(struct kvm_vcpu *vcpu, bool en)
+void pkvm_handle_set_vmexit_trace(bool en)
 {
-	int cpu = vcpu->cpu;
-	struct vmexit_perf *perf = &hvcpu_perf[cpu];
+	struct perf_ctrl *pctrl = this_cpu_ptr(&perf_ctrl);
+	int cpu = raw_smp_processor_id();
 
-	if (en && !perf->on) {
-		perf->on = true;
+	if (en && !pctrl->on) {
+		pctrl->age++;
+		pctrl->on = true;
 		pkvm_dbg("%s: CPU%d enable vmexit_trace\n", __func__, cpu);
-		memset(&perf->l1data, 0, sizeof(struct perf_data));
-		memset(&perf->l2data, 0, sizeof(struct perf_data));
 		return;
 	}
 
-	if (!en && perf->on) {
-		perf->on = false;
-		perf->start = false;
+	if (!en && pctrl->on) {
+		pctrl->on = false;
 		pkvm_dbg("%s: CPU%d disable vmexit_trace\n", __func__, cpu);
 		return;
 	}
 }
 
+static void copy_vmexit_perf_data(struct perf_data *dst, struct vmexit_perf *perf)
+{
+	pkvm_spin_lock(&perf->lock);
+	memcpy(dst, &perf->data, sizeof(struct perf_data));
+	pkvm_spin_unlock(&perf->lock);
+}
+
+static void *copy_host_vm_trace(void *dst, unsigned long *size)
+{
+	struct vmexit_perf *perf;
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		perf = per_cpu_ptr(&hvcpu_perf, cpu);
+		if (*size >= sizeof(struct perf_data)) {
+			copy_vmexit_perf_data(dst, perf);
+			dst += sizeof(struct perf_data);
+			*size -= sizeof(struct perf_data);
+		}
+	}
+
+	return dst;
+}
+
+struct copy_arg {
+	void *dst;
+	unsigned long size;
+};
+
+static int copy_pkvm_vm_trace(struct pkvm_vm *vm, void *param)
+{
+	struct copy_arg *arg = param;
+	struct vmexit_perf *perf;
+	int i;
+
+	pkvm_spin_lock(&vm->lock);
+	for (i = 0; i < to_kvm(vm)->created_vcpus; i++) {
+		perf = &vm->vcpus[i]->perf;
+
+		if (arg->size >= sizeof(struct perf_data)) {
+			copy_vmexit_perf_data(arg->dst, perf);
+			arg->dst += sizeof(struct perf_data);
+			arg->size -= sizeof(struct perf_data);
+		} else {
+			break;
+		}
+	}
+	pkvm_spin_unlock(&vm->lock);
+
+	return 0;
+}
+
+static void copy_guest_vm_trace(void *dst, unsigned long size)
+{
+	struct copy_arg arg = {
+		.dst = dst,
+		.size = size,
+	};
+
+	pkvm_walk_each_vm(copy_pkvm_vm_trace, &arg);
+}
+
 void pkvm_handle_dump_vmexit_trace(unsigned long pa, unsigned long size)
 {
-	void *out = pkvm_phys_to_virt(pa);
-	struct pkvm_host_vcpu *hvcpu;
+	void *dst;
+
+	if (!VALID_PAGE(pa))
+		return;
+
+	/*
+	 * TODO: Assume the memory pages represented by pa is shared by
+	 * the host. Pin before accessing, and unpin after.
+	 */
+	dst = __pkvm_va(pa);
+
+	/*
+	 * Copy host_vcpu perf data first as this will be dumpped first by
+	 * the host. Then the guest perf data.
+	 */
+	dst = copy_host_vm_trace(dst, &size);
+
+	copy_guest_vm_trace(dst, size);
+}
+
+void pkvm_vcpu_perf_init(struct kvm_vcpu *vcpu)
+{
 	struct vmexit_perf *perf;
-	int cpu, index;
 
-	for (index = 0; index < CONFIG_NR_CPUS; index++) {
-		hvcpu = pkvm_hyp->host_vm.host_vcpus[index];
-		if (!hvcpu)
-			continue;
-
-		cpu = hvcpu->vmx.vcpu.cpu;
-		perf = &hvcpu_perf[cpu];
-
-		pkvm_spin_lock(&perf->lock);
-		if (size >= sizeof(struct vmexit_perf_dump)) {
-			struct vmexit_perf_dump *dump = out;
-
-			memcpy(&dump->l1data, &perf->l1data, sizeof(struct perf_data));
-			memcpy(&dump->l2data, &perf->l2data, sizeof(struct perf_data));
-			dump->cpu = perf->cpu;
-			out += sizeof(struct vmexit_perf_dump);
-			size -= sizeof(struct vmexit_perf_dump);
-		}
-		pkvm_spin_unlock(&perf->lock);
+	if (this_cpu_read(host_vcpu) == vcpu) {
+		perf = this_cpu_ptr(&hvcpu_perf);
+	} else {
+		perf = &to_pkvm_vcpu(vcpu)->perf;
+		perf->data.vm_handle = vcpu->kvm->arch.pkvm.pkvm_vm_handle;
 	}
+	perf->data.vcpu_id = vcpu->vcpu_id;
 }

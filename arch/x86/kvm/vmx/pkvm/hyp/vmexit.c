@@ -91,7 +91,7 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 
 	switch (nr) {
 	case PKVM_HC_SET_VMEXIT_TRACE:
-		pkvm_handle_set_vmexit_trace(vcpu, a0);
+		pkvm_handle_set_vmexit_trace(a0);
 		break;
 	case PKVM_HC_DUMP_VMEXIT_TRACE:
 		pkvm_handle_dump_vmexit_trace(a0, a1);
@@ -187,7 +187,7 @@ bool pkvm_vmexit_main(struct kvm_vcpu *vcpu)
 
 	vcpu->arch.cr2 = native_read_cr2();
 
-	trace_vmexit_start(vcpu, is_guest_mode(vcpu) ? true : false);
+	trace_vmexit_start(vcpu);
 
 	set_vcpu_mode(vcpu, OUTSIDE_GUEST_MODE);
 

@@ -5,6 +5,7 @@
 #ifndef _PKVM_TRACE_H_
 #define _PKVM_TRACE_H_
 
+#include <asm/pkvm_spinlock.h>
 #include <asm/vmx.h>
 
 struct vmexit_data {
@@ -15,14 +16,16 @@ struct vmexit_data {
 };
 
 struct perf_data {
-	struct vmexit_data data;
-	unsigned long long tsc;
+	struct vmexit_data vmexit;
+	int vm_handle;
+	int vcpu_id;
 };
 
-struct vmexit_perf_dump {
-	struct perf_data l1data;
-	struct perf_data l2data;
-	int cpu;
+struct vmexit_perf {
+	pkvm_spinlock_t lock;
+	struct perf_data data;
+	unsigned long long tsc;
+	unsigned int age;
 };
 
 #define PKVM_HC_SET_VMEXIT_TRACE	0xabcd0001

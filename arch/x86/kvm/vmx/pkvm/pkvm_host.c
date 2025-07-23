@@ -882,6 +882,7 @@ static __init int pkvm_host_setup_vcpu(struct pkvm_hyp *pkvm, int cpu)
 
 	hvcpu->pcpu = pkvm->pcpus[cpu];
 	hvcpu->vmx.vcpu.cpu = cpu;
+	hvcpu->vmx.vcpu.vcpu_id = cpu;
 
 	pkvm->host_vm.host_vcpus[cpu] = hvcpu;
 
@@ -1418,12 +1419,13 @@ int __init vmx_pkvm_init(void)
 		goto out;
 
 	pkvm->num_cpus = num_possible_cpus();
-	pkvm_init_debugfs();
 
 	ret = pkvm_init_finalise();
 	if (ret)
-		pkvm_firmware_rmem_clear();
-	return ret;
+		goto out;
+
+	pkvm_init_debugfs();
+	return 0;
 
 out:
 	pkvm_firmware_rmem_clear();
