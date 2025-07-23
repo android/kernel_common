@@ -875,6 +875,8 @@
   dev_pm_opp_of_get_sharing_cpus
   dev_pm_opp_of_register_em
   dev_pm_opp_set_sharing_cpus
+  dev_pm_opp_register_notifier
+  dev_pm_opp_unregister_notifier
   policy_has_boost_freq
 
 # required by cqhci.ko
@@ -1828,6 +1830,13 @@
   pin_user_pages_fast
   unpin_user_pages
   uuid_null
+
+# required by regulator_supply_alias.ko
+  regulator_register_supply_alias
+  regulator_unregister_supply_alias
+
+# required by selector.ko
+  of_i2c_get_board_info
 
 # preserved by --additions-only
   cancel_work
