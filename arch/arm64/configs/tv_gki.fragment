@@ -7,3 +7,4 @@
 # CONFIG_PAGE_PINNER is not set
 # CONFIG_DEBUG_FS is not set
 # CONFIG_DEBUG_INFO_BTF is not set
+# CONFIG_SHADOW_CALL_STACK is not set
