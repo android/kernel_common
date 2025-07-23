@@ -16,6 +16,7 @@
   file_check_and_advance_wb_err
   filemap_add_folio
   filemap_check_errors
+  filemap_get_folios_contig
   filemap_release_folio
   __folio_cancel_dirty
   folio_end_read
@@ -26,10 +27,12 @@
   iget_locked
   ilookup5
   inode_add_bytes
+  inode_bit_waitqueue
   inode_maybe_inc_iversion
   inode_query_iversion
   __insert_inode_hash
   iov_iter_single_seg_count
+  LZ4_compress_default
   make_vfsgid
   make_vfsuid
   mark_buffer_write_io_error
@@ -43,6 +46,7 @@
   __remove_inode_hash
   sb_min_blocksize
   security_inode_init_security
+  shrink_dcache_sb
   __sync_dirty_buffer
   sysctl_hung_task_timeout_secs
   tag_pages_for_writeback
@@ -51,3 +55,4 @@
   utf32_to_utf8
   wake_bit_function
   wrap_directory_iterator
+  zlib_inflateEnd
