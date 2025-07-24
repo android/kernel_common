@@ -121,6 +121,9 @@
   __traceiter_android_vh_mutex_wait_start
   __traceiter_android_vh_alter_mutex_list_add
   __traceiter_android_rvh_cpuset_fork
+  __traceiter_android_vh_mutex_init
+  __traceiter_android_vh_rwsem_direct_rsteal
+  __traceiter_android_vh_rwsem_optimistic_rspin
   __traceiter_android_vh_sched_setaffinity_early
   __traceiter_android_rvh_set_cpus_allowed_comm
   __traceiter_android_rvh_dequeue_task
@@ -129,12 +132,17 @@
   __tracepoint_android_vh_mutex_wait_start
   __tracepoint_android_vh_alter_mutex_list_add
   __tracepoint_android_rvh_cpuset_fork
+  __tracepoint_android_vh_mutex_init
+  __tracepoint_android_vh_rwsem_direct_rsteal
+  __tracepoint_android_vh_rwsem_optimistic_rspin
   __tracepoint_android_vh_sched_setaffinity_early
   __tracepoint_android_rvh_set_cpus_allowed_comm
   __tracepoint_android_rvh_dequeue_task
   cpuset_cpus_allowed
   cpufreq_update_policy
   cgroup_threadgroup_rwsem
+  osq_lock
+  osq_unlock
 
 #required by millet.ko
   __traceiter_android_rvh_refrigerator
