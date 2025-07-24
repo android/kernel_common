@@ -7265,7 +7265,8 @@ static void kvm_mmu_zap_memslot(struct kvm *kvm,
 static inline bool kvm_memslot_flush_zap_all(struct kvm *kvm)
 {
 	return kvm->arch.vm_type == KVM_X86_DEFAULT_VM &&
-	       kvm_check_has_quirk(kvm, KVM_X86_QUIRK_SLOT_ZAP_ALL);
+	       kvm_check_has_quirk(kvm, KVM_X86_QUIRK_SLOT_ZAP_ALL) &&
+	       !enable_pkvm;
 }
 
 void kvm_arch_flush_shadow_memslot(struct kvm *kvm,
