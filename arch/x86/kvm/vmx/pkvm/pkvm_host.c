@@ -288,7 +288,7 @@ u64 hyp_total_reserve_pages(void)
 {
 	u64 total;
 
-	total = pkvm_data_struct_pages(PKVM_GLOBAL_PAGES,
+	total = pkvm_data_struct_pages(PKVM_PAGES,
 				       PKVM_PERCPU_PAGES,
 				       num_possible_cpus());
 	total += pkvm_vmemmap_pages(PKVM_VMEMMAP_ENTRY_SIZE);
@@ -573,9 +573,6 @@ static __init void init_execution_control(struct pkvm_host_vcpu *hvcpu,
 	/* guest handles exception directly */
 	vmcs_write32(EXCEPTION_BITMAP, 0);
 
-	vmcs_write64(IO_BITMAP_A, __pa(hvcpu->io_bitmap));
-	vmcs_write64(IO_BITMAP_B, __pa(hvcpu->io_bitmap) + PAGE_SIZE);
-
 	pkvm_sym(init_msr_emulation)(vmx);
 	vmcs_write64(MSR_BITMAP, __pa(vmx->vmcs01.msr_bitmap));
 
@@ -623,8 +620,6 @@ static __init int pkvm_host_init_vmx(struct pkvm_host_vcpu *hvcpu, int cpu)
 		pr_err("%s: No page for msr_bitmap\n", __func__);
 		return -ENOMEM;
 	}
-
-	hvcpu->io_bitmap = pkvm->host_vm.io_bitmap;
 
 	vmx->loaded_vmcs = &vmx->vmcs01;
 	vmcs_load(vmx->loaded_vmcs->vmcs);
@@ -688,7 +683,6 @@ static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
 	struct vmcs_config_setting setting = {
 		.cpu_based_vm_exec_ctrl_req =
 			CPU_BASED_INTR_WINDOW_EXITING |
-			CPU_BASED_USE_IO_BITMAPS |
 			CPU_BASED_USE_MSR_BITMAPS |
 			CPU_BASED_ACTIVATE_SECONDARY_CONTROLS,
 		.cpu_based_vm_exec_ctrl_opt = 0,
@@ -1253,42 +1247,6 @@ int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_cap *cap)
 	}
 }
 
-static __init int pkvm_init_io_emulation(struct pkvm_hyp *pkvm)
-{
-	pkvm->host_vm.io_bitmap = pkvm_sym(pkvm_early_alloc_contig)(2);
-
-	if (!pkvm->host_vm.io_bitmap) {
-		pr_err("pkvm: %s: No page for io_bitmap\n", __func__);
-		return -ENOMEM;
-	}
-
-	memset(pkvm->host_vm.io_bitmap, 0, 2 * PAGE_SIZE);
-
-	return 0;
-}
-
-static __init int pkvm_init_pci(struct pkvm_hyp *pkvm)
-{
-	struct pci_mmcfg_region *data, *cfg;
-	int length = 0, max_region_num = PAGE_SIZE / sizeof(struct pci_mmcfg_region);
-
-	data = pkvm_sym(pkvm_early_alloc_page)();
-
-	list_for_each_entry_rcu(cfg, &pci_mmcfg_list, list, pci_mmcfg_lock_held()) {
-		if (length >= max_region_num)
-			return -ENOMEM;
-		memcpy(&data[length], cfg, sizeof(struct pci_mmcfg_region));
-		length += 1;
-	}
-
-	pkvm->host_vm.pci_info.mmcfg_table = data;
-	pkvm->host_vm.pci_info.mmcfg_table_size = length;
-
-	pkvm_sym(init_pci)(pkvm);
-
-	return 0;
-}
-
 static int __init pkvm_firmware_rmem_init(void)
 {
 	phys_addr_t start, end, size;
@@ -1372,7 +1330,7 @@ int __init vmx_pkvm_init(void)
 		goto out;
 	}
 	pkvm_sym(pkvm_early_alloc_init)(__va(hyp_mem_base),
-			pkvm_data_struct_pages(PKVM_GLOBAL_PAGES,
+			pkvm_data_struct_pages(PKVM_PAGES,
 					       PKVM_PERCPU_PAGES,
 					       num_possible_cpus()) << PAGE_SHIFT);
 
@@ -1394,14 +1352,6 @@ int __init vmx_pkvm_init(void)
 		goto out;
 
 	ret = pkvm_init_mmu(pkvm);
-	if (ret)
-		goto out;
-
-	ret = pkvm_init_io_emulation(pkvm);
-	if (ret)
-		goto out;
-
-	ret = pkvm_init_pci(pkvm);
 	if (ret)
 		goto out;
 

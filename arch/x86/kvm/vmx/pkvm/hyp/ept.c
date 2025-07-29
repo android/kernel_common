@@ -24,7 +24,6 @@
 #include "mem_protect.h"
 #include "debug.h"
 #include "ptdev.h"
-#include "io_emulate.h"
 #include <pkvm/vmx/vmx.h>
 
 static struct hyp_pool host_ept_pool;
@@ -368,10 +367,6 @@ int handle_host_ept_violation(struct kvm_vcpu *vcpu, bool *skip_instruction)
 	if (is_memory) {
 		pkvm_err("%s: not handle for memory address 0x%lx\n", __func__, gpa);
 		return -EPERM;
-	}
-
-	if (try_emul_host_mmio(vcpu, gpa)) {
-		return 0;
 	}
 
 	pkvm_spin_lock(&_host_ept_lock);

@@ -14,7 +14,6 @@
 #include "vmsr.h"
 #include "iommu.h"
 #include "lapic.h"
-#include "io_emulate.h"
 #include "debug.h"
 #include "init_finalise.h"
 
@@ -240,11 +239,6 @@ bool pkvm_vmexit_main(struct kvm_vcpu *vcpu)
 		break;
 	case EXIT_REASON_INTERRUPT_WINDOW:
 		handle_irq_window(vcpu);
-		break;
-	case EXIT_REASON_IO_INSTRUCTION:
-		if (handle_host_pio(vcpu))
-			pkvm_err("pkvm: handle host port I/O access failed\n");
-		skip_instruction = true;
 		break;
 	default:
 		pkvm_dbg("CPU%d: Unsupported vmexit reason 0x%x.\n",

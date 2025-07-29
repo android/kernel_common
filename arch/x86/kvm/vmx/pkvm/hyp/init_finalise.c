@@ -24,7 +24,6 @@
 #include "iommu_internal.h"
 #include "mem_protect.h"
 #include "lapic.h"
-#include "pci.h"
 #include "init_finalise.h"
 #include "trace.h"
 #include <vmx/vmx.h>
@@ -43,7 +42,7 @@ static void *shadow_ept_base;
 
 static int divide_memory_pool(phys_addr_t phys, unsigned long size)
 {
-	int data_struct_size = pkvm_data_struct_pages(PKVM_GLOBAL_PAGES,
+	int data_struct_size = pkvm_data_struct_pages(PKVM_PAGES,
 						      PKVM_PERCPU_PAGES,
 						      pkvm_hyp->num_cpus) << PAGE_SHIFT;
 	void *virt = __pkvm_va(phys + data_struct_size);
@@ -362,10 +361,6 @@ int __pkvm_init_finalise(struct kvm_vcpu *vcpu, struct pkvm_section sections[],
 
 	ret = protect_pkvm_pages(tmp_sections, section_sz,
 			hyp_mem_base, hyp_mem_size);
-	if (ret)
-		goto out;
-
-	ret = init_finalize_pci(&pkvm_hyp->host_vm.pci_info);
 	if (ret)
 		goto out;
 
