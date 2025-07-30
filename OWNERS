@@ -23,6 +23,7 @@ per-file */*.xml = *
 # Owners for the -desktop branch
 biernacki@google.com
 bbujak@google.com
+damiendejean@google.com
 hmazur@google.com
 jeffxu@google.com
 korneld@google.com
