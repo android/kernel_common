@@ -59,6 +59,11 @@ static unsigned int xfeature_get_offset(u64 xcomp_bv, int xfeature)
 	return offs;
 }
 
+static bool xfeature_enabled(enum xfeature xfeature)
+{
+	return fpu_kernel_cfg.max_features & BIT_ULL(xfeature);
+}
+
 /*
  * Record the offsets and sizes of various xstates contained
  * in the XSAVE state memory layout.
@@ -121,6 +126,88 @@ static unsigned int xstate_calculate_size(u64 xfeatures, bool compacted)
 		offset = xfeature_get_offset(xfeatures, topmost);
 	return offset + xstate_sizes[topmost];
 }
+
+/*
+ * Given an xstate feature nr, calculate where in the xsave
+ * buffer the state is.  Callers should ensure that the buffer
+ * is valid.
+ */
+static void *__raw_xsave_addr(struct xregs_state *xsave, int xfeature_nr)
+{
+	u64 xcomp_bv = xsave->header.xcomp_bv;
+
+	if (WARN_ON_ONCE(!xfeature_enabled(xfeature_nr)))
+		return NULL;
+
+	if (cpu_feature_enabled(X86_FEATURE_XCOMPACTED)) {
+		if (WARN_ON_ONCE(!(xcomp_bv & BIT_ULL(xfeature_nr))))
+			return NULL;
+	}
+
+	return (void *)xsave + xfeature_get_offset(xcomp_bv, xfeature_nr);
+}
+
+/*
+ * Given the xsave area and a state inside, this function returns the
+ * address of the state.
+ *
+ * This is the API that is called to get xstate address in either
+ * standard format or compacted format of xsave area.
+ *
+ * Note that if there is no data for the field in the xsave buffer
+ * this will return NULL.
+ *
+ * Inputs:
+ *	xstate: the thread's storage area for all FPU data
+ *	xfeature_nr: state which is defined in xsave.h (e.g. XFEATURE_FP,
+ *	XFEATURE_SSE, etc...)
+ * Output:
+ *	address of the state in the xsave area, or NULL if the
+ *	field is not present in the xsave buffer.
+ */
+void *get_xsave_addr(struct xregs_state *xsave, int xfeature_nr)
+{
+	/*
+	 * Do we even *have* xsave state?
+	 */
+	if (!boot_cpu_has(X86_FEATURE_XSAVE))
+		return NULL;
+
+	/*
+	 * We should not ever be requesting features that we
+	 * have not enabled.
+	 */
+	if (WARN_ON_ONCE(!xfeature_enabled(xfeature_nr)))
+		return NULL;
+
+	/*
+	 * This assumes the last 'xsave*' instruction to
+	 * have requested that 'xfeature_nr' be saved.
+	 * If it did not, we might be seeing and old value
+	 * of the field in the buffer.
+	 *
+	 * This can happen because the last 'xsave' did not
+	 * request that this feature be saved (unlikely)
+	 * or because the "init optimization" caused it
+	 * to not be saved.
+	 */
+	if (!(xsave->header.xfeatures & BIT_ULL(xfeature_nr)))
+		return NULL;
+
+	return __raw_xsave_addr(xsave, xfeature_nr);
+}
+EXPORT_SYMBOL_GPL(get_xsave_addr);
+
+#if IS_ENABLED(CONFIG_KVM)
+void fpstate_clear_xstate_component(struct fpstate *fps, unsigned int xfeature)
+{
+	void *addr = get_xsave_addr(&fps->regs.xsave, xfeature);
+
+	if (addr)
+		memset(addr, 0, xstate_sizes[xfeature]);
+}
+EXPORT_SYMBOL_GPL(fpstate_clear_xstate_component);
+#endif
 
 #ifdef CONFIG_X86_64
 int __xfd_enable_feature(u64 xfd_err, struct fpu_guest *guest_fpu)

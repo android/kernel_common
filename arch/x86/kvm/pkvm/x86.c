@@ -2906,14 +2906,33 @@ void kvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 	kvm_async_pf_hash_reset(vcpu);
 	vcpu->arch.apf.halted = false;
 
+#ifdef __PKVM_HYP__
 	/*
-	 * FIXME: As the guest fpu is still managed by the host and the pkvm
-	 * hypervisor doesn't have valid fpstate in its vcpu->arch.guest_fpu,
-	 * reset the fpstate for MPX is done by the host when runs its
-	 * kvm_vcpu_reset. To add fpu isolation, revisit to see how to do this
-	 * in the pkvm hypervisor.
+	 * The pkvm hypervisor switches FPU for pVM and the host switches FPU
+	 * for npVM, which means that the pkvm hypervisor only needs to take
+	 * care of the fpstate of pVM. So only need to clear the BNDREGS/BNDCSR
+	 * for pVM.
 	 */
-#ifndef __PKVM_HYP__
+	if (pkvm_is_protected_vcpu(vcpu) &&
+	    vcpu->arch.guest_fpu.fpstate && kvm_mpx_supported()) {
+		struct fpstate *fpstate = vcpu->arch.guest_fpu.fpstate;
+		bool in_use = fpstate->in_use;
+
+		/*
+		 * With the existing pKVM code paths, the fpstate should not be
+		 * in use at this point. Still check it, in case this changes in
+		 * the future.
+		 */
+		if (in_use)
+			kvm_put_guest_fpu(vcpu);
+
+		fpstate_clear_xstate_component(fpstate, XFEATURE_BNDREGS);
+		fpstate_clear_xstate_component(fpstate, XFEATURE_BNDCSR);
+
+		if (in_use)
+			kvm_load_guest_fpu(vcpu);
+	}
+#else
 	if (vcpu->arch.guest_fpu.fpstate && kvm_mpx_supported()) {
 		struct fpstate *fpstate = vcpu->arch.guest_fpu.fpstate;
 
