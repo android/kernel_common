@@ -148,8 +148,6 @@ static __init int check_and_init_iommu(struct pkvm_hyp *pkvm)
 	struct dmar_drhd_unit *drhd;
 	int pgsz_mask = 1 << PG_LEVEL_4K;
 	int pgt_level = 0;
-	void __iomem *addr;
-	u64 reg_size;
 	u64 cap, ecap;
 	int index = 0, ret;
 
@@ -214,17 +212,9 @@ static __init int check_and_init_iommu(struct pkvm_hyp *pkvm)
 			return -EINVAL;
 		}
 
-		addr = ioremap(drhd->reg_base_addr, VTD_PAGE_SIZE);
-		if (!addr) {
-			pr_err("pkvm: failed to map drhd reg physical addr 0x%llx\n",
-				drhd->reg_base_addr);
-			return -EINVAL;
-		}
-
 		info = &pkvm->iommu_infos[index];
-		cap = readq(addr + DMAR_CAP_REG);
-		ecap = readq(addr + DMAR_ECAP_REG);
-		iounmap(addr);
+		cap = readq(drhd->iommu->reg + DMAR_CAP_REG);
+		ecap = readq(drhd->iommu->reg + DMAR_ECAP_REG);
 
 		/*
 		 * If pkvm IOMMU works in scalable mode, it requires to use nested translation,
@@ -244,9 +234,7 @@ static __init int check_and_init_iommu(struct pkvm_hyp *pkvm)
 			pkvm->iommu_coherent = false;
 
 		info->reg_phys = drhd->reg_base_addr;
-		reg_size = max_t(u64, ecap_max_iotlb_offset(ecap),
-				 cap_max_fault_reg_offset(cap));
-		info->reg_size = max_t(u64, reg_size, VTD_PAGE_SIZE);
+		info->reg_size = drhd->iommu->reg_size;
 
 		if (cap_sagaw(cap) & PGT_4LEVEL)
 			level |= PGT_4LEVEL;
