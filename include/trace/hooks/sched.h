@@ -334,6 +334,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_update_load_avg_cfs_rq,
 DECLARE_RESTRICTED_HOOK(android_rvh_update_rt_rq_load_avg_internal,
 	TP_PROTO(u64 now, struct rq *rq, int running, int *ret),
 	TP_ARGS(now, rq, running, ret), 1);
+
+struct sched_dl_entity;
+DECLARE_HOOK(android_vh_dump_dl_server,
+	TP_PROTO(struct sched_dl_entity *dl_se, struct task_struct *p),
+	TP_ARGS(dl_se, p));
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */
