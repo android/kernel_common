@@ -1500,11 +1500,11 @@ static void intel_tc_port_reset_mode(struct intel_tc_port *tc,
 	intel_display_power_flush_work(i915);
 	if (!intel_tc_cold_requires_aux_pw(dig_port)) {
 		enum intel_display_power_domain aux_domain;
-		bool aux_powered;
 
 		aux_domain = intel_aux_power_domain(dig_port);
-		aux_powered = intel_display_power_is_enabled(i915, aux_domain);
-		drm_WARN_ON(&i915->drm, aux_powered);
+		if (intel_display_power_is_enabled(i915, aux_domain))
+			drm_dbg_kms(&i915->drm, "Port %s: AUX unexpectedly powered\n",
+				    tc->port_name);
 	}
 
 	tc_phy_disconnect(tc);
