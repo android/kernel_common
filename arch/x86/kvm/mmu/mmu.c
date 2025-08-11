@@ -4769,6 +4769,31 @@ out_unlock:
 #endif
 
 #ifdef CONFIG_PKVM_INTEL
+static int pkvm_pin_page(struct kvm *kvm, struct kvm_page_fault *fault)
+{
+	struct kvm_pinned_page *ppage;
+	struct page *page;
+
+	ppage = kmalloc(sizeof(*ppage), GFP_KERNEL_ACCOUNT);
+	if (!ppage)
+		return -ENOMEM;
+
+	page = kvm_pfn_to_refcounted_page(fault->pfn);
+	if (WARN_ON_ONCE(!page)) {
+		kfree(ppage);
+		return -EFAULT;
+	}
+
+	ppage->page = page;
+	get_page(page);
+
+	spin_lock(&kvm->arch.pkvm.pinned_page_lock);
+	list_add(&ppage->list, &kvm->arch.pkvm.pinned_pages);
+	spin_unlock(&kvm->arch.pkvm.pinned_page_lock);
+
+	return 0;
+}
+
 static int pkvm_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 {
 	gfn_t base_gfn;
@@ -4804,10 +4829,14 @@ static int pkvm_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 	r = kvm_call_pkvm(vm_mmu_map, vcpu,
 			  base_gfn << PAGE_SHIFT, fault->pfn << PAGE_SHIFT,
 			  nr_pages << PAGE_SHIFT, fault->map_writable);
-	if (!r)
-		r = RET_PF_FIXED;
-	else if (r == -EEXIST)
+	if (!r) {
+		if (pkvm_is_protected_vcpu(vcpu))
+			r = pkvm_pin_page(vcpu->kvm, fault);
+		if (!r)
+			r = RET_PF_FIXED;
+	} else if (r == -EEXIST) {
 		r = RET_PF_SPURIOUS;
+	}
 
 out_unlock:
 	write_unlock(&vcpu->kvm->mmu_lock);
@@ -4829,7 +4858,7 @@ bool kvm_mmu_may_ignore_guest_pat(void)
 	return shadow_memtype_mask;
 }
 
-static inline int __kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
+int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 {
 #ifdef CONFIG_X86_64
 	if (tdp_mmu_enabled)
@@ -4842,42 +4871,6 @@ static inline int __kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fa
 
 	return direct_page_fault(vcpu, fault);
 }
-
-#if IS_ENABLED(CONFIG_PKVM_INTEL)
-int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
-{
-	struct kvm_pinned_page *ppage = NULL;
-	struct page *page;
-	int r;
-
-	if (pkvm_is_protected_vcpu(vcpu)) {
-		ppage = kmalloc(sizeof(*ppage), GFP_KERNEL_ACCOUNT);
-		if (!ppage)
-			return -ENOMEM;
-	}
-
-	r = __kvm_tdp_page_fault(vcpu, fault);
-
-	if (ppage) {
-		if (r == RET_PF_FIXED && (page = kvm_pfn_to_refcounted_page(fault->pfn))) {
-			ppage->page = page;
-			get_page(page);
-			spin_lock(&vcpu->kvm->arch.pkvm.pinned_page_lock);
-			list_add(&ppage->list, &vcpu->kvm->arch.pkvm.pinned_pages);
-			spin_unlock(&vcpu->kvm->arch.pkvm.pinned_page_lock);
-		} else {
-			kfree(ppage);
-		}
-	}
-
-	return r;
-}
-#else
-int kvm_tdp_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
-{
-	return __kvm_tdp_page_fault(vcpu, fault);
-}
-#endif
 
 static int kvm_tdp_map_page(struct kvm_vcpu *vcpu, gpa_t gpa, u64 error_code,
 			    u8 *level)
