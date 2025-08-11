@@ -1227,14 +1227,19 @@ static void tc_phy_get_hw_state(struct intel_tc_port *tc)
 	tc->phy_ops->get_hw_state(tc);
 }
 
-static bool tc_phy_is_ready_and_owned(struct intel_tc_port *tc,
-				      bool phy_is_ready, bool phy_is_owned)
+/* Is the PHY owned by display i.e. is it in legacy or DP-alt mode? */
+static bool tc_phy_owned_by_display(struct intel_tc_port *tc,
+				    bool phy_is_ready, bool phy_is_owned)
 {
 	struct drm_i915_private *i915 = tc_to_i915(tc);
 
-	drm_WARN_ON(&i915->drm, phy_is_owned && !phy_is_ready);
+	if (DISPLAY_VER(i915) < 20) {
+		drm_WARN_ON(&i915->drm, phy_is_owned && !phy_is_ready);
 
-	return phy_is_ready && phy_is_owned;
+		return phy_is_ready && phy_is_owned;
+	} else {
+		return phy_is_owned;
+	}
 }
 
 static bool tc_phy_is_connected(struct intel_tc_port *tc,
@@ -1246,7 +1251,7 @@ static bool tc_phy_is_connected(struct intel_tc_port *tc,
 	bool phy_is_owned = tc_phy_is_owned(tc);
 	bool is_connected;
 
-	if (tc_phy_is_ready_and_owned(tc, phy_is_ready, phy_is_owned))
+	if (tc_phy_owned_by_display(tc, phy_is_ready, phy_is_owned))
 		is_connected = port_pll_type == ICL_PORT_DPLL_MG_PHY;
 	else
 		is_connected = port_pll_type == ICL_PORT_DPLL_DEFAULT;
@@ -1354,7 +1359,7 @@ tc_phy_get_current_mode(struct intel_tc_port *tc)
 	phy_is_ready = tc_phy_is_ready(tc);
 	phy_is_owned = tc_phy_is_owned(tc);
 
-	if (!tc_phy_is_ready_and_owned(tc, phy_is_ready, phy_is_owned)) {
+	if (!tc_phy_owned_by_display(tc, phy_is_ready, phy_is_owned)) {
 		mode = get_tc_mode_in_phy_not_owned_state(tc, live_mode);
 	} else {
 		drm_WARN_ON(&i915->drm, live_mode == TC_PORT_TBT_ALT);
