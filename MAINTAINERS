@@ -356,7 +356,7 @@ ACPI PMIC DRIVERS
 M:	"Rafael J. Wysocki" <rafael@kernel.org>
 M:	Len Brown <lenb@kernel.org>
 R:	Andy Shevchenko <andy@kernel.org>
-R:	Mika Westerberg <mika.westerberg@linux.intel.com>
+R:	Mika Westerberg <westeri@kernel.org>
 L:	linux-acpi@vger.kernel.org
 S:	Supported
 Q:	https://patchwork.kernel.org/project/linux-acpi/list/
@@ -8236,6 +8236,7 @@ F:	drivers/edac/aspeed_edac.c
 
 EDAC-BLUEFIELD
 M:	Shravan Kumar Ramani <shravankr@nvidia.com>
+M:	David Thompson <davthompson@nvidia.com>
 S:	Supported
 F:	drivers/edac/bluefield_edac.c
 
@@ -19941,6 +19942,7 @@ S:	Supported
 F:	Documentation/arch/x86/resctrl*
 F:	arch/x86/include/asm/resctrl.h
 F:	arch/x86/kernel/cpu/resctrl/
+F:	include/linux/resctrl*.h
 F:	tools/testing/selftests/resctrl/
 
 READ-COPY UPDATE (RCU)
