@@ -1571,13 +1571,16 @@ static int dentry_revalidate(struct inode *dir, const struct qstr *name,
 	}
 
 	if (backing_dentry->d_flags & DCACHE_OP_REVALIDATE) {
-		/*
-		 * TODO(b/408330333): ->d_revalidate() needs the inode of
-		 * the parent directory and the expected dentry name from
-		 * the "backing_dentry". FIXME!
-		 */
-		result = backing_dentry->d_op->d_revalidate(dir, name,
-				backing_dentry, flags);
+		struct inode_info *dir_info = get_incfs_node(dir);
+		struct inode *backing_dir = dir_info ? dir_info->n_backing_inode : NULL;
+		struct name_snapshot n;
+
+		if (!backing_dir)
+			goto out;
+		take_dentry_name_snapshot(&n, backing_dentry);
+		result = backing_dentry->d_op->d_revalidate(backing_dir,
+			&n.name, backing_dentry, flags);
+		release_dentry_name_snapshot(&n);
 	} else
 		result = 1;
 
