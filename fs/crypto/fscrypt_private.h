@@ -27,27 +27,6 @@
  */
 #define FSCRYPT_MIN_KEY_SIZE	16
 
-/* Maximum size of a standard fscrypt master key */
-#define FSCRYPT_MAX_STANDARD_KEY_SIZE	64
-
-/* Maximum size of a hardware-wrapped fscrypt master key */
-#define FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE	BLK_CRYPTO_MAX_HW_WRAPPED_KEY_SIZE
-
-/*
- * Maximum size of an fscrypt master key across both key types.
- * This should just use max(), but max() doesn't work in a struct definition.
- */
-#define FSCRYPT_MAX_ANY_KEY_SIZE \
-	(FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE > FSCRYPT_MAX_STANDARD_KEY_SIZE ? \
-	 FSCRYPT_MAX_HW_WRAPPED_KEY_SIZE : FSCRYPT_MAX_STANDARD_KEY_SIZE)
-
-/*
- * FSCRYPT_MAX_KEY_SIZE is defined in the UAPI header, but the addition of
- * hardware-wrapped keys has made it misleading as it's only for standard keys.
- * Don't use it in kernel code; use one of the above constants instead.
- */
-#undef FSCRYPT_MAX_KEY_SIZE
-
 #define FSCRYPT_CONTEXT_V1	1
 #define FSCRYPT_CONTEXT_V2	2
 
@@ -397,8 +376,7 @@ void fscrypt_destroy_hkdf(struct fscrypt_hkdf *hkdf);
 
 /* inline_crypt.c */
 #ifdef CONFIG_FS_ENCRYPTION_INLINE_CRYPT
-int fscrypt_select_encryption_impl(struct fscrypt_inode_info *ci,
-				   bool is_hw_wrapped_key);
+int fscrypt_select_encryption_impl(struct fscrypt_inode_info *ci);
 
 static inline bool
 fscrypt_using_inline_encryption(const struct fscrypt_inode_info *ci)
@@ -407,16 +385,11 @@ fscrypt_using_inline_encryption(const struct fscrypt_inode_info *ci)
 }
 
 int fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
-				     const u8 *raw_key, size_t raw_key_size,
-				     bool is_hw_wrapped,
+				     const u8 *raw_key,
 				     const struct fscrypt_inode_info *ci);
 
 void fscrypt_destroy_inline_crypt_key(struct super_block *sb,
 				      struct fscrypt_prepared_key *prep_key);
-
-int fscrypt_derive_sw_secret(struct super_block *sb,
-			     const u8 *wrapped_key, size_t wrapped_key_size,
-			     u8 sw_secret[BLK_CRYPTO_SW_SECRET_SIZE]);
 
 /*
  * Check whether the crypto transform or blk-crypto key has been allocated in
@@ -441,8 +414,7 @@ fscrypt_is_key_prepared(struct fscrypt_prepared_key *prep_key,
 
 #else /* CONFIG_FS_ENCRYPTION_INLINE_CRYPT */
 
-static inline int fscrypt_select_encryption_impl(struct fscrypt_inode_info *ci,
-						 bool is_hw_wrapped_key)
+static inline int fscrypt_select_encryption_impl(struct fscrypt_inode_info *ci)
 {
 	return 0;
 }
@@ -455,8 +427,7 @@ fscrypt_using_inline_encryption(const struct fscrypt_inode_info *ci)
 
 static inline int
 fscrypt_prepare_inline_crypt_key(struct fscrypt_prepared_key *prep_key,
-				 const u8 *raw_key, size_t raw_key_size,
-				 bool is_hw_wrapped,
+				 const u8 *raw_key,
 				 const struct fscrypt_inode_info *ci)
 {
 	WARN_ON_ONCE(1);
@@ -467,15 +438,6 @@ static inline void
 fscrypt_destroy_inline_crypt_key(struct super_block *sb,
 				 struct fscrypt_prepared_key *prep_key)
 {
-}
-
-static inline int
-fscrypt_derive_sw_secret(struct super_block *sb,
-			 const u8 *wrapped_key, size_t wrapped_key_size,
-			 u8 sw_secret[BLK_CRYPTO_SW_SECRET_SIZE])
-{
-	fscrypt_warn(NULL, "kernel doesn't support hardware-wrapped keys");
-	return -EOPNOTSUPP;
 }
 
 static inline bool
@@ -494,22 +456,10 @@ fscrypt_is_key_prepared(struct fscrypt_prepared_key *prep_key,
 struct fscrypt_master_key_secret {
 
 	/*
-	 * The KDF with which subkeys of this key can be derived.
-	 *
-	 * For v1 policy keys, this isn't applicable and won't be set.
-	 * Otherwise, this KDF will be keyed by this master key if
-	 * ->is_hw_wrapped=false, or by the "software secret" that hardware
-	 * derived from this master key if ->is_hw_wrapped=true.
+	 * For v2 policy keys: HKDF context keyed by this master key.
+	 * For v1 policy keys: not set (hkdf.hmac_tfm == NULL).
 	 */
 	struct fscrypt_hkdf	hkdf;
-
-	/*
-	 * True if this key is a hardware-wrapped key; false if this key is a
-	 * standard key (i.e. a "software key").  For v1 policy keys this will
-	 * always be false, as v1 policy support is a legacy feature which
-	 * doesn't support newer functionality such as hardware-wrapped keys.
-	 */
-	bool			is_hw_wrapped;
 
 	/*
 	 * Size of the raw key in bytes.  This remains set even if ->raw was
@@ -518,14 +468,8 @@ struct fscrypt_master_key_secret {
 	 */
 	u32			size;
 
-	/*
-	 * The raw key which userspace provided, when still needed.  This can be
-	 * either a standard key or a hardware-wrapped key, as indicated by
-	 * ->is_hw_wrapped.  In the case of a standard, v2 policy key, there is
-	 * no need to remember the raw key separately from ->hkdf so this field
-	 * will be zeroized as soon as ->hkdf is initialized.
-	 */
-	u8			raw[FSCRYPT_MAX_ANY_KEY_SIZE];
+	/* For v1 policy keys: the raw key.  Wiped for v2 policy keys. */
+	u8			raw[FSCRYPT_MAX_KEY_SIZE];
 
 } __randomize_layout;
 
