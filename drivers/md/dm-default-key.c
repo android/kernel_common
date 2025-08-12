@@ -144,8 +144,8 @@ static int default_key_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 {
 	struct default_key_c *dkc;
 	const struct dm_default_key_cipher *cipher;
-	u8 raw_key[BLK_CRYPTO_MAX_ANY_KEY_SIZE];
-	unsigned int raw_key_size;
+	u8 key_bytes[BLK_CRYPTO_MAX_ANY_KEY_SIZE];
+	unsigned int key_size;
 	unsigned int dun_bytes;
 	unsigned long long tmpll;
 	char dummy;
@@ -162,7 +162,7 @@ static int default_key_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		return -ENOMEM;
 	}
 	ti->private = dkc;
-	dkc->key_type = BLK_CRYPTO_KEY_TYPE_STANDARD;
+	dkc->key_type = BLK_CRYPTO_KEY_TYPE_RAW;
 
 	/* <cipher> */
 	dkc->cipher_string = kstrdup(argv[0], GFP_KERNEL);
@@ -179,15 +179,14 @@ static int default_key_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	}
 
 	/* <key> */
-	raw_key_size = strlen(argv[1]);
-	if (raw_key_size > 2 * BLK_CRYPTO_MAX_ANY_KEY_SIZE ||
-	    raw_key_size % 2) {
+	key_size = strlen(argv[1]);
+	if (key_size > 2 * BLK_CRYPTO_MAX_ANY_KEY_SIZE || key_size % 2) {
 		ti->error = "Invalid keysize";
 		err = -EINVAL;
 		goto bad;
 	}
-	raw_key_size /= 2;
-	if (hex2bin(raw_key, argv[1], raw_key_size) != 0) {
+	key_size /= 2;
+	if (hex2bin(key_bytes, argv[1], key_size) != 0) {
 		ti->error = "Malformed key string";
 		err = -EINVAL;
 		goto bad;
@@ -251,7 +250,7 @@ static int default_key_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		       (dkc->sector_bits - SECTOR_SHIFT);
 	dun_bytes = DIV_ROUND_UP(fls64(dkc->max_dun), 8);
 
-	err = blk_crypto_init_key(&dkc->key, raw_key, raw_key_size,
+	err = blk_crypto_init_key(&dkc->key, key_bytes, key_size,
 				  dkc->key_type, cipher->mode_num,
 				  dun_bytes, dkc->sector_size);
 	if (err) {
@@ -273,7 +272,7 @@ static int default_key_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 bad:
 	default_key_dtr(ti);
 out:
-	memzero_explicit(raw_key, sizeof(raw_key));
+	memzero_explicit(key_bytes, sizeof(key_bytes));
 	return err;
 }
 
