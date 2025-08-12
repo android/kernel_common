@@ -1888,9 +1888,33 @@ unsigned long uprobe_get_trap_addr(struct pt_regs *regs)
 	return instruction_pointer(regs);
 }
 
-static struct return_instance *free_ret_instance(struct return_instance *ri, bool cleanup_hprobe)
+static void ri_pool_push(struct uprobe_task *utask, struct return_instance *ri)
 {
-	struct return_instance *next = ri->next;
+	ri->cons_cnt = 0;
+	ri->next = utask->ri_pool;
+	utask->ri_pool = ri;
+}
+
+static struct return_instance *ri_pool_pop(struct uprobe_task *utask)
+{
+	struct return_instance *ri = utask->ri_pool;
+
+	if (likely(ri))
+		utask->ri_pool = ri->next;
+
+	return ri;
+}
+
+static void ri_free(struct return_instance *ri)
+{
+	kfree(ri->extra_consumers);
+	kfree_rcu(ri, rcu);
+}
+
+static void free_ret_instance(struct uprobe_task *utask,
+			      struct return_instance *ri, bool cleanup_hprobe)
+{
+	unsigned seq;
 
 	if (cleanup_hprobe) {
 		enum hprobe_state hstate;
@@ -1899,9 +1923,22 @@ static struct return_instance *free_ret_instance(struct return_instance *ri, boo
 		hprobe_finalize(&ri->hprobe, hstate);
 	}
 
-	kfree(ri->extra_consumers);
-	kfree_rcu(ri, rcu);
-	return next;
+	/*
+	 * At this point return_instance is unlinked from utask's
+	 * return_instances list and this has become visible to ri_timer().
+	 * If seqcount now indicates that ri_timer's return instance
+	 * processing loop isn't active, we can return ri into the pool of
+	 * to-be-reused return instances for future uretprobes. If ri_timer()
+	 * happens to be running right now, though, we fallback to safety and
+	 * just perform RCU-delated freeing of ri.
+	 */
+	if (raw_seqcount_try_begin(&utask->ri_seqcount, seq)) {
+		/* immediate reuse of ri without RCU GP is OK */
+		ri_pool_push(utask, ri);
+	} else {
+		/* we might be racing with ri_timer(), so play it safe */
+		ri_free(ri);
+	}
 }
 
 /*
@@ -1911,7 +1948,7 @@ static struct return_instance *free_ret_instance(struct return_instance *ri, boo
 void uprobe_free_utask(struct task_struct *t)
 {
 	struct uprobe_task *utask = t->utask;
-	struct return_instance *ri;
+	struct return_instance *ri, *ri_next;
 
 	if (!utask)
 		return;
@@ -1922,8 +1959,19 @@ void uprobe_free_utask(struct task_struct *t)
 	timer_delete_sync(&utask->ri_timer);
 
 	ri = utask->return_instances;
-	while (ri)
-		ri = free_ret_instance(ri, true /* cleanup_hprobe */);
+	while (ri) {
+		ri_next = ri->next;
+		free_ret_instance(utask, ri, true /* cleanup_hprobe */);
+		ri = ri_next;
+	}
+
+	/* free_ret_instance() above might add to ri_pool, so this loop should come last */
+	ri = utask->ri_pool;
+	while (ri) {
+		ri_next = ri->next;
+		ri_free(ri);
+		ri = ri_next;
+	}
 
 	kfree(utask);
 }
@@ -1943,8 +1991,12 @@ static void ri_timer(struct timer_list *timer)
 	/* RCU protects return_instance from freeing. */
 	guard(rcu)();
 
+	write_seqcount_begin(&utask->ri_seqcount);
+
 	for_each_ret_instance_rcu(ri, utask->return_instances)
 		hprobe_expire(&ri->hprobe, false);
+
+	write_seqcount_end(&utask->ri_seqcount);
 }
 
 static struct uprobe_task *alloc_utask(void)
@@ -1956,6 +2008,7 @@ static struct uprobe_task *alloc_utask(void)
 		return NULL;
 
 	timer_setup(&utask->ri_timer, ri_timer, 0);
+	seqcount_init(&utask->ri_seqcount);
 
 	return utask;
 }
@@ -1975,9 +2028,13 @@ static struct uprobe_task *get_utask(void)
 	return current->utask;
 }
 
-static struct return_instance *alloc_return_instance(void)
+static struct return_instance *alloc_return_instance(struct uprobe_task *utask)
 {
 	struct return_instance *ri;
+
+	ri = ri_pool_pop(utask);
+	if (ri)
+		return ri;
 
 	ri = kzalloc(sizeof(*ri), GFP_KERNEL);
 	if (!ri)
@@ -1991,6 +2048,8 @@ static struct return_instance *dup_return_instance(struct return_instance *old)
 	struct return_instance *ri;
 
 	ri = kmemdup(old, sizeof(*ri), GFP_KERNEL);
+	if (!ri)
+		return NULL;
 
 	if (unlikely(old->cons_cnt > 1)) {
 		ri->extra_consumers = kmemdup(old->extra_consumers,
@@ -2111,14 +2170,17 @@ unsigned long uprobe_get_trampoline_vaddr(void)
 static void cleanup_return_instances(struct uprobe_task *utask, bool chained,
 					struct pt_regs *regs)
 {
-	struct return_instance *ri = utask->return_instances;
+	struct return_instance *ri = utask->return_instances, *ri_next;
 	enum rp_check ctx = chained ? RP_CHECK_CHAIN_CALL : RP_CHECK_CALL;
 
 	while (ri && !arch_uretprobe_is_alive(ri, ctx, regs)) {
-		ri = free_ret_instance(ri, true /* cleanup_hprobe */);
+		ri_next = ri->next;
+		rcu_assign_pointer(utask->return_instances, ri_next);
 		utask->depth--;
+
+		free_ret_instance(utask, ri, true /* cleanup_hprobe */);
+		ri = ri_next;
 	}
-	rcu_assign_pointer(utask->return_instances, ri);
 }
 
 static void prepare_uretprobe(struct uprobe *uprobe, struct pt_regs *regs,
@@ -2183,7 +2245,7 @@ static void prepare_uretprobe(struct uprobe *uprobe, struct pt_regs *regs,
 
 	return;
 free:
-	kfree(ri);
+	ri_free(ri);
 }
 
 /* Prepare to single-step probed instruction out of line. */
@@ -2382,8 +2444,7 @@ static struct return_instance *push_consumer(struct return_instance *ri, __u64 i
 	if (unlikely(ri->cons_cnt > 0)) {
 		ric = krealloc(ri->extra_consumers, sizeof(*ric) * ri->cons_cnt, GFP_KERNEL);
 		if (!ric) {
-			kfree(ri->extra_consumers);
-			kfree_rcu(ri, rcu);
+			ri_free(ri);
 			return ZERO_SIZE_PTR;
 		}
 		ri->extra_consumers = ric;
@@ -2425,8 +2486,9 @@ static void handler_chain(struct uprobe *uprobe, struct pt_regs *regs)
 	struct uprobe_consumer *uc;
 	bool has_consumers = false, remove = true;
 	struct return_instance *ri = NULL;
+	struct uprobe_task *utask = current->utask;
 
-	current->utask->auprobe = &uprobe->arch;
+	utask->auprobe = &uprobe->arch;
 
 	list_for_each_entry_rcu(uc, &uprobe->consumers, cons_node, rcu_read_lock_trace_held()) {
 		bool session = uc->handler && uc->ret_handler;
@@ -2446,12 +2508,12 @@ static void handler_chain(struct uprobe *uprobe, struct pt_regs *regs)
 			continue;
 
 		if (!ri)
-			ri = alloc_return_instance();
+			ri = alloc_return_instance(utask);
 
 		if (session)
 			ri = push_consumer(ri, uc->id, cookie);
 	}
-	current->utask->auprobe = NULL;
+	utask->auprobe = NULL;
 
 	if (!ZERO_OR_NULL_PTR(ri))
 		prepare_uretprobe(uprobe, regs, ri);
@@ -2508,7 +2570,7 @@ static struct return_instance *find_next_ret_chain(struct return_instance *ri)
 void uprobe_handle_trampoline(struct pt_regs *regs)
 {
 	struct uprobe_task *utask;
-	struct return_instance *ri, *next;
+	struct return_instance *ri, *ri_next, *next_chain;
 	struct uprobe *uprobe;
 	enum hprobe_state hstate;
 	bool valid;
@@ -2528,8 +2590,8 @@ void uprobe_handle_trampoline(struct pt_regs *regs)
 		 * or NULL; the latter case means that nobody but ri->func
 		 * could hit this trampoline on return. TODO: sigaltstack().
 		 */
-		next = find_next_ret_chain(ri);
-		valid = !next || arch_uretprobe_is_alive(next, RP_CHECK_RET, regs);
+		next_chain = find_next_ret_chain(ri);
+		valid = !next_chain || arch_uretprobe_is_alive(next_chain, RP_CHECK_RET, regs);
 
 		instruction_pointer_set(regs, ri->orig_ret_vaddr);
 		do {
@@ -2541,7 +2603,9 @@ void uprobe_handle_trampoline(struct pt_regs *regs)
 			 * trampoline addresses on the stack are replaced with correct
 			 * original return addresses
 			 */
-			rcu_assign_pointer(utask->return_instances, ri->next);
+			ri_next = ri->next;
+			rcu_assign_pointer(utask->return_instances, ri_next);
+			utask->depth--;
 
 			uprobe = hprobe_consume(&ri->hprobe, &hstate);
 			if (valid)
@@ -2549,9 +2613,9 @@ void uprobe_handle_trampoline(struct pt_regs *regs)
 			hprobe_finalize(&ri->hprobe, hstate);
 
 			/* We already took care of hprobe, no need to waste more time on that. */
-			ri = free_ret_instance(ri, false /* !cleanup_hprobe */);
-			utask->depth--;
-		} while (ri != next);
+			free_ret_instance(utask, ri, false /* !cleanup_hprobe */);
+			ri = ri_next;
+		} while (ri != next_chain);
 	} while (!valid);
 
 	return;
