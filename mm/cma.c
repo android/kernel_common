@@ -415,7 +415,7 @@ static void cma_debug_show_areas(struct cma *cma)
 	spin_unlock_irq(&cma->lock);
 }
 
-static struct page *__cma_alloc(struct cma *cma, unsigned long count,
+struct page *__cma_alloc(struct cma *cma, unsigned long count,
 				unsigned int align, gfp_t gfp)
 {
 	unsigned long mask, offset;
@@ -535,6 +535,7 @@ static struct page *__cma_alloc(struct cma *cma, unsigned long count,
 
 	return page;
 }
+EXPORT_SYMBOL_GPL(__cma_alloc);
 
 /**
  * cma_alloc() - allocate pages from contiguous area
