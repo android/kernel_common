@@ -6350,7 +6350,6 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
 	unsigned int nr_reclaimed;
 	unsigned long pfn = start;
 	unsigned int tries = 0;
-	unsigned int max_tries = 5;
 	int ret = 0;
 	struct migration_target_control mtc = {
 		.nid = zone_to_nid(cc->zone),
@@ -6361,9 +6360,6 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
 	unsigned long total_mapped = 0;
 	unsigned long total_migrated = 0;
 	unsigned long total_reclaimed = 0;
-
-	if (cc->gfp_mask & __GFP_NORETRY)
-		max_tries = 1;
 
 	lru_cache_disable();
 
@@ -6380,7 +6376,7 @@ static int __alloc_contig_migrate_range(struct compact_control *cc,
 				break;
 			pfn = cc->migrate_pfn;
 			tries = 0;
-		} else if (++tries == max_tries) {
+		} else if (++tries == 5) {
 			ret = -EBUSY;
 			break;
 		}
@@ -6520,11 +6516,7 @@ int alloc_contig_range_noprof(unsigned long start, unsigned long end,
 		.nr_migratepages = 0,
 		.order = -1,
 		.zone = page_zone(pfn_to_page(start)),
-		/*
-		 * Use MIGRATE_ASYNC for __GFP_NORETRY requests as it never
-		 * blocks.
-		 */
-		.mode = gfp_mask & __GFP_NORETRY ? MIGRATE_ASYNC : MIGRATE_SYNC,
+		.mode = MIGRATE_SYNC,
 		.ignore_skip_hint = true,
 		.no_set_skip_hint = true,
 		.alloc_contig = true,
@@ -6573,7 +6565,7 @@ int alloc_contig_range_noprof(unsigned long start, unsigned long end,
 	 * -EBUSY is not accidentally used or returned to caller.
 	 */
 	ret = __alloc_contig_migrate_range(&cc, start, end, migratetype);
-	if (ret && (ret != -EBUSY || (gfp_mask & __GFP_NORETRY)))
+	if (ret && ret != -EBUSY)
 		goto done;
 
 	/*
