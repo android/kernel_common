@@ -360,8 +360,7 @@ static int cdx_dma_configure(struct device *dev)
 		return ret;
 	}
 
-	/* @cdx_drv may not be valid when we're called from the IOMMU layer */
-	if (!ret && dev->driver && !cdx_drv->driver_managed_dma) {
+	if (!ret && !cdx_drv->driver_managed_dma) {
 		ret = iommu_device_use_default_domain(dev);
 		if (ret)
 			arch_teardown_dma_ops(dev);
