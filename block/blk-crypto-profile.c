@@ -501,6 +501,7 @@ int blk_crypto_derive_sw_secret(struct block_device *bdev,
 	blk_crypto_hw_exit(profile);
 	return err;
 }
+EXPORT_SYMBOL_GPL(blk_crypto_derive_sw_secret);
 
 int blk_crypto_import_key(struct blk_crypto_profile *profile,
 			  const u8 *raw_key, size_t raw_key_size,
