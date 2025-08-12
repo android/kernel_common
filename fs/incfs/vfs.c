@@ -31,7 +31,8 @@
 
 static int incfs_remount_fs(struct super_block *sb, int *flags, char *data);
 
-static int dentry_revalidate(struct dentry *dentry, unsigned int flags);
+static int dentry_revalidate(struct inode *dir, const struct qstr *name,
+		struct dentry *dentry, unsigned int flags);
 static void dentry_release(struct dentry *d);
 
 static int iterate_incfs_dir(struct file *file, struct dir_context *ctx);
@@ -1543,7 +1544,8 @@ static int file_release(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static int dentry_revalidate(struct dentry *d, unsigned int flags)
+static int dentry_revalidate(struct inode *dir, const struct qstr *name,
+			     struct dentry *d, unsigned int flags)
 {
 	struct path backing_path = {};
 	struct inode_info *info = get_incfs_node(d_inode(d));
@@ -1569,8 +1571,13 @@ static int dentry_revalidate(struct dentry *d, unsigned int flags)
 	}
 
 	if (backing_dentry->d_flags & DCACHE_OP_REVALIDATE) {
-		result = backing_dentry->d_op->d_revalidate(backing_dentry,
-				flags);
+		/*
+		 * TODO(b/408330333): ->d_revalidate() needs the inode of
+		 * the parent directory and the expected dentry name from
+		 * the "backing_dentry". FIXME!
+		 */
+		result = backing_dentry->d_op->d_revalidate(dir, name,
+				backing_dentry, flags);
 	} else
 		result = 1;
 
