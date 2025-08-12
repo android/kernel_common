@@ -8953,6 +8953,8 @@ pick_next_task_fair(struct rq *rq, struct task_struct *prev, struct rq_flags *rf
 
 again:
 	p = pick_task_fair(rq);
+	trace_android_rvh_replace_next_task_fair(rq, &p, prev);
+
 	if (!p)
 		goto idle;
 	se = &p->se;
