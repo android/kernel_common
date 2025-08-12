@@ -61,6 +61,7 @@ CONFIG_NR_CPUS=32
 # CONFIG_X86_MCE is not set
 # CONFIG_X86_5LEVEL is not set
 # CONFIG_MTRR_SANITIZER is not set
+CONFIG_X86_USER_SHADOW_STACK=y
 CONFIG_EFI=y
 CONFIG_CMDLINE_BOOL=y
 CONFIG_CMDLINE="console=ttynull stack_depot_disable=on cgroup_disable=pressure bootconfig"
