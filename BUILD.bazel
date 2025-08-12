@@ -1782,11 +1782,20 @@ cc_library(
     name = "kselftest_vdso",
     srcs = ["tools/testing/selftests/vDSO/parse_vdso.c"],
     hdrs = [
+        "include/uapi/linux/auxvec.h",
+        "include/uapi/linux/elf.h",
         "tools/testing/selftests/vDSO/parse_vdso.h",
         "tools/testing/selftests/vDSO/vdso_call.h",
         "tools/testing/selftests/vDSO/vdso_config.h",
     ],
-    copts = _KSELFTEST_COPTS,
+    copts = _KSELFTEST_COPTS + [
+        "-I",
+        paths.join(
+            package_relative_label(":x").workspace_root,
+            package_relative_label(":x").package,
+            "include/uapi/",
+        ),
+    ],
     visibility = ["//visibility:private"],
     deps = [
         ":kselftest_headers_lib",
