@@ -548,4 +548,4 @@ static int __init system_heap_create(void)
 }
 module_init(system_heap_create);
 MODULE_LICENSE("GPL v2");
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");
