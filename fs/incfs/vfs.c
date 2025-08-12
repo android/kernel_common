@@ -58,9 +58,9 @@ static long incfs_compat_ioctl(struct file *file, unsigned int cmd,
 			 unsigned long arg);
 #endif
 
-static struct inode *alloc_inode(struct super_block *sb);
-static void free_inode(struct inode *inode);
-static void evict_inode(struct inode *inode);
+static struct inode *incfs_alloc_inode(struct super_block *sb);
+static void incfs_free_inode(struct inode *inode);
+static void incfs_evict_inode(struct inode *inode);
 
 static int incfs_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 			 struct iattr *ia);
@@ -74,15 +74,15 @@ static ssize_t incfs_setxattr(struct mnt_idmap *idmap, struct dentry *d,
 			      int flags);
 static ssize_t incfs_listxattr(struct dentry *d, char *list, size_t size);
 
-static int show_options(struct seq_file *, struct dentry *);
+static int incfs_show_options(struct seq_file *, struct dentry *);
 
 static const struct super_operations incfs_super_ops = {
 	.statfs = simple_statfs,
 	.remount_fs = incfs_remount_fs,
-	.alloc_inode	= alloc_inode,
-	.destroy_inode	= free_inode,
-	.evict_inode = evict_inode,
-	.show_options = show_options
+	.alloc_inode	= incfs_alloc_inode,
+	.destroy_inode	= incfs_free_inode,
+	.evict_inode = incfs_evict_inode,
+	.show_options = incfs_show_options
 };
 
 static int dir_rename_wrap(struct mnt_idmap *idmap, struct inode *old_dir,
@@ -1598,7 +1598,7 @@ static void dentry_release(struct dentry *d)
 	d->d_fsdata = NULL;
 }
 
-static struct inode *alloc_inode(struct super_block *sb)
+static struct inode *incfs_alloc_inode(struct super_block *sb)
 {
 	struct inode_info *node = kzalloc(sizeof(*node), GFP_NOFS);
 
@@ -1609,14 +1609,14 @@ static struct inode *alloc_inode(struct super_block *sb)
 	return &node->n_vfs_inode;
 }
 
-static void free_inode(struct inode *inode)
+static void incfs_free_inode(struct inode *inode)
 {
 	struct inode_info *node = get_incfs_node(inode);
 
 	kfree(node);
 }
 
-static void evict_inode(struct inode *inode)
+static void incfs_evict_inode(struct inode *inode)
 {
 	struct inode_info *node = get_incfs_node(inode);
 
@@ -1987,7 +1987,7 @@ void incfs_kill_sb(struct super_block *sb)
 	}
 }
 
-static int show_options(struct seq_file *m, struct dentry *root)
+static int incfs_show_options(struct seq_file *m, struct dentry *root)
 {
 	struct mount_info *mi = get_mount_info(root->d_sb);
 
