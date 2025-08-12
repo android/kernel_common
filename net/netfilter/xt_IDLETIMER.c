@@ -257,7 +257,7 @@ static int idletimer_resume(struct notifier_block *notifier,
 				mod_timer_pending(&timer->timer,
 						  (timer->timer.expires - time_diff));
 			} else {
-				del_timer(&timer->timer);
+				timer_delete(&timer->timer);
 				timer->timer.expires = 0;
 				timer->active = false;
 				timer->work_pending = true;
