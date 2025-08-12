@@ -85,6 +85,7 @@ config GKI_HIDDEN_GPIO_CONFIGS
 	bool "Hidden GPIO configs needed for GKI"
 	select PINCTRL_SINGLE if (PINCTRL && OF && HAS_IOMEM)
 	select GPIO_PL061 if (HAS_IOMEM && ARM_AMBA && GPIOLIB)
+	select GPIOLIB_IRQCHIP if (GPIOLIB && X86)
 	help
 	  Dummy config option used to enable hidden GPIO configs.
 	  These are normally selected implicitly when a module
