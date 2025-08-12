@@ -551,6 +551,17 @@ config FRAME_POINTER
 config OBJTOOL
 	bool
 
+config OBJTOOL_WERROR
+	bool "Upgrade objtool warnings to errors"
+	depends on OBJTOOL && !COMPILE_TEST
+	help
+	  Fail the build on objtool warnings.
+
+	  Objtool warnings can indicate kernel instability, including boot
+	  failures.  This option is highly recommended.
+
+	  If unsure, say Y.
+
 config STACK_VALIDATION
 	bool "Compile-time stack metadata validation"
 	depends on HAVE_STACK_VALIDATION && UNWINDER_FRAME_POINTER
@@ -1315,15 +1326,6 @@ config TEST_LOCKUP
 endmenu # "Debug lockups and hangs"
 
 menu "Scheduler Debugging"
-
-config SCHED_DEBUG
-	bool "Collect scheduler debugging info"
-	depends on DEBUG_KERNEL && DEBUG_FS
-	default y
-	help
-	  If you say Y here, the /sys/kernel/debug/sched file will be provided
-	  that can help debug the scheduler. The runtime overhead of this
-	  option is minimal.
 
 config SCHED_INFO
 	bool

@@ -5768,6 +5768,11 @@
 	rcutorture.test_boost_duration= [KNL]
 			Duration (s) of each individual boost test.
 
+	rcutorture.test_boost_holdoff= [KNL]
+			Holdoff time (s) from start of test to the start
+			of RCU priority-boost testing.	Defaults to zero,
+			that is, no holdoff.
+
 	rcutorture.test_boost_interval= [KNL]
 			Interval (s) between each boost test.
 
@@ -6107,7 +6112,7 @@
 			is assumed to be I/O ports; otherwise it is memory.
 
 	reserve_mem=	[RAM]
-			Format: nn[KNG]:<align>:<label>
+			Format: nn[KMG]:<align>:<label>
 			Reserve physical memory and label it with a name that
 			other subsystems can use to access it. This is typically
 			used for systems that do not wipe the RAM, and this command
