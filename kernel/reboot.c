@@ -1288,7 +1288,7 @@ static struct attribute *reboot_attrs[] = {
 };
 
 #ifdef CONFIG_SYSCTL
-static struct ctl_table kern_reboot_table[] = {
+static const struct ctl_table kern_reboot_table[] = {
 	{
 		.procname       = "poweroff_cmd",
 		.data           = &poweroff_cmd,

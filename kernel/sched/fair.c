@@ -157,7 +157,7 @@ static unsigned int sysctl_numa_balancing_promote_rate_limit = 65536;
 #endif
 
 #ifdef CONFIG_SYSCTL
-static struct ctl_table sched_fair_sysctls[] = {
+static const struct ctl_table sched_fair_sysctls[] = {
 	{
 		.procname       = "sched_child_runs_first",
 		.data           = &sysctl_sched_child_runs_first,
