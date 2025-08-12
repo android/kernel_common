@@ -1899,6 +1899,7 @@ static struct return_instance *free_ret_instance(struct return_instance *ri, boo
 		hprobe_finalize(&ri->hprobe, hstate);
 	}
 
+	kfree(ri->extra_consumers);
 	kfree_rcu(ri, rcu);
 	return next;
 }
@@ -1974,32 +1975,34 @@ static struct uprobe_task *get_utask(void)
 	return current->utask;
 }
 
-static size_t ri_size(int consumers_cnt)
-{
-	struct return_instance *ri;
-
-	return sizeof(*ri) + sizeof(ri->consumers[0]) * consumers_cnt;
-}
-
-#define DEF_CNT 4
-
 static struct return_instance *alloc_return_instance(void)
 {
 	struct return_instance *ri;
 
-	ri = kzalloc(ri_size(DEF_CNT), GFP_KERNEL);
+	ri = kzalloc(sizeof(*ri), GFP_KERNEL);
 	if (!ri)
 		return ZERO_SIZE_PTR;
 
-	ri->consumers_cnt = DEF_CNT;
 	return ri;
 }
 
 static struct return_instance *dup_return_instance(struct return_instance *old)
 {
-	size_t size = ri_size(old->consumers_cnt);
+	struct return_instance *ri;
 
-	return kmemdup(old, size, GFP_KERNEL);
+	ri = kmemdup(old, sizeof(*ri), GFP_KERNEL);
+
+	if (unlikely(old->cons_cnt > 1)) {
+		ri->extra_consumers = kmemdup(old->extra_consumers,
+					      sizeof(ri->extra_consumers[0]) * (old->cons_cnt - 1),
+					      GFP_KERNEL);
+		if (!ri->extra_consumers) {
+			kfree(ri);
+			return NULL;
+		}
+	}
+
+	return ri;
 }
 
 static int dup_utask(struct task_struct *t, struct uprobe_task *o_utask)
@@ -2294,6 +2297,47 @@ static int is_trap_at_addr(struct mm_struct *mm, unsigned long vaddr)
 	return is_trap_insn(&opcode);
 }
 
+static struct uprobe *find_active_uprobe_speculative(unsigned long bp_vaddr)
+{
+	struct mm_struct *mm = current->mm;
+	struct uprobe *uprobe = NULL;
+	struct vm_area_struct *vma;
+	struct file *vm_file;
+	loff_t offset;
+	unsigned int seq;
+
+	guard(rcu)();
+
+	if (!mmap_lock_speculate_try_begin(mm, &seq))
+		return NULL;
+
+	vma = vma_lookup(mm, bp_vaddr);
+	if (!vma)
+		return NULL;
+
+	/*
+	 * vm_file memory can be reused for another instance of struct file,
+	 * but can't be freed from under us, so it's safe to read fields from
+	 * it, even if the values are some garbage values; ultimately
+	 * find_uprobe_rcu() + mmap_lock_speculation_end() check will ensure
+	 * that whatever we speculatively found is correct
+	 */
+	vm_file = READ_ONCE(vma->vm_file);
+	if (!vm_file)
+		return NULL;
+
+	offset = (loff_t)(vma->vm_pgoff << PAGE_SHIFT) + (bp_vaddr - vma->vm_start);
+	uprobe = find_uprobe_rcu(vm_file->f_inode, offset);
+	if (!uprobe)
+		return NULL;
+
+	/* now double check that nothing about MM changed */
+	if (mmap_lock_speculate_retry(mm, seq))
+		return NULL;
+
+	return uprobe;
+}
+
 /* assumes being inside RCU protected region */
 static struct uprobe *find_active_uprobe_rcu(unsigned long bp_vaddr, int *is_swbp)
 {
@@ -2301,10 +2345,14 @@ static struct uprobe *find_active_uprobe_rcu(unsigned long bp_vaddr, int *is_swb
 	struct uprobe *uprobe = NULL;
 	struct vm_area_struct *vma;
 
+	uprobe = find_active_uprobe_speculative(bp_vaddr);
+	if (uprobe)
+		return uprobe;
+
 	mmap_read_lock(mm);
 	vma = vma_lookup(mm, bp_vaddr);
 	if (vma) {
-		if (valid_vma(vma, false)) {
+		if (vma->vm_file) {
 			struct inode *inode = file_inode(vma->vm_file);
 			loff_t offset = vaddr_to_offset(vma, bp_vaddr);
 
@@ -2324,25 +2372,28 @@ static struct uprobe *find_active_uprobe_rcu(unsigned long bp_vaddr, int *is_swb
 	return uprobe;
 }
 
-static struct return_instance*
-push_consumer(struct return_instance *ri, int idx, __u64 id, __u64 cookie)
+static struct return_instance *push_consumer(struct return_instance *ri, __u64 id, __u64 cookie)
 {
+	struct return_consumer *ric;
+
 	if (unlikely(ri == ZERO_SIZE_PTR))
 		return ri;
 
-	if (unlikely(idx >= ri->consumers_cnt)) {
-		struct return_instance *old_ri = ri;
-
-		ri->consumers_cnt += DEF_CNT;
-		ri = krealloc(old_ri, ri_size(old_ri->consumers_cnt), GFP_KERNEL);
-		if (!ri) {
-			kfree(old_ri);
+	if (unlikely(ri->cons_cnt > 0)) {
+		ric = krealloc(ri->extra_consumers, sizeof(*ric) * ri->cons_cnt, GFP_KERNEL);
+		if (!ric) {
+			kfree(ri->extra_consumers);
+			kfree_rcu(ri, rcu);
 			return ZERO_SIZE_PTR;
 		}
+		ri->extra_consumers = ric;
 	}
 
-	ri->consumers[idx].id = id;
-	ri->consumers[idx].cookie = cookie;
+	ric = likely(ri->cons_cnt == 0) ? &ri->consumer : &ri->extra_consumers[ri->cons_cnt - 1];
+	ric->id = id;
+	ric->cookie = cookie;
+
+	ri->cons_cnt++;
 	return ri;
 }
 
@@ -2350,14 +2401,17 @@ static struct return_consumer *
 return_consumer_find(struct return_instance *ri, int *iter, int id)
 {
 	struct return_consumer *ric;
-	int idx = *iter;
+	int idx;
 
-	for (ric = &ri->consumers[idx]; idx < ri->consumers_cnt; idx++, ric++) {
+	for (idx = *iter; idx < ri->cons_cnt; idx++)
+	{
+		ric = likely(idx == 0) ? &ri->consumer : &ri->extra_consumers[idx - 1];
 		if (ric->id == id) {
 			*iter = idx + 1;
 			return ric;
 		}
 	}
+
 	return NULL;
 }
 
@@ -2371,7 +2425,6 @@ static void handler_chain(struct uprobe *uprobe, struct pt_regs *regs)
 	struct uprobe_consumer *uc;
 	bool has_consumers = false, remove = true;
 	struct return_instance *ri = NULL;
-	int push_idx = 0;
 
 	current->utask->auprobe = &uprobe->arch;
 
@@ -2396,18 +2449,12 @@ static void handler_chain(struct uprobe *uprobe, struct pt_regs *regs)
 			ri = alloc_return_instance();
 
 		if (session)
-			ri = push_consumer(ri, push_idx++, uc->id, cookie);
+			ri = push_consumer(ri, uc->id, cookie);
 	}
 	current->utask->auprobe = NULL;
 
-	if (!ZERO_OR_NULL_PTR(ri)) {
-		/*
-		 * The push_idx value has the final number of return consumers,
-		 * and ri->consumers_cnt has number of allocated consumers.
-		 */
-		ri->consumers_cnt = push_idx;
+	if (!ZERO_OR_NULL_PTR(ri))
 		prepare_uretprobe(uprobe, regs, ri);
-	}
 
 	if (remove && has_consumers) {
 		down_read(&uprobe->register_rwsem);
