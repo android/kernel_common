@@ -944,12 +944,6 @@ int pkvm_init_iommu(unsigned long mem_base, unsigned long nr_pages)
 		piommu->iommu.gcmd = gsts & DMAR_GSTS_EN_BITS;
 
 		initialize_viommu_reg(piommu, gsts);
-
-		ret = pkvm_host_ept_unmap((unsigned long)info->reg_phys,
-				     (unsigned long)info->reg_phys,
-				     info->reg_size);
-		if (ret)
-			return ret;
 	}
 
 	return 0;
@@ -1648,6 +1642,12 @@ static int activate_iommu(struct pkvm_iommu *iommu)
 		goto free_shadow;
 
 	set_root_table(iommu);
+
+	ret = pkvm_host_ept_unmap((unsigned long)iommu->iommu.reg_phys,
+			     (unsigned long)iommu->iommu.reg_phys,
+			     iommu->iommu.reg_size);
+	if (ret)
+		goto free_shadow;
 
 	iommu->activated = true;
 	root_tbl_walk(iommu);
