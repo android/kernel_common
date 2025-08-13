@@ -1289,23 +1289,35 @@ static int create_qi_desc(struct pkvm_iommu *iommu)
 				viommu->vreg.iqa, viommu->vreg.iq_head, viommu->vreg.iq_tail,
 				wait_desc->qw0, wait_desc->qw1);
 
-		if (QI_DESC_TYPE(wait_desc->qw0) != QI_IWD_TYPE) {
-			pkvm_err("pkvm: %s: expect wait desc but 0x%llx\n",
-				 __func__, wait_desc->qw0);
-			return -EINVAL;
-		}
-
-		desc_status = pkvm_phys_to_virt(wait_desc->qw1);
 		/*
-		 * Wait until the wait descriptor is completed.
-		 *
-		 * The desc_status is from host. Checking this in pkvm
-		 * is relying on host IOMMU driver won't release the
-		 * desc_status after it is completed, and this is guarantee
-		 * by the current Linux IOMMU driver.
+		 * If there were invalidation events in flight, wait until
+		 * hardware acknowledges the events. Linux IOMMU driver guarantees
+		 * that last descriptor will be a invalidation wait descriptor.
+		 * So wait on the last descriptor if its a valid descriptor.
+		 * The invalidation queue ring buffer containing descriptors will be
+		 * zero initialized by the host iommu driver. So we need to check
+		 * if the descriptor is valid only if the descriptor contents are
+		 * non-zero.
 		 */
-		while (READ_ONCE(*desc_status) == QI_IN_USE)
-			cpu_relax();
+		if (wait_desc->qw0) {
+			if (QI_DESC_TYPE(wait_desc->qw0) != QI_IWD_TYPE) {
+				pkvm_err("pkvm: %s: expect wait desc but 0x%llx\n",
+					 __func__, wait_desc->qw0);
+				return -EINVAL;
+			}
+
+			desc_status = pkvm_phys_to_virt(wait_desc->qw1);
+			/*
+			 * Wait until the wait descriptor is completed.
+			 *
+			 * The desc_status is from host. Checking this in pkvm
+			 * is relying on host IOMMU driver won't release the
+			 * desc_status after it is completed, and this is guarantee
+			 * by the current Linux IOMMU driver.
+			 */
+			while (READ_ONCE(*desc_status) == QI_IN_USE)
+				cpu_relax();
+		}
 	}
 
 	qi->free_cnt = PKVM_QI_DESC_ALIGNED_SIZE / sizeof(struct qi_desc);
