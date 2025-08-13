@@ -2658,7 +2658,7 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
 {
 	struct net *net = sock_net(skb->sk);
 	struct neighbour *n;
-	int rc, h, s_h = cb->args[1];
+	int err = 0, h, s_h = cb->args[1];
 	int idx, s_idx = idx = cb->args[2];
 	struct neigh_hash_table *nht;
 	unsigned int flags = NLM_F_MULTI;
@@ -2678,22 +2678,19 @@ static int neigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
 			if (neigh_ifindex_filtered(n->dev, filter->dev_idx) ||
 			    neigh_master_filtered(n->dev, filter->master_idx))
 				goto next;
-			if (neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
-					    cb->nlh->nlmsg_seq,
-					    RTM_NEWNEIGH,
-					    flags) < 0) {
-				rc = -1;
+			err = neigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
+					      cb->nlh->nlmsg_seq,
+					      RTM_NEWNEIGH, flags);
+			if (err < 0)
 				goto out;
-			}
 next:
 			idx++;
 		}
 	}
-	rc = skb->len;
 out:
 	cb->args[1] = h;
 	cb->args[2] = idx;
-	return rc;
+	return err;
 }
 
 static int pneigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
@@ -2702,7 +2699,7 @@ static int pneigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
 {
 	struct pneigh_entry *n;
 	struct net *net = sock_net(skb->sk);
-	int rc, h, s_h = cb->args[3];
+	int err = 0, h, s_h = cb->args[3];
 	int idx, s_idx = idx = cb->args[4];
 	unsigned int flags = NLM_F_MULTI;
 
@@ -2720,11 +2717,11 @@ static int pneigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
 			if (neigh_ifindex_filtered(n->dev, filter->dev_idx) ||
 			    neigh_master_filtered(n->dev, filter->master_idx))
 				goto next;
-			if (pneigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
-					    cb->nlh->nlmsg_seq,
-					    RTM_NEWNEIGH, flags, tbl) < 0) {
+			err = pneigh_fill_info(skb, n, NETLINK_CB(cb->skb).portid,
+					       cb->nlh->nlmsg_seq,
+					       RTM_NEWNEIGH, flags, tbl);
+			if (err < 0) {
 				read_unlock_bh(&tbl->lock);
-				rc = -1;
 				goto out;
 			}
 		next:
@@ -2733,12 +2730,10 @@ static int pneigh_dump_table(struct neigh_table *tbl, struct sk_buff *skb,
 	}
 
 	read_unlock_bh(&tbl->lock);
-	rc = skb->len;
 out:
 	cb->args[3] = h;
 	cb->args[4] = idx;
-	return rc;
-
+	return err;
 }
 
 static int neigh_valid_dump_req(const struct nlmsghdr *nlh,
@@ -2848,7 +2843,7 @@ static int neigh_dump_info(struct sk_buff *skb, struct netlink_callback *cb)
 	rcu_read_unlock();
 
 	cb->args[0] = t;
-	return skb->len;
+	return err;
 }
 
 static int neigh_valid_get_req(const struct nlmsghdr *nlh,
