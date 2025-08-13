@@ -426,8 +426,11 @@ static inline u32 get_ar(u16 sel)
 		vmcs_write32(GUEST_##SEG##_LIMIT, limit);	\
 	} while (0)
 
-static __init void init_guest_state_area_from_native(int cpu)
+static __init void init_guest_state_area_from_native(
+		struct pkvm_host_vcpu *hvcpu, int cpu)
 {
+	struct kvm_vcpu *vcpu = &hvcpu->vmx.vcpu;
+	struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
 	u16 ldtr;
 	struct desc_ptr dt;
 	unsigned long msrl;
@@ -489,11 +492,15 @@ static __init void init_guest_state_area_from_native(int cpu)
 
 	rdmsrl(MSR_IA32_CR_PAT, msrl);
 	vmcs_write64(GUEST_IA32_PAT, msrl);
+
+	rdmsrl(MSR_CORE_PERF_GLOBAL_CTRL, msrl);
+	pmu->global_ctrl = msrl;
+	vmcs_write64(GUEST_IA32_PERF_GLOBAL_CTRL, msrl);
 }
 
 static __init void init_guest_state_area(struct pkvm_host_vcpu *hvcpu, int cpu)
 {
-	init_guest_state_area_from_native(cpu);
+	init_guest_state_area_from_native(hvcpu, cpu);
 
 	/*Guest non register state*/
 	vmcs_write32(GUEST_ACTIVITY_STATE, GUEST_ACTIVITY_ACTIVE);
@@ -593,13 +600,27 @@ static __init void init_execution_control(struct pkvm_host_vcpu *hvcpu,
 
 static __init void init_vmexit_control(struct vcpu_vmx *vmx, struct vmcs_config *vmcs_config_ptr)
 {
-	vm_exit_controls_set(vmx, vmcs_config_ptr->vmexit_ctrl);
+	u32 vmexit_ctrl = vmcs_config_ptr->vmexit_ctrl;
+	struct kvm_pmu *pmu = vcpu_to_pmu(&vmx->vcpu);
+
+	/* No need to switch if PMU is not enabled */
+	if (!pmu->global_ctrl)
+		vmexit_ctrl &= ~VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL;
+
+	vm_exit_controls_set(vmx, vmexit_ctrl);
 	vmcs_write32(VM_EXIT_MSR_STORE_COUNT, 0);
 }
 
 static __init void init_vmentry_control(struct vcpu_vmx *vmx, struct vmcs_config *vmcs_config_ptr)
 {
-	vm_entry_controls_set(vmx, vmcs_config_ptr->vmentry_ctrl);
+	u32 vmentry_ctrl = vmcs_config_ptr->vmentry_ctrl;
+	struct kvm_pmu *pmu = vcpu_to_pmu(&vmx->vcpu);
+
+	/* No need to switch if PMU is not enabled */
+	if (!pmu->global_ctrl)
+		vmentry_ctrl &= ~VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL;
+
+	vm_entry_controls_set(vmx, vmentry_ctrl);
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, 0);
 	vmcs_write32(VM_ENTRY_MSR_LOAD_COUNT, 0);
 	vmcs_write32(VM_ENTRY_INTR_INFO_FIELD, 0);
@@ -713,13 +734,15 @@ static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
 			VM_EXIT_LOAD_IA32_EFER |
 			VM_EXIT_SAVE_IA32_PAT |
 			VM_EXIT_SAVE_IA32_EFER |
-			VM_EXIT_SAVE_DEBUG_CONTROLS,
+			VM_EXIT_SAVE_DEBUG_CONTROLS |
+			VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL,
 		.vmexit_ctrl_opt = 0,
 		.vmentry_ctrl_req =
 			VM_ENTRY_LOAD_DEBUG_CONTROLS |
 			VM_ENTRY_IA32E_MODE |
 			VM_ENTRY_LOAD_IA32_EFER |
-			VM_ENTRY_LOAD_IA32_PAT,
+			VM_ENTRY_LOAD_IA32_PAT |
+			VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL,
 		.vmentry_ctrl_opt = 0,
 	};
 

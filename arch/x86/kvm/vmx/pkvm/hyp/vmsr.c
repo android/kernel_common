@@ -19,6 +19,7 @@ static unsigned int emulated_ro_guest_msrs[] = {};
 static unsigned int emulated_wo_guest_msrs[] = {
 	MSR_IA32_APICBASE,
 	(APIC_BASE_MSR + (APIC_ID >> 4)),
+	MSR_CORE_PERF_GLOBAL_CTRL,
 };
 
 static void enable_msr_interception(u8 *bitmap, unsigned int msr_arg, unsigned int mode)
@@ -85,6 +86,38 @@ int handle_write_msr(struct kvm_vcpu *vcpu)
 	case APIC_BASE_MSR ... APIC_BASE_MSR + 0xff:
 		ret = pkvm_x2apic_msr_write(vcpu, msr, val);
 		break;
+	case MSR_CORE_PERF_GLOBAL_CTRL: {
+		struct kvm_pmu *pmu = vcpu_to_pmu(vcpu);
+		struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+		if (pmu->global_ctrl == val)
+			break;
+
+		/*
+		 * PMU is owned by the host. But the host must be prevented
+		 * from profiling pKVM or pVM so the global ctrl MSR is kept
+		 * as ZERO (disabled) outside of the host context.
+		 *
+		 * Capture the value written by host. If it's non-zero then
+		 * update the VMCS guest field and rely on VM entry/exit
+		 * control to switch the MSR value. The VMCS host field is
+		 * fixed to ZERO.
+		 */
+		pmu->global_ctrl = val;
+		if (val) {
+			vmcs_write64(GUEST_IA32_PERF_GLOBAL_CTRL, val);
+			vm_entry_controls_setbit(vmx,
+					VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL);
+			vm_exit_controls_setbit(vmx,
+					VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL);
+		} else {
+			vm_entry_controls_clearbit(vmx,
+					VM_ENTRY_LOAD_IA32_PERF_GLOBAL_CTRL);
+			vm_exit_controls_clearbit(vmx,
+					VM_EXIT_LOAD_IA32_PERF_GLOBAL_CTRL);
+		}
+		break;
+	}
 	default:
 		break;
 	}

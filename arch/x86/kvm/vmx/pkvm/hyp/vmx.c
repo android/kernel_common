@@ -89,4 +89,6 @@ void pkvm_init_host_state_area(struct pkvm_pcpu *pcpu, int cpu)
 	pkvm_rdmsrl(MSR_IA32_CR_PAT, a);
 	vmcs_write64(HOST_IA32_PAT, a);
 	vmcs_writel(HOST_RSP, host_rsp_top - PKVM_STACK_TOP_RESV);
+
+	vmcs_write64(HOST_IA32_PERF_GLOBAL_CTRL, 0);
 }
