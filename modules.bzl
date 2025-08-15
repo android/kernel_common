@@ -196,9 +196,9 @@ def get_kunit_modules_list(arch = None):
     elif arch == "arm64":
         kunit_modules_list += _KUNIT_CLK_MODULES_LIST
     elif arch == "i386":
-        kunit_modules_list += []
+        kunit_modules_list.append("drivers/clk/clk_kunit_helpers.ko")
     elif arch == "x86_64":
-        kunit_modules_list += []
+        kunit_modules_list.append("drivers/clk/clk_kunit_helpers.ko")
     elif arch == "riscv64":
         kunit_modules_list += []
     else:
