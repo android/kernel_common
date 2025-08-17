@@ -184,6 +184,7 @@ _KUNIT_FRAMEWORK_MODULES = [
 # Modules defined by tools/testing/kunit/configs/android/kunit_defconfig
 _KUNIT_COMMON_MODULES_LIST = [
     # keep sorted
+    "drivers/android/tests/binder_alloc_kunit.ko",
     "drivers/base/regmap/regmap-kunit.ko",
     "drivers/base/regmap/regmap-ram.ko",
     "drivers/base/regmap/regmap-raw-ram.ko",
