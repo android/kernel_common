@@ -106,6 +106,7 @@ int __pkvm_hyp_donate_host(u64 hpa, u64 size, bool clear);
  * @gpa:	Start gpa that will be used for mapping into the guest ept.
  * @size:	The size of pages to be shared.
  * @prot:	The prot that will be used for creating mapping for guest ept.
+ * @mc:		Per-CPU memcache pointer.
  *
  * A range of pages [hpa, hpa + size) in host ept that their page state
  * will be modified from PAGE_OWNED to PAGE_SHARED_OWNED. There will be
@@ -113,7 +114,7 @@ int __pkvm_hyp_donate_host(u64 hpa, u64 size, bool clear);
  * and PAGE_SHARED_BORROWED will be used to create such mapping.
  */
 int __pkvm_host_share_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
-			    u64 gpa, u64 size, u64 prot);
+			    u64 gpa, u64 size, u64 prot, struct pkvm_memcache *mc);
 
 /*
  * __pkvm_host_unshare_guest() - Host unshare pages that have been shared to guest
@@ -139,6 +140,7 @@ int __pkvm_host_unshare_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
  * @gpa:	Start gpa of donated pages that will be mapped in guest ept.
  * @size:	The size of pages to being donated.
  * @prot:	The prot that will be used for creating mapping in guest ept.
+ * @mc:		Per-CPU memcache pointer.
  *
  * A range of pages [hpa, hpa + size) will be donated from host to guest. And
  * this will unmap these pages from host ept and set the page owner as guest_id
@@ -146,8 +148,8 @@ int __pkvm_host_unshare_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
  * the same time, the mapping gpa -> hpa with @size will be created in guest ept
  * with @prot.
  */
-int __pkvm_host_donate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
-			     u64 gpa, u64 size, u64 prot);
+int __pkvm_host_donate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt, u64 gpa,
+			     u64 size, u64 prot, struct pkvm_memcache *mc);
 
 /*
  * __pkvm_host_undoate_guest() - Host reclaim these pages donated to guest.
@@ -171,6 +173,7 @@ int __pkvm_host_undonate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
  * @guest_pgt:	The guest ept pagetable.
  * @gpa:	Start gpa of being shared pages, must be continues.
  * @size:	The size of pages to be shared, should be PAGE_ALIGNED.
+ * @mc:		Per-CPU memcache pointer.
  *
  * Here no hpa in the paramter, due to the caller don't know it. So the hpa
  * depends on lookup the guest ept to get it.
@@ -185,7 +188,7 @@ int __pkvm_host_undonate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
  * PAGE_SHARED_BORROWED.
  */
 int __pkvm_guest_share_host(struct pkvm_pgtable *guest_pgt,
-			    u64 gpa, u64 size);
+			    u64 gpa, u64 size, struct pkvm_memcache *mc);
 
 /*
  * __pkvm_guest_unshare_host() - Guest reclaim these pages donated to host.

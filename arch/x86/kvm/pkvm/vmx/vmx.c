@@ -5136,7 +5136,8 @@ static int kvm_pkvm_hypercall(struct kvm_vcpu *vcpu)
 
 	switch (nr) {
 	case PKVM_GHC_SHARE_MEM:
-		ret = __pkvm_guest_share_host(&pkvm_vm->mmu, a0, a1);
+		ret = __pkvm_guest_share_host(&pkvm_vm->mmu, a0, a1,
+					      &vcpu->arch.pkvm_vcpu.guest_mmu_memcache);
 		break;
 	case PKVM_GHC_UNSHARE_MEM:
 		ret = __pkvm_guest_unshare_host(&pkvm_vm->mmu, a0, a1);

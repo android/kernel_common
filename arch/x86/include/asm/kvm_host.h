@@ -802,6 +802,9 @@ struct kvm_protected_vcpu {
 	 * will be used by pkvm hypervisor to get the corresponding pkvm_vcpu.
 	 */
 	int handle;
+
+	/* Pages to be donated to pKVM-Low if it runs out */
+	struct pkvm_memcache guest_mmu_memcache;
 };
 #endif /* CONFIG_PKVM_INTEL */
 
