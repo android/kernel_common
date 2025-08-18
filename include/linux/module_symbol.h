@@ -5,6 +5,7 @@
 /* Kernel symbol flags bitset. */
 enum ksym_flags {
 	KSYM_FLAG_GPL_ONLY	= 1 << 0,
+	KSYM_FLAG_PROTECTED	= 1 << 1,
 };
 
 /* This ignores the intensely annoying "mapping symbols" found in ELF files. */

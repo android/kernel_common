@@ -63,6 +63,9 @@ static bool extra_warn;
 bool target_is_big_endian;
 bool host_is_big_endian;
 
+/* Are symbols protected against being used by unsigned modules? */
+static bool default_symbol_protected_status;
+
 /*
  * Cut off the warnings when there are too many. This typically occurs when
  * vmlinux is missing. ('make modules' without building vmlinux.)
@@ -227,6 +230,7 @@ struct symbol {
 	bool is_func;
 	bool is_gpl_only;	/* exported by EXPORT_SYMBOL_GPL */
 	bool used;		/* there exists a user of this symbol */
+	bool protected;		/* this symbol cannot be used by unsigned modules */
 	char name[];
 };
 
@@ -248,7 +252,8 @@ static struct symbol *alloc_symbol(const char *name)
 
 static uint8_t get_symbol_flags(const struct symbol *sym)
 {
-	return sym->is_gpl_only ? KSYM_FLAG_GPL_ONLY : 0;
+	return (sym->is_gpl_only ? KSYM_FLAG_GPL_ONLY : 0) |
+		(sym->protected ? KSYM_FLAG_PROTECTED : 0);
 }
 
 /* For the hash of exported symbols */
@@ -372,6 +377,7 @@ static struct symbol *sym_add_exported(const char *name, struct module *mod,
 	s->namespace = xstrdup(namespace);
 	list_add_tail(&s->list, &mod->exported_symbols);
 	hash_add_symbol(s);
+	s->protected = default_symbol_protected_status;
 
 	return s;
 }
@@ -1787,8 +1793,10 @@ static void handle_white_list_exports(const char *white_list)
 	while ((name = strsep(&p, "\n"))) {
 		struct symbol *sym = find_symbol(name);
 
-		if (sym)
+		if (sym) {
 			sym->used = true;
+			sym->protected = false;
+		}
 	}
 
 	free(buf);
@@ -2314,6 +2322,7 @@ int main(int argc, char **argv)
 			break;
 		case 'u':
 			unused_exports_white_list = optarg;
+			default_symbol_protected_status = true;
 			break;
 		case 'W':
 			extra_warn = true;
