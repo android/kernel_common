@@ -127,6 +127,9 @@ static void dump_guest_vcpu_perf_data(struct seq_file *m, struct perf_data *dump
 	struct perf_data summary = { 0 };
 	struct perf_data *perf;
 
+	if (size < sizeof(struct perf_data))
+		return;
+
 	for (perf = dump, summary.vm_handle = perf->vm_handle;
 	     size >= sizeof(struct perf_data);
 	     size -= sizeof(struct perf_data), perf++) {
