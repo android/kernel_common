@@ -25,22 +25,6 @@ static DEFINE_PER_CPU(union pkvm_pv_param, pv_param);
 	put_cpu();			\
 })
 
-static void pkvm_mc_free_fn(void *addr, void *unused)
-{
-	free_page((unsigned long)addr);
-}
-
-static void *kvm_host_va(phys_addr_t phys)
-{
-	return __va(phys);
-}
-
-static void free_pkvm_memcache(struct pkvm_memcache *mc)
-{
-	__free_pkvm_memcache(mc, pkvm_mc_free_fn,
-			     kvm_host_va, NULL);
-}
-
 static void free_pml_buffer(struct vcpu_vmx *vmx)
 {
 	if (vmx->pml_pg) {

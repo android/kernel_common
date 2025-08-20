@@ -86,3 +86,19 @@ void __init kvm_hyp_reserve(void)
 	kvm_info("Reserved %lld MiB at 0x%llx\n", hyp_mem_size >> 20,
 		 hyp_mem_base);
 }
+
+static void pkvm_mc_free_fn(void *addr, void *unused)
+{
+	free_page((unsigned long)addr);
+}
+
+static void *kvm_host_va(phys_addr_t phys)
+{
+	return __va(phys);
+}
+
+void free_pkvm_memcache(struct pkvm_memcache *mc)
+{
+	__free_pkvm_memcache(mc, pkvm_mc_free_fn,
+			     kvm_host_va, NULL);
+}

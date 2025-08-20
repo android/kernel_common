@@ -779,6 +779,8 @@ static inline void __free_pkvm_memcache(struct pkvm_memcache *mc,
 		free_fn(pop_pkvm_memcache(mc, to_va), arg);
 }
 
+void free_pkvm_memcache(struct pkvm_memcache *mc);
+
 struct kvm_pinned_page {
 	struct list_head list;
 	struct page *page;
