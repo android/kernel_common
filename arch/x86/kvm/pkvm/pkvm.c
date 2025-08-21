@@ -115,6 +115,7 @@ static struct pkvm_vm *free_pkvm_vm_handle(int handle)
 
 	pkvm_spin_lock(&pkvm_vms_lock);
 
+	idx = array_index_nospec(idx, MAX_PKVM_VMS);
 	pkvm_vm_ref = &pkvm_vms_ref[idx];
 	if ((atomic_cmpxchg(&pkvm_vm_ref->refcount, 1, 0) != 1)) {
 		pr_err("%s: VM%d is busy, refcount %d\n",
