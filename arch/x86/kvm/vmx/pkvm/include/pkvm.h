@@ -164,6 +164,6 @@ DECLARE_PER_CPU_ALIGNED(struct pcpu_hot, pkvm_sym(pcpu_hot));
 #define PKVM_PERCPU_PAGES (PKVM_PCPU_PAGES + PKVM_HOST_VCPU_PAGES + \
 			   PKVM_HOST_VCPU_VMCS_PAGES)
 #endif
-PKVM_DECLARE(void, setup_x86_spec_ctrl, (int cpu));
+PKVM_DECLARE(void, set_x86_spec_ctrl, (u64 spec_ctrl));
 
 #endif
