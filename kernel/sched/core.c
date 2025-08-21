@@ -3432,8 +3432,8 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 
 	__set_task_cpu(p, new_cpu);
 }
-#endif /* CONFIG_SMP */
 EXPORT_SYMBOL_GPL(set_task_cpu);
+#endif /* CONFIG_SMP */
 
 #ifdef CONFIG_NUMA_BALANCING
 static void __migrate_swap_task(struct task_struct *p, int cpu)
