@@ -45,6 +45,10 @@
 
 #include "ttm_module.h"
 
+#include <linux/android_kabi.h>
+ANDROID_KABI_DECLONLY(dma_buf);
+ANDROID_KABI_DECLONLY(dma_buf_attachment);
+
 static unsigned long ttm_pages_limit;
 
 MODULE_PARM_DESC(pages_limit, "Limit for the allocated pages");

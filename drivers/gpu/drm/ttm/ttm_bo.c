@@ -46,6 +46,11 @@
 
 #include "ttm_module.h"
 
+#include <linux/android_kabi.h>
+ANDROID_KABI_DECLONLY(dma_buf);
+ANDROID_KABI_DECLONLY(dma_buf_attachment);
+ANDROID_KABI_DECLONLY(sg_table);
+
 static void ttm_bo_mem_space_debug(struct ttm_buffer_object *bo,
 					struct ttm_placement *placement)
 {

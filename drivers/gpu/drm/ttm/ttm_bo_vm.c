@@ -38,6 +38,11 @@
 #include <drm/drm_drv.h>
 #include <drm/drm_managed.h>
 
+#include <linux/android_kabi.h>
+ANDROID_KABI_DECLONLY(dma_buf);
+ANDROID_KABI_DECLONLY(dma_buf_attachment);
+ANDROID_KABI_DECLONLY(sg_table);
+
 static vm_fault_t ttm_bo_vm_fault_idle(struct ttm_buffer_object *bo,
 				struct vm_fault *vmf)
 {

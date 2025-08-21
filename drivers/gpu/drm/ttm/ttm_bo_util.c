@@ -37,6 +37,10 @@
 
 #include <drm/drm_cache.h>
 
+#include <linux/android_kabi.h>
+ANDROID_KABI_DECLONLY(dma_buf);
+ANDROID_KABI_DECLONLY(dma_buf_attachment);
+
 struct ttm_transfer_obj {
 	struct ttm_buffer_object base;
 	struct ttm_buffer_object *bo;

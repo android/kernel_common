@@ -33,6 +33,10 @@
 
 #include <drm/drm_util.h>
 
+#include <linux/android_kabi.h>
+ANDROID_KABI_DECLONLY(dma_buf);
+ANDROID_KABI_DECLONLY(dma_buf_attachment);
+
 /* Detach the cursor from the bulk move list*/
 static void
 ttm_resource_cursor_clear_bulk(struct ttm_resource_cursor *cursor)

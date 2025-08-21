@@ -38,6 +38,11 @@
 #include "drm_crtc_internal.h"
 #include "drm_internal.h"
 
+#include <linux/android_kabi.h>
+ANDROID_KABI_DECLONLY(dma_buf);
+ANDROID_KABI_DECLONLY(dma_buf_attachment);
+ANDROID_KABI_DECLONLY(iosys_map);
+
 /**
  * DOC: overview
  *

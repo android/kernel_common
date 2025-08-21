@@ -7147,12 +7147,14 @@ pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
  * blocked_on).
  */
 static bool try_to_block_task(struct rq *rq, struct task_struct *p,
-			      unsigned long task_state, bool should_block)
+			      unsigned long *task_state_p, bool should_block)
 {
+	unsigned long task_state = *task_state_p;
 	int flags = DEQUEUE_NOCLOCK;
 
 	if (signal_pending_state(task_state, p)) {
 		WRITE_ONCE(p->__state, TASK_RUNNING);
+		*task_state_p = TASK_RUNNING;
 		return false;
 	}
 
@@ -7704,7 +7706,7 @@ static void __sched notrace __schedule(int sched_mode)
 		 * for slection with proxy-exec (without proxy-exec
 		 * task_is_blocked() will always be false).
 		 */
-		block = try_to_block_task(rq, prev, prev_state,
+		block = try_to_block_task(rq, prev, &prev_state,
 					  !task_is_blocked(prev));
 		switch_count = &prev->nvcsw;
 	}
@@ -9525,7 +9527,7 @@ void __init sched_init(void)
 		init_cfs_bandwidth(&root_task_group.cfs_bandwidth, NULL);
 #endif /* CONFIG_FAIR_GROUP_SCHED */
 #ifdef CONFIG_EXT_GROUP_SCHED
-		root_task_group.scx_weight = CGROUP_WEIGHT_DFL;
+		scx_tg_init(&root_task_group);
 #endif /* CONFIG_EXT_GROUP_SCHED */
 #ifdef CONFIG_RT_GROUP_SCHED
 		root_task_group.rt_se = (struct sched_rt_entity **)ptr;
@@ -9967,7 +9969,7 @@ struct task_group *sched_create_group(struct task_group *parent)
 	if (!alloc_rt_sched_group(tg, parent))
 		goto err;
 
-	scx_group_set_weight(tg, CGROUP_WEIGHT_DFL);
+	scx_tg_init(tg);
 	alloc_uclamp_sched_group(tg, parent);
 
 	return tg;

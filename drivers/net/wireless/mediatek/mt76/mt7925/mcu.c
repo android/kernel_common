@@ -616,6 +616,54 @@ int mt7925_mcu_uni_rx_ba(struct mt792x_dev *dev,
 	return ret;
 }
 
+static int mt7925_mcu_read_eeprom(struct mt792x_dev *dev, u32 offset, u8 *val)
+{
+	struct {
+		u8 rsv[4];
+
+		__le16 tag;
+		__le16 len;
+
+		__le32 addr;
+		__le32 valid;
+		u8 data[MT7925_EEPROM_BLOCK_SIZE];
+	} __packed req = {
+		.tag = cpu_to_le16(1),
+		.len = cpu_to_le16(sizeof(req) - 4),
+		.addr = cpu_to_le32(round_down(offset,
+				    MT7925_EEPROM_BLOCK_SIZE)),
+	};
+	struct evt {
+		u8 rsv[4];
+
+		__le16 tag;
+		__le16 len;
+
+		__le32 ver;
+		__le32 addr;
+		__le32 valid;
+		__le32 size;
+		__le32 magic_num;
+		__le32 type;
+		__le32 rsv1[4];
+		u8 data[32];
+	} __packed *res;
+	struct sk_buff *skb;
+	int ret;
+
+	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_WM_UNI_CMD_QUERY(EFUSE_CTRL),
+					&req, sizeof(req), true, &skb);
+	if (ret)
+		return ret;
+
+	res = (struct evt *)skb->data;
+	*val = res->data[offset % MT7925_EEPROM_BLOCK_SIZE];
+
+	dev_kfree_skb(skb);
+
+	return 0;
+}
+
 static int mt7925_load_clc(struct mt792x_dev *dev, const char *fw_name)
 {
 	const struct mt76_connac2_fw_trailer *hdr;
@@ -624,12 +672,19 @@ static int mt7925_load_clc(struct mt792x_dev *dev, const char *fw_name)
 	struct mt76_dev *mdev = &dev->mt76;
 	struct mt792x_phy *phy = &dev->phy;
 	const struct firmware *fw;
+	u8 *clc_base = NULL, hw_encap = 0;
 	int ret, i, len, offset = 0;
-	u8 *clc_base = NULL;
 
 	if (mt7925_disable_clc ||
 	    mt76_is_usb(&dev->mt76))
 		return 0;
+
+	if (mt76_is_mmio(&dev->mt76)) {
+		ret = mt7925_mcu_read_eeprom(dev, MT_EE_HW_TYPE, &hw_encap);
+		if (ret)
+			return ret;
+		hw_encap = u8_get_bits(hw_encap, MT_EE_HW_TYPE_ENCAP);
+	}
 
 	ret = request_firmware(&fw, fw_name, mdev->dev);
 	if (ret)
@@ -675,6 +730,10 @@ static int mt7925_load_clc(struct mt792x_dev *dev, const char *fw_name)
 		if (phy->clc[clc->idx])
 			continue;
 
+		/* header content sanity */
+		if (u8_get_bits(clc->type, MT_EE_HW_TYPE_ENCAP) != hw_encap)
+			continue;
+
 		phy->clc[clc->idx] = devm_kmemdup(mdev->dev, clc,
 						  le32_to_cpu(clc->len),
 						  GFP_KERNEL);
@@ -710,7 +769,7 @@ int mt7925_mcu_fw_log_2_host(struct mt792x_dev *dev, u8 ctrl)
 	int ret;
 
 	ret = mt76_mcu_send_and_get_msg(&dev->mt76, MCU_UNI_CMD(WSYS_CONFIG),
-					&req, sizeof(req), false, NULL);
+					&req, sizeof(req), true, NULL);
 	return ret;
 }
 
@@ -901,6 +960,23 @@ int mt7925_mcu_set_deep_sleep(struct mt792x_dev *dev, bool enable)
 	return mt7925_mcu_chip_config(dev, cmd);
 }
 EXPORT_SYMBOL_GPL(mt7925_mcu_set_deep_sleep);
+
+int mt7925_mcu_set_thermal_protect(struct mt792x_dev *dev)
+{
+	char cmd[64];
+	int ret = 0;
+
+	snprintf(cmd, sizeof(cmd), "ThermalProtGband %d %d %d %d %d %d %d %d %d %d",
+		 0, 100, 90, 80, 30, 1, 1, 115, 105, 5);
+	ret = mt7925_mcu_chip_config(dev, cmd);
+
+	snprintf(cmd, sizeof(cmd), "ThermalProtAband %d %d %d %d %d %d %d %d %d %d",
+		 1, 100, 90, 80, 30, 1, 1, 115, 105, 5);
+	ret |= mt7925_mcu_chip_config(dev, cmd);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(mt7925_mcu_set_thermal_protect);
 
 int mt7925_run_firmware(struct mt792x_dev *dev)
 {
@@ -1352,7 +1428,7 @@ int mt7925_mcu_set_eeprom(struct mt792x_dev *dev)
 	};
 
 	return mt76_mcu_send_and_get_msg(&dev->mt76, MCU_UNI_CMD(EFUSE_CTRL),
-					 &req, sizeof(req), false, NULL);
+					 &req, sizeof(req), true, NULL);
 }
 EXPORT_SYMBOL_GPL(mt7925_mcu_set_eeprom);
 
@@ -2028,8 +2104,6 @@ int mt7925_mcu_set_sniffer(struct mt792x_dev *dev, struct ieee80211_vif *vif,
 		},
 	};
 
-	mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD(SNIFFER), &req, sizeof(req), true);
-
 	return mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD(SNIFFER), &req, sizeof(req),
 				 true);
 }
@@ -2684,7 +2758,7 @@ int mt7925_mcu_set_dbdc(struct mt76_phy *phy, bool enable)
 	conf->band = 0; /* unused */
 
 	err = mt76_mcu_skb_send_msg(mdev, skb, MCU_UNI_CMD(SET_DBDC_PARMS),
-				    false);
+				    true);
 
 	return err;
 }
@@ -2711,6 +2785,9 @@ int mt7925_mcu_hw_scan(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	struct scan_misc_tlv *misc;
 	struct tlv *tlv;
 	int max_len;
+
+	if (test_bit(MT76_HW_SCANNING, &phy->state))
+		return -EBUSY;
 
 	max_len = sizeof(*hdr) + sizeof(*req) + sizeof(*ssid) +
 				sizeof(*bssid) + sizeof(*chan_info) +
@@ -2799,7 +2876,7 @@ int mt7925_mcu_hw_scan(struct mt76_phy *phy, struct ieee80211_vif *vif,
 	}
 
 	err = mt76_mcu_skb_send_msg(mdev, skb, MCU_UNI_CMD(SCAN_REQ),
-				    false);
+				    true);
 	if (err < 0)
 		clear_bit(MT76_HW_SCANNING, &phy->state);
 
@@ -2905,7 +2982,7 @@ int mt7925_mcu_sched_scan_req(struct mt76_phy *phy,
 	}
 
 	return mt76_mcu_skb_send_msg(mdev, skb, MCU_UNI_CMD(SCAN_REQ),
-				     false);
+				     true);
 }
 EXPORT_SYMBOL_GPL(mt7925_mcu_sched_scan_req);
 
@@ -2941,7 +3018,7 @@ mt7925_mcu_sched_scan_enable(struct mt76_phy *phy,
 		clear_bit(MT76_HW_SCHED_SCANNING, &phy->state);
 
 	return mt76_mcu_skb_send_msg(mdev, skb, MCU_UNI_CMD(SCAN_REQ),
-				     false);
+				     true);
 }
 
 int mt7925_mcu_cancel_hw_scan(struct mt76_phy *phy,
@@ -2980,7 +3057,7 @@ int mt7925_mcu_cancel_hw_scan(struct mt76_phy *phy,
 	}
 
 	return mt76_mcu_send_msg(phy->dev, MCU_UNI_CMD(SCAN_REQ),
-				 &req, sizeof(req), false);
+				 &req, sizeof(req), true);
 }
 EXPORT_SYMBOL_GPL(mt7925_mcu_cancel_hw_scan);
 
@@ -3085,7 +3162,7 @@ int mt7925_mcu_set_channel_domain(struct mt76_phy *phy)
 	memcpy(__skb_push(skb, sizeof(req)), &req, sizeof(req));
 
 	return mt76_mcu_skb_send_msg(dev, skb, MCU_UNI_CMD(SET_DOMAIN_INFO),
-				     false);
+				     true);
 }
 EXPORT_SYMBOL_GPL(mt7925_mcu_set_channel_domain);
 
@@ -3227,6 +3304,10 @@ int mt7925_mcu_fill_message(struct mt76_dev *mdev, struct sk_buff *skb,
 			uni_txd->option = MCU_CMD_UNI_QUERY_ACK;
 		else
 			uni_txd->option = MCU_CMD_UNI_EXT_ACK;
+
+		if (cmd == MCU_UNI_CMD(HIF_CTRL) ||
+		    cmd == MCU_UNI_CMD(CHIP_CONFIG))
+			uni_txd->option &= ~MCU_CMD_ACK;
 
 		goto exit;
 	}

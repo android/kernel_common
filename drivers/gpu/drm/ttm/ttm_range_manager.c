@@ -37,6 +37,11 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 
+#include <linux/android_kabi.h>
+ANDROID_KABI_DECLONLY(dma_buf);
+ANDROID_KABI_DECLONLY(dma_buf_attachment);
+ANDROID_KABI_DECLONLY(sg_table);
+
 /*
  * Currently we use a spinlock for the lock, but a mutex *may* be
  * more appropriate to reduce scheduling latency if the range manager

@@ -173,6 +173,7 @@
   devm_pm_opp_of_add_table
   devm_pm_opp_set_config
   devm_pm_runtime_enable
+  devm_register_sys_off_handler
   devm_regmap_add_irq_chip
   devm_regmap_field_alloc
   __devm_regmap_init
@@ -180,6 +181,7 @@
   __devm_regmap_init_mmio_clk
   devm_regulator_bulk_get
   devm_regulator_bulk_get_const
+  devm_regulator_bulk_get_enable
   devm_regulator_get
   devm_regulator_get_optional
   devm_regulator_register
@@ -300,6 +302,7 @@
   firmware_request_nowarn
   flush_work
   __flush_workqueue
+  fput
   __fortify_panic
   free_io_pgtable_ops
   free_irq
