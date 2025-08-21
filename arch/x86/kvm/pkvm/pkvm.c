@@ -427,11 +427,14 @@ static void pkvm_vm_destroy(int handle)
 static struct pkvm_vcpu *get_pkvm_vcpu_from_vm(struct pkvm_vm *pkvm_vm, int handle)
 {
 	struct pkvm_vcpu *pkvm_vcpu = NULL;
+	struct kvm *kvm = to_kvm(pkvm_vm);
 
 	pkvm_spin_lock(&pkvm_vm->lock);
 
-	if (handle < to_kvm(pkvm_vm)->created_vcpus)
+	if (handle < kvm->created_vcpus) {
+		handle = array_index_nospec(handle, kvm->created_vcpus);
 		pkvm_vcpu = pkvm_vm->vcpus[handle];
+	}
 
 	pkvm_spin_unlock(&pkvm_vm->lock);
 
