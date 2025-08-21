@@ -258,6 +258,7 @@ struct pkvm_vm *get_pkvm_vm(int handle)
 	if (idx < 0 || idx >= MAX_PKVM_VMS)
 		return NULL;
 
+	idx = array_index_nospec(idx, MAX_PKVM_VMS);
 	pkvm_vm_ref = &pkvm_vms_ref[idx];
 	return atomic_inc_not_zero(&pkvm_vm_ref->refcount) ? pkvm_vm_ref->pkvm_vm : NULL;
 }
