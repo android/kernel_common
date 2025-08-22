@@ -1229,6 +1229,7 @@
   generic_fillattr
   generic_handle_domain_irq
   generic_handle_irq
+  generic_handle_irq_safe
   generic_llseek_cookie
   generic_mii_ioctl
   generic_read_dir
@@ -1539,7 +1540,6 @@
   input_unregister_handler
   __insert_inode_hash
   insert_inode_locked
-  int_pow
   intel_graphics_stolen_res
   intel_nhlt_free
   intel_nhlt_get_dmic_geo
@@ -1556,6 +1556,7 @@
   intel_tcc_get_tjmax
   intel_tcc_set_offset
   intlog10
+  int_pow
   int_sqrt
   invalidate_bdev
   invalidate_inode_buffers
@@ -2131,6 +2132,7 @@
   pci_iomap_range
   pci_ioremap_bar
   pci_iounmap
+  pci_iov_virtfn_devfn
   pci_irq_vector
   pci_lock_rescan_remove
   pci_map_rom
@@ -2561,6 +2563,8 @@
   __SCT__tp_func_dma_fence_signaled
   __SCT__tp_func_gpu_mem_total
   __SCT__tp_func_xdp_exception
+  sdca_lookup_functions
+  sdca_lookup_interface_revision
   sdev_prefix_printk
   sdhci_abort_tuning
   __sdhci_add_host
@@ -2915,6 +2919,7 @@
   snd_soc_jack_free_gpios
   snd_soc_jack_notifier_register
   snd_soc_jack_report
+  snd_soc_limit_volume
   snd_soc_new_compress
   snd_soc_params_to_bclk
   snd_soc_params_to_frame_size
