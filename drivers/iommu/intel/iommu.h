@@ -24,6 +24,7 @@
 #include <linux/perf_event.h>
 
 #include <asm/cacheflush.h>
+#include <asm/pkvm.h>
 #include <asm/iommu.h>
 #include <uapi/linux/iommufd.h>
 
@@ -149,7 +150,6 @@
 #define OFFSET_STRIDE		(9)
 
 #ifdef CONFIG_PKVM_INTEL
-#include <asm/pkvm.h>
 #define dmar_readq(iommu, o)		pkvm_readq((iommu)->reg, (iommu)->reg_phys, o)
 #define dmar_writeq(iommu, o, v)	pkvm_writeq((iommu)->reg, (iommu)->reg_phys, o, v)
 #define dmar_readl(iommu, o)		pkvm_readl((iommu)->reg, (iommu)->reg_phys, o)
