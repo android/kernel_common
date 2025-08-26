@@ -55,6 +55,10 @@ extern const struct kernel_symbol __start___ksymtab[];
 extern const struct kernel_symbol __stop___ksymtab[];
 extern const u32 __start___kcrctab[];
 extern const u8 __start___kflagstab[];
+#ifdef CONFIG_MODULE_SIG_PROTECT
+extern const char *__start___kexporttab[];
+extern const char *__stop___kexporttab[];
+#endif
 
 #define KMOD_PATH_LEN 256
 extern char modprobe_path[];

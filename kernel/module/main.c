@@ -1468,6 +1468,20 @@ void *__symbol_get(const char *symbol)
 }
 EXPORT_SYMBOL_GPL(__symbol_get);
 
+#ifdef CONFIG_MODULE_SIG_PROTECT
+static int cmp_string(const void *a, const void *b)
+{
+	return strcmp(*(const char **)a, *(const char **)b);
+}
+
+static bool is_protected_export(const struct kernel_symbol *sym)
+{
+	return bsearch(kernel_symbol_name(sym), __start___kexporttab,
+		       __stop___kexporttab - __start___kexporttab,
+		       sizeof(const char *), cmp_string) != NULL;
+}
+#endif
+
 /*
  * Ensure that an exported symbol [global namespace] does not already exist
  * in the kernel or in some other module's exported symbol table.
@@ -1489,6 +1503,13 @@ static int verify_exported_symbols(struct module *mod)
 				module_name(fsa.owner));
 			return -ENOEXEC;
 		}
+#ifdef CONFIG_MODULE_SIG_PROTECT
+		if (!mod->sig_ok && is_protected_export(s)) {
+			pr_err("%s: exports protected symbol %s\n",
+			       mod->name, kernel_symbol_name(s));
+			return -EACCES;
+		}
+#endif
 	}
 	return 0;
 }
