@@ -1743,6 +1743,7 @@
   kunit_hooks
   kunit_running
   kvasprintf
+  kvasprintf_const
   kvfree
   kvfree_call_rcu
   __kvmalloc_node_noprof
@@ -2136,11 +2137,13 @@
   pci_match_id
   pci_mem_start
   pcim_enable_device
+  pcim_iomap
   pcim_iomap_region
   pcim_iomap_regions
   pcim_iomap_regions_request_all
   pcim_iomap_table
   pcim_pin_device
+  pcim_request_all_regions
   pcim_set_mwi
   pci_msix_vec_count
   pci_num_vf
