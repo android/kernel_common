@@ -299,9 +299,15 @@ enum ppfear_regs {
 #define PTL_PCD_PMC_MMIO_REG_LEN		0x31A8
 
 /* SSRAM PMC Device ID */
+/* LNL */
+#define PMC_DEVID_LNL_SOCM	0xa87f
+
 /* PTL */
-#define PMC_DEVID_PTL_PCDH      0xe37f
-#define PMC_DEVID_PTL_PCDP      0xe47f
+#define PMC_DEVID_PTL_PCDH	0xe37f
+#define PMC_DEVID_PTL_PCDP	0xe47f
+
+/* WCL */
+#define PMC_DEVID_WCL_PCDN	0x4d7f
 
 /* ARL */
 #define PMC_DEVID_ARL_SOCM	0x777f
@@ -313,9 +319,6 @@ enum ppfear_regs {
 #define PMC_DEVID_MTL_SOCM	0x7e7f
 #define PMC_DEVID_MTL_IOEP	0x7ecf
 #define PMC_DEVID_MTL_IOEM	0x7ebf
-
-/* LNL */
-#define PMC_DEVID_LNL_SOCM	0xa87f
 
 extern const char *pmc_lpm_modes[];
 
