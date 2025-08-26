@@ -77,4 +77,16 @@
 	    "	.previous"					"\n"	\
 	)
 
+#define PROTECT_EXPORT(sym)							\
+	asm("	.section \"__ksymtab_strings\",\"aMS\",%progbits,1"	"\n"	\
+	    "__kstrtab_" #sym ":"					"\n"	\
+	    "	.asciz \"" #sym "\""					"\n"	\
+	    "	.previous"						"\n"	\
+	    "	.section \"___kexporttab+" #sym "\",\"a\""		"\n"	\
+	    "	" __KSYM_ALIGN						"\n"	\
+	    "__kexporttab" #sym ":"					"\n"	\
+	    "	" __KSYM_REF(__kstrtab_ ##sym)				"\n"	\
+	    "	.previous"						"\n"	\
+	)
+
 #endif /* __LINUX_EXPORT_INTERNAL_H__ */

@@ -1908,6 +1908,21 @@ static void add_exported_symbols(struct buffer *buf, struct module *mod)
 	}
 }
 
+static void add_protected_exports(struct buffer *buf)
+{
+	struct module *mod;
+	struct symbol *sym;
+
+	buf_printf(buf, "\n");
+	list_for_each_entry(mod, &modules, list) {
+		if (mod->protect_exports) {
+			list_for_each_entry(sym, &mod->exported_symbols, list)
+				buf_printf(buf, "PROTECT_EXPORT(%s);\n",
+					   sym->name);
+		}
+	}
+}
+
 /**
  * Record CRCs for unresolved symbols, supporting long names
  */
@@ -2094,6 +2109,7 @@ static void write_vmlinux_export_c_file(struct module *mod)
 		   "#include <linux/export-internal.h>\n");
 
 	add_exported_symbols(&buf, mod);
+	add_protected_exports(&buf);
 
 	buf_printf(&buf,
 		   "#include <linux/module.h>\n"
