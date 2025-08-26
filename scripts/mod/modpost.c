@@ -2276,6 +2276,25 @@ struct dump_list {
 	const char *file;
 };
 
+static void handle_protected_modules_list(const char *fname)
+{
+	char *buf, *p, *name;
+	struct module *mod;
+
+	buf = read_text_file(fname);
+	p = buf;
+	while ((name = strsep(&p, "\n"))) {
+		list_for_each_entry(mod, &modules, list) {
+			if (strcmp(mod->name, name) == 0) {
+				mod->protect_exports = true;
+				break;
+			}
+		}
+	}
+
+	free(buf);
+}
+
 static void check_host_endian(void)
 {
 	static const union {
@@ -2300,12 +2319,13 @@ int main(int argc, char **argv)
 	struct module *mod;
 	char *missing_namespace_deps = NULL;
 	char *unused_exports_white_list = NULL;
+	char *protected_modules_list = NULL;
 	char *dump_write = NULL, *files_source = NULL;
 	int opt;
 	LIST_HEAD(dump_lists);
 	struct dump_list *dl, *dl2;
 
-	while ((opt = getopt(argc, argv, "ei:MmnT:to:au:WwENd:xbv:")) != -1) {
+	while ((opt = getopt(argc, argv, "ei:MmnT:to:au:WwENd:xbv:p:")) != -1) {
 		switch (opt) {
 		case 'e':
 			external_module = true;
@@ -2364,6 +2384,9 @@ int main(int argc, char **argv)
 		case 'v':
 			strncpy(module_scmversion, optarg, sizeof(module_scmversion) - 1);
 			break;
+		case 'p':
+			protected_modules_list = optarg;
+			break;
 		default:
 			exit(1);
 		}
@@ -2395,6 +2418,9 @@ int main(int argc, char **argv)
 
 	if (unused_exports_white_list)
 		handle_white_list_exports(unused_exports_white_list);
+
+	if (protected_modules_list)
+		handle_protected_modules_list(protected_modules_list);
 
 	list_for_each_entry(mod, &modules, list) {
 		if (mod->dump_file)
