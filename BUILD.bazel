@@ -718,6 +718,7 @@ _DB845C_MODULE_OUTS = [
     "drivers/soc/qcom/smsm.ko",
     "drivers/soc/qcom/socinfo.ko",
     "drivers/soc/qcom/spm.ko",
+    "drivers/soc/qcom/ubwc_config.ko",
     "drivers/soundwire/soundwire-bus.ko",
     "drivers/soundwire/soundwire-qcom.ko",
     "drivers/spi/spi-geni-qcom.ko",
