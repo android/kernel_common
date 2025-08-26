@@ -512,8 +512,15 @@ defined(CONFIG_AUTOFDO_CLANG) || defined(CONFIG_PROPELLER_CLANG)
 		__stop___kflagstab = .;					\
 	}								\
 									\
+	/* Kernel protected exports table */				\
+	__kexporttab      : AT(ADDR(__kexporttab) - LOAD_OFFSET) {	\
+		__start___kexporttab = .;				\
+		KEEP(*(SORT(___kexporttab+*)))				\
+		__stop___kexporttab = .;				\
+	}								\
+									\
 	/* Kernel symbol table: strings */				\
-        __ksymtab_strings : AT(ADDR(__ksymtab_strings) - LOAD_OFFSET) {	\
+	__ksymtab_strings : AT(ADDR(__ksymtab_strings) - LOAD_OFFSET) {	\
 		*(__ksymtab_strings)					\
 	}								\
 									\
