@@ -83,8 +83,11 @@ instead of `UPSTREAM:`.
 - If the patch has been merged into an upstream maintainer tree, but has not yet
 been merged into Linux mainline
     - tag the patch subject with `FROMGIT:`
-    - add info on where the patch came from as `(cherry picked from commit <sha1> <repo> <branch>)`. This
-must be a stable maintainer branch (not rebased, so don't use `linux-next` for example).
+    - add info on where the patch came from as `(cherry picked from commit <sha1> <repo> <branch>)`.
+This must be a branch on a tree which is normally merged into Linus's tree and is not rebased. For
+example, don't use `linux-next` which is rebased and never directly merged into Linus's tree, but
+you *can* use SHAs from `net` *or* `net-next`, which are merged into Linus's tree at various points
+in the release.
     - if changes were required, use `BACKPORT: FROMGIT:`
     - Example:
         - if the commit message in the maintainer tree is
