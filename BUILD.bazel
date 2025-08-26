@@ -599,6 +599,7 @@ _DB845C_MODULE_OUTS = [
     "drivers/gpu/drm/display/drm_display_helper.ko",
     "drivers/gpu/drm/display/drm_dp_aux_bus.ko",
     "drivers/gpu/drm/drm_exec.ko",
+    "drivers/gpu/drm/drm_gpuvm.ko",
     "drivers/gpu/drm/msm/msm.ko",
     "drivers/gpu/drm/panel/panel-visionox-vtdr6130.ko",
     "drivers/gpu/drm/scheduler/gpu-sched.ko",
