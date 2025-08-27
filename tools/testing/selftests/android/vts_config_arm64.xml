@@ -37,5 +37,6 @@ SPDX-License-Identifier: GPL-2.0 OR Apache-2.0
         <option name="test-command-line" key="kselftest_futex_futex_wait_uninitialized_heap" value="cd &ktest_dir;; ./futex_wait_uninitialized_heap" />
         <option name="test-command-line" key="kselftest_futex_futex_wait_wouldblock" value="cd &ktest_dir;; ./futex_wait_wouldblock" />
         <option name="test-command-line" key="kselftest_futex_futex_wait" value="cd &ktest_dir;; ./futex_wait" />
+        <option name="test-command-line" key="kselftest_kcmp_kcmp_test" value="cd &ktest_dir;; ./kselftest_kcmp_kcmp_test" />
     </test>
 </configuration>

@@ -2844,6 +2844,7 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_uninitialized_heap_x86_64",
         ":kselftest_futex_futex_wait_wouldblock_x86_64",
         ":kselftest_futex_futex_wait_x86_64",
+        ":kselftest_kcmp_kcmp_test_x86_64",
     ],
     visibility = ["//visibility:private"],
 )
@@ -2932,6 +2933,7 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_uninitialized_heap_x86",
         ":kselftest_futex_futex_wait_wouldblock_x86",
         ":kselftest_futex_futex_wait_x86",
+        ":kselftest_kcmp_kcmp_test_x86",
     ],
     visibility = ["//visibility:private"],
 )
@@ -3013,6 +3015,7 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_timeout_arm",
         ":kselftest_futex_futex_wait_uninitialized_heap_arm",
         ":kselftest_futex_futex_wait_wouldblock_arm",
+        ":kselftest_kcmp_kcmp_test_arm",
     ],
     visibility = ["//visibility:private"],
 )
@@ -3096,6 +3099,7 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_timeout_arm64",
         ":kselftest_futex_futex_wait_uninitialized_heap_arm64",
         ":kselftest_futex_futex_wait_wouldblock_arm64",
+        ":kselftest_kcmp_kcmp_test_arm64",
     ],
     visibility = ["//visibility:private"],
 )
