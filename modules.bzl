@@ -144,9 +144,8 @@ def _apply(map_each, lst):
             ret.append(mapped)
     return ret
 
-# buildifier: disable=unnamed-macro
-def get_gki_modules_list(arch = None, map_each = None):
-    """ Provides the list of GKI modules.
+def _get_gki_modules_list_minus_select(arch, map_each):
+    """ Provides the list of GKI modules, minus those in select() branches.
 
     Args:
         arch: One of [arm, arm64, i386, x86_64].
@@ -176,6 +175,44 @@ def get_gki_modules_list(arch = None, map_each = None):
         gki_modules_list += _apply(map_each, _X86_64_GKI_MODULES_LIST)
 
     return gki_modules_list
+
+# buildifier: disable=unnamed-macro
+def get_gki_modules_list(arch = None, map_each = None):
+    """Provides the list of GKI modules.
+
+    Args:
+        arch: One of [arm, arm64, i386, x86_64].
+        map_each: A function that takes the module name as parameter, and
+            returns the mapped value. If the module should be filtered out, the
+            function should return None.
+
+    Returns:
+        An opaque expression that represents the list of GKI modules for the
+        given |arch|. Do not treat the returned value as a list (e.g. use
+        list comprehension); instead, use the |map_each| argument.
+    """
+
+    # TODO: b/419603781 - Turn this into a select() expression.
+    return _get_gki_modules_list_minus_select(arch, map_each)
+
+# buildifier: disable=unnamed-macro
+def get_gki_modules_superset(arch = None, map_each = None):
+    """Provides the list of superset of GKI modules.
+
+    This includes all modules on each branch of the conditionals. For example,
+    Rust modules may always be included regardless of the value of
+    --kasan_sw_tags.
+
+    Args:
+        arch: One of [arm, arm64, i386, x86_64].
+        map_each: A function that takes the module name as parameter, and
+            returns the mapped value. If the module should be filtered out, the
+            function should return None.
+
+    Returns:
+        A list that contains the superset of GKI modules for the given |arch|.
+    """
+    return _get_gki_modules_list_minus_select(arch, map_each)
 
 _KUNIT_FRAMEWORK_MODULES = [
     "lib/kunit/kunit.ko",
@@ -212,19 +249,23 @@ _KUNIT_CLK_MODULES_LIST = [
     "drivers/clk/clk_kunit_helpers.ko",
 ]
 
-# buildifier: disable=unnamed-macro
-def get_kunit_modules_list(arch = None, map_each = None):
-    """ Provides the list of GKI modules.
+def _get_kunit_modules_list_minus_select(arch, map_each):
+    """ Provides the list of KUnit modules, minus those in select() branches.
 
     Args:
         arch: One of [arm, arm64, i386, x86_64].
         map_each: A function that takes the module name as parameter, and returns
             the mapped value. If the module should be filtered out, the function
             should return None.
-
     Returns:
         The list of KUnit modules for the given |arch|.
     """
+    if not arch in ("arm64", "x86_64", "arm", "i386"):
+        fail("{}: arch {} not supported. Use one of [arm, arm64, i386, x86_64]".format(
+            str(native.package_relative_label(":x")).removesuffix(":x"),
+            arch,
+        ))
+
     kunit_modules_list = _KUNIT_FRAMEWORK_MODULES + _KUNIT_COMMON_MODULES_LIST
     if arch == "arm":
         kunit_modules_list += _KUNIT_CLK_MODULES_LIST
@@ -234,13 +275,44 @@ def get_kunit_modules_list(arch = None, map_each = None):
         kunit_modules_list.append("drivers/clk/clk_kunit_helpers.ko")
     elif arch == "x86_64":
         kunit_modules_list.append("drivers/clk/clk_kunit_helpers.ko")
-    else:
-        fail("{}: arch {} not supported. Use one of [arm, arm64, i386, x86_64]".format(
-            str(native.package_relative_label(":x")).removesuffix(":x"),
-            arch,
-        ))
 
     return _apply(map_each, kunit_modules_list)
+
+# buildifier: disable=unnamed-macro
+def get_kunit_modules_list(arch = None, map_each = None):
+    """ Provides the list of KUnit modules.
+
+    Args:
+        arch: One of [arm, arm64, i386, x86_64].
+        map_each: A function that takes the module name as parameter, and returns
+            the mapped value. If the module should be filtered out, the function
+            should return None.
+
+    Returns:
+        An opaque expression that represents the list of Kunit modules for the
+        given |arch|. Do not treat the returned value as a list (e.g. use
+        list comprehension); instead, use the |map_each| argument.
+    """
+
+    # TODO: b/419603781 - Turn this into a select() expression.
+    return _get_kunit_modules_list_minus_select(arch, map_each)
+
+# buildifier: disable=unnamed-macro
+def get_kunit_modules_superset(arch = None, map_each = None):
+    """Provides the list of superset of KUnit modules.
+
+    This includes all modules on each branch of the conditionals.
+
+    Args:
+        arch: One of [arm, arm64, i386, x86_64].
+        map_each: A function that takes the module name as parameter, and
+            returns the mapped value. If the module should be filtered out, the
+            function should return None.
+
+    Returns:
+        A list of superset of KUnit modules for the given |arch|.
+    """
+    return _get_kunit_modules_list_minus_select(arch, map_each)
 
 _COMMON_UNPROTECTED_MODULES_LIST = []
 

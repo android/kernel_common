@@ -33,8 +33,10 @@ load(":abi.bzl", "cc_binary_with_abi")
 load(
     ":modules.bzl",
     "get_gki_modules_list",
+    "get_gki_modules_superset",
     "get_gki_protected_modules_list",
     "get_kunit_modules_list",
+    "get_kunit_modules_superset",
 )
 
 package(
@@ -221,6 +223,7 @@ common_kernel(
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    modules_superset = get_gki_modules_superset("arm64") + get_kunit_modules_superset("arm64"),
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
 
@@ -256,6 +259,7 @@ common_kernel(
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    modules_superset = get_gki_modules_superset("arm64") + get_kunit_modules_superset("arm64"),
     page_size = "16k",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
     visibility = ["//visibility:public"],
@@ -297,6 +301,7 @@ common_kernel(
     make_goals = _GKI_X86_64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("x86_64") + get_kunit_modules_list("x86_64"),
+    modules_superset = get_gki_modules_superset("x86_64") + get_kunit_modules_superset("x86_64"),
     system_dlkm_extra_archive_files = [":generate_gki_module_info_x86_64"],
     visibility = ["//visibility:public"],
 )
