@@ -2833,6 +2833,8 @@ pkg_filegroup(
     name = "vts_kselftest_tests_x86_64",
     srcs = [
         ":kselftest_binderfs_binderfs_test_x86_64",
+        ":kselftest_capabilities_test_execve_x86_64",
+        ":kselftest_capabilities_validate_cap_x86_64",
     ],
     visibility = ["//visibility:private"],
 )
@@ -2910,6 +2912,8 @@ pkg_filegroup(
     name = "vts_kselftest_tests_x86",
     srcs = [
         ":kselftest_binderfs_binderfs_test_x86",
+        ":kselftest_capabilities_test_execve_x86",
+        ":kselftest_capabilities_validate_cap_x86",
     ],
     visibility = ["//visibility:private"],
 )
@@ -2980,6 +2984,8 @@ pkg_filegroup(
     name = "vts_kselftest_tests_arm",
     srcs = [
         ":kselftest_binderfs_binderfs_test_arm",
+        ":kselftest_capabilities_test_execve_arm",
+        ":kselftest_capabilities_validate_cap_arm",
     ],
     visibility = ["//visibility:private"],
 )
@@ -3052,6 +3058,8 @@ pkg_filegroup(
     name = "vts_kselftest_tests_arm64",
     srcs = [
         ":kselftest_binderfs_binderfs_test_arm64",
+        ":kselftest_capabilities_test_execve_arm64",
+        ":kselftest_capabilities_validate_cap_arm64",
     ],
     visibility = ["//visibility:private"],
 )

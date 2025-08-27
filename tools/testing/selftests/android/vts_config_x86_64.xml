@@ -26,5 +26,7 @@ SPDX-License-Identifier: GPL-2.0 OR Apache-2.0
         <option name="skip-binary-check" value="true" />
         <option name="ktap-result-parser-resolution" value="INDIVIDUAL_LEAVES" />
         <option name="test-command-line" key="kselftest_binderfs_binderfs_test" value="cd &ktest_dir;; ./kselftest_binderfs_binderfs_test" />
+        <option name="test-command-line" key="kselftest_capabilities_test_execve" value="cd &ktest_dir;; ./kselftest_capabilities_test_execve" />
+        <option name="test-command-line" key="kselftest_capabilities_validate_cap" value="cd &ktest_dir;; ./validate_cap 1 1 0 0" />
     </test>
 </configuration>
