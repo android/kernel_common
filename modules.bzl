@@ -316,9 +316,6 @@ def get_kunit_modules_superset(arch = None, map_each = None):
 
 _COMMON_UNPROTECTED_MODULES_LIST = []
 
-# buildifier: disable=unnamed-macro
-def get_gki_protected_modules_list(arch = None):
-    all_gki_modules = get_gki_modules_list(arch) + get_kunit_modules_list(arch)
-    unprotected_modules = _COMMON_UNPROTECTED_MODULES_LIST
-    protected_modules = [mod for mod in all_gki_modules if mod not in unprotected_modules]
-    return sorted(protected_modules)
+# buildifier: disable=unused-variable
+def get_gki_unprotected_modules_list(arch = None):
+    return _COMMON_UNPROTECTED_MODULES_LIST

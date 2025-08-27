@@ -12,6 +12,7 @@ load("@rules_python//python:defs.bzl", "py_library")
 load(
     "//build/kernel/kleaf:common_kernels.bzl",
     "common_kernel",
+    "common_kernel_protected_module_names",
 )
 load("//build/kernel/kleaf:constants.bzl", "COMMON_KCFLAGS", "DEFAULT_GKI_OUTS", "X86_64_OUTS")
 load("//build/kernel/kleaf:fail.bzl", "fail_rule")
@@ -34,7 +35,7 @@ load(
     ":modules.bzl",
     "get_gki_modules_list",
     "get_gki_modules_superset",
-    "get_gki_protected_modules_list",
+    "get_gki_unprotected_modules_list",
     "get_kunit_modules_list",
     "get_kunit_modules_superset",
 )
@@ -108,12 +109,11 @@ write_file(
 )
 
 # Not enforced in android-mainline.
-write_file(
-    name = "gki_aarch64_protected_modules",
-    out = "gki/aarch64/protected_modules",
-    content = get_gki_protected_modules_list("arm64") + [
-        "",  # Ensure new line at the end.
-    ],
+common_kernel_protected_module_names(
+    name = "gki_aarch64_protected_module_names",
+    out = "gki/aarch64/protected_module_names",
+    exclude = get_gki_unprotected_modules_list("arm64"),
+    module_names = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
 )
 
 write_file(
@@ -127,12 +127,11 @@ write_file(
 )
 
 # Not enforced in android-mainline.
-write_file(
-    name = "gki_x86_64_protected_modules",
-    out = "gki/x86_64/protected_modules",
-    content = get_gki_protected_modules_list("x86_64") + [
-        "",  # Ensure new line at the end.
-    ],
+common_kernel_protected_module_names(
+    name = "gki_x86_64_protected_module_names",
+    out = "gki/x86_64/protected_module_names",
+    exclude = get_gki_unprotected_modules_list("x86_64"),
+    module_names = get_gki_modules_list("x86_64") + get_kunit_modules_list("x86_64"),
 )
 
 _SET_KERNEL_DIR_CMD = "KERNEL_DIR=\"{kernel_dir}\"".format(
