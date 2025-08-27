@@ -28,5 +28,14 @@ SPDX-License-Identifier: GPL-2.0 OR Apache-2.0
         <option name="test-command-line" key="kselftest_binderfs_binderfs_test" value="cd &ktest_dir;; ./kselftest_binderfs_binderfs_test" />
         <option name="test-command-line" key="kselftest_capabilities_test_execve" value="cd &ktest_dir;; ./kselftest_capabilities_test_execve" />
         <option name="test-command-line" key="kselftest_capabilities_validate_cap" value="cd &ktest_dir;; ./validate_cap 1 1 0 0" />
+        <option name="test-command-line" key="kselftest_futex_futex_requeue_pi_mismatched_ops" value="cd &ktest_dir;; ./futex_requeue_pi_mismatched_ops" />
+        <option name="test-command-line" key="kselftest_futex_futex_requeue_pi_signal_restart" value="cd &ktest_dir;; ./futex_requeue_pi_signal_restart" />
+        <option name="test-command-line" key="kselftest_futex_futex_requeue_pi" value="cd &ktest_dir;; ./futex_requeue_pi" />
+        <option name="test-command-line" key="kselftest_futex_futex_requeue" value="cd &ktest_dir;; ./futex_requeue" />
+        <option name="test-command-line" key="kselftest_futex_futex_wait_private_mapped_file" value="cd &ktest_dir;; ./futex_wait_private_mapped_file" />
+        <option name="test-command-line" key="kselftest_futex_futex_wait_timeout" value="cd &ktest_dir;; ./futex_wait_timeout" />
+        <option name="test-command-line" key="kselftest_futex_futex_wait_uninitialized_heap" value="cd &ktest_dir;; ./futex_wait_uninitialized_heap" />
+        <option name="test-command-line" key="kselftest_futex_futex_wait_wouldblock" value="cd &ktest_dir;; ./futex_wait_wouldblock" />
+        <option name="test-command-line" key="kselftest_futex_futex_wait" value="cd &ktest_dir;; ./futex_wait" />
     </test>
 </configuration>
