@@ -805,3 +805,59 @@ int pkvm_pgtable_sync_map(struct pkvm_pgtable *src, struct pkvm_pgtable *dest,
 
 	return pkvm_pgtable_sync_map_range(src, dest, 0, size, prot, map_leaf, unmap_leaf);
 }
+
+struct pkvm_pgtable_age_data {
+	bool mkold;
+	bool young;
+};
+
+static int pgtable_age_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
+			  unsigned long vaddr_end, int level, void *ptep,
+			  unsigned long flags, struct pgt_flush_data *flush_data,
+			  void *const arg)
+{
+	const struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
+	struct pkvm_pgtable_age_data *data = arg;
+
+	if (!pgt_ops->pgt_entry_present(ptep) || !pgt_ops->pgt_entry_young(ptep))
+		return 0;
+
+	data->young = true;
+
+	if (data->mkold)
+		pgt_ops->pgt_entry_mkold(ptep);
+
+	return 0;
+}
+
+/*
+ * pkvm_pgtable_test_clear_young() - test and optionally clear the access flag
+ *				     in page table entries.
+ *
+ * @pgt:		page table.
+ * @vaddr_start:	virtual start address of the range.
+ * @size:		size of the range in bytes.
+ * @mkold:		true if the access flag should be cleared.
+ *
+ * Note that pkvm_pgtable_test_clear_young() doesn't flush the TLB after
+ * clearing the access flag. It is the caller's responsibility to flush
+ * the TLB when needed.
+ *
+ * Return: true if any of the visited PTEs had the access flag set.
+ */
+int pkvm_pgtable_test_clear_young(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
+				  unsigned long size, bool mkold)
+{
+	struct pkvm_pgtable_age_data data = {
+		.mkold = mkold,
+		.young = false,
+	};
+	struct pkvm_pgtable_walker walker = {
+		.cb = pgtable_age_cb,
+		.arg = &data,
+		.flags = PKVM_PGTABLE_WALK_LEAF,
+	};
+
+	WARN_ON_ONCE(pgtable_walk(pgt, vaddr_start, size, true, &walker));
+	return data.young;
+}

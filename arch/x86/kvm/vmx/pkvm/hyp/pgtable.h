@@ -37,6 +37,8 @@ struct pkvm_pgtable_ops {
 	int (*pgt_level_entry_size)(int level);
 	int (*pgt_level_to_entries)(int level);
 	unsigned long (*pgt_level_to_size)(int level);
+	bool (*pgt_entry_young)(void *ptep);
+	void (*pgt_entry_mkold)(void *ptep);
 	void (*pgt_set_entry)(void *ptep, u64 val);
 	u64 default_prot;
 };
@@ -155,6 +157,8 @@ int pkvm_pgtable_sync_map_range(struct pkvm_pgtable *src, struct pkvm_pgtable *d
 				unsigned long vaddr, unsigned long size,
 				u64 *prot, pgtable_leaf_ov_fn_t map_leaf,
 				pgtable_leaf_ov_fn_t unmap_leaf);
+int pkvm_pgtable_test_clear_young(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
+				  unsigned long size, bool mkold);
 
 static inline void pkvm_pgtable_set_mm_ops(struct pkvm_pgtable *pgt,
 					   const struct pkvm_mm_ops *mm_ops)
