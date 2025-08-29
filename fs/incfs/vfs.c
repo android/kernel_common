@@ -596,7 +596,7 @@ err:
 	else
 		result = 0;
 	if (total_read < PAGE_SIZE)
-		zero_user(page, total_read, PAGE_SIZE - total_read);
+		memzero_page(page, total_read, PAGE_SIZE - total_read);
 
 	if (result == 0)
 		SetPageUptodate(page);
