@@ -8706,7 +8706,6 @@ static int __init vmx_init(void)
 #ifdef CONFIG_X86_SGX_KVM
 		enable_sgx = false;
 #endif
-		enable_ept_ad_bits = false;
 		enable_preemption_timer = false;
 	} else {
 		enable_pkvm = false;
