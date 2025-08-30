@@ -90,7 +90,7 @@ static int host_ept_create_idmap_locked(struct pkvm_pgtable *pgt_override, u64 a
 					u64 size, int pgsz_mask, u64 prot)
 {
 	return pkvm_pgtable_map(pgt_override ? pgt_override : pkvm_hyp->host_vm.ept,
-				addr, addr, size, pgsz_mask, prot, NULL);
+				addr, addr, size, pgsz_mask, prot, NULL, NULL);
 }
 
 static int
@@ -299,7 +299,7 @@ static int host_complete_donation(const struct pkvm_mem_transition *tx)
 	return host_ept_create_idmap_locked(tx->completer.host.pgt_override, addr, size, 0, prot);
 }
 
-static int guest_complete_donation(const struct pkvm_mem_transition *tx)
+static int guest_complete_donation(const struct pkvm_mem_transition *tx, struct pkvm_memcache *mc)
 {
 	struct pkvm_pgtable *pgt = tx->completer.guest.pgt;
 	u64 addr = tx->completer.guest.addr;
@@ -308,10 +308,10 @@ static int guest_complete_donation(const struct pkvm_mem_transition *tx)
 	u64 prot = tx->completer.prot;
 
 	prot = pkvm_mkstate(prot, PKVM_PAGE_OWNED);
-	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot, NULL);
+	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot, NULL, mc);
 }
 
-static int __do_donate(const struct pkvm_mem_transition *tx)
+static int __do_donate(const struct pkvm_mem_transition *tx, struct pkvm_memcache *mc)
 {
 	int ret;
 
@@ -340,7 +340,7 @@ static int __do_donate(const struct pkvm_mem_transition *tx)
 		ret = 0;
 		break;
 	case PKVM_ID_GUEST:
-		ret = guest_complete_donation(tx);
+		ret = guest_complete_donation(tx, mc);
 		break;
 	default:
 		ret = -EINVAL;
@@ -359,7 +359,7 @@ static int __do_donate(const struct pkvm_mem_transition *tx)
  * memory, nothing needs to be done if the page owner is transferred to
  * hyp or hyp transfers the ownership to other entities.
  */
-static int do_donate(const struct pkvm_mem_transition *donation)
+static int do_donate(const struct pkvm_mem_transition *donation, struct pkvm_memcache *mc)
 {
 	int ret;
 
@@ -367,7 +367,7 @@ static int do_donate(const struct pkvm_mem_transition *donation)
 	if (ret)
 		return ret;
 
-	return WARN_ON(__do_donate(donation));
+	return WARN_ON(__do_donate(donation, mc));
 }
 
 int __pkvm_host_donate_hyp(u64 hpa, u64 size)
@@ -392,7 +392,7 @@ int __pkvm_host_donate_hyp(u64 hpa, u64 size)
 
 	host_ept_lock();
 
-	ret = do_donate(&donation);
+	ret = do_donate(&donation, NULL);
 
 	host_ept_unlock();
 
@@ -431,7 +431,7 @@ int __pkvm_hyp_donate_host(u64 hpa, u64 size, bool clear)
 
 	host_ept_lock();
 
-	ret = do_donate(&donation);
+	ret = do_donate(&donation, NULL);
 
 	host_ept_unlock();
 
@@ -463,7 +463,7 @@ int __pkvm_host_donate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
 
 	host_ept_lock();
 
-	ret = do_donate(&donation);
+	ret = do_donate(&donation, NULL);
 
 	host_ept_unlock();
 
@@ -501,7 +501,7 @@ int __pkvm_host_undonate_guest(u64 hpa, struct pkvm_pgtable *guest_pgt,
 
 	host_ept_lock();
 
-	ret = do_donate(&donation);
+	ret = do_donate(&donation, NULL);
 
 	host_ept_unlock();
 
@@ -593,7 +593,7 @@ static int guest_initiate_share(const struct pkvm_mem_transition *tx)
 	u64 size = tx->size;
 	u64 prot = pkvm_mkstate(tx->initiator.prot, PKVM_PAGE_SHARED_OWNED);
 
-	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot, NULL);
+	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot, NULL, NULL);
 }
 
 static int host_complete_share(const struct pkvm_mem_transition *tx)
@@ -614,7 +614,7 @@ static int guest_complete_share(const struct pkvm_mem_transition *tx)
 	u64 prot = tx->completer.prot;
 
 	prot = pkvm_mkstate(prot, PKVM_PAGE_SHARED_BORROWED);
-	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot, NULL);
+	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot, NULL, NULL);
 }
 
 static int __do_share(const struct pkvm_mem_transition *tx)
@@ -846,7 +846,7 @@ static int guest_initiate_unshare(const struct pkvm_mem_transition *tx)
 	u64 size = tx->size;
 	u64 prot = pkvm_mkstate(tx->initiator.prot, PKVM_PAGE_OWNED);
 
-	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot, NULL);
+	return pkvm_pgtable_map(pgt, addr, phys, size, 0, prot, NULL, NULL);
 }
 
 static int host_complete_unshare(const struct pkvm_mem_transition *tx)

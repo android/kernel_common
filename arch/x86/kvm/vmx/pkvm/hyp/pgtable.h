@@ -78,6 +78,8 @@ struct pkvm_pgtable_map_data {
 	 *   		  	   for pkvm_pgtable_map()
 	 */
 	pgtable_leaf_ov_fn_t map_leaf_override;
+
+	struct pkvm_memcache *memcache;
 };
 
 struct pkvm_pgtable_unmap_data {
@@ -131,7 +133,8 @@ int pkvm_pgtable_init(struct pkvm_pgtable *pgt,
 		bool alloc_root);
 int pkvm_pgtable_map(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 		unsigned long phys_start, unsigned long size,
-		int pgsz_mask, u64 entry_prot, pgtable_leaf_ov_fn_t map_leaf);
+		int pgsz_mask, u64 entry_prot, pgtable_leaf_ov_fn_t map_leaf,
+		struct pkvm_memcache *mc);
 int pgtable_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		     int level, void *ptep, struct pgt_flush_data *flush_data,
 		     struct pkvm_pgtable_map_data *data);

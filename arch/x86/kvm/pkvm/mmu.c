@@ -198,7 +198,7 @@ int pkvm_vm_mmu_map(struct kvm_vcpu *shared_vcpu, u64 gpa, u64 hpa, u64 size, bo
 
 	pkvm_spin_lock(&pkvm_vm->mmu_lock);
 
-	ret = pkvm_pgtable_map(&pkvm_vm->mmu, gpa, hpa, size, 0, prot, guest_mmu_map_leaf);
+	ret = pkvm_pgtable_map(&pkvm_vm->mmu, gpa, hpa, size, 0, prot, guest_mmu_map_leaf, NULL);
 
 	if (!ret && gpa_range_overlaps_pvmfw(kvm, gpa, gpa + size,
 					     &gpa_offset, &pvmfw_offset, &load_size))

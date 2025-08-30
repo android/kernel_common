@@ -196,7 +196,7 @@ int pkvm_host_ept_map(unsigned long vaddr_start, unsigned long phys_start,
 		unsigned long size, int pgsz_mask, u64 prot)
 {
 	return pkvm_pgtable_map(&host_ept, vaddr_start, phys_start, size,
-				pgsz_mask, prot, NULL);
+				pgsz_mask, prot, NULL, NULL);
 }
 
 int pkvm_host_ept_unmap(unsigned long vaddr_start, unsigned long phys_start,

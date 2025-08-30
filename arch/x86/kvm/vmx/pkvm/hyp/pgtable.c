@@ -66,12 +66,12 @@ static bool leaf_mapping_allowed(const struct pkvm_pgtable_ops *pgt_ops,
 	return leaf_mapping_valid(pgt_ops, vaddr, vaddr_end, pgsz_mask, level);
 }
 
-static void *pgtable_alloc_page(const struct pkvm_mm_ops *mm_ops)
+static void *pgtable_alloc_page(const struct pkvm_mm_ops *mm_ops, struct pkvm_memcache *mc)
 {
 	void *page = NULL;
 
 	if (mm_ops->zalloc_page)
-		page = mm_ops->zalloc_page(NULL);
+		page = mm_ops->zalloc_page(mc);
 
 	if (page && mm_ops->flush_cache)
 		mm_ops->flush_cache(page, PAGE_SIZE);
@@ -190,7 +190,7 @@ static int pgtable_map_walk_leaf(struct pkvm_pgtable *pgt,
 	 * page mapping. And for current level, if the huge page mapping already
 	 * present, we need further split it.
 	 */
-	page = pgtable_alloc_page(mm_ops);
+	page = pgtable_alloc_page(mm_ops, data->memcache);
 	if (!page)
 		return -ENOMEM;
 
@@ -350,7 +350,7 @@ static int pgtable_unmap_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		 * if it is huge pte, split and goto next level.
 		 */
 		u64 prot = pgt_ops->pgt_entry_to_prot(ptep);
-		void *page = pgtable_alloc_page(mm_ops);
+		void *page = pgtable_alloc_page(mm_ops, NULL);
 
 		if (!page)
 			return -ENOMEM;
@@ -566,7 +566,7 @@ int pkvm_pgtable_init(struct pkvm_pgtable *pgt,
 		return -EINVAL;
 
 	if (alloc_root) {
-		root = pgtable_alloc_page(mm_ops);
+		root = pgtable_alloc_page(mm_ops, NULL);
 		if (!root)
 			return -ENOMEM;
 		pgt->root_pa = __pkvm_pa(root);
@@ -584,7 +584,7 @@ int pkvm_pgtable_init(struct pkvm_pgtable *pgt,
 static int __pkvm_pgtable_map(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 		     unsigned long phys, unsigned long size,
 		     int pgsz_mask, u64 prot, pgtable_leaf_ov_fn_t map_leaf,
-		     u64 annotation)
+		     u64 annotation, struct pkvm_memcache *mc)
 {
 	struct pkvm_pgtable_map_data data = {
 		.phys = phys,
@@ -593,6 +593,7 @@ static int __pkvm_pgtable_map(struct pkvm_pgtable *pgt, unsigned long vaddr_star
 		.pgsz_mask = pgsz_mask ? pgt->allowed_pgsz & pgsz_mask :
 					 pgt->allowed_pgsz,
 		.map_leaf_override = map_leaf,
+		.memcache	= mc,
 	};
 	struct pkvm_pgtable_walker walker = {
 		.cb = pgtable_map_cb,
@@ -605,10 +606,11 @@ static int __pkvm_pgtable_map(struct pkvm_pgtable *pgt, unsigned long vaddr_star
 
 int pkvm_pgtable_map(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 		     unsigned long phys_start, unsigned long size,
-		     int pgsz_mask, u64 prot, pgtable_leaf_ov_fn_t map_leaf)
+		     int pgsz_mask, u64 prot, pgtable_leaf_ov_fn_t map_leaf,
+		     struct pkvm_memcache *mc)
 {
 	return __pkvm_pgtable_map(pgt, vaddr_start, ALIGN_DOWN(phys_start, PAGE_SIZE),
-				  size, pgsz_mask, prot, map_leaf, 0);
+				  size, pgsz_mask, prot, map_leaf, 0, mc);
 }
 
 int pkvm_pgtable_unmap(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
@@ -710,7 +712,7 @@ int pkvm_pgtable_annotate(struct pkvm_pgtable *pgt, unsigned long addr,
 		return -EINVAL;
 
 	return __pkvm_pgtable_map(pgt, addr, INVALID_ADDR, size,
-			1 << PG_LEVEL_4K, 0, NULL, annotation);
+			1 << PG_LEVEL_4K, 0, NULL, annotation, NULL);
 }
 
 static int pgtable_sync_map_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
@@ -736,7 +738,7 @@ static int pgtable_sync_map_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		prot = pgt_ops->pgt_entry_to_prot(ptep);
 
 	return pkvm_pgtable_map(data->dest_pgt, vaddr, phys,
-				size, 0, prot, data->map_leaf_override);
+				size, 0, prot, data->map_leaf_override, NULL);
 }
 
 /*

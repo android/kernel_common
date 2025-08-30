@@ -188,7 +188,7 @@ int pkvm_mmu_map(unsigned long vaddr_start, unsigned long phys_start,
 
 	pkvm_spin_lock(&_hyp_mmu_lock);
 	ret = pkvm_pgtable_map(&hyp_mmu, vaddr_start, phys_start, size,
-			pgsz_mask, prot, NULL);
+			pgsz_mask, prot, NULL, NULL);
 	pkvm_spin_unlock(&_hyp_mmu_lock);
 
 	return ret;
