@@ -108,8 +108,15 @@
 #define TASDEVICE_CMD_FIELD_W		0x4
 
 enum audio_device {
+	TAS2020,
+	TAS2118,
+	TAS2120,
+	TAS2320,
 	TAS2563,
+	TAS2570,
+	TAS2572,
 	TAS2781,
+	TAS_OTHERS,
 };
 
 enum device_catlog_id {
@@ -168,6 +175,7 @@ struct tasdevice_priv {
 	unsigned char coef_binaryname[64];
 	unsigned char rca_binaryname[64];
 	unsigned char dev_name[32];
+	const unsigned char (*dvc_tlv_table)[4];
 	const char *name_prefix;
 	unsigned char ndev;
 	unsigned int magic_num;
