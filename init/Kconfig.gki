@@ -279,6 +279,13 @@ config GKI_HIDDEN_DMA_CONFIGS
 	  Dummy config option used to enable the hidden DMA configs,
 	  required by various SoC platforms.
 
+config GKI_HIDDEN_XFRM_OFFLOAD_CONFIGS
+	bool "Hidden IPsec offload configuration needed for GKI"
+	select XFRM_OFFLOAD
+	help
+	  Dummy config option used to enable the IPsec offload hidden
+	  config, required by various SoC platforms.
+
 config GKI_DYNAMIC_TASK_STRUCT_SIZE
 	bool "Dynamic task_struct size needed for GKI"
 	select ARCH_WANTS_DYNAMIC_TASK_STRUCT
@@ -329,6 +336,7 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_ETHERNET_CONFIGS
 	select GKI_HIDDEN_DMA_CONFIGS
 	select GKI_HIDDEN_IOMMU_CONFIGS
+	select GKI_HIDDEN_XFRM_OFFLOAD_CONFIGS
 	select GKI_DYNAMIC_TASK_STRUCT_SIZE
 
 	help
