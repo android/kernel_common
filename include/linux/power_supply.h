@@ -238,7 +238,6 @@ struct power_supply;
 
 /* Run-time specific power supply configuration */
 struct power_supply_config {
-	struct device_node *of_node;
 	struct fwnode_handle *fwnode;
 
 	/* Driver private data */
@@ -815,28 +814,22 @@ static inline struct power_supply *power_supply_get_by_name(const char *name)
 { return NULL; }
 #endif
 #ifdef CONFIG_OF
-extern struct power_supply *power_supply_get_by_phandle(struct device_node *np,
-							const char *property);
 extern int power_supply_get_by_phandle_array(struct device_node *np,
 					     const char *property,
 					     struct power_supply **psy,
 					     ssize_t size);
-extern struct power_supply *devm_power_supply_get_by_phandle(
-				    struct device *dev, const char *property);
 #else /* !CONFIG_OF */
-static inline struct power_supply *
-power_supply_get_by_phandle(struct device_node *np, const char *property)
-{ return NULL; }
 static inline int
 power_supply_get_by_phandle_array(struct device_node *np,
 				  const char *property,
 				  struct power_supply **psy,
 				  int size)
 { return 0; }
-static inline struct power_supply *
-devm_power_supply_get_by_phandle(struct device *dev, const char *property)
-{ return NULL; }
 #endif /* CONFIG_OF */
+extern struct power_supply *power_supply_get_by_reference(struct fwnode_handle *fwnode,
+							  const char *property);
+extern struct power_supply *devm_power_supply_get_by_reference(
+				    struct device *dev, const char *property);
 
 extern const enum power_supply_property power_supply_battery_info_properties[];
 extern const size_t power_supply_battery_info_properties_size;
