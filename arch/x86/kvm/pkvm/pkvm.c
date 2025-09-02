@@ -868,11 +868,25 @@ static unsigned long pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immed
 			pkvm_vcpu_pvmfw_entry_init(vcpu);
 	}
 
+	/*
+	 * Flush predictor when switching from host VM to pVM to prevent host VM
+	 * from attacking pVM. This is not needed if switch from host VM to npVM
+	 * as host VM is in npVM's trust boundary.
+	 */
+	if (pkvm_is_protected_vcpu(vcpu))
+		indirect_branch_prediction_barrier();
+
 	pkvm_vcpu_update_state_from_host(pkvm_vcpu);
 
 	reqs = kvm_vcpu_enter_guest(vcpu, force_immediate_exit);
 
 	pkvm_vcpu_share_state_to_host(pkvm_vcpu);
+
+	/*
+	 * Flush predictor when switching from any guest VM (either npVM or pVM)
+	 * to host VM, to prevent guest VM from attacking host VM.
+	 */
+	indirect_branch_prediction_barrier();
 
 	return reqs;
 }
