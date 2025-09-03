@@ -1373,6 +1373,7 @@
   hid_hw_open
   hid_hw_output_report
   hid_hw_raw_request
+  hid_hw_request
   hid_hw_start
   hid_hw_stop
   hid_input_report
@@ -1382,6 +1383,7 @@
   hid_parse_report
   __hid_register_driver
   hid_report_raw_event
+  hid_set_field
   hid_unregister_driver
   hmm_range_fault
   hrtimer_active
@@ -1464,9 +1466,11 @@
   iio_device_claim_direct_mode
   iio_device_get_clock
   iio_device_id
+  __iio_device_register
   iio_device_release_buffer_mode
   iio_device_release_direct_mode
   iio_device_set_clock
+  iio_device_unregister
   iio_format_value
   iio_get_time_ns
   iio_pollfunc_store_time
@@ -1535,6 +1539,7 @@
   input_unregister_handler
   __insert_inode_hash
   insert_inode_locked
+  int_pow
   intel_graphics_stolen_res
   intel_nhlt_free
   intel_nhlt_get_dmic_geo
