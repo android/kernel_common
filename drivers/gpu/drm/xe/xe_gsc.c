@@ -250,9 +250,11 @@ static int gsc_upload(struct xe_gsc *gsc)
 	if (err)
 		return err;
 
-	err = xe_uc_fw_check_version_requirements(&gsc->fw);
-	if (err)
-		return err;
+	if (!gsc->fw.full_ver_required) {
+		err = xe_uc_fw_check_version_requirements(&gsc->fw);
+		if (err)
+			return err;
+	}
 
 	return 0;
 }
