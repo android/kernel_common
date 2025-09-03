@@ -310,6 +310,7 @@
   compat_ptr_ioctl
   complete
   complete_all
+  completion_done
   component_add_typed
   component_bind_all
   component_del
