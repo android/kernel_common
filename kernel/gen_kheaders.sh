@@ -30,8 +30,8 @@ rm -rf "${tmpdir}"
 mkdir "${tmpdir}"
 
 # shellcheck disable=SC2154 # srctree is passed as an env variable
-sed "s:^${srctree}/::" "${srclist}" | ${TAR} -c -f - -C "${srctree}" -T - | ${TAR} -xf - -C "${tmpdir}"
-${TAR} -c -f - -T "${objlist}" | ${TAR} -xf - -C "${tmpdir}"
+sed "s:^${srctree}/::" "${srclist}" | ${TAR} -c --dereference -f - -C "${srctree}" -T - | ${TAR} -xf - -C "${tmpdir}"
+${TAR} -c --dereference -f - -T "${objlist}" | ${TAR} -xf - -C "${tmpdir}"
 
 # Remove comments except SDPX lines
 # Use a temporary file to store directory contents to prevent find/xargs from
