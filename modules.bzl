@@ -229,7 +229,7 @@ _KUNIT_COMMON_MODULES_LIST = [
     "drivers/iio/test/iio-test-format.ko",
     "drivers/input/tests/input_test.ko",
     "drivers/of/of_kunit_helpers.ko",
-    "drivers/rtc/lib_test.ko",
+    "drivers/rtc/test_rtc_lib.ko",
     "fs/ext4/ext4-inode-test.ko",
     "fs/fat/fat_test.ko",
     "kernel/time/time_test.ko",

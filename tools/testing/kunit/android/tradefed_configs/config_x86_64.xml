@@ -30,7 +30,7 @@
         <option name='binary' key='drivers/hid/hid-uclogic-test' value='/data/kunit/x86_64/hid-uclogic-test.ko' />
         <!-- <option name='binary' key='drivers/iio/test/iio-test-format' value='/data/kunit/x86_64/iio-test-format.ko' /> -->
         <option name='binary' key='drivers/input/tests/input_test' value='/data/kunit/x86_64/input_test.ko' />
-        <option name='binary' key='drivers/rtc/lib_test' value='/data/kunit/x86_64/lib_test.ko' />
+        <option name='binary' key='drivers/rtc/test_rtc_lib' value='/data/kunit/x86_64/test_rtc_lib.ko' />
         <option name='binary' key='fs/ext4/ext4-inode-test' value='/data/kunit/x86_64/ext4-inode-test.ko' />
         <option name='binary' key='fs/fat/fat_test' value='/data/kunit/x86_64/fat_test.ko' />
         <option name='binary' key='kernel/time/time_test' value='/data/kunit/x86_64/time_test.ko' />
