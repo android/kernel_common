@@ -25,6 +25,8 @@
   cancel_delayed_work
   cancel_delayed_work_sync
   cancel_work_sync
+  cec_s_phys_addr
+  cec_unregister_adapter
   __check_object_size
   clk_disable
   clk_enable
@@ -56,6 +58,7 @@
   dev_addr_mod
   dev_alloc_name
   dev_close
+  dev_driver_string
   _dev_err
   __dev_get_by_index
   device_create_file
@@ -108,6 +111,9 @@
   drm_atomic_helper_update_plane
   drm_compat_ioctl
   drm_connector_attach_encoder
+  drm_connector_cleanup
+  drm_connector_init
+  drm_connector_unregister
   drm_crtc_arm_vblank_event
   drm_crtc_handle_vblank
   drm_crtc_send_vblank_event
@@ -171,6 +177,7 @@
   genl_unregister_family
   get_free_pages_noprof
   get_random_bytes
+  get_random_u8
   get_unused_fd_flags
   gpiod_put
   hci_alloc_dev_priv
@@ -238,6 +245,7 @@
   kthread_unpark
   ktime_get
   ktime_get_mono_fast_ns
+  ktime_get_real_seconds
   ktime_get_ts64
   ktime_get_with_offset
   kvfree
@@ -306,8 +314,6 @@
   page_pool_alloc_frag
   page_pool_destroy
   page_pool_put_unrefed_netmem
-  page_shift_compat_enabled
-  page_shift_compat
   param_array_ops
   param_ops_bool
   param_ops_charp
@@ -489,17 +495,25 @@
   __usecs_to_jiffies
   usleep_range_state
   utf8_data_table
+  v4l2_ctrl_handler_free
+  v4l2_ctrl_handler_init_class
+  v4l2_ctrl_handler_setup
+  v4l2_ctrl_new_custom
+  v4l2_ctrl_subscribe_event
   v4l2_device_register
   v4l2_device_unregister
   v4l2_event_pending
+  v4l2_event_queue
   v4l2_event_subscribe
   v4l2_event_unsubscribe
   v4l2_fh_add
   v4l2_fh_del
   v4l2_fh_exit
   v4l2_fh_init
+  v4l2_src_change_event_subscribe
   vfree
   video_devdata
+  video_device_release_empty
   video_ioctl2
   __video_register_device
   video_unregister_device
@@ -601,8 +615,8 @@
   gpiod_set_value_cansleep
   hci_cmd_sync_cancel
   hci_devcd_append_pattern
-  hci_drv_cmd_status
   hci_drv_cmd_complete
+  hci_drv_cmd_status
   hci_recv_diag
   irq_modify_status
   of_irq_get_byname
@@ -875,7 +889,6 @@
   alloc_netdev_dummy
   debugfs_create_blob
   debugfs_create_file_unsafe
-  dev_driver_string
   devm_kmemdup
   dev_set_threaded
   dma_map_page_attrs
@@ -1007,15 +1020,12 @@
   cec_received_msg_ts
   cec_register_adapter
   cec_s_log_addrs
-  cec_s_phys_addr
   cec_transmit_attempt_done_ts
-  cec_unregister_adapter
 
 # required by rtc-test.ko
   add_timer
   devm_rtc_allocate_device
   __devm_rtc_register_device
-  ktime_get_real_seconds
   rtc_time64_to_tm
   rtc_tm_to_time64
   rtc_update_irq
@@ -1076,15 +1086,12 @@
   print_hex_dump
   sock_recvmsg
 
+# required by v4l2-tpg.ko
+  __get_random_u32_below
+
 # required by v4l2loopback.ko
   kstrtoull
   mutex_lock_killable
-  v4l2_ctrl_handler_free
-  v4l2_ctrl_handler_init_class
-  v4l2_ctrl_handler_setup
-  v4l2_ctrl_new_custom
-  v4l2_ctrl_subscribe_event
-  v4l2_event_queue
   v4l2_format_info
   video_device_alloc
   video_device_release
@@ -1147,10 +1154,7 @@
   __drm_atomic_helper_plane_duplicate_state
   drm_atomic_helper_plane_reset
   drm_connector_attach_edid_property
-  drm_connector_cleanup
-  drm_connector_init
   drm_connector_register
-  drm_connector_unregister
   drm_crtc_cleanup
   drm_crtc_init_with_planes
   drm_cvt_mode
@@ -1229,10 +1233,8 @@
   sg_alloc_table_from_pages_segment
   sg_nents
   v4l2_event_queue_fh
-  v4l2_src_change_event_subscribe
   vb2_create_framevec
   vb2_destroy_framevec
-  video_device_release_empty
 
 # required by virtio-rng.ko
   hwrng_register
@@ -1373,72 +1375,12 @@
   topology_clear_scale_freq_source
   topology_set_scale_freq_source
 
-# required by vkms.ko
-  configfs_register_subsystem
-  configfs_unregister_subsystem
-  config_group_init
-  config_group_init_type_name
-  __devm_drm_dev_alloc
-  devres_open_group
-  devres_release_group
-  drm_atomic_add_affected_planes
-  drm_atomic_helper_check_wb_connector_state
-  drm_atomic_helper_cleanup_planes
-  drm_atomic_helper_commit_hw_done
-  drm_atomic_helper_commit_modeset_disables
-  drm_atomic_helper_commit_modeset_enables
-  drm_atomic_helper_commit_planes
-  __drm_atomic_helper_crtc_destroy_state
-  __drm_atomic_helper_crtc_duplicate_state
-  __drm_atomic_helper_crtc_reset
-  drm_atomic_helper_fake_vblank
-  drm_atomic_helper_wait_for_flip_done
-  drm_crtc_accurate_vblank_count
-  drm_crtc_add_crc_entry
-  drm_crtc_enable_color_mgmt
-  drm_crtc_vblank_crtc
-  drm_crtc_vblank_put
-  drm_debugfs_add_files
-  drm_format_info_bpp
-  __drm_gem_destroy_shadow_plane_state
-  __drm_gem_duplicate_shadow_plane_state
-  drm_gem_fb_vmap
-  drm_gem_fb_vunmap
-  drm_gem_plane_helper_prepare_fb
-  __drm_gem_reset_shadow_plane
-  drm_gem_shmem_dumb_create
-  drm_gem_shmem_prime_import_sg_table
-  __drmm_add_action_or_reset
-  drmm_connector_init
-  __drmm_crtc_alloc_with_planes
-  drmm_encoder_init
-  drm_mode_crtc_set_gamma_size
-  drm_mode_object_get
-  drm_mode_object_put
-  __drmm_workqueue_release
-  drmm_writeback_connector_init
-  drm_plane_create_color_properties
-  drm_plane_create_rotation_property
-  drm_rect_rotate_inv
-  drm_writeback_queue_job
-  drm_writeback_signal_completion
-  kfree_const
-  krealloc_noprof
-  kstrdup_const
-  __xa_alloc
-  xa_destroy
-  xa_erase
-  xa_find
-  xa_find_after
-
 # required by vivid.ko
   cec_get_edid_phys_addr
   find_font
   freezer_active
   freezing_slow_path
   get_random_u32
-  __get_random_u32_below
-  get_random_u8
   media_device_cleanup
   media_device_init
   __media_device_register
@@ -1510,6 +1452,72 @@
   vb2_video_unregister_device
   vb2_vmalloc_memops
 
+# required by vkms.ko
+  configfs_register_subsystem
+  configfs_unregister_subsystem
+  config_group_init
+  config_group_init_type_name
+  __devm_drm_dev_alloc
+  devres_open_group
+  devres_release_group
+  drm_atomic_add_affected_planes
+  drm_atomic_helper_check_wb_connector_state
+  drm_atomic_helper_cleanup_planes
+  drm_atomic_helper_commit_hw_done
+  drm_atomic_helper_commit_modeset_disables
+  drm_atomic_helper_commit_modeset_enables
+  drm_atomic_helper_commit_planes
+  __drm_atomic_helper_crtc_destroy_state
+  __drm_atomic_helper_crtc_duplicate_state
+  __drm_atomic_helper_crtc_reset
+  drm_atomic_helper_fake_vblank
+  drm_atomic_helper_wait_for_flip_done
+  drm_colorop_pipeline_destroy
+  drm_colorop_set_next_property
+  drm_crtc_accurate_vblank_count
+  drm_crtc_add_crc_entry
+  drm_crtc_enable_color_mgmt
+  drm_crtc_vblank_crtc
+  drm_crtc_vblank_put
+  drm_debugfs_add_files
+  drm_format_info_bpp
+  __drm_gem_destroy_shadow_plane_state
+  __drm_gem_duplicate_shadow_plane_state
+  drm_gem_fb_vmap
+  drm_gem_fb_vunmap
+  drm_gem_plane_helper_prepare_fb
+  __drm_gem_reset_shadow_plane
+  drm_gem_shmem_dumb_create
+  drm_gem_shmem_prime_import_sg_table
+  __drmm_add_action_or_reset
+  drmm_connector_init
+  __drmm_crtc_alloc_with_planes
+  drmm_encoder_init
+  drm_mode_crtc_set_gamma_size
+  drm_mode_object_get
+  drm_mode_object_put
+  __drmm_workqueue_release
+  drmm_writeback_connector_init
+  drm_plane_colorop_ctm_3x4_init
+  drm_plane_colorop_curve_1d_init
+  drm_plane_create_color_pipeline_property
+  drm_plane_create_color_properties
+  drm_plane_create_rotation_property
+  drm_rect_rotate_inv
+  drm_writeback_queue_job
+  drm_writeback_signal_completion
+  kasprintf
+  kfree_const
+  krealloc_noprof
+  kstrdup_const
+  __xa_alloc
+  xa_destroy
+  xa_erase
+  xa_find
+  xa_find_after
+
 # preserved by --additions-only
   down_write
+  page_shift_compat
+  page_shift_compat_enabled
   up_write

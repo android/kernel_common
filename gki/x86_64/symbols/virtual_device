@@ -45,6 +45,7 @@
   dev_addr_mod
   dev_alloc_name
   dev_close
+  dev_driver_string
   _dev_err
   __dev_get_by_index
   device_create_file
@@ -245,6 +246,8 @@
   page_pool_alloc_frag
   page_pool_destroy
   page_pool_put_unrefed_netmem
+  page_shift_compat
+  page_shift_compat_enabled
   param_array_ops
   param_ops_bool
   param_ops_charp
@@ -748,7 +751,6 @@
   alloc_netdev_dummy
   debugfs_create_blob
   debugfs_create_file_unsafe
-  dev_driver_string
   devm_kmemdup
   dev_set_threaded
   dmam_alloc_attrs
@@ -1017,8 +1019,6 @@
   iomem_resource
   is_virtio_device
   memdup_user
-  page_shift_compat
-  page_shift_compat_enabled
   __SCK__tp_func_dma_fence_emit
   __SCT__tp_func_dma_fence_emit
   strncpy_from_user
@@ -1261,6 +1261,8 @@
   __drm_atomic_helper_crtc_reset
   drm_atomic_helper_fake_vblank
   drm_atomic_helper_wait_for_flip_done
+  drm_colorop_pipeline_destroy
+  drm_colorop_set_next_property
   drm_crtc_accurate_vblank_count
   drm_crtc_add_crc_entry
   drm_crtc_arm_vblank_event
@@ -1295,12 +1297,16 @@
   drm_mode_object_put
   __drmm_workqueue_release
   drmm_writeback_connector_init
+  drm_plane_colorop_ctm_3x4_init
+  drm_plane_colorop_curve_1d_init
+  drm_plane_create_color_pipeline_property
   drm_plane_create_color_properties
   drm_plane_create_rotation_property
   drm_rect_rotate_inv
   drm_vblank_init
   drm_writeback_queue_job
   drm_writeback_signal_completion
+  kasprintf
   kfree_const
   krealloc_noprof
   kstrdup_const
