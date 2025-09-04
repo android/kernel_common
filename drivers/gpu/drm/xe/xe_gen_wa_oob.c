@@ -125,11 +125,9 @@ static int parse(FILE *input, FILE *csource, FILE *cheader, char *prefix)
 
 static int fn_to_prefix(const char *fn, char *prefix, size_t size)
 {
-	const char *base;
 	size_t len;
 
-	base = strrchr(fn, '/');
-	fn = base ? base + 1 : fn;
+	fn = basename(fn);
 	len = strlen(fn);
 
 	if (len > size - 1)
