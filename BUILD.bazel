@@ -267,7 +267,7 @@ common_kernel(
 fail_rule(
     name = "kernel_aarch64_debug",
     message = """\
-Consider building @@//common:kernel_aarch64 with:
+Consider building @//common:kernel_aarch64 with:
     * --notrim to disable trimming, or
     * --debug to enable additional debug options.""",
     visibility = ["//visibility:public"],
@@ -276,7 +276,7 @@ Consider building @@//common:kernel_aarch64 with:
 fail_rule(
     name = "kernel_x86_64_debug",
     message = """\
-Consider building @@//common:kernel_x86_64 with:
+Consider building @//common:kernel_x86_64 with:
     * --notrim to disable trimming, or
     * --debug to enable additional debug options.""",
     visibility = ["//visibility:public"],
