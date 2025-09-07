@@ -43,6 +43,7 @@ _COMMON_GKI_MODULES_LIST = [
     "drivers/power/sequencing/pwrseq-core.ko",
     "drivers/pps/pps_core.ko",
     "drivers/ptp/ptp.ko",
+    "drivers/thunderbolt/thunderbolt.ko",
     "drivers/usb/class/cdc-acm.ko",
     "drivers/usb/mon/usbmon.ko",
     "drivers/usb/serial/ftdi_sio.ko",
