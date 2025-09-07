@@ -1,7 +1,10 @@
-echo 'WARNING: Do not source build.config.arm.
-    Instead, set kernel_build.make_goals.' >&2
+echo 'ERROR: Do not source build.config.arm.
+    Instead, set kernel_build.make_goals (e.g. ["modules"])
 
-MAKE_GOALS="
-zImage
-modules
-"
+    After you clean up the aforementioned build configs:
+    - If you still have build configs, use:
+        . ${ROOT_DIR}/${KERNEL_DIR}/build.config.constants
+      at the top of your build config, and file a bug with your existing build config.
+    - If you do not have any build configs, delete kernel_build.build_config entirely.
+' >&2
+exit 1

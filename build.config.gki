@@ -1,5 +1,11 @@
-echo "WARNING: Do not source build.config.gki.
-    Use kernel_build.defconfig and kernel_build.check_defconfig instead." >&2
+echo 'ERROR: Do not source build.config.gki. Instead:
+    - Set kernel_build.defconfig accordingly (e.g. //common:arch/arm64/configs/gki_defconfig).
+    - Set kernel_build.check_defconfig if necessary (read docs for possible values)
 
-DEFCONFIG=gki_defconfig
-POST_DEFCONFIG_CMDS="check_defconfig"
+    After you clean up the aforementioned build configs:
+    - If you still have build configs, use:
+        . ${ROOT_DIR}/${KERNEL_DIR}/build.config.constants
+      at the top of your build config, and file a bug with your existing build config.
+    - If you do not have any build configs, delete kernel_build.build_config entirely.
+' >&2
+exit 1
