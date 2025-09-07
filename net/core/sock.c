@@ -149,6 +149,8 @@
 
 #include <linux/ethtool.h>
 
+#include <uapi/linux/pidfd.h>
+
 #include "dev.h"
 
 static DEFINE_MUTEX(proto_list_mutex);
@@ -1880,6 +1882,7 @@ int sk_getsockopt(struct sock *sk, int level, int optname,
 	{
 		struct pid *peer_pid;
 		struct file *pidfd_file = NULL;
+		unsigned int flags = 0;
 		int pidfd;
 
 		if (len > sizeof(pidfd))
@@ -1892,7 +1895,14 @@ int sk_getsockopt(struct sock *sk, int level, int optname,
 		if (!peer_pid)
 			return -ENODATA;
 
-		pidfd = pidfd_prepare(peer_pid, 0, &pidfd_file);
+		/* The use of PIDFD_STALE requires stashing of struct pid
+		 * on pidfs with pidfs_register_pid() and only AF_UNIX
+		 * were prepared for this.
+		 */
+		if (sk->sk_family == AF_UNIX)
+			flags = PIDFD_STALE;
+
+		pidfd = pidfd_prepare(peer_pid, flags, &pidfd_file);
 		put_pid(peer_pid);
 		if (pidfd < 0)
 			return pidfd;
