@@ -354,7 +354,7 @@ static bool is_pvmfw_memory(unsigned long pa)
 	return pvmfw_present && pa >= pvmfw_base && pa < pvmfw_base + pvmfw_size;
 }
 
-int handle_host_ept_violation(struct kvm_vcpu *vcpu, bool *skip_instruction)
+int handle_host_ept_violation(struct kvm_vcpu *vcpu)
 {
 	unsigned long hpa, gpa = vmcs_read64(GUEST_PHYSICAL_ADDRESS);
 	struct mem_range range, cur;
@@ -362,7 +362,6 @@ int handle_host_ept_violation(struct kvm_vcpu *vcpu, bool *skip_instruction)
 	u64 prot = pkvm_mkstate(HOST_EPT_DEF_MMIO_PROT, PKVM_PAGE_OWNED);
 	int level;
 	int ret;
-	*skip_instruction = true;
 
 	if (is_memory) {
 		pkvm_err("%s: not handle for memory address 0x%lx\n", __func__, gpa);
@@ -413,8 +412,6 @@ int handle_host_ept_violation(struct kvm_vcpu *vcpu, bool *skip_instruction)
 out:
 	pkvm_spin_unlock(&_host_ept_lock);
 
-	if (ret == 0)
-		*skip_instruction = false;
 	return ret;
 }
 

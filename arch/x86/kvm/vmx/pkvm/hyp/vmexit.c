@@ -5,6 +5,7 @@
 
 #include <linux/memblock.h>
 #include <asm/kvm_pkvm.h>
+#include <vmx/x86_ops.h>
 #include <pkvm/pkvm.h>
 #include <pkvm.h>
 #include "trace.h"
@@ -172,6 +173,14 @@ static void handle_pending_events(struct kvm_vcpu *vcpu)
 		hvcpu->pending_nmi = false;
 	}
 
+	if (kvm_check_request(KVM_REQ_EVENT, vcpu)) {
+		if (vcpu->arch.exception.pending) {
+			vmx_inject_exception(vcpu);
+			vcpu->arch.exception.pending = false;
+			vcpu->arch.exception.injected = true;
+		}
+	}
+
 	if (kvm_check_request(PKVM_REQ_TLB_FLUSH_HOST_EPT, vcpu))
 		pkvm_flush_host_ept();
 }
@@ -202,6 +211,8 @@ void pkvm_vmexit_main(struct vcpu_vmx *vmx)
 
 	vcpu->arch.cr3 = vmcs_readl(GUEST_CR3);
 	vcpu->arch.regs[VCPU_REGS_RSP] = vmcs_readl(GUEST_RSP);
+
+	vcpu->arch.exception.injected = false;
 
 	vmx->exit_reason.full = vmcs_read32(VM_EXIT_REASON);
 	vmx->exit_qualification = vmcs_readl(EXIT_QUALIFICATION);
@@ -244,8 +255,10 @@ void pkvm_vmexit_main(struct vcpu_vmx *vmx)
 		skip_instruction = true;
 		break;
 	case EXIT_REASON_EPT_VIOLATION:
-		if (handle_host_ept_violation(vcpu, &skip_instruction))
+		if (handle_host_ept_violation(vcpu)) {
 			pkvm_err("pkvm: handle host ept violation failed\n");
+			kvm_inject_gp(vcpu, 0);
+		}
 		break;
 	case EXIT_REASON_INTERRUPT_WINDOW:
 		handle_irq_window(vcpu);
