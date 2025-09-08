@@ -2326,12 +2326,14 @@
   pcie_capability_clear_and_set_word
   pcie_capability_read_dword
   pcie_capability_read_word
+  pcie_get_width_cap
   pci_ecam_create
   pci_ecam_free
   pci_ecam_map_bus
   pci_enable_device
   pci_enable_pcie_error_reporting
   pci_find_ext_capability
+  pci_find_vsec_capability
   pci_flags
   pci_free_irq_vectors
   pci_get_device
