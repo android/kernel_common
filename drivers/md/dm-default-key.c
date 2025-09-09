@@ -368,7 +368,9 @@ static void default_key_status(struct dm_target *ti, status_type_t type,
 }
 
 static int default_key_prepare_ioctl(struct dm_target *ti,
-				     struct block_device **bdev)
+				     struct block_device **bdev,
+				     unsigned int cmd, unsigned long arg,
+				     bool *forward)
 {
 	const struct default_key_c *dkc = ti->private;
 	const struct dm_dev *dev = dkc->dev;
