@@ -1414,9 +1414,9 @@ static int dir_rename(struct inode *old_dir, struct dentry *old_dentry,
 		goto unlock_out;
 	}
 
-	rd.old_dir	= d_inode(backing_old_dir_dentry);
+	rd.old_parent	= backing_old_dir_dentry;
 	rd.old_dentry	= backing_old_dentry;
-	rd.new_dir	= d_inode(backing_new_dir_dentry);
+	rd.new_parent	= backing_new_dir_dentry;
 	rd.new_dentry	= backing_new_dentry;
 	rd.flags	= flags;
 	rd.old_mnt_idmap = &nop_mnt_idmap;
