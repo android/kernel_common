@@ -2052,8 +2052,7 @@ config RUST
 	select CFI_ICALL_NORMALIZE_INTEGERS if CFI_CLANG
 	depends on !CALL_PADDING || RUSTC_VERSION >= 108100
 	depends on !KASAN_SW_TAGS
-	# ANDROID: This version number has been changed due to backports in Android's compiler.
-	depends on !(MITIGATION_RETHUNK && KASAN) || RUSTC_VERSION >= 108200
+	depends on !(MITIGATION_RETHUNK && KASAN) || RUSTC_VERSION >= 108300
 	help
 	  Enables Rust support in the kernel.
 
