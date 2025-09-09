@@ -95,6 +95,14 @@ config GKI_HIDDEN_GPIO_CONFIGS
 	  These are normally selected implicitly when a module
 	  that relies on it is configured.
 
+config GKI_HIDDEN_X86_CONFIGS
+	bool "Hidden X86 configs needed for GKI"
+	select INTEL_SCU if (X86)
+	help
+	  Dummy config option used to enable hidden X86 configs.
+	  These are normally selected implicitly when a module
+	  that relies on it is configured.
+
 # If this file is included on a 32-bit allmodconfig build, the select for
 # IOMMU_IO_PGTABLE_LPAE will trigger an "unmet direct dependency" warning
 # because this option is incompatible with GENERIC_ATOMIC64, which is
@@ -292,6 +300,7 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_UFS_CONFIGS
 	select GKI_HIDDEN_MMC_CONFIGS
 	select GKI_HIDDEN_GPIO_CONFIGS
+	select GKI_HIDDEN_X86_CONFIGS
 	select GKI_HIDDEN_QCOM_CONFIGS
 	select GKI_LEGACY_WEXT_ALLCONFIG
 	select GKI_HIDDEN_MEDIA_CONFIGS
