@@ -2,92 +2,126 @@ HOW TO RUN KUNIT TESTS IN ANDROID
 =================================
 
 Prerequisites
- * If you want to run a vendor module KUnit tests, please run the tests with a
-   "no trim" kernel (e.g. add `--notrim` to bazel build command).
+-------------
+  If you want to run a vendor module KUnit tests, please run the tests with a
+  "no trim" kernel (e.g. add `--notrim` to bazel build command).
 
 Run tests on a physical or virtual device:
+------------------------------------------
+  ```
   $ kernel/tests/tools/run_test_only.sh -t kunit -s <serial_number> -td <test_dir>
+  ```
 
   test_dir is the same directory as specified when running:
+  ```
   $ tools/bazel run //common:kunit_tests_arm64 -- -v --destdir <test_dir>
+  ```
 
 Before the tests, you can use the following command to launch a virtual device:
+  ```
   $ kernel/tests/tools/launch_cvd.sh
+  ```
 
 After the tests, you can use the following command to remove the virtual device:
+  ```
   $ prebuilts/asuite/acloud/linux-x86/acloud delete
+  ```
 
 The following are command examples:
-  * Build kernel and launch a virtual device from a specific platform build:
-  $ kernel/tests/tools/launch_cvd.sh -pb \
-        ab://aosp-main/aosp_cf_x86_64_phone-trunk_staging-userdebug/12505199
+ * Build kernel and launch a virtual device from a specific platform build:
+   ```
+   $ kernel/tests/tools/launch_cvd.sh -pb \
+         ab://aosp-main/aosp_cf_x86_64_phone-trunk_staging-userdebug/12505199
+   ```
 
-  * Run a specific test:
-  $ kernel/tests/tools/run_test_only.sh \
-        -t 'kunit soc-utils-test' -s <serial_number>
+ * Run a specific test:
+   ```
+   $ kernel/tests/tools/run_test_only.sh \
+         -t 'kunit soc-utils-test' -s <serial_number>
+   ```
 
-  * Check other available options:
-  $ kernel/tests/tools/launch_cvd.sh -h
-  $ kernel/tests/tools/run_test_only.sh -h
+ * Check other available options:
+   ```
+   $ kernel/tests/tools/launch_cvd.sh -h
+   $ kernel/tests/tools/run_test_only.sh -h
+   ```
 
 Load and run a test module on Android device manually
+-----------------------------------------------------
  * Push the KUnit test framework module kunit.ko over to the device. For
  example:
-
+   ```
    $ adb push kunit.ko /data
+   ```
 
  * Load test module on device:
-    $ cd /data
-    $ insmod kunit.ko enable=1
+   ```
+   $ cd /data
+   $ insmod kunit.ko enable=1
+   ```
 
    If the kunit.ko has been installed already but without enable=1 passed,
    it needs to remove it first via the rmmod command, and install again
    via the insmod command
 
  * Push the KUnit test module over to the device. For example using adb:
+   ```
    $ adb push kunit-example-test.ko /data
+   ```
 
  * (Optional) - Mount debugfs on device:
-    $ mount -t debugfs debugfs /sys/kernel/debug
+   ```
+   $ mount -t debugfs debugfs /sys/kernel/debug
+   ```
 
  * Load test module on device:
-    $ cd /data
-    $ insmod kunit-example-test.ko
+   ```
+   $ cd /data
+   $ insmod kunit-example-test.ko
+   ```
 
-View test results
- * If debugfs is mounted:
-    $ cat /sys/kernel/debug/kunit/<test name>/results
-    KTAP version 1
-    1..1
-        KTAP version 1
-        # Subtest: example
-        1..4
-        # example_simple_test: initializing
+ * View test results
+    * If debugfs is mounted:
+      ```
+      $ cat /sys/kernel/debug/kunit/<test name>/results
+      KTAP version 1
+      1..1
+          KTAP version 1
+          # Subtest: example
+          1..4
+          # example_simple_test: initializing
 
-        ok 1 example_simple_test
-    <truncated>
+          ok 1 example_simple_test
+      ....
+      ```
 
- * Via dmesg (check before log cycles out):
-    $ dmesg
-    ....
-    [172434.032618] 1..1
-    [172434.032618]    KTAP version 1
-    [172434.032618]    # Subtest: example
-    [172434.032618]    1..4
-    [172434.032618]    # example_simple_test: initializing
-    [172434.032618]
-    [172434.032618]    ok 1 example_simple_test
-    <truncated>
-    ....
+    * Via dmesg (check before log cycles out):
+      ```
+      $ dmesg
+      ....
+      [172434.032618] 1..1
+      [172434.032618]    KTAP version 1
+      [172434.032618]    # Subtest: example
+      [172434.032618]    1..4
+      [172434.032618]    # example_simple_test: initializing
+      [172434.032618]
+      [172434.032618]    ok 1 example_simple_test
+      ....
+      ```
 
 Run KUnit tests on Android Device via test automation infrastructure tradefed
+-----------------------------------------------------------------------------
  * Build ACK KUnit tests and install (e.g. /tmp/kunit_tests):
-     $ tools/bazel run -- //common:kunit_tests_x86_64 -v --destdir /tmp/kunit_tests
+   ```
+   $ tools/bazel run -- //common:kunit_tests_x86_64 -v --destdir /tmp/kunit_tests
+   ```
    Or
-     $ tools/bazel run -- //common:kunit_tests_arm64 -v --destdir /tmp/kunit_tests
-
+   ```
+   $ tools/bazel run -- //common:kunit_tests_arm64 -v --destdir /tmp/kunit_tests
+   ```
 
  * With device connected and accessible via adb run the tests:
+   ```
    $ prebuilts/tradefed/filegroups/tradefed/tradefed.sh run commandAndExit \
          template/local_min --template:map test=suite/test_mapping_suite   \
          --include-filter kunit --tests-dir=/tmp/kunit_tests \
@@ -103,36 +137,41 @@ Run KUnit tests on Android Device via test automation infrastructure tradefed
    ============== End of Results ==============
    ============================================
    ....
+   ```
 
-TROUBLESHOOTING
-===============
+Troubleshooting
+---------------
 
 1. Test module fails to load.
 
-Check dmesg for load errors. If undefined symbol errors are shown, you're
-likely running with a trimmed kernel where the symbols are not available.
-Run with a "no trim" kernel.
+   Check dmesg for load errors. If undefined symbol errors are shown, you're
+   likely running with a trimmed kernel where the symbols are not available.
+   Run with a "no trim" kernel.
 
-Check the test module dependency with `modinfo <module_name>.ko` on your local
-host machine or on the Android device with `adb shell modinfo <module_name.ko>`.
-All dependent modules need to be installed before the test module can be
-installed successfully.
+   Check the test module dependency with `modinfo <module_name>.ko` on your
+   local host machine or on the Android device with
+   `adb shell modinfo <module_name>.ko`.
+   All dependent modules need to be installed before the test module can be
+   installed successfully.
 
-Check if the module is already installed with `adb shell lsmod`. The `adb shell
-rmmod` can be used to remove the already installed test module, and installing
-the test module again will trigger the test rerun.
+   Check if the module is already installed with `adb shell lsmod`. The
+   `adb shell rmmod` can be used to remove the already installed test module,
+   and installing the test module again will trigger the test rerun.
 
-`adb shell lsmod` will also show the module dependency for your test module in
-the `Used by` column. You can not remove a module with `adb shell rmmod` if it
-is being used by another module. Other modules that are using it need to be
-removed first.
+   `adb shell lsmod` will also show the module dependency for your test module
+   in the `Used by` column. You can not remove a module with `adb shell rmmod`
+   if it is being used by another module. Other modules that are using it need
+   to be removed first.
 
-2. Test module loaded but no test results
+2. Test module loaded but no test results.
 
-Check dmesg for KUnit errors.
- $ dmesg | grep kunit
+   Check dmesg for KUnit errors.
+   ```
+   $ dmesg | grep kunit
+   ```
 
-If "kunit: disabled" is shown then kunit.ko is not installed with `enable=1`.
+   If "kunit: disabled" is shown then kunit.ko is not installed with
+   `enable=1`.
 
-If kunit.ko or kunit_<*test>.ko fails to install, check for whether they are
-already installed with `adb shell lsmod`.
+   If kunit.ko or \<module_name\>.ko fails to install, check for whether they
+   are already installed with `adb shell lsmod`.
