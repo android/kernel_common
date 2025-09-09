@@ -1759,9 +1759,7 @@ iwl_mld_send_proto_offload(struct iwl_mld *mld,
 					  &solicited_addr);
 
 /* TODO(b/411091992): remove pragma workaround once issue is resolved. */
-#ifdef __clang__
 #pragma clang loop unroll(disable)
-#endif
 		for (j = 0; j < c; j++)
 			if (ipv6_addr_cmp(&nsc[j].dest_ipv6_addr,
 					  &solicited_addr) == 0)
