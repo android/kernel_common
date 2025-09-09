@@ -263,6 +263,14 @@ config GKI_HIDDEN_ETHERNET_CONFIGS
 	  Dummy config option used to enable the hidden Ethernet PHYLINK
 	  configs, required by various ethernet devices.
 
+config GKI_HIDDEN_IOMMU_CONFIGS
+	bool "Hidden IOMMU configuration needed for GKI"
+	select IOMMU_SVA
+	help
+	  Dummy config used to enable hidden IOMMU configs. These are
+	  normally selected implicitly when a module that relies on it is
+	  configured.
+
 config GKI_HIDDEN_DMA_CONFIGS
 	bool "Hidden DMA configuration needed for GKI"
 	select ASYNC_TX_ENABLE_CHANNEL_SWITCH
@@ -320,6 +328,7 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_MM_CONFIGS
 	select GKI_HIDDEN_ETHERNET_CONFIGS
 	select GKI_HIDDEN_DMA_CONFIGS
+	select GKI_HIDDEN_IOMMU_CONFIGS
 	select GKI_DYNAMIC_TASK_STRUCT_SIZE
 
 	help
