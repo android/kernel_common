@@ -1815,7 +1815,7 @@ struct dentry *incfs_mount_fs(struct file_system_type *type, int flags,
 		return ERR_CAST(sb);
 
 	sb->s_op = &incfs_super_ops;
-	sb->s_d_op = &incfs_dentry_ops;
+	set_default_d_op(sb, &incfs_dentry_ops);
 	sb->s_flags |= S_NOATIME;
 	sb->s_magic = INCFS_MAGIC_NUMBER;
 	sb->s_time_gran = 1;
