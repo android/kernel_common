@@ -278,18 +278,6 @@ struct data_file_segment {
 	struct list_head reads_list_head;
 };
 
-/*
- * Extra info associated with a file. Just a few bytes set by a user.
- */
-struct file_attr {
-	loff_t fa_value_offset;
-
-	size_t fa_value_size;
-
-	u32 fa_crc;
-};
-
-
 struct data_file {
 	struct backing_file_context *df_backing_file_context;
 
