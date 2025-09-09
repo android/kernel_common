@@ -88,3 +88,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_load_avg_blocked_se);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_load_avg_se);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_load_avg_cfs_rq);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_update_rt_rq_load_avg_internal);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dump_dl_server);

@@ -2442,6 +2442,7 @@ again:
 			goto again;
 		}
 		rq->dl_server = dl_se;
+		trace_android_vh_dump_dl_server(dl_se, p);
 	} else {
 		p = dl_task_of(dl_se);
 	}
