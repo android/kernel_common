@@ -2263,7 +2263,7 @@ struct inode_operations {
 } ____cacheline_aligned;
 
 /* Did the driver provide valid mmap hook configuration? */
-static inline bool file_has_valid_mmap_hooks(struct file *file)
+static inline bool can_mmap_file(struct file *file)
 {
 	bool has_mmap = file->f_op->mmap;
 	bool has_mmap_prepare = file->f_op->mmap_prepare;
@@ -2279,7 +2279,7 @@ static inline bool file_has_valid_mmap_hooks(struct file *file)
 
 int compat_vma_mmap_prepare(struct file *file, struct vm_area_struct *vma);
 
-static inline int call_mmap(struct file *file, struct vm_area_struct *vma)
+static inline int vfs_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	if (file->f_op->mmap_prepare)
 		return compat_vma_mmap_prepare(file, vma);
@@ -2287,8 +2287,7 @@ static inline int call_mmap(struct file *file, struct vm_area_struct *vma)
 	return file->f_op->mmap(file, vma);
 }
 
-static inline int __call_mmap_prepare(struct file *file,
-		struct vm_area_desc *desc)
+static inline int vfs_mmap_prepare(struct file *file, struct vm_area_desc *desc)
 {
 	return file->f_op->mmap_prepare(desc);
 }
@@ -2869,7 +2868,7 @@ struct file *dentry_open_nonotify(const struct path *path, int flags,
 				  const struct cred *cred);
 struct file *dentry_create(const struct path *path, int flags, umode_t mode,
 			   const struct cred *cred);
-struct path *backing_file_user_path(struct file *f);
+struct path *backing_file_user_path(const struct file *f);
 
 /*
  * When mmapping a file on a stackable filesystem (e.g., overlayfs), the file
@@ -2881,14 +2880,14 @@ struct path *backing_file_user_path(struct file *f);
  * by fstat() on that same fd.
  */
 /* Get the path to display in /proc/<pid>/maps */
-static inline const struct path *file_user_path(struct file *f)
+static inline const struct path *file_user_path(const struct file *f)
 {
 	if (unlikely(f->f_mode & FMODE_BACKING))
 		return backing_file_user_path(f);
 	return &f->f_path;
 }
 /* Get the inode whose inode number to display in /proc/<pid>/maps */
-static inline const struct inode *file_user_inode(struct file *f)
+static inline const struct inode *file_user_inode(const struct file *f)
 {
 	if (unlikely(f->f_mode & FMODE_BACKING))
 		return d_inode(backing_file_user_path(f)->dentry);
@@ -3269,6 +3268,22 @@ static inline bool is_dot_dotdot(const char *name, size_t len)
 		(len == 1 || (len == 2 && name[1] == '.'));
 }
 
+/**
+ * name_contains_dotdot - check if a file name contains ".." path components
+ *
+ * Search for ".." surrounded by either '/' or start/end of string.
+ */
+static inline bool name_contains_dotdot(const char *name)
+{
+	size_t name_len;
+
+	name_len = strlen(name);
+	return strcmp(name, "..") == 0 ||
+	       strncmp(name, "../", 3) == 0 ||
+	       strstr(name, "/../") != NULL ||
+	       (name_len >= 3 && strcmp(name + name_len - 3, "/..") == 0);
+}
+
 #include <linux/err.h>
 
 /* needed for stackable file system support */
@@ -3397,8 +3412,10 @@ extern void inode_add_lru(struct inode *inode);
 extern int sb_set_blocksize(struct super_block *, int);
 extern int sb_min_blocksize(struct super_block *, int);
 
-extern int generic_file_mmap(struct file *, struct vm_area_struct *);
-extern int generic_file_readonly_mmap(struct file *, struct vm_area_struct *);
+int generic_file_mmap(struct file *, struct vm_area_struct *);
+int generic_file_mmap_prepare(struct vm_area_desc *desc);
+int generic_file_readonly_mmap(struct file *, struct vm_area_struct *);
+int generic_file_readonly_mmap_prepare(struct vm_area_desc *desc);
 extern ssize_t generic_write_checks(struct kiocb *, struct iov_iter *);
 int generic_write_checks_count(struct kiocb *iocb, loff_t *count);
 extern int generic_write_check_limits(struct file *file, loff_t pos,

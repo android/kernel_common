@@ -844,7 +844,7 @@ reexpand:
 
 #define	BLKDEV_FALLOC_FL_SUPPORTED					\
 		(FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE |		\
-		 FALLOC_FL_ZERO_RANGE)
+		 FALLOC_FL_ZERO_RANGE | FALLOC_FL_WRITE_ZEROES)
 
 static long blkdev_fallocate(struct file *file, int mode, loff_t start,
 			     loff_t len)
@@ -853,10 +853,18 @@ static long blkdev_fallocate(struct file *file, int mode, loff_t start,
 	struct block_device *bdev = I_BDEV(inode);
 	loff_t end = start + len - 1;
 	loff_t isize;
+	unsigned int flags;
 	int error;
 
 	/* Fail if we don't recognize the flags. */
 	if (mode & ~BLKDEV_FALLOC_FL_SUPPORTED)
+		return -EOPNOTSUPP;
+	/*
+	 * Don't allow writing zeroes if the device does not enable the
+	 * unmap write zeroes operation.
+	 */
+	if ((mode & FALLOC_FL_WRITE_ZEROES) &&
+	    !bdev_write_zeroes_unmap_sectors(bdev))
 		return -EOPNOTSUPP;
 
 	/* Don't go off the end of the device. */
@@ -880,48 +888,46 @@ static long blkdev_fallocate(struct file *file, int mode, loff_t start,
 	inode_lock(inode);
 	filemap_invalidate_lock(inode->i_mapping);
 
+	switch (mode) {
+	case FALLOC_FL_ZERO_RANGE:
+	case FALLOC_FL_ZERO_RANGE | FALLOC_FL_KEEP_SIZE:
+		flags = BLKDEV_ZERO_NOUNMAP;
+		break;
+	case FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE:
+		flags = BLKDEV_ZERO_NOFALLBACK;
+		break;
+	case FALLOC_FL_WRITE_ZEROES:
+		flags = 0;
+		break;
+	default:
+		error = -EOPNOTSUPP;
+		goto fail;
+	}
+
 	/*
 	 * Invalidate the page cache, including dirty pages, for valid
 	 * de-allocate mode calls to fallocate().
 	 */
-	switch (mode) {
-	case FALLOC_FL_ZERO_RANGE:
-	case FALLOC_FL_ZERO_RANGE | FALLOC_FL_KEEP_SIZE:
-		error = truncate_bdev_range(bdev, file_to_blk_mode(file), start, end);
-		if (error)
-			goto fail;
+	error = truncate_bdev_range(bdev, file_to_blk_mode(file), start, end);
+	if (error)
+		goto fail;
 
-		error = blkdev_issue_zeroout(bdev, start >> SECTOR_SHIFT,
-					     len >> SECTOR_SHIFT, GFP_KERNEL,
-					     BLKDEV_ZERO_NOUNMAP);
-		break;
-	case FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE:
-		error = truncate_bdev_range(bdev, file_to_blk_mode(file), start, end);
-		if (error)
-			goto fail;
-
-		error = blkdev_issue_zeroout(bdev, start >> SECTOR_SHIFT,
-					     len >> SECTOR_SHIFT, GFP_KERNEL,
-					     BLKDEV_ZERO_NOFALLBACK);
-		break;
-	default:
-		error = -EOPNOTSUPP;
-	}
-
+	error = blkdev_issue_zeroout(bdev, start >> SECTOR_SHIFT,
+				     len >> SECTOR_SHIFT, GFP_KERNEL, flags);
  fail:
 	filemap_invalidate_unlock(inode->i_mapping);
 	inode_unlock(inode);
 	return error;
 }
 
-static int blkdev_mmap(struct file *file, struct vm_area_struct *vma)
+static int blkdev_mmap_prepare(struct vm_area_desc *desc)
 {
-	struct inode *bd_inode = bdev_file_inode(file);
+	struct file *file = desc->file;
 
-	if (bdev_read_only(I_BDEV(bd_inode)))
-		return generic_file_readonly_mmap(file, vma);
+	if (bdev_read_only(I_BDEV(bdev_file_inode(file))))
+		return generic_file_readonly_mmap_prepare(desc);
 
-	return generic_file_mmap(file, vma);
+	return generic_file_mmap_prepare(desc);
 }
 
 const struct file_operations def_blk_fops = {
@@ -931,7 +937,7 @@ const struct file_operations def_blk_fops = {
 	.read_iter	= blkdev_read_iter,
 	.write_iter	= blkdev_write_iter,
 	.iopoll		= iocb_bio_iopoll,
-	.mmap		= blkdev_mmap,
+	.mmap_prepare	= blkdev_mmap_prepare,
 	.fsync		= blkdev_fsync,
 	.unlocked_ioctl	= blkdev_ioctl,
 #ifdef CONFIG_COMPAT

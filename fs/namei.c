@@ -1012,10 +1012,10 @@ static int set_root(struct nameidata *nd)
 		unsigned seq;
 
 		do {
-			seq = read_seqcount_begin(&fs->seq);
+			seq = read_seqbegin(&fs->seq);
 			nd->root = fs->root;
 			nd->root_seq = __read_seqcount_begin(&nd->root.dentry->d_seq);
-		} while (read_seqcount_retry(&fs->seq, seq));
+		} while (read_seqretry(&fs->seq, seq));
 	} else {
 		get_fs_root(fs, &nd->root);
 		nd->state |= ND_ROOT_GRABBED;
@@ -1665,9 +1665,17 @@ static struct dentry *lookup_dcache(const struct qstr *name,
 	return dentry;
 }
 
-static struct dentry *lookup_one_qstr_excl_raw(const struct qstr *name,
-					       struct dentry *base,
-					       unsigned int flags)
+/*
+ * Parent directory has inode locked exclusive.  This is one
+ * and only case when ->lookup() gets called on non in-lookup
+ * dentries - as the matter of fact, this only gets called
+ * when directory is guaranteed to have no in-lookup children
+ * at all.
+ * Will return -ENOENT if name isn't found and LOOKUP_CREATE wasn't passed.
+ * Will return -EEXIST if name is found and LOOKUP_EXCL was passed.
+ */
+struct dentry *lookup_one_qstr_excl(const struct qstr *name,
+				    struct dentry *base, unsigned int flags)
 {
 	struct dentry *dentry;
 	struct dentry *old;
@@ -1675,7 +1683,7 @@ static struct dentry *lookup_one_qstr_excl_raw(const struct qstr *name,
 
 	dentry = lookup_dcache(name, base, flags);
 	if (dentry)
-		return dentry;
+		goto found;
 
 	/* Don't create child dentry for a dead directory. */
 	dir = base->d_inode;
@@ -1691,24 +1699,7 @@ static struct dentry *lookup_one_qstr_excl_raw(const struct qstr *name,
 		dput(dentry);
 		dentry = old;
 	}
-	return dentry;
-}
-
-/*
- * Parent directory has inode locked exclusive.  This is one
- * and only case when ->lookup() gets called on non in-lookup
- * dentries - as the matter of fact, this only gets called
- * when directory is guaranteed to have no in-lookup children
- * at all.
- * Will return -ENOENT if name isn't found and LOOKUP_CREATE wasn't passed.
- * Will return -EEXIST if name is found and LOOKUP_EXCL was passed.
- */
-struct dentry *lookup_one_qstr_excl(const struct qstr *name,
-				    struct dentry *base, unsigned int flags)
-{
-	struct dentry *dentry;
-
-	dentry = lookup_one_qstr_excl_raw(name, base, flags);
+found:
 	if (IS_ERR(dentry))
 		return dentry;
 	if (d_is_negative(dentry) && !(flags & LOOKUP_CREATE)) {
@@ -2580,11 +2571,11 @@ static const char *path_init(struct nameidata *nd, unsigned flags)
 			unsigned seq;
 
 			do {
-				seq = read_seqcount_begin(&fs->seq);
+				seq = read_seqbegin(&fs->seq);
 				nd->path = fs->pwd;
 				nd->inode = nd->path.dentry->d_inode;
 				nd->seq = __read_seqcount_begin(&nd->path.dentry->d_seq);
-			} while (read_seqcount_retry(&fs->seq, seq));
+			} while (read_seqretry(&fs->seq, seq));
 		} else {
 			get_fs_pwd(current->fs, &nd->path);
 			nd->inode = nd->path.dentry->d_inode;
@@ -2790,7 +2781,7 @@ struct dentry *kern_path_locked_negative(const char *name, struct path *path)
 	if (unlikely(type != LAST_NORM))
 		return ERR_PTR(-EINVAL);
 	inode_lock_nested(parent_path.dentry->d_inode, I_MUTEX_PARENT);
-	d = lookup_one_qstr_excl_raw(&last, parent_path.dentry, 0);
+	d = lookup_one_qstr_excl(&last, parent_path.dentry, LOOKUP_CREATE);
 	if (IS_ERR(d)) {
 		inode_unlock(parent_path.dentry->d_inode);
 		return d;
