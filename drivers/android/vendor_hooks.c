@@ -584,6 +584,7 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_shrink_node);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_customize_thp_gfp_orders);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_customize_pmd_gfp_bypass);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_thp_vma_allowable_orders);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_dma_buf_release);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_cpuset_fork);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_alloc_uid);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_free_user);
