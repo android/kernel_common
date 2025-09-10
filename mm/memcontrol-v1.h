@@ -102,6 +102,7 @@ void memcg1_oom_recover(struct mem_cgroup *memcg);
 
 void memcg1_commit_charge(struct folio *folio, struct mem_cgroup *memcg);
 void memcg1_swapout(struct folio *folio, struct mem_cgroup *memcg);
+void memcg1_charge_batch(struct mem_cgroup *memcg, unsigned long nr_memory, int nid);
 void memcg1_uncharge_batch(struct mem_cgroup *memcg, unsigned long pgpgout,
 			   unsigned long nr_memory, int nid);
 
@@ -141,6 +142,9 @@ static inline void memcg1_commit_charge(struct folio *folio,
 					struct mem_cgroup *memcg) {}
 
 static inline void memcg1_swapout(struct folio *folio, struct mem_cgroup *memcg) {}
+
+static inline void memcg1_charge_batch(struct mem_cgroup *memcg, unsigned long nr_memory,
+				       int nid) {}
 
 static inline void memcg1_uncharge_batch(struct mem_cgroup *memcg,
 					 unsigned long pgpgout,

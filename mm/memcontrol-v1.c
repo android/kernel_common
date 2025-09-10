@@ -1562,6 +1562,17 @@ void memcg1_swapout(struct folio *folio, struct mem_cgroup *memcg)
 	memcg1_check_events(memcg, folio_nid(folio));
 }
 
+void memcg1_charge_batch(struct mem_cgroup *memcg, unsigned long nr_memory, int nid)
+{
+	unsigned long flags;
+
+	local_irq_save(flags);
+	memcg1_charge_statistics(memcg, nr_memory);
+	memcg1_check_events(memcg, nid);
+	local_irq_restore(flags);
+}
+EXPORT_SYMBOL_GPL(memcg1_charge_batch);
+
 void memcg1_uncharge_batch(struct mem_cgroup *memcg, unsigned long pgpgout,
 			   unsigned long nr_memory, int nid)
 {
