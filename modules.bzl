@@ -319,3 +319,23 @@ _COMMON_UNPROTECTED_MODULES_LIST = []
 # buildifier: disable=unused-variable
 def get_gki_unprotected_modules_list(arch = None):
     return _COMMON_UNPROTECTED_MODULES_LIST
+
+# buildifier: disable=unnamed-macro
+def get_gki_kunit_modules(arch):
+    """Returns the list of labels pointing to the GKI modules for KUnit.
+
+    Args:
+        arch: one of arm64, x86_64
+
+    Returns:
+        The list of labels pointing to the GKI modules for KUnit.
+    """
+    if arch == "arm64":
+        return get_kunit_modules_list(arch, map_each = lambda e: ":kernel_aarch64/" + e)
+    if arch == "x86_64":
+        return get_kunit_modules_list(arch, map_each = lambda e: ":kernel_x86_64/" + e)
+
+    fail("{}: arch {} not supported. Use one of [arm64, x86_64]".format(
+        str(native.package_relative_label(":x")).removesuffix(":x"),
+        arch,
+    ))
