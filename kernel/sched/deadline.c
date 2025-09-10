@@ -2245,6 +2245,12 @@ select_task_rq_dl(struct task_struct *p, int cpu, int flags)
 	struct task_struct *curr, *donor;
 	bool select_rq;
 	struct rq *rq;
+	int target_cpu = -1;
+
+	trace_android_rvh_select_task_rq_dl(p, cpu, flags & 0xF,
+			flags, &target_cpu);
+	if (target_cpu >= 0)
+		return target_cpu;
 
 	if (!(flags & WF_TTWU))
 		goto out;
