@@ -758,6 +758,7 @@ hyp_trace_raw_read(struct file *file, char __user *ubuf,
 	struct ht_iterator *iter = (struct ht_iterator *)file->private_data;
 	size_t size;
 	int ret;
+	void *page_data;
 
 	if (iter->copy_leftover)
 		goto read;
@@ -786,7 +787,9 @@ read:
 	if (size > cnt)
 		size = cnt;
 
-	ret = copy_to_user(ubuf, iter->spare + PAGE_SIZE - size, size);
+	page_data = ring_buffer_read_page_data(
+		(struct buffer_data_read_page *)iter->spare);
+	ret = copy_to_user(ubuf, page_data + PAGE_SIZE - size, size);
 	if (ret == size)
 		return -EFAULT;
 
