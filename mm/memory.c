@@ -4745,6 +4745,7 @@ static struct folio *alloc_anon_folio(struct vm_fault *vmf)
 	if (folio)
 		goto allocated;
 
+	trace_android_vh_customize_thp_gfp_orders(&gfp, &orders, &order);
 	while (orders) {
 		addr = ALIGN_DOWN(vmf->address, PAGE_SIZE << order);
 		folio = vma_alloc_folio(gfp, order, vma, addr, true);
