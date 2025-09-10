@@ -3053,6 +3053,7 @@
   __traceiter_android_vh_rwsem_read_wait_start
   __traceiter_android_vh_rwsem_write_wait_finish
   __traceiter_android_vh_rwsem_write_wait_start
+  __traceiter_android_vh_dump_dl_server
   __traceiter_android_vh_sched_pelt_multiplier
   __traceiter_android_vh_scheduler_tick
   __traceiter_android_vh_setscheduler_uclamp
@@ -3181,6 +3182,7 @@
   __tracepoint_android_vh_rwsem_read_wait_start
   __tracepoint_android_vh_rwsem_write_wait_finish
   __tracepoint_android_vh_rwsem_write_wait_start
+  __tracepoint_android_vh_dump_dl_server
   __tracepoint_android_vh_sched_pelt_multiplier
   __tracepoint_android_vh_scheduler_tick
   __tracepoint_android_vh_setscheduler_uclamp
