@@ -576,6 +576,7 @@ static const struct kobj_type thpsize_ktype = {
 };
 
 DEFINE_PER_CPU(struct mthp_stat, mthp_stats) = {{{0}}};
+EXPORT_SYMBOL_GPL(mthp_stats);
 
 static unsigned long sum_mthp_stat(int order, enum mthp_stat_item item)
 {

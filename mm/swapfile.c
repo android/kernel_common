@@ -81,6 +81,7 @@ static int least_priority = -1;
 unsigned long swapfile_maximum_size;
 #ifdef CONFIG_MIGRATION
 bool swap_migration_ad_supported;
+EXPORT_SYMBOL_GPL(swap_migration_ad_supported);
 #endif	/* CONFIG_MIGRATION */
 
 static const char Bad_file[] = "Bad swap file entry ";
