@@ -437,6 +437,8 @@
   __tracepoint_android_vh_mem_cgroup_charge
   __tracepoint_android_vh_filemap_add_folio
   __tracepoint_android_vh_shrink_node
+  __traceiter_android_vh_swap_bio_charge
+  __tracepoint_android_vh_swap_bio_charge
 
 #required by mem_reclaim_ctl.ko
 __traceiter_android_vh_page_should_be_protected
