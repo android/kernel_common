@@ -94,6 +94,8 @@
   dev_pm_opp_find_freq_ceil_indexed
   __traceiter_android_vh_customize_thp_gfp_orders
   __tracepoint_android_vh_customize_thp_gfp_orders
+  __traceiter_android_vh_customize_pmd_gfp_bypass
+  __tracepoint_android_vh_customize_pmd_gfp_bypass
   __traceiter_android_vh_thp_vma_allowable_orders
   __tracepoint_android_vh_thp_vma_allowable_orders
 
