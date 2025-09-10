@@ -126,6 +126,20 @@ config GKI_HIDDEN_QCOM_CONFIGS
 	  These are normally selected implicitly when a module
 	  that relies on it is configured.
 
+config GKI_HIDDEN_MTK_CONFIGS
+	bool "Hidden MTK configs needed for GKI"
+	select MTK_TIMER
+	select MTK_CPUX_TIMER
+	select MTK_REGULATOR_COUPLER
+	select MTK_SCPSYS
+	select MTK_INFRACFG
+	select MTK_IRQ
+
+	help
+	  Dummy config option used to enable hidden MTK configs.
+	  These are normally selected implicitly when a module
+	  that relies on it is configured.
+
 config GKI_HIDDEN_MEDIA_CONFIGS
 	bool "Hidden Media configs needed for GKI"
 	select VIDEOBUF2_CORE
@@ -313,6 +327,7 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_GPIO_CONFIGS
 	select GKI_HIDDEN_X86_CONFIGS
 	select GKI_HIDDEN_QCOM_CONFIGS
+	select GKI_HIDDEN_MTK_CONFIGS if (ARM64)
 	select GKI_LEGACY_WEXT_ALLCONFIG
 	select GKI_HIDDEN_MEDIA_CONFIGS
 	select GKI_HIDDEN_VIRTUAL_CONFIGS
