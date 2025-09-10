@@ -21,6 +21,7 @@
 #include <linux/scmi_protocol.h>
 #include <linux/types.h>
 #include <linux/units.h>
+#include <trace/hooks/cpufreq.h>
 
 struct scmi_data {
 	int domain_id;
@@ -188,11 +189,15 @@ static int scmi_limit_notify_cb(struct notifier_block *nb, unsigned long event, 
 	struct scmi_data *priv = container_of(nb, struct scmi_data, limit_notify_nb);
 	struct scmi_perf_limits_report *limit_notify = data;
 	unsigned int limit_freq_khz;
-	int ret;
+	int ret = 0;
+	bool done;
 
 	limit_freq_khz = limit_notify->range_max_freq / HZ_PER_KHZ;
 
-	ret = freq_qos_update_request(&priv->limits_freq_req, limit_freq_khz);
+	trace_android_rvh_scmi_limit_notify_cb(&done, priv->cpu_dev, limit_freq_khz);
+	if (done)
+		return NOTIFY_OK;
+
 	if (ret < 0)
 		pr_warn("failed to update freq constraint: %d\n", ret);
 
