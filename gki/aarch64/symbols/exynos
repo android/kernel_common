@@ -2147,6 +2147,7 @@
   irq_get_irqchip_state
   kthread_park
   kthread_unpark
+  of_irq_to_resource
   of_property_read_variable_u16_array
   pcim_enable_device
   pcim_iomap_regions
