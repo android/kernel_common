@@ -121,9 +121,11 @@ static int ffa_host_store_handle(u64 ffa_handle, bool is_lend)
 	if (!static_branch_unlikely(&kvm_ffa_unmap_on_lend))
 		return 0;
 
-	if (spm_free_handle >= spm_handles &&
-	    spm_free_handle < (spm_handles + num_spm_handles)) {
+	if (spm_free_handle) {
+		WARN_ON(spm_free_handle < spm_handles ||
+			spm_free_handle >= (spm_handles + num_spm_handles));
 		free_handle = spm_free_handle;
+		spm_free_handle = NULL;
 	} else {
 		for (i = 0; i < num_spm_handles; i++)
 			if (spm_handles[i].handle == FFA_INVALID_SPM_HANDLE)
