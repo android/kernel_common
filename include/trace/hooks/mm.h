@@ -149,6 +149,9 @@ DECLARE_HOOK(android_vh_filemap_get_folio,
 	TP_PROTO(struct address_space *mapping, pgoff_t index,
 		int fgp_flags, gfp_t gfp_mask, struct folio *folio),
 	TP_ARGS(mapping, index, fgp_flags, gfp_mask, folio));
+DECLARE_HOOK(android_vh_filemap_get_folio_gfp,
+	TP_PROTO(struct address_space *mapping, int fgp_flags, gfp_t *gfp_mask),
+	TP_ARGS(mapping, fgp_flags, gfp_mask));
 DECLARE_RESTRICTED_HOOK(android_rvh_madvise_pageout_begin,
 			TP_PROTO(void **private),
 			TP_ARGS(private), 1);
