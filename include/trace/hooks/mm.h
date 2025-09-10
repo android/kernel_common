@@ -540,6 +540,9 @@ DECLARE_HOOK(android_vh_filemap_add_folio,
 DECLARE_HOOK(android_vh_gcma_cc_store_page_bypass,
 	TP_PROTO(bool *bypass),
 	TP_ARGS(bypass));
+DECLARE_HOOK(android_vh_swap_bio_charge,
+	TP_PROTO(struct bio *bio),
+	TP_ARGS(bio));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */

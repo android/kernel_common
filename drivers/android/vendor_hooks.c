@@ -587,3 +587,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_handle_demand_page_post);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_gzvm_destroy_vm_post_process);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_usb_dev_suspend);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_usb_dev_resume);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_swap_bio_charge);
