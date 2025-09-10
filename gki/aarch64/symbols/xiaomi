@@ -14,6 +14,8 @@
   __tracepoint_android_vh_fuse_request_send
   __traceiter_android_vh_fuse_request_end
   __tracepoint_android_vh_fuse_request_end
+  __traceiter_android_vh_throttle_direct_reclaim_bypass
+  __tracepoint_android_vh_throttle_direct_reclaim_bypass
 
 # commonly used symbols
   __traceiter_android_vh_logbuf
