@@ -1403,6 +1403,11 @@ static int smmu_detach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 			smmu_free_cd(cd_table, pasid_bits);
 		} else {
 			cd = smmu_get_cd_ptr(cd_table, pasid);
+			if (!(cd[0] & CTXDESC_CD_0_V)) {
+				/* The device is not actually attached! */
+				ret = -ENOENT;
+				goto out_unlock;
+			}
 			cd[0] = 0;
 			smmu_sync_cd(smmu, sid, pasid);
 			cd[1] = 0;
