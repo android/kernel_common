@@ -27,4 +27,6 @@
   remove_memory_subsection
   send_sig_mceerr
   smpboot_unregister_percpu_thread
+  __traceiter_android_vh_filemap_get_folio_gfp
+  __tracepoint_android_vh_filemap_get_folio_gfp
   vmap_pfn
