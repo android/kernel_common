@@ -78,6 +78,13 @@ impl PollCondVar {
             inner <- CondVar::new(name, key),
         })
     }
+
+    /// Clear anything registered using `register_wait`.
+    pub fn clear(&self) {
+        // SAFETY: The pointer points at a valid `wait_queue_head`. The destructor waits an rcu
+        // grace period before the wait queue is freed.
+        unsafe { bindings::__wake_up_pollfree(self.inner.wait_queue_head.get()) };
+    }
 }
 
 // Make the `CondVar` methods callable on `PollCondVar`.
@@ -92,10 +99,7 @@ impl Deref for PollCondVar {
 #[pinned_drop]
 impl PinnedDrop for PollCondVar {
     fn drop(self: Pin<&mut Self>) {
-        // Clear anything registered using `register_wait`.
-        //
-        // SAFETY: The pointer points at a valid `wait_queue_head`.
-        unsafe { bindings::__wake_up_pollfree(self.inner.wait_queue_head.get()) };
+        self.clear();
 
         // Wait for epoll items to be properly removed.
         //

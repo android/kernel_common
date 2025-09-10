@@ -351,17 +351,6 @@ impl Node {
         (self.ptr, self.cookie)
     }
 
-    pub(crate) fn next_death(
-        &self,
-        guard: &mut Guard<'_, ProcessInner, SpinLockBackend>,
-    ) -> Option<DArc<NodeDeath>> {
-        self.inner
-            .access_mut(guard)
-            .death_list
-            .pop_front()
-            .map(|larc| larc.into_arc())
-    }
-
     pub(crate) fn add_death(
         &self,
         death: ListArc<DTRWrap<NodeDeath>, 1>,
@@ -575,16 +564,18 @@ impl Node {
         Ok(())
     }
 
-    pub(crate) fn release(&self, guard: &mut Guard<'_, ProcessInner, SpinLockBackend>) {
-        // Move every pending oneshot message to the process todolist. The process
-        // will cancel it later.
-        //
-        // New items can't be pushed after this call, since `submit_oneway` fails when the process
-        // is dead, which is set before `Node::release` is called.
-        //
-        // TODO: Give our linked list implementation the ability to move everything in one go.
-        while let Some(work) = self.inner.access_mut(guard).oneway_todo.pop_front() {
-            guard.push_work_for_release(work);
+    pub(crate) fn release(&self) {
+        let mut guard = self.owner.inner.lock();
+        while let Some(work) = self.inner.access_mut(&mut guard).oneway_todo.pop_front() {
+            drop(guard);
+            work.into_arc().cancel();
+            guard = self.owner.inner.lock();
+        }
+
+        let death_list = core::mem::take(&mut self.inner.access_mut(&mut guard).death_list);
+        drop(guard);
+        for death in death_list {
+            death.into_arc().set_dead();
         }
     }
 
