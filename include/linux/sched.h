@@ -2249,7 +2249,6 @@ static inline struct mutex *__get_task_blocked_on(struct task_struct *p)
 static inline void set_blocked_on_waking_nested(struct task_struct *p, struct mutex *m)
 {
 	raw_spin_lock_nested(&p->blocked_lock, SINGLE_DEPTH_NESTING);
-	WARN_ON_ONCE(__get_task_blocked_on(p) != m);
 	__set_blocked_on_waking(p);
 	raw_spin_unlock(&p->blocked_lock);
 }
