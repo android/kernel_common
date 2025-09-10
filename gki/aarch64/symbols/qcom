@@ -3432,10 +3432,12 @@
   __traceiter_android_vh_save_cpu_resume
   __traceiter_android_vh_save_hib_resume_bdev
   __traceiter_android_vh_scheduler_tick
+  __traceiter_android_vh_scx_enabled
   __traceiter_android_vh_setscheduler_uclamp
   __traceiter_android_vh_show_resume_epoch_val
   __traceiter_android_vh_show_suspend_epoch_val
   __traceiter_android_vh_skip_swap_map_write
+  __traceiter_android_vh_switching_to_scx
   __traceiter_android_vh_thermal_pm_notify_suspend
   __traceiter_android_vh_timer_calc_index
   __traceiter_android_vh_try_fixup_sea
@@ -3575,10 +3577,12 @@
   __tracepoint_android_vh_save_cpu_resume
   __tracepoint_android_vh_save_hib_resume_bdev
   __tracepoint_android_vh_scheduler_tick
+  __tracepoint_android_vh_scx_enabled
   __tracepoint_android_vh_setscheduler_uclamp
   __tracepoint_android_vh_show_resume_epoch_val
   __tracepoint_android_vh_show_suspend_epoch_val
   __tracepoint_android_vh_skip_swap_map_write
+  __tracepoint_android_vh_switching_to_scx
   __tracepoint_android_vh_thermal_pm_notify_suspend
   __tracepoint_android_vh_timer_calc_index
   __tracepoint_android_vh_try_fixup_sea
