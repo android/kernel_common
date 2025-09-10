@@ -74,7 +74,9 @@
   bus_for_each_dev
   bus_get_dev_root
   bus_register
+  bus_register_notifier
   bus_unregister
+  bus_unregister_notifier
   call_rcu
   cancel_delayed_work
   cancel_delayed_work_sync
@@ -271,8 +273,10 @@
   dec_node_page_state
   default_llseek
   delayed_work_timer_fn
+  desc_to_gpio
   destroy_workqueue
   dev_addr_mod
+  _dev_alert
   dev_alloc_name
   __dev_change_net_namespace
   dev_close
@@ -312,6 +316,7 @@
   device_link_add
   device_match_fwnode
   device_match_name
+  device_property_present
   device_property_read_string
   device_property_read_u16_array
   device_property_read_u32_array
@@ -346,6 +351,7 @@
   devm_extcon_dev_unregister
   devm_free_irq
   devm_gen_pool_create
+  devm_gpiod_get
   devm_gpiod_get_optional
   devm_gpio_request_one
   devm_hwrng_register
@@ -366,6 +372,7 @@
   devm_kstrdup
   devm_kstrdup_const
   devm_mbox_controller_register
+  devm_mfd_add_devices
   devm_nvmem_cell_get
   devm_nvmem_device_get
   devm_nvmem_register
@@ -389,9 +396,11 @@
   devm_regmap_del_irq_chip
   devm_regmap_field_alloc
   __devm_regmap_init
+  __devm_regmap_init_i2c
   __devm_regmap_init_mmio_clk
   __devm_regmap_init_spmi_ext
   devm_regulator_bulk_get
+  devm_regulator_bulk_get_enable
   devm_regulator_get
   devm_regulator_get_exclusive
   devm_regulator_get_optional
@@ -710,6 +719,8 @@
   drm_vblank_init
   dst_release
   dump_stack
+  __dynamic_dev_dbg
+  __dynamic_pr_debug
   edac_device_add_device
   edac_device_alloc_ctl_info
   edac_device_alloc_index
@@ -847,6 +858,7 @@
   gpiod_get_raw_value_cansleep
   gpiod_get_value
   gpiod_set_raw_value
+  gpiod_set_value
   gpiod_set_value_cansleep
   gpiod_to_irq
   gpio_free
@@ -886,11 +898,24 @@
   hwspin_lock_request_specific
   __hwspin_lock_timeout
   __hwspin_unlock
+  i2c_adapter_type
   i2c_add_adapter
+  i2c_bus_type
   i2c_del_adapter
+  i2c_del_driver
+  i2c_find_device_by_fwnode
+  i2c_for_each_dev
+  i2c_get_adapter
   i2c_get_dma_safe_msg_buf
+  i2c_new_dummy_device
+  i2c_put_adapter
   i2c_put_dma_safe_msg_buf
+  i2c_register_driver
+  i2c_smbus_xfer
   i2c_transfer
+  i2c_transfer_buffer_flags
+  i2c_unregister_device
+  i2c_verify_client
   icc_link_create
   icc_node_add
   icc_node_create
@@ -933,13 +958,23 @@
   init_uts_ns
   init_wait_entry
   __init_waitqueue_head
+  input_allocate_device
   input_close_device
   input_event
+  input_ff_create
+  input_free_device
+  input_mt_init_slots
+  input_mt_report_pointer_emulation
+  input_mt_report_slot_state
+  input_mt_sync_frame
   input_open_device
   input_register_device
   input_register_handle
   input_register_handler
+  input_set_abs_params
   input_set_capability
+  input_set_timestamp
+  input_unregister_device
   input_unregister_handle
   input_unregister_handler
   interval_tree_insert
@@ -1036,6 +1071,7 @@
   irq_work_sync
   is_vmalloc_addr
   jiffies
+  jiffies_64
   jiffies_to_msecs
   jiffies_to_usecs
   kasan_flag_enabled
@@ -1597,6 +1633,7 @@
   regcache_sync
   regcache_sync_region
   __register_chrdev
+  register_chrdev_region
   register_console
   register_die_notifier
   register_ftrace_export
@@ -1617,16 +1654,22 @@
   register_sysctl_sz
   regmap_bulk_read
   regmap_bulk_write
+  regmap_exit
   regmap_field_read
   regmap_field_update_bits_base
   __regmap_init
+  __regmap_init_i2c
   regmap_irq_get_virq
   regmap_mmio_detach_clk
+  regmap_multi_reg_write
+  regmap_raw_read
+  regmap_raw_write
   regmap_read
   regmap_update_bits_base
   regmap_write
   regulator_allow_bypass
   regulator_bulk_disable
+  regulator_bulk_enable
   regulator_count_voltages
   regulator_disable
   regulator_enable
@@ -1899,6 +1942,7 @@
   __spi_alloc_controller
   spi_register_controller
   __spi_register_driver
+  spi_setup
   spi_sync
   spi_unregister_controller
   spmi_controller_add
@@ -1925,11 +1969,13 @@
   strchrnul
   strcmp
   strcpy
+  strcspn
   strim
   strlen
   strncasecmp
   strnchr
   strncmp
+  strncpy
   strnlen
   strnstr
   strpbrk
@@ -1956,6 +2002,7 @@
   sysfs_create_file_ns
   sysfs_create_files
   sysfs_create_group
+  sysfs_create_groups
   sysfs_create_link
   sysfs_emit
   sysfs_emit_at
@@ -2000,6 +2047,7 @@
   tick_nohz_get_sleep_length
   timer_delete
   timer_delete_sync
+  timer_shutdown_sync
   topology_clear_scale_freq_source
   topology_update_done
   topology_update_hw_pressure
@@ -2169,6 +2217,7 @@
   __trace_trigger_soft_disabled
   tracing_off
   try_module_get
+  try_to_del_timer_sync
   try_wait_for_completion
   tty_flip_buffer_push
   __tty_insert_flip_string_flags
