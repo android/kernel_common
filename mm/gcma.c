@@ -752,6 +752,7 @@ static void gcma_cc_store_page(int hash_id, struct cleancache_filekey key,
 	bool is_new = false;
 	bool workingset = PageWorkingset(page);
 	bool bypass = false;
+	bool allow_nonworkingset = false;
 
 	trace_android_vh_gcma_cc_store_page_bypass(&bypass);
 	if (bypass)
@@ -767,10 +768,11 @@ static void gcma_cc_store_page(int hash_id, struct cleancache_filekey key,
 	if (!gcma_fs)
 		return;
 
+	trace_android_vh_gcma_cc_allow_nonworkingset(&allow_nonworkingset);
 find_inode:
 	inode = find_and_get_gcma_inode(gcma_fs, &key);
 	if (!inode) {
-		if (!workingset)
+		if (!workingset && !allow_nonworkingset)
 			return;
 		inode = add_gcma_inode(gcma_fs, &key);
 		if (!IS_ERR(inode))
@@ -789,14 +791,14 @@ load_page:
 	xa_lock(&inode->pages);
 	g_page = xa_load(&inode->pages, offset);
 	if (g_page) {
-		if (!workingset) {
+		if (!workingset && !allow_nonworkingset) {
 			gcma_erase_page(inode, offset, g_page, true);
 			goto out_unlock;
 		}
 		goto copy;
 	}
 
-	if (!workingset)
+	if (!workingset && !allow_nonworkingset)
 		goto out_unlock;
 
 	g_page = gcma_alloc_page();

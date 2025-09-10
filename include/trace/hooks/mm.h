@@ -540,6 +540,9 @@ DECLARE_HOOK(android_vh_filemap_add_folio,
 	TP_PROTO(struct address_space *mapping, struct folio *folio,
 		pgoff_t index),
 	TP_ARGS(mapping, folio, index));
+DECLARE_HOOK(android_vh_gcma_cc_allow_nonworkingset,
+	TP_PROTO(bool *allow_nonworkingset),
+	TP_ARGS(allow_nonworkingset));
 DECLARE_HOOK(android_vh_gcma_cc_store_page_bypass,
 	TP_PROTO(bool *bypass),
 	TP_ARGS(bypass));
