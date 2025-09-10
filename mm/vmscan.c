@@ -1738,6 +1738,12 @@ static unsigned long isolate_lru_folios(unsigned long nr_to_scan,
 	unsigned long skipped = 0;
 	unsigned long scan, total_scan, nr_pages;
 	LIST_HEAD(folios_skipped);
+	unsigned long nr_scanned_before = *nr_scanned;
+
+	trace_android_vh_mm_isolate_priv_lru(nr_to_scan, lruvec, lru, dst, sc->reclaim_idx,
+					     sc->may_unmap, nr_scanned, &nr_taken);
+	if (*nr_scanned != nr_scanned_before)
+		return nr_taken;
 
 	total_scan = 0;
 	scan = 0;
@@ -1996,7 +2002,7 @@ static unsigned long shrink_inactive_list(unsigned long nr_to_scan,
 		enum lru_list lru)
 {
 	LIST_HEAD(folio_list);
-	unsigned long nr_scanned;
+	unsigned long nr_scanned = 0;
 	unsigned int nr_reclaimed = 0;
 	unsigned long nr_taken;
 	struct reclaim_stat stat;
@@ -2117,7 +2123,7 @@ static void shrink_active_list(unsigned long nr_to_scan,
 			       enum lru_list lru)
 {
 	unsigned long nr_taken;
-	unsigned long nr_scanned;
+	unsigned long nr_scanned = 0;
 	unsigned long vm_flags;
 	LIST_HEAD(l_hold);	/* The folios which were snipped off */
 	LIST_HEAD(l_active);
@@ -2352,6 +2358,15 @@ static bool inactive_is_low(struct lruvec *lruvec, enum lru_list inactive_lru)
 	return inactive * inactive_ratio < active;
 }
 
+static void customize_sc_file_is_tiny(struct scan_control *sc)
+{
+	bool file_is_tiny = sc->file_is_tiny;
+
+	trace_android_vh_mm_customize_file_is_tiny(sc->may_swap, sc->order,
+						   sc->reclaim_idx, &file_is_tiny);
+	sc->file_is_tiny = file_is_tiny;
+}
+
 enum scan_balance {
 	SCAN_EQUAL,
 	SCAN_FRACT,
@@ -2465,6 +2480,8 @@ static void prepare_scan_control(pg_data_t *pgdat, struct scan_control *sc)
 			!(sc->may_deactivate & DEACTIVATE_ANON) &&
 			anon >> sc->priority;
 	}
+
+	customize_sc_file_is_tiny(sc);
 }
 
 /*
@@ -6309,6 +6326,9 @@ static void shrink_zones(struct zonelist *zonelist, struct scan_control *sc)
 		sc->reclaim_idx = gfp_zone(sc->gfp_mask);
 	}
 
+	trace_android_vh_mm_customize_reclaim_idx(sc->order, sc->gfp_mask,
+						  &sc->reclaim_idx, NULL);
+
 	for_each_zone_zonelist_nodemask(zone, z, zonelist,
 					sc->reclaim_idx, sc->nodemask) {
 		/*
@@ -6860,7 +6880,14 @@ static bool pgdat_balanced(pg_data_t *pgdat, int order, int highest_zoneidx)
 {
 	int i;
 	unsigned long mark = -1;
+	bool customized = false;
+	bool balanced = false;
 	struct zone *zone;
+
+	trace_android_vh_mm_customize_pgdat_balanced(order, highest_zoneidx,
+						     &balanced, &customized);
+	if (customized)
+		return balanced;
 
 	/*
 	 * Check watermarks bottom-up as lower zones are more likely to
@@ -7468,6 +7495,9 @@ void wakeup_kswapd(struct zone *zone, gfp_t gfp_flags, int order,
 
 	if (!cpuset_zone_allowed(zone, gfp_flags))
 		return;
+
+	trace_android_vh_mm_customize_reclaim_idx(order, gfp_flags, NULL,
+						  &highest_zoneidx);
 
 	pgdat = zone->zone_pgdat;
 	curr_idx = READ_ONCE(pgdat->kswapd_highest_zoneidx);

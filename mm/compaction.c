@@ -2854,6 +2854,11 @@ enum compact_result try_to_compact_pages(gfp_t gfp_mask, unsigned int order,
 	for_each_zone_zonelist_nodemask(zone, z, ac->zonelist,
 					ac->highest_zoneidx, ac->nodemask) {
 		enum compact_result status;
+		bool can_compact = true;
+
+		trace_android_vh_mm_customize_zone_can_compact(zone, &can_compact);
+		if (!can_compact)
+			continue;
 
 		if (cpusets_enabled() &&
 			(alloc_flags & ALLOC_CPUSET) &&
@@ -2921,8 +2926,14 @@ void compact_node_async(int nid)
 	};
 
 	for (zoneid = 0; zoneid < MAX_NR_ZONES; zoneid++) {
+		bool can_compact = true;
+
 		zone = &pgdat->node_zones[zoneid];
 		if (!populated_zone(zone))
+			continue;
+
+		trace_android_vh_mm_customize_zone_can_compact(zone, &can_compact);
+		if (!can_compact)
 			continue;
 
 		if (fatal_signal_pending(current))
@@ -2960,8 +2971,14 @@ static int compact_node(pg_data_t *pgdat, bool proactive)
 	};
 
 	for (zoneid = 0; zoneid < MAX_NR_ZONES; zoneid++) {
+		bool can_compact = true;
+
 		zone = &pgdat->node_zones[zoneid];
 		if (!populated_zone(zone))
+			continue;
+
+		trace_android_vh_mm_customize_zone_can_compact(zone, &can_compact);
+		if (!can_compact)
 			continue;
 
 		if (fatal_signal_pending(current))
@@ -3090,9 +3107,14 @@ static bool kcompactd_node_suitable(pg_data_t *pgdat)
 	enum compact_result ret;
 
 	for (zoneid = 0; zoneid <= highest_zoneidx; zoneid++) {
+		bool can_compact = true;
 		zone = &pgdat->node_zones[zoneid];
 
 		if (!populated_zone(zone))
+			continue;
+
+		trace_android_vh_mm_customize_zone_can_compact(zone, &can_compact);
+		if (!can_compact)
 			continue;
 
 		ret = compaction_suit_allocation_order(zone,
@@ -3129,9 +3151,14 @@ static void kcompactd_do_work(pg_data_t *pgdat)
 
 	for (zoneid = 0; zoneid <= cc.highest_zoneidx; zoneid++) {
 		int status;
+		bool can_compact = true;
 
 		zone = &pgdat->node_zones[zoneid];
 		if (!populated_zone(zone))
+			continue;
+
+		trace_android_vh_mm_customize_zone_can_compact(zone, &can_compact);
+		if (!can_compact)
 			continue;
 
 		if (compaction_deferred(zone, cc.order))
