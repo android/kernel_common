@@ -239,7 +239,10 @@ impl<T> RangeAllocator<T> {
     }
 
     /// Called when an allocation is no longer in use by the kernel.
-    pub(crate) fn reservation_commit(&mut self, offset: usize, data: Option<T>) -> Result {
+    ///
+    /// The value in `data` will be stored, if any. A mutable reference is used to avoid dropping
+    /// the `T` when an error is returned.
+    pub(crate) fn reservation_commit(&mut self, offset: usize, data: &mut Option<T>) -> Result {
         match &mut self.inner {
             Impl::Empty(_size) => Err(EINVAL),
             Impl::Array(array) => array.reservation_commit(offset, data),

@@ -306,30 +306,18 @@ impl<T> TreeRangeAllocator<T> {
         Ok(freed_range)
     }
 
-    pub(crate) fn reservation_commit(&mut self, offset: usize, data: Option<T>) -> Result {
-        let desc = self.tree.get_mut(&offset).ok_or_else(|| {
-            pr_warn!(
-                "ENOENT from range_alloc.reservation_commit - offset: {}",
-                offset
-            );
-            ENOENT
-        })?;
+    pub(crate) fn reservation_commit(&mut self, offset: usize, data: &mut Option<T>) -> Result {
+        let desc = self.tree.get_mut(&offset).ok_or(ENOENT)?;
 
         desc.try_change_state(|state| match state {
             Some((DescriptorState::Reserved(reservation), free_node_res)) => (
                 Some((
-                    DescriptorState::Allocated(reservation.allocate(data)),
+                    DescriptorState::Allocated(reservation.allocate(data.take())),
                     free_node_res,
                 )),
                 Ok(()),
             ),
-            other => {
-                pr_warn!(
-                    "ENOENT from range_alloc.reservation_commit - offset: {}",
-                    offset
-                );
-                (other, Err(ENOENT))
-            }
+            other => (other, Err(ENOENT)),
         })
     }
 

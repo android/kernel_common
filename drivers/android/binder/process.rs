@@ -1058,10 +1058,10 @@ impl Process {
         }
     }
 
-    pub(crate) fn buffer_make_freeable(&self, offset: usize, data: Option<AllocationInfo>) {
+    pub(crate) fn buffer_make_freeable(&self, offset: usize, mut data: Option<AllocationInfo>) {
         let mut inner = self.inner.lock();
         if let Some(ref mut mapping) = &mut inner.mapping {
-            if mapping.alloc.reservation_commit(offset, data).is_err() {
+            if mapping.alloc.reservation_commit(offset, &mut data).is_err() {
                 pr_warn!("Offset {} failed to be marked freeable\n", offset);
             }
         }
