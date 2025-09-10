@@ -189,8 +189,8 @@ static int scmi_limit_notify_cb(struct notifier_block *nb, unsigned long event, 
 	struct scmi_data *priv = container_of(nb, struct scmi_data, limit_notify_nb);
 	struct scmi_perf_limits_report *limit_notify = data;
 	unsigned int limit_freq_khz;
+	bool done = false;
 	int ret = 0;
-	bool done;
 
 	limit_freq_khz = limit_notify->range_max_freq / HZ_PER_KHZ;
 
