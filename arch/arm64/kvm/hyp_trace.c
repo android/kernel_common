@@ -858,13 +858,10 @@ static int hyp_trace_open(struct inode *inode, struct file *file)
 {
 	int cpu = (s64)inode->i_private;
 
-	if (file->f_mode & FMODE_WRITE) {
+	if (file->f_mode & FMODE_WRITE)
 		hyp_trace_reset(cpu);
 
-		return 0;
-	}
-
-	return -EPERM;
+	return 0;
 }
 
 static ssize_t hyp_trace_write(struct file *filp, const char __user *ubuf,
