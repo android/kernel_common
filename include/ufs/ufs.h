@@ -187,6 +187,15 @@ enum attr_idn {
 	QUERY_ATTR_IDN_DEV_LVL_EXCEPTION_ID     = 0x34,
 };
 
+/* The constants below are not in enum attr_idn to preseve the GKI ABI. */
+enum {
+	QUERY_ATTR_IDN_HID_DEFRAG_OPERATION	= 0x35,
+	QUERY_ATTR_IDN_HID_AVAILABLE_SIZE	= 0x36,
+	QUERY_ATTR_IDN_HID_SIZE			= 0x37,
+	QUERY_ATTR_IDN_HID_PROGRESS_RATIO	= 0x38,
+	QUERY_ATTR_IDN_HID_STATE		= 0x39,
+};
+
 /* Descriptor idn for Query requests */
 enum desc_idn {
 	QUERY_DESC_IDN_DEVICE		= 0x0,
@@ -396,6 +405,7 @@ enum {
 	UFS_DEV_WRITE_BOOSTER_SUP	= BIT(8),
 	UFS_DEV_EXT_IID_SUP		= BIT(16),
 	UFS_DEV_LVL_EXCEPTION_SUP       = BIT(12),
+	UFS_DEV_HID_SUPPORT		= BIT(13),
 };
 #define UFS_DEV_HPB_SUPPORT_VERSION		0x310
 
@@ -459,6 +469,24 @@ enum ufs_ref_clk_freq {
 	REF_CLK_FREQ_38_4_MHZ	= 2,
 	REF_CLK_FREQ_52_MHZ	= 3,
 	REF_CLK_FREQ_INVAL	= -1,
+};
+
+/* bDefragOperation attribute values */
+enum ufs_hid_defrag_operation {
+	HID_ANALYSIS_AND_DEFRAG_DISABLE	= 0,
+	HID_ANALYSIS_ENABLE		= 1,
+	HID_ANALYSIS_AND_DEFRAG_ENABLE	= 2,
+};
+
+/* bHIDState attribute values */
+enum ufs_hid_state {
+	HID_IDLE		= 0,
+	ANALYSIS_IN_PROGRESS	= 1,
+	DEFRAG_REQUIRED		= 2,
+	DEFRAG_IN_PROGRESS	= 3,
+	DEFRAG_COMPLETED	= 4,
+	DEFRAG_NOT_REQUIRED	= 5,
+	NUM_UFS_HID_STATES	= 6,
 };
 
 /* Query response result code */
