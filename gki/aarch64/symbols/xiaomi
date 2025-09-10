@@ -92,6 +92,8 @@
   blk_mq_alloc_queue
   scsi_host_busy
   dev_pm_opp_find_freq_ceil_indexed
+  __traceiter_android_vh_customize_thp_gfp_orders
+  __tracepoint_android_vh_customize_thp_gfp_orders
 
 #required by stability
   sock_from_file
