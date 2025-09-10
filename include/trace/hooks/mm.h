@@ -371,6 +371,9 @@ DECLARE_HOOK(android_vh_page_should_be_protected,
 DECLARE_HOOK(android_vh_do_read_fault,
 	TP_PROTO(struct vm_fault *vmf, unsigned long fault_around_bytes),
 	TP_ARGS(vmf, fault_around_bytes));
+DECLARE_HOOK(android_vh_wp_page_reuse,
+	TP_PROTO(struct vm_fault *vmf, struct folio *folio),
+	TP_ARGS(vmf, folio));
 DECLARE_HOOK(android_vh_filemap_read,
 	TP_PROTO(struct file *file, loff_t pos, size_t size),
 	TP_ARGS(file, pos, size));
