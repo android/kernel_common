@@ -4773,6 +4773,11 @@
 
 	pcmv=		[HW,PCMCIA] BadgePAD 4
 
+	pcp_thp_order=	[MM]
+			Specify the order of the pcp used by THP.
+			The specified value must be no greater than HPAGE_PMD_ORDER
+			(default) and greater than 3 (PAGE_ALLOC_COSTLY_ORDER).
+
 	pd_ignore_unused
 			[PM]
 			Keep all power-domains already enabled by bootloader on,

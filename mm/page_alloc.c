@@ -599,6 +599,27 @@ out:
 	add_taint(TAINT_BAD_PAGE, LOCKDEP_NOW_UNRELIABLE);
 }
 
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+static unsigned int pcp_thp_order __read_mostly = HPAGE_PMD_ORDER;
+
+static int __init parse_pcp_thp_order(char *s)
+{
+	int err;
+	unsigned int order;
+
+	err = kstrtouint(s, 0, &order);
+	if (err)
+		return err;
+
+	if (order <= PAGE_ALLOC_COSTLY_ORDER || order > HPAGE_PMD_ORDER)
+		return -EINVAL;
+
+	pcp_thp_order = order;
+	return 0;
+}
+early_param("pcp_thp_order", parse_pcp_thp_order);
+#endif
+
 static inline unsigned int order_to_pindex(int migratetype, int order)
 {
 	bool __maybe_unused movable;
@@ -614,7 +635,7 @@ static inline unsigned int order_to_pindex(int migratetype, int order)
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	if (order > PAGE_ALLOC_COSTLY_ORDER) {
-		VM_BUG_ON(order != HPAGE_PMD_ORDER);
+		VM_BUG_ON(order != pcp_thp_order);
 
 		movable = migratetype == MIGRATE_MOVABLE;
 #ifdef CONFIG_CMA
@@ -636,7 +657,7 @@ static inline int pindex_to_order(unsigned int pindex)
 
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	if (pindex >= NR_LOWORDER_PCP_LISTS)
-		order = HPAGE_PMD_ORDER;
+		order = pcp_thp_order;
 #else
 	VM_BUG_ON(order > PAGE_ALLOC_COSTLY_ORDER);
 #endif
@@ -649,7 +670,7 @@ static inline bool pcp_allowed_order(unsigned int order)
 	if (order <= PAGE_ALLOC_COSTLY_ORDER)
 		return true;
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
-	if (order == HPAGE_PMD_ORDER)
+	if (order == pcp_thp_order)
 		return true;
 #endif
 	return false;
