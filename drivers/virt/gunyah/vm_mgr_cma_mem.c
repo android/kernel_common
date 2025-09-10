@@ -211,6 +211,9 @@ int gunyah_vm_binding_cma_alloc(struct gunyah_vm *ghvm,
 		return -EOVERFLOW;
 
 	file = fget(cma_map->guest_mem_fd);
+	if (!file)
+		return -EBADF;
+
 	max_size = i_size_read(file_inode(file));
 	if (cma_map->offset + cma_map->size > max_size) {
 		fput(file);
