@@ -1414,6 +1414,7 @@ static int smmu_detach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 			cd[2] = 0;
 			cd[3] = 0;
 			ret = smmu_sync_cd(smmu, sid, pasid);
+			smmu_put_ref_domain(smmu, smmu_domain);
 			goto out_unlock;
 		}
 	}
