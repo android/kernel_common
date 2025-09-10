@@ -7,6 +7,7 @@
   device_pm_wait_for_dev
   device_pm_wait_for_dev
   drm_handle_vblank
+  hid_open_report
   memblock_free
   mpi_alloc
   mpi_cmp
