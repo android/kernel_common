@@ -725,6 +725,8 @@ static void smmu_free_domain(struct kvm_hyp_iommu_domain *domain)
 	if (smmu_domain->pgtable)
 		kvm_arm_io_pgtable_free(smmu_domain->pgtable);
 
+	/* Assert devices are detached at this point, otherwise we leak memory. */
+	WARN_ON(!list_empty(&smmu_domain->iommu_list));
 	hyp_free(smmu_domain);
 }
 
@@ -1299,7 +1301,7 @@ static int smmu_attach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 	if (!smmu_domain->pgtable) {
 		ret = smmu_domain_finalise(smmu, domain);
 		if (ret)
-			goto out_unlock;
+			goto out_unlock_ref;
 		if (domain->domain_id == KVM_IOMMU_DOMAIN_IDMAP_ID)
 			init_idmap = true;
 	}
@@ -1308,7 +1310,7 @@ static int smmu_attach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 		/* Device already attached or pasid for s2. */
 		if (dst->data[0] || pasid) {
 			ret = -EBUSY;
-			goto out_unlock;
+			goto out_unlock_ref;
 		}
 		ret = smmu_domain_config_s2(domain, &ste);
 	} else {
@@ -1321,7 +1323,7 @@ static int smmu_attach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 	}
 	/* We don't update STEs for pasid domains. */
 	if (ret || pasid)
-		goto out_unlock;
+		goto out_unlock_ref;
 
 	/*
 	 * The SMMU may cache a disabled STE.
@@ -1332,17 +1334,20 @@ static int smmu_attach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 
 	ret = smmu_sync_ste(smmu, sid);
 	if (ret)
-		goto out_unlock;
+		goto out_unlock_ref;
 
 	WRITE_ONCE(dst->data[0], ste.data[0]);
 	ret = smmu_sync_ste(smmu, sid);
 	WARN_ON(ret);
-out_unlock:
+
+out_unlock_ref:
 	if (iommu_node && ret)
 		hyp_free(iommu_node);
 	else if (iommu_node)
 		list_add_tail(&iommu_node->list, &smmu_domain->iommu_list);
-
+	else if (ret)
+		smmu_put_ref_domain(smmu, smmu_domain);
+out_unlock:
 	kvm_iommu_unlock(iommu);
 	hyp_write_unlock(&smmu_domain->list_lock);
 
