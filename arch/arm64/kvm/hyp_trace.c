@@ -1044,7 +1044,7 @@ int hyp_trace_init_tracefs(void)
 		tracefs_create_file("trace_pipe_raw", TRACEFS_MODE_READ, per_cpu_dir,
 				    (void *)cpu, &hyp_trace_raw_fops);
 
-		tracefs_create_file("trace", TRACEFS_MODE_READ, per_cpu_dir,
+		tracefs_create_file("trace", TRACEFS_MODE_WRITE, per_cpu_dir,
 				    (void *)cpu, &hyp_trace_fops);
 	}
 
