@@ -106,6 +106,7 @@ unsigned long __thp_vma_allowable_orders(struct vm_area_struct *vma,
 		supported_orders = THP_ORDERS_ALL_FILE_DEFAULT;
 
 	orders &= supported_orders;
+	trace_android_vh_thp_vma_allowable_orders(vma, &orders);
 	if (!orders)
 		return 0;
 
