@@ -35,9 +35,13 @@ static int pkvm_guest_iommu_alloc_id(void)
 	int i;
 
 	for (i = 0 ; i < ARRAY_SIZE(guest_domains) ; ++i) {
-		if (guest_domains[i] != ~0UL)
-			return ffz(guest_domains[i]) + i * BITS_PER_LONG +
+		if (guest_domains[i] != ~0UL) {
+			int domain_off = ffz(guest_domains[i]);
+
+			guest_domains[i] |= (1UL << domain_off);
+			return domain_off + i * BITS_PER_LONG +
 			       (KVM_IOMMU_MAX_DOMAINS >> 1);
+		}
 	}
 
 	return -EBUSY;
