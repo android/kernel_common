@@ -354,6 +354,7 @@
   __traceiter_task_rename
   __traceiter_android_vh_binder_alloc_new_buf_locked
   __traceiter_android_vh_copy_process
+  __traceiter_android_vh_wp_page_reuse
   __tracepoint_android_vh_account_task_time
   __tracepoint_android_rvh_alloc_workqueue
   __tracepoint_android_rvh_check_preempt_wakeup_fair
@@ -494,6 +495,7 @@
   __tracepoint_task_rename
   __tracepoint_android_vh_binder_alloc_new_buf_locked
   __tracepoint_android_vh_copy_process
+  __tracepoint_android_vh_wp_page_reuse
   __trace_puts
   truncate_inode_pages
   try_to_del_timer_sync
