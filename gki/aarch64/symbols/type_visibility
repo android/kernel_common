@@ -3,3 +3,24 @@
 # for type visibility
   ANDROID_GKI_node_stat_item
   ANDROID_GKI_memcg_stat_item
+
+# no longer needed
+  __traceiter_android_vh_oom_check_panic
+  __traceiter_kfree
+  __traceiter_kmalloc
+  __traceiter_kmem_cache_alloc
+  __traceiter_kmem_cache_free
+  __xas_next
+  console_verbose
+  copy_from_user_nofault
+  get_current_tty
+  kmem_cache_shrink
+  set_worker_desc
+  stack_trace_save_regs
+  walk_iomem_res_desc
+  work_on_cpu_safe_key
+  __tracepoint_android_vh_oom_check_panic
+  __tracepoint_kfree
+  __tracepoint_kmalloc
+  __tracepoint_kmem_cache_alloc
+  __tracepoint_kmem_cache_free
