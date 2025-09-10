@@ -3861,6 +3861,8 @@ static void switching_to_scx(struct rq *rq, struct task_struct *p)
 	if (SCX_HAS_OP(set_cpumask))
 		SCX_CALL_OP_TASK(SCX_KF_REST, set_cpumask, p,
 				 (struct cpumask *)p->cpus_ptr);
+
+	trace_android_vh_switching_to_scx(rq, p);
 }
 
 static void switched_from_scx(struct rq *rq, struct task_struct *p)

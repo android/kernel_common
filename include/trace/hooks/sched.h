@@ -431,6 +431,10 @@ DECLARE_HOOK(android_vh_scx_task_switch_finish,
 	TP_PROTO(struct task_struct *p, int enable),
 	TP_ARGS(p, enable));
 
+DECLARE_HOOK(android_vh_switching_to_scx,
+	TP_PROTO(struct rq *rq, struct task_struct *p),
+	TP_ARGS(rq, p));
+
 struct sugov_policy;
 DECLARE_RESTRICTED_HOOK(android_rvh_set_sugov_update,
 	TP_PROTO(struct sugov_policy *sg_policy, unsigned int next_freq, bool *should_update),
