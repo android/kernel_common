@@ -69,6 +69,7 @@
   bitmap_to_arr32
   __bitmap_weight
   bitmap_zalloc
+  blk_check_plugged
   blk_execute_rq_nowait
   blk_get_queue
   blk_mq_free_request
@@ -3085,3 +3086,4 @@
   xhci_sideband_remove_interrupter
   xhci_sideband_unregister
   xhci_suspend
+  zstd_default_clevel
