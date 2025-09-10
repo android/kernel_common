@@ -45,6 +45,8 @@
   __pmd_trans_huge_lock
   __pte_offset_map_lock
   __show_mem
+  __traceiter_android_vh_page_cache_ra_order_bypass
+  __tracepoint_android_vh_page_cache_ra_order_bypass
   __traceiter_android_vh_slab_alloc_node
   __tracepoint_android_vh_slab_alloc_node
   __traceiter_android_vh_slab_free
