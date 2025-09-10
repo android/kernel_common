@@ -573,6 +573,7 @@
   down
   downgrade_write
   down_interruptible
+  down_killable
   down_read
   down_read_trylock
   down_timeout
@@ -786,6 +787,7 @@
   drop_reasons_register_subsys
   drop_reasons_unregister_subsys
   d_splice_alias
+  dump_backtrace
   dump_stack
   dw_pcie_find_capability
   dw_pcie_host_deinit
@@ -1005,6 +1007,7 @@
   handle_fasteoi_irq
   handle_simple_irq
   handle_sysrq
+  hci_cmd_sync
   hdmi_audio_infoframe_init
   hdmi_audio_infoframe_pack
   hdmi_avi_infoframe_init
@@ -1317,8 +1320,10 @@
   log_write_mmio
   lookup_bdev
   loops_per_jiffy
+  LZ4_compress_default
   LZ4_compress_fast
   LZ4_compress_fast_continue
+  LZ4_compress_HC
   LZ4_decompress_safe
   LZ4_decompress_safe_continue
   LZ4_decompress_safe_partial
@@ -2118,6 +2123,7 @@
   skb_queue_tail
   skb_realloc_headroom
   skb_scrub_packet
+  skb_split
   skb_trim
   skb_tstamp_tx
   skb_unlink
@@ -2822,4 +2828,6 @@
   zs_malloc
   zs_map_object
   zs_pool_stats
+  zstd_max_clevel
+  zstd_min_clevel
   zs_unmap_object
