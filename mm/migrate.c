@@ -254,6 +254,12 @@ static bool remove_migration_pte(struct folio *folio,
 {
 	struct rmap_walk_arg *rmap_walk_arg = arg;
 	DEFINE_FOLIO_VMA_WALK(pvmw, rmap_walk_arg->folio, vma, addr, PVMW_SYNC | PVMW_MIGRATION);
+	bool bypass = false;
+
+	trace_android_vh_mm_remove_migration_pte_bypass(folio, vma, addr,
+							rmap_walk_arg->folio, &bypass);
+	if (bypass)
+		return true;
 
 	while (page_vma_mapped_walk(&pvmw)) {
 		rmap_t rmap_flags = RMAP_NONE;
@@ -1568,6 +1574,11 @@ static inline int try_split_folio(struct folio *folio, struct list_head *split_f
 				  enum migrate_mode mode)
 {
 	int rc;
+	bool bypass = false;
+
+	trace_android_vh_mm_try_split_folio_bypass(folio, &bypass);
+	if (bypass)
+		return -EBUSY;
 
 	if (mode == MIGRATE_ASYNC) {
 		if (!folio_trylock(folio))
