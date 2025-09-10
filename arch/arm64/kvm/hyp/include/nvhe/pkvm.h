@@ -174,7 +174,7 @@ void pkvm_poison_pvmfw_pages(void);
 int pkvm_timer_init(void);
 void pkvm_udelay(unsigned long usecs);
 
-#define MAX_POWER_DOMAINS		32
+#define MAX_POWER_DOMAINS		40
 
 struct kvm_power_domain_ops {
 	int (*power_on)(struct kvm_power_domain *pd);
