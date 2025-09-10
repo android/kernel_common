@@ -247,6 +247,18 @@
 # required audio_platform.ko
   snd_pcm_rate_bit_to_rate
 
+# batman-adv.ko
+  dev_get_iflink
+  skb_prepare_seq_read
+  skb_seq_read
+  ip_mc_check_igmp
+  ipv6_mc_check_mld
+  br_multicast_has_router_adjacent
+  br_multicast_has_querier_anywhere
+  br_multicast_has_querier_adjacent
+  br_multicast_list_adjacent
+  netdev_master_upper_dev_get_rcu
+
 # required haptic.ko
   devm_led_classdev_unregister
 
