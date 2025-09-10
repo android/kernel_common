@@ -21,7 +21,7 @@ use core::{
 };
 
 use kernel::{
-    alloc::allocator::Kmalloc,
+    alloc::allocator::KVmalloc,
     alloc::Allocator,
     bindings,
     error::Result,
@@ -297,7 +297,7 @@ impl ShrinkablePageRange {
 
         let layout = Layout::array::<PageInfo>(num_pages).map_err(|_| ENOMEM)?;
         // SAFETY: The layout has non-zero size.
-        let pages = Kmalloc::alloc(layout, GFP_KERNEL)?.cast::<PageInfo>();
+        let pages = KVmalloc::alloc(layout, GFP_KERNEL)?.cast::<PageInfo>();
 
         // SAFETY: This just initializes the pages array.
         unsafe {
@@ -317,7 +317,7 @@ impl ShrinkablePageRange {
             pr_debug!("Failed to register with vma: already registered");
             drop(inner);
             // SAFETY: The `pages` array was allocated with the same layout.
-            unsafe { Kmalloc::free(pages.cast(), layout) };
+            unsafe { KVmalloc::free(pages.cast(), layout) };
             return Err(EBUSY);
         }
 
@@ -647,7 +647,7 @@ impl PinnedDrop for ShrinkablePageRange {
         let layout = unsafe { Layout::array::<PageInfo>(size).unwrap_unchecked() };
 
         // SAFETY: The `pages` array was allocated with the same layout.
-        unsafe { Kmalloc::free(pages.cast(), layout) };
+        unsafe { KVmalloc::free(pages.cast(), layout) };
     }
 }
 
