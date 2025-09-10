@@ -617,3 +617,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mm_remove_migration_pte_bypass);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mm_split_huge_page_bypass);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_mm_try_split_folio_bypass);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_scmi_limit_notify_cb);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_fiq_dump);
