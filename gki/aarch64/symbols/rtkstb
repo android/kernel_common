@@ -32,7 +32,6 @@
   cancel_work_sync
   capable
   cdev_add
-  cdev_alloc
   cdev_del
   cdev_device_add
   cdev_device_del
@@ -55,7 +54,6 @@
   __clk_is_enabled
   clk_prepare
   clk_put
-  clk_round_rate
   clk_set_rate
   clk_unprepare
   cma_alloc
@@ -125,18 +123,20 @@
   devm_mfd_add_devices
   devm_of_clk_add_hw_provider
   __devm_of_phy_provider_register
+  devm_of_platform_populate
   devm_phy_create
   devm_pinctrl_get
   devm_pinctrl_put
   devm_platform_get_and_ioremap_resource
   devm_platform_ioremap_resource
   devm_power_supply_register
-  devm_pwm_get
+  devm_regmap_field_alloc
   __devm_regmap_init_i2c
   devm_regulator_get
   devm_regulator_get_optional
   devm_regulator_register
   devm_request_threaded_irq
+  devm_reset_control_array_get
   __devm_reset_control_get
   devm_reset_controller_register
   devm_rtc_device_register
@@ -150,7 +150,6 @@
   _dev_warn
   dma_alloc_attrs
   dma_buf_attach
-  dma_buf_begin_cpu_access
   dma_buf_detach
   dma_buf_end_cpu_access
   dma_buf_export
@@ -158,9 +157,7 @@
   dma_buf_get
   dma_buf_map_attachment
   dma_buf_put
-  dma_buf_set_name
   dma_buf_unmap_attachment
-  dma_buf_vmap
   dma_buf_vunmap
   dma_fence_init
   dma_fence_release
@@ -214,10 +211,12 @@
   ethtool_convert_link_mode_to_legacy_u32
   ethtool_op_get_ts_info
   eth_type_trans
-  extcon_find_edev_by_node
   extcon_get_property
   extcon_get_state
-  extcon_register_notifier
+  extcon_set_property
+  extcon_set_property_capability
+  extcon_set_state
+  extcon_sync
   fasync_helper
   fd_install
   _find_first_bit
@@ -345,6 +344,7 @@
   log_read_mmio
   log_write_mmio
   match_string
+  mem_alloc_profiling_key
   memcpy
   __memcpy_fromio
   __memcpy_toio
@@ -371,6 +371,7 @@
   module_put
   __msecs_to_jiffies
   msleep
+  msleep_interruptible
   __mutex_init
   mutex_lock
   mutex_lock_interruptible
@@ -412,11 +413,9 @@
   nvmem_cell_read
   of_address_to_resource
   of_alias_get_id
-  of_clk_add_provider
-  of_clk_del_provider
   of_clk_get_by_name
   of_clk_hw_simple_get
-  of_clk_src_simple_get
+  of_count_phandle_with_args
   of_device_get_match_data
   of_device_is_available
   of_device_is_compatible
@@ -424,8 +423,10 @@
   of_find_device_by_node
   of_find_node_opts_by_path
   of_find_property
+  of_genpd_add_provider_simple
   of_get_child_by_name
   of_get_compatible_child
+  of_get_next_available_child
   of_get_next_child
   of_get_property
   of_get_regulator_init_data
@@ -447,6 +448,7 @@
   of_property_read_u32_index
   of_property_read_variable_u32_array
   of_prop_next_string
+  of_reserved_mem_lookup
   page_pinner_inited
   __page_pinner_put_page
   panic
@@ -492,6 +494,7 @@
   pinctrl_lookup_state
   pinctrl_select_state
   platform_bus_type
+  platform_device_put
   platform_device_register_full
   platform_device_unregister
   __platform_driver_register
@@ -499,6 +502,8 @@
   platform_get_irq
   platform_get_resource
   platform_get_resource_byname
+  pm_genpd_init
+  pm_genpd_remove
   __pm_runtime_disable
   pm_runtime_enable
   pm_runtime_force_resume
@@ -521,7 +526,6 @@
   pskb_expand_head
   put_device
   __put_task_struct
-  pwm_adjust_config
   pwm_apply_might_sleep
   queue_delayed_work_on
   queue_work_on
@@ -546,16 +550,22 @@
   refcount_warn_saturate
   register_netdev
   register_reboot_notifier
+  __register_rpmsg_driver
+  regmap_field_read
+  regmap_field_update_bits_base
   regmap_read
   regmap_update_bits_base
   regmap_write
-  regulator_count_voltages
   regulator_disable
+  regulator_disable_regmap
   regulator_enable
-  regulator_get_voltage
-  regulator_list_voltage
+  regulator_enable_regmap
+  regulator_get_voltage_sel_regmap
+  regulator_is_enabled_regmap
+  regulator_list_voltage_linear
   regulator_map_voltage_iterate
-  regulator_set_voltage
+  regulator_map_voltage_linear
+  regulator_set_voltage_sel_regmap
   release_firmware
   remap_pfn_range
   remove_proc_entry
@@ -581,6 +591,7 @@
   rtnl_is_locked
   rtnl_lock
   rtnl_unlock
+  sched_clock
   schedule
   schedule_timeout
   scnprintf
@@ -659,6 +670,7 @@
   sysfs_create_link
   sysfs_emit
   sysfs_remove_group
+  sysfs_remove_link
   sysfs_streq
   system_freezable_wq
   system_state
@@ -682,6 +694,7 @@
   unregister_chrdev_region
   unregister_netdev
   unregister_reboot_notifier
+  unregister_rpmsg_driver
   up
   up_read
   up_write
@@ -741,17 +754,7 @@
   regcache_cache_bypass
 
 # required by apw888x-regulator-core.ko
-  devm_regmap_field_alloc
   rdev_get_dev
-  regmap_field_read
-  regmap_field_update_bits_base
-  regulator_disable_regmap
-  regulator_enable_regmap
-  regulator_get_voltage_sel_regmap
-  regulator_is_enabled_regmap
-  regulator_list_voltage_linear
-  regulator_map_voltage_linear
-  regulator_set_voltage_sel_regmap
   strcasecmp
 
 # required by buflock.ko
@@ -818,7 +821,6 @@
   sock_release
   __sw_hweight16
   synchronize_rcu
-  sysfs_remove_link
   system_power_efficient_wq
   trace_print_array_seq
   unregister_netdevice_notifier
@@ -844,6 +846,8 @@
   devm_clk_register
   driver_register
   driver_unregister
+  of_clk_add_provider
+  of_clk_src_simple_get
 
 # required by cma_heap.ko
   cma_get_name
@@ -875,8 +879,6 @@
   dev_pm_opp_of_get_sharing_cpus
   dev_pm_opp_of_register_em
   dev_pm_opp_set_sharing_cpus
-  dev_pm_opp_register_notifier
-  dev_pm_opp_unregister_notifier
   policy_has_boost_freq
 
 # required by cqhci.ko
@@ -962,7 +964,6 @@
   mmc_regulator_get_supply
 
 # required by dwc3-rtk.ko
-  platform_device_put
   usb_get_dr_mode
   usb_role_switch_get_drvdata
   usb_role_switch_register
@@ -970,10 +971,6 @@
 
 # required by extcon-rtk-type-c.ko
   device_get_named_child_node
-  extcon_set_property
-  extcon_set_property_capability
-  extcon_set_state
-  extcon_sync
   fwnode_property_read_string
   typec_find_port_data_role
   typec_find_port_power_role
@@ -1254,8 +1251,6 @@
   __mmap_lock_do_trace_released
   __mmap_lock_do_trace_start_locking
   mmput
-  msleep_interruptible
-  of_count_phandle_with_args
   strrchr
   __traceiter_mmap_lock_acquire_returned
   __traceiter_mmap_lock_released
@@ -1308,6 +1303,10 @@
 # required by pr2000.ko
   i2c_smbus_write_i2c_block_data
 
+# required by pwm-regulator.ko
+  devm_pwm_get
+  pwm_adjust_config
+
 # required by pwm-rtk.ko
   __pwmchip_add
   pwmchip_remove
@@ -1322,6 +1321,7 @@
   __skb_gso_segment
 
 # required by r8169soc.ko
+  cancel_work
   devm_alloc_etherdev_mqs
   devm_mdiobus_alloc_size
   __devm_mdiobus_register
@@ -1343,6 +1343,7 @@
   phy_disconnect
   phy_do_ioctl_running
   phy_driver_register
+  phy_driver_unregister
   phy_ethtool_get_eee
   phy_ethtool_get_link_ksettings
   phy_ethtool_nway_reset
@@ -1358,18 +1359,38 @@
   phy_speed_down
   phy_speed_up
   phy_start
+  phy_start_aneg
   phy_stop
   phy_support_asym_pause
   phy_suspend
   strsep
 
+# required by regulator_supply_alias.ko
+  devm_kstrdup
+  of_cpu_node_to_id
+  of_phandle_iterator_init
+  of_phandle_iterator_next
+  regulator_register_supply_alias
+  regulator_unregister_supply_alias
+
+# required by rpmsg_ctrl.ko
+  ida_alloc_range
+  ida_free
+  rpmsg_chrdev_eptdev_create
+  rpmsg_chrdev_eptdev_destroy
+  rpmsg_class
+  rpmsg_create_channel
+  rpmsg_release_channel
+
 # required by rpmsg_rtk.ko
   of_find_node_by_phandle
-  of_get_next_available_child
   rpmsg_register_device
   rpmsg_register_device_override
   rproc_get_by_phandle
-  rpmsg_chrdev_eptdev_create
+
+# required by rr320010-regulator.ko
+  regulator_list_voltage_linear_range
+  regulator_map_voltage_linear_range
 
 # required by rtc-rtk.ko
   mktime64
@@ -1397,7 +1418,6 @@
 # required by rtk-ir.ko
   devm_rc_allocate_device
   devm_rc_register_device
-  devm_reset_control_array_get
   rc_keydown
   rc_repeat
   register_pm_notifier
@@ -1424,6 +1444,8 @@
   device_attach
   device_find_child
   device_release_driver
+  extcon_find_edev_by_node
+  extcon_register_notifier
   gpiod_is_active_low
   of_node_name_eq
   __of_reset_control_get
@@ -1433,7 +1455,6 @@
 
 # required by rtk_avcpulog.ko
   complete_all
-  sched_clock
   send_sig
 
 # required by rtk_cec.ko
@@ -1557,6 +1578,7 @@
   drm_mode_config_reset
   drm_mode_copy
   drm_mode_duplicate
+  drm_mode_is_420_only
   drm_mode_object_find
   drm_mode_probed_add
   drm_mode_set_name
@@ -1565,6 +1587,11 @@
   drm_of_find_panel_or_bridge
   drm_of_find_possible_crtcs
   drm_open
+  drm_panel_disable
+  drm_panel_enable
+  drm_panel_get_modes
+  drm_panel_prepare
+  drm_panel_unprepare
   drm_plane_cleanup
   drm_plane_create_zpos_immutable_property
   drm_poll
@@ -1585,7 +1612,7 @@
   krealloc_noprof
   ktime_get_raw
   mipi_dsi_host_register
-  of_get_drm_display_mode
+  of_find_node_by_name
   __platform_register_drivers
   platform_unregister_drivers
   reset_control_status
@@ -1598,7 +1625,6 @@
   of_get_parent
 
 # required by rtk_fw_remoteproc.ko
-  of_reserved_mem_lookup
   rproc_add
   rproc_alloc
   rproc_boot
@@ -1612,10 +1638,11 @@
 
 # required by rtk_gpc.ko
   atomic_notifier_chain_register
-  of_genpd_add_provider_simple
+  __devm_reset_control_bulk_get
   panic_notifier_list
-  pm_genpd_init
-  pm_genpd_remove
+  reset_control_bulk_acquire
+  reset_control_bulk_deassert
+  reset_control_bulk_release
   __udelay
 
 # required by rtk_gpio_manager.ko
@@ -1699,6 +1726,7 @@
   v4l2_m2m_next_buf
   v4l2_m2m_qbuf
   v4l2_m2m_release
+  vb2_queue_release
   vb2_vmalloc_memops
   video_unregister_device
 
@@ -1722,10 +1750,6 @@
   rfkill_init_sw_state
   rfkill_set_sw_state
 
-# required by rtk_rpc_mem.ko
-  __register_rpmsg_driver
-  unregister_rpmsg_driver
-
 # required by rtk_sb2.ko
   regmap_bulk_write
 
@@ -1742,11 +1766,11 @@
 # required by rtk_tee_mem_api.ko
   platform_find_device_by_driver
 
-# required by rtk_uart_wrapper.ko
-  devm_of_platform_populate
-
 # required by rtk_uncore_pmu.ko
   vsnprintf
+
+# required by rtk_urpc_service.ko
+  cdev_alloc
 
 # required by rtk_ve3_uart.ko
   devm_clk_put
@@ -1773,6 +1797,11 @@
   watchdog_set_restart_priority
   watchdog_unregister_device
 
+# required by selector.ko
+  i2c_get_adapter_by_fwnode
+  i2c_new_client_device
+  of_i2c_get_board_info
+
 # required by snd-realtek-notify.ko
   gpiod_count
   gpiod_get_index
@@ -1781,6 +1810,8 @@
   pm_clk_destroy
 
 # required by snd-soc-hifi-compr-rtk.ko
+  dma_buf_begin_cpu_access
+  dma_buf_vmap
   snd_compress_new
 
 # required by snd-soc-realtek.ko
@@ -1831,13 +1862,17 @@
   unpin_user_pages
   uuid_null
 
-# required by regulator_supply_alias.ko
-  regulator_register_supply_alias
-  regulator_unregister_supply_alias
-
-# required by selector.ko
-  of_i2c_get_board_info
+# required by tps6287x-regulator.ko
+  regulator_set_ramp_delay_regmap
 
 # preserved by --additions-only
-  cancel_work
-  phy_start_aneg
+  clk_round_rate
+  dev_pm_opp_register_notifier
+  dev_pm_opp_unregister_notifier
+  dma_buf_set_name
+  of_clk_del_provider
+  of_get_drm_display_mode
+  regulator_count_voltages
+  regulator_get_voltage
+  regulator_list_voltage
+  regulator_set_voltage
