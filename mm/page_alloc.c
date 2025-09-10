@@ -6217,6 +6217,22 @@ static void zone_pcp_update(struct zone *zone, int cpu_online)
 	mutex_unlock(&pcp_batch_high_lock);
 }
 
+void zone_pageset_high_and_batch_update(struct zone *zone, int new_high_min,
+					int new_high_max, int new_batch)
+{
+	mutex_lock(&pcp_batch_high_lock);
+
+	zone->pageset_high_min = new_high_min;
+	zone->pageset_high_max = new_high_max;
+	zone->pageset_batch = new_batch;
+
+	__zone_set_pageset_high_and_batch(zone, new_high_min, new_high_max,
+					  new_batch);
+
+	mutex_unlock(&pcp_batch_high_lock);
+}
+EXPORT_SYMBOL_GPL(zone_pageset_high_and_batch_update);
+
 static void zone_pcp_update_cacheinfo(struct zone *zone, unsigned int cpu)
 {
 	struct per_cpu_pages *pcp;
