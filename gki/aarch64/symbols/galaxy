@@ -53,6 +53,8 @@
   __traceiter_android_vh_filemap_map_pages
   __traceiter_android_vh_filemap_read
   __traceiter_android_vh_free_pages_ok_bypass
+  __traceiter_android_vh_free_page_bypass
+  __traceiter_android_vh_free_folio_bypass
   __traceiter_android_vh_free_pages_prepare_bypass
   __traceiter_android_vh_gcma_cc_allow_nonworkingset
   __traceiter_android_vh_gcma_cc_store_page_bypass
@@ -101,6 +103,8 @@
   __tracepoint_android_vh_filemap_map_pages
   __tracepoint_android_vh_filemap_read
   __tracepoint_android_vh_free_pages_ok_bypass
+  __tracepoint_android_vh_free_page_bypass
+  __tracepoint_android_vh_free_folio_bypass
   __tracepoint_android_vh_free_pages_prepare_bypass
   __tracepoint_android_vh_gcma_cc_allow_nonworkingset
   __tracepoint_android_vh_gcma_cc_store_page_bypass
