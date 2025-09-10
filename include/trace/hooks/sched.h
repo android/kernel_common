@@ -531,6 +531,11 @@ DECLARE_RESTRICTED_HOOK(android_rvh_util_fits_cpu,
 		 int cpu, bool *fits, bool *done),
 	TP_ARGS(util, uclamp_min, uclamp_max, cpu, fits, done), 1);
 
+struct sched_dl_entity;
+DECLARE_HOOK(android_vh_dump_dl_server,
+	TP_PROTO(struct sched_dl_entity *dl_se, struct task_struct *p),
+	TP_ARGS(dl_se, p));
+
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */
