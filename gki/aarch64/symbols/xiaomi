@@ -98,6 +98,10 @@
   __tracepoint_android_vh_customize_pmd_gfp_bypass
   __traceiter_android_vh_thp_vma_allowable_orders
   __tracepoint_android_vh_thp_vma_allowable_orders
+  __traceiter_cma_alloc_busy_retry
+  __tracepoint_cma_alloc_busy_retry
+  __traceiter_cma_release
+  __tracepoint_cma_release
 
 #required by stability
   sock_from_file
