@@ -4410,9 +4410,6 @@ static int device_set_dirty_tracking(struct list_head *devices, bool enable)
 			break;
 	}
 
-	if (!ret)
-		info->domain_attached = true;
-
 	return ret;
 }
 
@@ -4595,6 +4592,9 @@ static int identity_domain_attach_dev(struct iommu_domain *domain, struct device
 	} else {
 		ret = device_setup_pass_through(dev);
 	}
+
+	if (!ret)
+		info->domain_attached = true;
 
 	return ret;
 }
