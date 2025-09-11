@@ -3149,9 +3149,7 @@ static bool __splice_segment(struct page *page, unsigned int poff,
 		poff += flen;
 		plen -= flen;
 		*len -= flen;
-		if (!*len)
-			return true;
-	} while (plen);
+	} while (*len && plen);
 
 	return false;
 }
