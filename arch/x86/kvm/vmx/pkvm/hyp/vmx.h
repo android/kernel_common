@@ -25,11 +25,6 @@ static inline u64 pkvm_construct_eptp(unsigned long root_hpa, int level)
 	return eptp;
 }
 
-static inline void vmx_enable_irq_window(struct vcpu_vmx *vmx)
-{
-	exec_controls_setbit(vmx, CPU_BASED_INTR_WINDOW_EXITING);
-}
-
 static inline void flush_ept(u64 eptp)
 {
 	if (vmx_has_invept_context())

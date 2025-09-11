@@ -5,6 +5,7 @@
 
 #include <asm/trapnr.h>
 #include <pkvm.h>
+#include <vmx/x86_ops.h>
 #include <capabilities.h>
 #include "cpu.h"
 #include "pkvm_hyp.h"
@@ -17,6 +18,7 @@ static void handle_nmi(int cpu_id)
 	struct pkvm_host_vcpu *hvcpu =
 		pkvm_hyp->host_vm.host_vcpus[cpu_id];
 	struct vcpu_vmx *vmx = &hvcpu->vmx;
+	struct kvm_vcpu *vcpu = &vmx->vcpu;
 	u64 cur_vmcs_pa;
 
 	if (!hvcpu || !vmx)
@@ -52,7 +54,7 @@ static void handle_nmi(int cpu_id)
 	 * already executed, open the irq window. For the case
 	 * happens before, opening irq window doesn't cause trouble.
 	 */
-	vmx_enable_irq_window(vmx);
+	vmx_enable_irq_window(vcpu);
 
 	/* Switch if the current one is not host vcpu vmcs */
 	if (cur_vmcs_pa != __pkvm_pa(vmx->loaded_vmcs->vmcs))
