@@ -203,6 +203,7 @@ filegroup(
         "gki/aarch64/symbols/qcom",
         "gki/aarch64/symbols/rtkstb",
         "gki/aarch64/symbols/rtktv",
+        "gki/aarch64/symbols/tcl",
         "gki/aarch64/symbols/transsion",
         "gki/aarch64/symbols/trusty",
         "gki/aarch64/symbols/tuxera",
