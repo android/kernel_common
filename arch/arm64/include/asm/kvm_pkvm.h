@@ -512,10 +512,6 @@ struct pkvm_ptdump_log_hdr {
 	u64	w_index: 16;
 };
 
-int pkvm_call_hyp_nvhe_ppage(struct kvm_pinned_page *ppage,
-			     int (*call_hyp_nvhe)(u64, u64, u8, void*),
-			     void *args, bool unmap);
-
 struct pkvm_mapping {
 	struct rb_node node;
 	u64 gfn;

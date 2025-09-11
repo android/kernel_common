@@ -1758,9 +1758,8 @@ __pkvm_pages_to_ppages(struct kvm *kvm, struct kvm_memory_slot *memslot, gfn_t g
 		ppage->page = pfn_to_page(pfn);
 		ppage->ipa = ipa;
 		ppage->order = get_order(page_size);
-		ppage->pins = 1 << ppage->order;
 		list_add_tail(&ppage->list_node, ppages);
-		nr_ppages += ppage->pins;
+		nr_ppages += 1 << ppage->order;
 
 next:
 		/* Number of pages to skip (covered by a THP) */
@@ -2081,7 +2080,6 @@ int __pkvm_pgtable_stage2_split(struct kvm_vcpu *vcpu, phys_addr_t ipa, size_t s
 		goto end;
 
 	ppage->order = 0;
-	ppage->pins = 1;
 
 	pfn = page_to_pfn(ppage->page) + 1;
 	ipa = ipa + PAGE_SIZE;
@@ -2093,7 +2091,6 @@ int __pkvm_pgtable_stage2_split(struct kvm_vcpu *vcpu, phys_addr_t ipa, size_t s
 		ppage->page = pfn_to_page(pfn);
 		ppage->ipa = ipa;
 		ppage->order = 0;
-		ppage->pins = 1;
 		insert_ppage(kvm, ppage);
 
 		pfn += 1;
