@@ -810,6 +810,11 @@
   dma_heap_get_dev
   dma_heap_get_drvdata
   dma_heap_get_name
+  dma_iova_free
+  dma_iova_link
+  dma_iova_sync
+  dma_iova_try_alloc
+  dma_iova_unlink
   dmam_alloc_attrs
   dma_map_page_attrs
   dma_map_resource
