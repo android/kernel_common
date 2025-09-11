@@ -249,6 +249,7 @@ struct zram_pp_ctl *init_pp_ctl(void)
 
 	for (idx = 0; idx < NUM_PP_BUCKETS; idx++)
 		INIT_LIST_HEAD(&ctl->pp_buckets[idx]);
+	ctl->processed_bytes = 0;
 	return ctl;
 }
 
@@ -810,6 +811,7 @@ int zram_writeback_slots(struct zram *zram, struct zram_pp_ctl *ctl)
 		zram_set_handle(zram, index, blk_idx);
 		blk_idx = 0;
 		atomic64_inc(&zram->stats.pages_stored);
+		ctl->processed_bytes += PAGE_SIZE;
 		spin_lock(&zram->wb_limit_lock);
 		if (zram->wb_limit_enable && zram->bd_wb_limit > 0)
 			zram->bd_wb_limit -=  1UL << (PAGE_SHIFT - 12);
