@@ -40,8 +40,6 @@ struct pkvm_host_vcpu {
 	struct vcpu_vmx vmx;
 	struct pkvm_pcpu *pcpu;
 	struct vmcs *vmxarea;
-
-	bool pending_nmi;
 };
 
 struct pkvm_host_vm {

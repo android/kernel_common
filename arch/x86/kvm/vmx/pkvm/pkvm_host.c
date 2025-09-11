@@ -544,7 +544,9 @@ static __init void init_execution_control(struct pkvm_host_vcpu *hvcpu,
 	u32 cpu_based_exec_ctrl = vmcs_config_ptr->cpu_based_exec_ctrl;
 	u32 cpu_based_2nd_exec_ctrl = vmcs_config_ptr->cpu_based_2nd_exec_ctrl;
 
-	pin_controls_set(vmx, vmcs_config_ptr->pin_based_exec_ctrl);
+	/* Preemption timer is toggled dynamically */
+	pin_controls_set(vmx, vmcs_config_ptr->pin_based_exec_ctrl &
+			      ~PIN_BASED_VMX_PREEMPTION_TIMER);
 
 	/*
 	 * CR3 LOAD/STORE EXITING are not used by pkvm
@@ -702,7 +704,8 @@ static __init int pkvm_host_check_and_setup_vmx_cap(struct pkvm_hyp *pkvm)
 			SECONDARY_EXEC_ENABLE_USR_WAIT_PAUSE |
 			SECONDARY_EXEC_EPT_VIOLATION_VE,
 		.tertiary_vm_exec_ctrl_opt = 0,
-		.pin_based_vm_exec_ctrl_req = 0,
+		.pin_based_vm_exec_ctrl_req =
+			PIN_BASED_VMX_PREEMPTION_TIMER,
 		.pin_based_vm_exec_ctrl_opt = 0,
 		.vmexit_ctrl_req =
 			VM_EXIT_HOST_ADDR_SPACE_SIZE |

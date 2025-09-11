@@ -12,6 +12,7 @@
 #include "vmexit.h"
 #include "ept.h"
 #include "pkvm_hyp.h"
+#include "vmx.h"
 #include "vmsr.h"
 #include "iommu.h"
 #include "lapic.h"
@@ -160,17 +161,57 @@ static void handle_irq_window(struct kvm_vcpu *vcpu)
 
 	exec_controls_set(vmx, cpu_based_exec_ctrl & ~CPU_BASED_INTR_WINDOW_EXITING);
 	pkvm_dbg("%s: CPU%d clear irq_window_exiting\n", __func__, vcpu->cpu);
+
+	kvm_make_request(KVM_REQ_EVENT, vcpu);
 }
 
-static void handle_pending_events(struct kvm_vcpu *vcpu)
+static void handle_preemption_timer(struct kvm_vcpu *vcpu)
 {
-	struct pkvm_host_vcpu *hvcpu = to_pkvm_hvcpu(vcpu);
+	pin_controls_clearbit(to_vmx(vcpu), PIN_BASED_VMX_PREEMPTION_TIMER);
+}
 
-	if (!is_guest_mode(vcpu) && hvcpu->pending_nmi) {
-		/* Inject if NMI is not blocked */
+static void inject_pending_nmi(struct kvm_vcpu *vcpu)
+{
+	if (!vcpu->arch.nmi_pending)
+		return;
+
+	/*
+	 * Check for the NMI blocking and inject the NMI only when it is not
+	 * blocked.
+	 * The vmx code vmx_nmi_blocked() and vmx_inject_nmi() are not used at
+	 * here as their implementation is related with the global parameter
+	 * enable_vnmi which can determine how the guest VMs handle the NMI. The
+	 * host VM has physical NMI passthrough which is not exactly fitting to
+	 * the usage of enable_vnmi.
+	 */
+	if (!(vmcs_read32(GUEST_INTERRUPTIBILITY_INFO) &
+	      (GUEST_INTR_STATE_MOV_SS | GUEST_INTR_STATE_STI |
+	       GUEST_INTR_STATE_NMI))) {
+		--vcpu->arch.nmi_pending;
 		vmcs_write32(VM_ENTRY_INTR_INFO_FIELD,
 			     INTR_TYPE_NMI_INTR | INTR_INFO_VALID_MASK | NMI_VECTOR);
-		hvcpu->pending_nmi = false;
+
+		/* clear the HLT state */
+		if (vmcs_read32(GUEST_ACTIVITY_STATE) == GUEST_ACTIVITY_HLT)
+			vmcs_write32(GUEST_ACTIVITY_STATE, GUEST_ACTIVITY_ACTIVE);
+	}
+
+	/*
+	 * If there are more pending NMI, open the irq window to inject the
+	 * pending ones when the NMI is unblocked. Using irq window rather than
+	 * the NMI window since this is for the physical NMI, while NMI window
+	 * is for virtual-NMI when virtual-NMI execution control is enabled,
+	 * which is not used for the host VM.
+	 */
+	if (vcpu->arch.nmi_pending)
+		vmx_enable_irq_window(vcpu);
+}
+
+static void handle_pending_events(struct kvm_vcpu *vcpu, bool *req_immediate_exit)
+{
+	if (kvm_check_request(KVM_REQ_NMI, vcpu)) {
+		vcpu->arch.nmi_pending += atomic_xchg(&vcpu->arch.nmi_queued, 0);
+		kvm_make_request(KVM_REQ_EVENT, vcpu);
 	}
 
 	if (kvm_check_request(KVM_REQ_EVENT, vcpu)) {
@@ -178,6 +219,18 @@ static void handle_pending_events(struct kvm_vcpu *vcpu)
 			vmx_inject_exception(vcpu);
 			vcpu->arch.exception.pending = false;
 			vcpu->arch.exception.injected = true;
+		}
+
+		if (vcpu->arch.nmi_pending) {
+			/*
+			 * Inject pending NMI if no exception is already injected.
+			 * Otherwise request an immediate exit to inject NMI in the
+			 * next vmexit.
+			 */
+			if (!vcpu->arch.exception.injected)
+				inject_pending_nmi(vcpu);
+			else
+				*req_immediate_exit = true;
 		}
 	}
 
@@ -201,6 +254,7 @@ static inline void set_vcpu_mode(struct kvm_vcpu *vcpu, int mode)
 void pkvm_vmexit_main(struct vcpu_vmx *vmx)
 {
 	struct kvm_vcpu *vcpu = &vmx->vcpu;
+	bool req_immediate_exit = false;
 	bool skip_instruction = false;
 
 	vcpu->arch.cr2 = native_read_cr2();
@@ -263,6 +317,9 @@ void pkvm_vmexit_main(struct vcpu_vmx *vmx)
 	case EXIT_REASON_INTERRUPT_WINDOW:
 		handle_irq_window(vcpu);
 		break;
+	case EXIT_REASON_PREEMPTION_TIMER:
+		handle_preemption_timer(vcpu);
+		break;
 	default:
 		pkvm_dbg("CPU%d: Unsupported vmexit reason 0x%x.\n",
 			 vcpu->cpu, vmx->exit_reason.full);
@@ -272,12 +329,18 @@ void pkvm_vmexit_main(struct vcpu_vmx *vmx)
 
 	if (skip_instruction)
 		skip_emulated_instruction();
+
 handle_events:
-	handle_pending_events(vcpu);
+	handle_pending_events(vcpu, &req_immediate_exit);
+
 	set_vcpu_mode(vcpu, IN_GUEST_MODE);
 
-	if (vcpu->mode == EXITING_GUEST_MODE || kvm_request_pending(vcpu))
+	if (req_immediate_exit) {
+		kvm_make_request(KVM_REQ_EVENT, vcpu);
+		request_host_immediate_exit(vmx);
+	} else if (vcpu->mode == EXITING_GUEST_MODE || kvm_request_pending(vcpu)) {
 		goto handle_events;
+	}
 
 	native_write_cr2(vcpu->arch.cr2);
 	trace_vmexit_end(vcpu, vmx->exit_reason.basic);

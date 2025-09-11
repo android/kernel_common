@@ -6,6 +6,7 @@
 #ifndef __PKVM_VMX_H
 #define __PKVM_VMX_H
 
+#include <capabilities.h>
 #include "pkvm_hyp.h"
 
 static inline u64 pkvm_construct_eptp(unsigned long root_hpa, int level)
@@ -23,6 +24,12 @@ static inline u64 pkvm_construct_eptp(unsigned long root_hpa, int level)
 	eptp |= (root_hpa & PAGE_MASK);
 
 	return eptp;
+}
+
+static inline void request_host_immediate_exit(struct vcpu_vmx *vmx)
+{
+	pin_controls_setbit(vmx, PIN_BASED_VMX_PREEMPTION_TIMER);
+	vmcs_write32(VMX_PREEMPTION_TIMER_VALUE, 0);
 }
 
 static inline void flush_ept(u64 eptp)

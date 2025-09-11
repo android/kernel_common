@@ -24,12 +24,6 @@ static void handle_nmi(int cpu_id)
 	if (!hvcpu || !vmx)
 		return;
 
-	if (hvcpu->pending_nmi) {
-		pkvm_dbg("%s: CPU%d already has a pending NMI\n",
-			__func__, cpu_id);
-		return;
-	}
-
 	/* Save the current active VMCS physical address */
 	cur_vmcs_pa = vmcs_store();
 
@@ -37,24 +31,20 @@ static void handle_nmi(int cpu_id)
 	vmcs_load(vmx->loaded_vmcs->vmcs);
 
 	/*
-	 * This NMI could happen either before executing
-	 * the injection code or after.
-	 * For the before case, should record a pending NMI.
-	 * For the after case, if no NMI is injected in guest
-	 * we also need to record a pending NMI. If NMI is
-	 * injected already, it is not necessary to inject
-	 * again but injecting it in the next round should also
-	 * be fine. So simply record a pending NMI here.
+	 * The NMI happens while the pkvm hypervisor is running, but it should
+	 * be handled by the host. Record a pending NMI to be injected to the
+	 * host.
 	 */
-	hvcpu->pending_nmi = true;
+	atomic_inc(&vcpu->arch.nmi_queued);
+	kvm_make_request(KVM_REQ_NMI, vcpu);
 
 	pkvm_dbg("%s: CPU%d pending NMI\n", __func__, cpu_id);
 
-	/* For case that when NMI happens the injection code is
-	 * already executed, open the irq window. For the case
-	 * happens before, opening irq window doesn't cause trouble.
+	/*
+	 * Request host immediate exit in case the pending NMI has already been
+	 * handled in this host vmexit handling cycle.
 	 */
-	vmx_enable_irq_window(vcpu);
+	request_host_immediate_exit(to_vmx(vcpu));
 
 	/* Switch if the current one is not host vcpu vmcs */
 	if (cur_vmcs_pa != __pkvm_pa(vmx->loaded_vmcs->vmcs))
