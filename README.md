@@ -160,3 +160,24 @@ a maintainer tree)
     - tag the patch subject with `ANDROID:`
     - add a `Bug:` tag with the Android bug (required for android-specific features)
 
+## Requirements for revert patches:
+
+- Add a reason for the revert
+- Do not delete or modify the revert information that is generated when using
+`git revert`
+- If modifications have been made after creating the revert, include a list of
+these in the commit message
+- Example:
+```
+        Revert "ANDROID: fix android-specific bug in foobar.c"
+
+        This reverts commit a57a7913f53e34c8a8d905444b126b3316146e69.
+
+        Reason for revert: Breaks a lot of internal tests
+
+        Additional modifications: Resolved merge conflicts
+
+        Bug: 135791357
+        Change-Id: I4caaaa566ea080fa148c5e768bb1a0b6f7201c01
+        Signed-off-by: Joe Smith <joe.smith@foo.org>
+```
