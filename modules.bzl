@@ -321,21 +321,26 @@ def get_gki_unprotected_modules_list(arch = None):
     return _COMMON_UNPROTECTED_MODULES_LIST
 
 # buildifier: disable=unnamed-macro
-def get_gki_kunit_modules(arch):
+def get_gki_kunit_modules(arch, page_size = None):
     """Returns the list of labels pointing to the GKI modules for KUnit.
 
     Args:
         arch: one of arm64, x86_64
+        page_size: if arch is arm64, the page_size ("4k" or "16k")
 
     Returns:
         The list of labels pointing to the GKI modules for KUnit.
     """
     if arch == "arm64":
-        return get_kunit_modules_list(arch, map_each = lambda e: ":kernel_aarch64/" + e)
+        if page_size == "16k":
+            return get_kunit_modules_list(arch, map_each = lambda e: ":kernel_aarch64_16k/" + e)
+        if page_size == "4k":
+            return get_kunit_modules_list(arch, map_each = lambda e: ":kernel_aarch64/" + e)
     if arch == "x86_64":
         return get_kunit_modules_list(arch, map_each = lambda e: ":kernel_x86_64/" + e)
 
-    fail("{}: arch {} not supported. Use one of [arm64, x86_64]".format(
+    fail("{}: arch {} (page_size {}) not supported. Use one of [arm64, x86_64]".format(
         str(native.package_relative_label(":x")).removesuffix(":x"),
         arch,
+        page_size,
     ))
