@@ -2380,6 +2380,7 @@
   __traceiter_android_rvh_schedule
   __traceiter_android_rvh_select_task_rq_fair
   __traceiter_android_rvh_select_task_rq_rt
+  __traceiter_android_rvh_select_task_rq_dl
   __traceiter_android_rvh_tick_entry
   __traceiter_android_vh_alloc_pages_entry
   __traceiter_android_vh_cma_alloc_bypass
@@ -2416,6 +2417,7 @@
   __tracepoint_android_rvh_schedule
   __tracepoint_android_rvh_select_task_rq_fair
   __tracepoint_android_rvh_select_task_rq_rt
+  __tracepoint_android_rvh_select_task_rq_dl
   __tracepoint_android_rvh_tick_entry
   __tracepoint_android_vh_alloc_pages_entry
   __tracepoint_android_vh_cma_alloc_bypass
