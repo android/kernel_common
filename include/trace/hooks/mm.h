@@ -616,6 +616,18 @@ DECLARE_HOOK(android_vh_customize_pmd_gfp_bypass,
 DECLARE_HOOK(android_vh_thp_vma_allowable_orders,
 	TP_PROTO(struct vm_area_struct *vma, unsigned long *orders),
 	TP_ARGS(vma, orders));
+DECLARE_HOOK(android_vh_ksize,
+	TP_PROTO(struct folio *folio, size_t *up_size),
+	TP_ARGS(folio, up_size));
+DECLARE_HOOK(android_vh_kmalloc_large_node_bypass,
+	TP_PROTO(size_t size, gfp_t flags, int node, void **ptr, bool *bypass),
+	TP_ARGS(size, flags, node, ptr, bypass));
+DECLARE_HOOK(android_vh_kfree_bypass,
+	TP_PROTO(struct folio *folio, const void *object, bool *bypass),
+	TP_ARGS(folio, object, bypass));
+DECLARE_HOOK(android_vh_check_heap_object_bypass,
+	TP_PROTO(struct folio *folio, bool *bypass),
+	TP_ARGS(folio, bypass));
 #endif /* _TRACE_HOOK_MM_H */
 
 /* This part must be outside protection */

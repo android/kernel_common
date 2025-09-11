@@ -28,6 +28,7 @@
 #include <linux/string.h>
 #include <linux/types.h>
 #include <linux/bug.h>
+#include <trace/hooks/kasan.h>
 
 #include "kasan.h"
 #include "../slab.h"
@@ -415,6 +416,9 @@ static inline void poison_kmalloc_large_redzone(const void *ptr, size_t size,
 	/* Poison the aligned part of the redzone. */
 	redzone_start = round_up((unsigned long)(ptr + size), KASAN_GRANULE_SIZE);
 	redzone_end = (unsigned long)ptr + page_size(virt_to_page(ptr));
+
+	trace_android_vh_poison_kmalloc_large_redzone(ptr, size, &redzone_end);
+
 	kasan_poison((void *)redzone_start, redzone_end - redzone_start,
 		     KASAN_PAGE_REDZONE, false);
 }

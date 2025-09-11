@@ -77,6 +77,7 @@
 #include <trace/hooks/user.h>
 #include <trace/hooks/gzvm.h>
 #include <trace/hooks/usb.h>
+#include <trace/hooks/kasan.h>
 
 /*
  * Export tracepoints that act as a bare tracehook (ie: have no trace event
@@ -623,3 +624,8 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_rvh_fiq_dump);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_looper_state_registered);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_thread_release);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_binder_read_done);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_poison_kmalloc_large_redzone);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ksize);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_kmalloc_large_node_bypass);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_kfree_bypass);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_check_heap_object_bypass);

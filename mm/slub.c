@@ -4287,9 +4287,14 @@ static void *___kmalloc_large_node(size_t size, gfp_t flags, int node)
 	struct folio *folio;
 	void *ptr = NULL;
 	unsigned int order = get_order(size);
+	bool bypass = false;
 
 	if (unlikely(flags & GFP_SLAB_BUG_MASK))
 		flags = kmalloc_fix_flags(flags);
+
+	trace_android_vh_kmalloc_large_node_bypass(size, flags, node, &ptr, &bypass);
+	if (bypass)
+		return ptr;
 
 	flags |= __GFP_COMP;
 	folio = (struct folio *)alloc_pages_node_noprof(node, flags, order);
@@ -4803,6 +4808,7 @@ void kfree(const void *object)
 	struct slab *slab;
 	struct kmem_cache *s;
 	void *x = (void *)object;
+	bool bypass = false;
 
 	trace_kfree(_RET_IP_, object);
 
@@ -4811,6 +4817,9 @@ void kfree(const void *object)
 
 	folio = virt_to_folio(object);
 	if (unlikely(!folio_test_slab(folio))) {
+		trace_android_vh_kfree_bypass(folio, object, &bypass);
+		if (bypass)
+			return;
 		free_large_kmalloc(folio, (void *)object);
 		return;
 	}

@@ -990,6 +990,7 @@ void __init create_kmalloc_caches(void)
 size_t __ksize(const void *object)
 {
 	struct folio *folio;
+	size_t up_size = 0;
 
 	if (unlikely(object == ZERO_SIZE_PTR))
 		return 0;
@@ -997,10 +998,15 @@ size_t __ksize(const void *object)
 	folio = virt_to_folio(object);
 
 	if (unlikely(!folio_test_slab(folio))) {
+		trace_android_vh_ksize(folio, &up_size);
+		if (up_size)
+			return up_size;
+
 		if (WARN_ON(folio_size(folio) <= KMALLOC_MAX_CACHE_SIZE))
 			return 0;
 		if (WARN_ON(object != folio_address(folio)))
 			return 0;
+
 		return folio_size(folio);
 	}
 
