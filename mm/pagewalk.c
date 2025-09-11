@@ -584,6 +584,7 @@ int walk_page_range(struct mm_struct *mm, unsigned long start,
 
 	return walk_page_range_mm(mm, start, end, ops, private);
 }
+EXPORT_SYMBOL_GPL(walk_page_range);
 
 /**
  * walk_kernel_page_table_range - walk a range of kernel pagetables.
