@@ -1115,6 +1115,7 @@
   softnet_data
   __traceiter_xdp_exception
   __tracepoint_xdp_exception
+  virtio_config_changed
   virtio_config_driver_disable
   virtio_config_driver_enable
   virtqueue_add_inbuf_ctx
