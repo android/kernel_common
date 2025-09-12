@@ -205,6 +205,16 @@ struct arm_smmu_stream {
 	struct rb_node			node;
 };
 
+struct arm_smmu_event {
+	u8				ssv : 1,
+					read : 1;
+	u8				id;
+	u32				sid;
+	u32				ssid;
+	u64				iova;
+	struct device			*dev;
+};
+
 /* SMMU private data for each master */
 struct arm_smmu_master {
 	struct arm_smmu_device		*smmu;

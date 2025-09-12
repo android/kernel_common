@@ -367,7 +367,17 @@ static int kvm_arm_smmu_detach_dev_pasid(struct host_arm_smmu_device *host_smmu,
 		}
 	}
 
+	/*
+	 * smmu->streams_mutex is taken to provide synchronization with respect to
+	 * kvm_arm_smmu_handle_event(), since that acquires the same lock. Taking the
+	 * lock makes domain removal atomic with respect to domain usage when reporting
+	 * faults related to a domain to an IOMMU client driver. This makes it so that
+	 * the domain doesn't go away while it is being used in the fault reporting
+	 * logic.
+	 */
+	mutex_lock(&smmu->streams_mutex);
 	xa_erase(&master->domains, pasid);
+	mutex_unlock(&smmu->streams_mutex);
 
 	return ret;
 }
@@ -684,15 +694,87 @@ static struct kvm_arm_smmu_master * kvm_arm_smmu_find_master(struct arm_smmu_dev
 	return rb_entry(node, struct kvm_arm_smmu_stream, node)->master;
 }
 
+static void kvm_arm_smmu_decode_event(struct arm_smmu_device *smmu, u64 *raw,
+				      struct arm_smmu_event *event)
+{
+	struct kvm_arm_smmu_master *master;
+
+	event->id = FIELD_GET(EVTQ_0_ID, raw[0]);
+	event->sid = FIELD_GET(EVTQ_0_SID, raw[0]);
+	event->ssv = FIELD_GET(EVTQ_0_SSV, raw[0]);
+	event->ssid = event->ssv ? FIELD_GET(EVTQ_0_SSID, raw[0]) : IOMMU_NO_PASID;
+	event->read = FIELD_GET(EVTQ_1_RnW, raw[1]);
+	event->iova = FIELD_GET(EVTQ_2_ADDR, raw[2]);
+	event->dev = NULL;
+
+	mutex_lock(&smmu->streams_mutex);
+	master = kvm_arm_smmu_find_master(smmu, event->sid);
+	if (master)
+		event->dev = get_device(master->dev);
+	mutex_unlock(&smmu->streams_mutex);
+}
+
+static int kvm_arm_smmu_handle_event(struct arm_smmu_device *smmu, u64 *evt,
+				     struct arm_smmu_event *event)
+{
+	int ret = 0;
+	struct kvm_arm_smmu_master *master;
+	struct kvm_arm_smmu_domain *smmu_domain;
+
+	switch (event->id) {
+	case EVT_ID_TRANSLATION_FAULT:
+	case EVT_ID_ADDR_SIZE_FAULT:
+	case EVT_ID_ACCESS_FAULT:
+	case EVT_ID_PERMISSION_FAULT:
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	mutex_lock(&smmu->streams_mutex);
+	master = kvm_arm_smmu_find_master(smmu, event->sid);
+	if (!master) {
+		ret = -EINVAL;
+		goto out_unlock;
+	}
+
+	smmu_domain = xa_load(&master->domains, event->ssid);
+	if (!smmu_domain) {
+		ret = -EINVAL;
+		goto out_unlock;
+	}
+
+	ret = report_iommu_fault(&smmu_domain->domain, master->dev, event->iova,
+				 event->read ? IOMMU_FAULT_READ : IOMMU_FAULT_WRITE);
+
+out_unlock:
+	mutex_unlock(&smmu->streams_mutex);
+	return ret;
+}
+
+static void kvm_arm_smmu_dump_event(struct arm_smmu_device *smmu, u64 *raw,
+				    struct arm_smmu_event *evt, struct ratelimit_state *rs)
+{
+
+	int i;
+
+	if (!__ratelimit(rs))
+		return;
+
+	dev_info(smmu->dev, "event 0x%02x received:\n", evt->id);
+	for (i = 0; i < EVTQ_ENT_DWORDS; ++i)
+		dev_info(smmu->dev, "\t0x%016llx\n", (unsigned long long)raw[i]);
+}
+
 static irqreturn_t kvm_arm_smmu_evt_handler(int irq, void *dev)
 {
-	int i;
 	struct arm_smmu_device *smmu = dev;
 	struct arm_smmu_queue *q = &smmu->evtq.q;
 	struct arm_smmu_ll_queue *llq = &q->llq;
 	static DEFINE_RATELIMIT_STATE(rs, DEFAULT_RATELIMIT_INTERVAL,
 				      DEFAULT_RATELIMIT_BURST);
 	u64 evt[EVTQ_ENT_DWORDS];
+	struct arm_smmu_event event = {0};
 
 	if (pm_runtime_get_if_active(smmu->dev) == 0) {
 		dev_err(smmu->dev, "Unable to handle event interrupt because device not runtime active\n");
@@ -701,16 +783,11 @@ static irqreturn_t kvm_arm_smmu_evt_handler(int irq, void *dev)
 
 	do {
 		while (!queue_remove_raw(q, evt)) {
-			u8 id = FIELD_GET(EVTQ_0_ID, evt[0]);
+			kvm_arm_smmu_decode_event(smmu, evt, &event);
+			if (kvm_arm_smmu_handle_event(smmu, evt, &event))
+				kvm_arm_smmu_dump_event(smmu, evt, &event, &rs);
 
-			if (!__ratelimit(&rs))
-				continue;
-
-			dev_info(smmu->dev, "event 0x%02x received:\n", id);
-			for (i = 0; i < ARRAY_SIZE(evt); ++i)
-				dev_info(smmu->dev, "\t0x%016llx\n",
-					 (unsigned long long)evt[i]);
-
+			put_device(event.dev);
 			cond_resched();
 		}
 
