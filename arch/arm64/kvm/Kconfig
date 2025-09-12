@@ -61,18 +61,6 @@ config PTDUMP_STAGE2_DEBUGFS
 
 	  If in doubt, say N.
 
-config PKVM_STACKTRACE
-	bool "Protected KVM hypervisor stacktraces"
-	default n
-	help
-	  Say Y here to enable pKVM hypervisor stacktraces on hyp_panic()
-
-	  If using protected nVHE mode, but cannot afford the associated
-	  memory cost (less than 0.75 page per CPU) of pKVM stacktraces,
-	  say N.
-
-	  If unsure, or not using protected nVHE (pKVM), say N.
-
 config PKVM_MODULE_PATH
 	string "Path to pKVM modules"
 	default ""
@@ -128,6 +116,19 @@ config PKVM_FTRACE
 	  function.
 
 	  If unsure, Say N.
+
+config PKVM_STACKTRACE
+	bool "Protected KVM hypervisor stacktraces"
+	depends on PKVM_DISABLE_STAGE2_ON_PANIC
+	default y
+	help
+	  Say Y here to enable pKVM hypervisor stacktraces on hyp_panic()
+
+	  If using protected nVHE mode, but cannot afford the associated
+	  memory cost (less than 0.75 page per CPU) of pKVM stacktraces,
+	  say N.
+
+	  If unsure, or not using protected nVHE (pKVM), say N.
 
 config PKVM_DISABLE_STAGE2_ON_PANIC
 	bool "Disable the host stage-2 on panic"
