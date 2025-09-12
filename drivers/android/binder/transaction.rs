@@ -239,11 +239,11 @@ impl Transaction {
     }
 
     /// Searches in the transaction stack for a transaction originating at the given thread.
-    pub(crate) fn find_from(&self, thread: &Thread) -> Option<DArc<Transaction>> {
+    pub(crate) fn find_from(&self, thread: &Thread) -> Option<&DArc<Transaction>> {
         let mut it = &self.from_parent;
         while let Some(transaction) = it {
             if core::ptr::eq(thread, transaction.from.as_ref()) {
-                return Some(transaction.clone());
+                return Some(transaction);
             }
 
             it = &transaction.from_parent;

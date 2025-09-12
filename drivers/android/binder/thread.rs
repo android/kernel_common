@@ -347,7 +347,7 @@ impl InnerThread {
             return Err(EINVAL);
         }
         // Find a new current transaction for this thread.
-        self.current_transaction = transaction.find_from(thread);
+        self.current_transaction = transaction.find_from(thread).cloned();
         Ok(transaction)
     }
 
@@ -492,11 +492,11 @@ impl Thread {
             );
         }
 
-        let mut t_opt = inner.current_transaction.clone();
+        let mut t_opt = inner.current_transaction.as_ref();
         while let Some(t) = t_opt {
             if Arc::ptr_eq(&t.from, self) {
                 t.debug_print_inner(m, "    outgoing transaction ");
-                t_opt = t.from_parent.clone();
+                t_opt = t.from_parent.as_ref();
             } else if Arc::ptr_eq(&t.to, &self.process) {
                 t.debug_print_inner(m, "    incoming transaction ");
                 t_opt = t.find_from(self);
