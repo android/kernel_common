@@ -32,3 +32,6 @@ type 'enum gunyah_rm_vm_status' changed
 type 'struct drm_bridge' changed
   member 'union { bool support_hdcp; unsigned char __kabi_ignored0; }' was added
 
+type 'struct drm_framebuffer' changed
+  member 'union { unsigned int internal_flags; unsigned char __kabi_ignored0; }' was added
+

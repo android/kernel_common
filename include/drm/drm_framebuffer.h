@@ -194,7 +194,7 @@ struct drm_framebuffer {
 	/**
 	 * @internal_flags: Framebuffer flags like DRM_FRAMEBUFFER_HAS_HANDLE_REF.
 	 */
-	unsigned int internal_flags;
+	ANDROID_KABI_IGNORE(0, unsigned int internal_flags);
 	/**
 	 * @filp_head: Placed on &drm_file.fbs, protected by &drm_file.fbs_lock.
 	 */
