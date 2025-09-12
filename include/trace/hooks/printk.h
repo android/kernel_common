@@ -22,6 +22,9 @@ DECLARE_HOOK(android_vh_printk_caller,
 DECLARE_HOOK(android_vh_printk_ext_header,
 	TP_PROTO(char *caller, size_t size, u32 id, int *ret),
 	TP_ARGS(caller, size, id, ret));
+DECLARE_HOOK(android_vh_printk_save_irq,
+	TP_PROTO(u32 *caller_id, unsigned long irqflags),
+	TP_ARGS(caller_id, irqflags));
 
 #endif /* _TRACE_HOOK_PRINTK_H */
 /* This part must be outside protection */

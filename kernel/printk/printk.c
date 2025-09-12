@@ -2283,6 +2283,7 @@ int vprintk_store(int facility, int level,
 	ts_nsec = local_clock();
 
 	caller_id = printk_caller_id();
+	trace_android_vh_printk_save_irq(&caller_id, irqflags);
 
 	/*
 	 * The sprintf needs to come first since the syslog prefix might be

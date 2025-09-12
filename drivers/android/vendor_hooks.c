@@ -629,3 +629,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_ksize);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_kmalloc_large_node_bypass);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_kfree_bypass);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_check_heap_object_bypass);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_printk_save_irq);
