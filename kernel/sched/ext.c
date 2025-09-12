@@ -4645,7 +4645,6 @@ static void scx_ops_disable_workfn(struct kthread_work *work)
 	default:
 		break;
 	}
-	trace_android_vh_scx_ops_enable_state(SCX_OPS_DISABLING);
 
 	/*
 	 * Here, every runnable task is guaranteed to make forward progress and
@@ -4670,6 +4669,7 @@ static void scx_ops_disable_workfn(struct kthread_work *work)
 	 * must be switched out and exited synchronously.
 	 */
 	percpu_down_write(&scx_fork_rwsem);
+	trace_android_vh_scx_ops_enable_state(SCX_OPS_DISABLING);
 
 	scx_ops_init_task_enabled = false;
 
