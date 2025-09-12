@@ -21,9 +21,17 @@
 #include <linux/refcount.h>
 #include <linux/mempool.h>
 
+#include <trace/events/block.h>
+
 #include "blk.h"
 #include "blk-mq-sched.h"
 #include "blk-mq-debugfs.h"
+
+ANDROID_KABI_DECLONLY(poll_table_struct);
+ANDROID_KABI_DECLONLY(pollfd);
+ANDROID_KABI_DECLONLY(readahead_control);
+ANDROID_KABI_DECLONLY(trace_eval_map);
+ANDROID_KABI_DECLONLY(wait_page_queue);
 
 #define ZONE_COND_NAME(name) [BLK_ZONE_COND_##name] = #name
 static const char *const zone_cond_name[] = {
@@ -1200,6 +1208,7 @@ void blk_zone_append_update_request_bio(struct request *rq, struct bio *bio)
 	 * lookup the zone write plug.
 	 */
 	bio->bi_iter.bi_sector = rq->__sector;
+	trace_blk_zone_append_update_request_bio(rq);
 }
 
 void blk_zone_write_plug_bio_endio(struct bio *bio)
