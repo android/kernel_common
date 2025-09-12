@@ -39,3 +39,6 @@ type 'struct pkvm_module_ops' changed
   member 'u64 __kabi_reserved1' was removed
   member 'union { int(* register_guest_trng_ops)(const struct pkvm_module_trng_ops*); struct { u64 __kabi_reserved1; }; union { }; }' was added
 
+type 'enum iio_chan_type' changed
+  enumerator 'IIO_ATTENTION' (39) was added
+
