@@ -354,7 +354,6 @@ static int binder_install_single_page(struct binder_alloc *alloc,
 		binder_free_page(page);
 		pr_err("%d: %s failed to insert page at offset %lx with %d\n",
 		       alloc->pid, __func__, addr - alloc->buffer, ret);
-		ret = -ENOMEM;
 		break;
 	}
 out:
