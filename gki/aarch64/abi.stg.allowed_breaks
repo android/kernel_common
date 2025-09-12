@@ -29,3 +29,6 @@ type 'enum gunyah_rm_vm_status' changed
   'struct tracepoint __tracepoint_f2fs_write_checkpoint'
   'struct tracepoint __tracepoint_ufshcd_command'
 
+type 'struct drm_bridge' changed
+  member 'union { bool support_hdcp; unsigned char __kabi_ignored0; }' was added
+

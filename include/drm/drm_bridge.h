@@ -813,7 +813,7 @@ struct drm_bridge {
 	/**
 	 * @support_hdcp: Indicate that the bridge supports HDCP.
 	 */
-	bool support_hdcp;
+	ANDROID_KABI_IGNORE(0, bool support_hdcp);
 	/**
 	 * @ddc: Associated I2C adapter for DDC access, if any.
 	 */
