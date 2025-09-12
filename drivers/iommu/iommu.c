@@ -2705,11 +2705,15 @@ ssize_t iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 		phys_addr_t s_phys = sg_phys(sg);
 
 		if (len && s_phys != start + len) {
-			if (deferred_sg)
+			if (deferred_sg) {
 				ret = __iommu_add_sg(cookie_sg, iova + mapped, start, len);
-			else
+				/* Override mapped with the actual value and free the lists. */
+				if (ret)
+					mapped = ops->consume_deferred_map_sg(cookie_sg);
+			} else {
 				ret = iommu_map_nosync(domain, iova + mapped, start,
 						  len, prot, gfp);
+			}
 			if (ret)
 				goto out_err;
 
