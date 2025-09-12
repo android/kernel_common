@@ -1559,6 +1559,17 @@ void pkvm_el2_mod_frob_sections(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs, char *secstri
 }
 #endif /* CONFIG_MODULES */
 
+static int __pkvm_topup_hyp_alloc_mgt_mc(unsigned long id, struct kvm_hyp_memcache *mc)
+{
+	struct arm_smccc_res res;
+
+	res = kvm_call_hyp_nvhe_smccc(__pkvm_hyp_alloc_mgt_refill,
+				      id, mc->head, mc->nr_pages);
+	mc->head = res.a2;
+	mc->nr_pages = res.a3;
+	return res.a1;
+}
+
 int __pkvm_topup_hyp_alloc(unsigned long nr_pages)
 {
 	struct kvm_hyp_memcache mc;
@@ -1570,8 +1581,7 @@ int __pkvm_topup_hyp_alloc(unsigned long nr_pages)
 	if (ret)
 		return ret;
 
-	ret = kvm_call_hyp_nvhe(__pkvm_hyp_alloc_mgt_refill, HYP_ALLOC_MGT_HEAP_ID,
-				mc.head, mc.nr_pages);
+	ret = __pkvm_topup_hyp_alloc_mgt_mc(HYP_ALLOC_MGT_HEAP_ID, &mc);
 	if (ret)
 		free_hyp_memcache(&mc);
 
@@ -1619,10 +1629,12 @@ int __pkvm_topup_hyp_alloc_mgt_gfp(unsigned long id, unsigned long nr_pages,
 	if (ret)
 		return ret;
 
-	ret = kvm_call_hyp_nvhe(__pkvm_hyp_alloc_mgt_refill, id,
-				mc.head, mc.nr_pages);
-	if (ret)
+	ret = __pkvm_topup_hyp_alloc_mgt_mc(id, &mc);
+	if (ret) {
+		kvm_err("Failed topup %ld pages = %ld, size = %ld err = %d, freeing %ld pages\n",
+			id, nr_pages, sz_alloc, ret, mc.nr_pages);
 		free_hyp_memcache(&mc);
+	}
 
 	return ret;
 }
