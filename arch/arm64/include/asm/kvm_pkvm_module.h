@@ -26,6 +26,22 @@ struct pkvm_sglist_page {
 } __packed;
 
 /**
+ * struct pkvm_module_trng_ops - pKVM TRNG implementation modules callbacks
+ * @trng_uuid:	  Implementation's UUID advertised on TRNG_GET_UUID call
+ * @trng_rnd64:	  TRNG implementation call for generating entropy for TRNG_RND64
+ *                call. The implementation is required to output specified
+ *                number of bits of entropy. The output array will stored in the
+ *                registers in the following order: x3, x2, x1.
+ */
+struct pkvm_module_trng_ops {
+	const uuid_t *trng_uuid;
+	int (*trng_rnd64)(u64 *entropy, int bits);
+
+	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_RESERVE(2);
+};
+
+/**
  * struct pkvm_module_ops - pKVM modules callbacks
  * @create_private_mapping:	Map a memory region into the hypervisor private
  *				range. @haddr returns the virtual address where
@@ -206,6 +222,10 @@ struct pkvm_sglist_page {
  *				panic to avoid leaking any information.
  *				Direction of assignment can be deduced from pkvm_device::ctxt
  *				where NULL means host to guest and vice versa.
+ * @register_guest_trng_ops:    Register a ARM SMCCC TRNG alternative implementation
+ *				for pVMs. The @ops.trng_uuid is used to advertise the
+ *				identity of TRNG implementation. @ops.trng_rnd64 is used
+ *				to generate entropy bits to guest.
  */
 struct pkvm_module_ops {
 	int (*create_private_mapping)(phys_addr_t phys, size_t size,
@@ -280,7 +300,8 @@ struct pkvm_module_ops {
 	int (*hyp_smp_processor_id)(void);
 	int (*device_register_reset)(u64 phys, void *cookie,
 				     int (*cb)(void *cookie, bool host_to_guest));
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, int (*register_guest_trng_ops)(
+				    const struct pkvm_module_trng_ops *ops));
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);
