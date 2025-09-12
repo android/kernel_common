@@ -2398,6 +2398,7 @@
   __traceiter_android_vh_poison_kmalloc_large_redzone
   __traceiter_android_vh_printk_caller
   __traceiter_android_vh_printk_caller_id
+  __traceiter_android_vh_printk_save_irq
   __traceiter_android_vh_sched_show_task
   __traceiter_gpu_mem_total
   __traceiter_irq_handler_entry
@@ -2440,6 +2441,7 @@
   __tracepoint_android_vh_poison_kmalloc_large_redzone
   __tracepoint_android_vh_printk_caller
   __tracepoint_android_vh_printk_caller_id
+  __tracepoint_android_vh_printk_save_irq
   __tracepoint_android_vh_sched_show_task
   __tracepoint_gpu_mem_total
   __tracepoint_irq_handler_entry
