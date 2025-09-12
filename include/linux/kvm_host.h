@@ -211,7 +211,6 @@ struct kvm_io_range {
 struct kvm_io_bus {
 	int dev_count;
 	int ioeventfd_count;
-	struct rcu_head rcu;
 	struct kvm_io_range range[];
 };
 
