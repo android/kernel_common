@@ -10,7 +10,7 @@
 
 #include <linux/mm_types.h>
 #include <linux/err.h>
-#include "binder_alloc.h"
+#include "binder_internal.h"
 
 #define BUFFER_NUM 5
 #define BUFFER_MIN_SIZE (PAGE_SIZE / 8)
@@ -105,10 +105,10 @@ static bool check_buffer_pages_allocated(struct binder_alloc *alloc,
 	page_addr = buffer->user_data;
 	for (; page_addr < end; page_addr += PAGE_SIZE) {
 		page_index = (page_addr - alloc->buffer) / PAGE_SIZE;
-		if (!alloc->pages[page_index] ||
-		    !list_empty(page_to_lru(alloc->pages[page_index]))) {
+		if (!alloc_to_wrap(alloc)->pages[page_index] ||
+		    !list_empty(page_to_lru(alloc_to_wrap(alloc)->pages[page_index]))) {
 			pr_err("expect alloc but is %s at page index %d\n",
-			       alloc->pages[page_index] ?
+			       alloc_to_wrap(alloc)->pages[page_index] ?
 			       "lru" : "free", page_index);
 			return false;
 		}
@@ -148,10 +148,10 @@ static void binder_selftest_free_buf(struct binder_alloc *alloc,
 		 * if binder shrinker ran during binder_alloc_free_buf
 		 * calls above.
 		 */
-		if (list_empty(page_to_lru(alloc->pages[i]))) {
+		if (list_empty(page_to_lru(alloc_to_wrap(alloc)->pages[i]))) {
 			pr_err_size_seq(sizes, seq);
 			pr_err("expect lru but is %s at page index %d\n",
-			       alloc->pages[i] ? "alloc" : "free", i);
+			       alloc_to_wrap(alloc)->pages[i] ? "alloc" : "free", i);
 			binder_selftest_failures++;
 		}
 	}
@@ -168,9 +168,9 @@ static void binder_selftest_free_page(struct binder_alloc *alloc)
 	}
 
 	for (i = 0; i < (alloc->buffer_size / PAGE_SIZE); i++) {
-		if (alloc->pages[i]) {
+		if (alloc_to_wrap(alloc)->pages[i]) {
 			pr_err("expect free but is %s at page index %d\n",
-			       list_empty(page_to_lru(alloc->pages[i])) ?
+			       list_empty(page_to_lru(alloc_to_wrap(alloc)->pages[i])) ?
 			       "alloc" : "lru", i);
 			binder_selftest_failures++;
 		}
@@ -291,7 +291,7 @@ void binder_selftest_alloc(struct binder_alloc *alloc)
 	if (!binder_selftest_run)
 		return;
 	mutex_lock(&binder_selftest_lock);
-	if (!binder_selftest_run || !alloc->mapped)
+	if (!binder_selftest_run || !alloc_to_wrap(alloc)->mapped)
 		goto done;
 	pr_info("STARTED\n");
 	binder_selftest_alloc_offset(alloc, end_offset, 0);

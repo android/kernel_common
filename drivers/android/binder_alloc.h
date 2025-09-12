@@ -9,6 +9,7 @@
 #include <linux/rbtree.h>
 #include <linux/list.h>
 #include <linux/mm.h>
+#include <linux/spinlock.h>
 #include <linux/rtmutex.h>
 #include <linux/vmalloc.h>
 #include <linux/slab.h>
@@ -70,6 +71,12 @@ struct binder_shrinker_mdata {
 	unsigned long page_index;
 };
 
+struct binder_lru_page {
+	struct list_head lru;
+	struct page *page_ptr;
+	struct binder_alloc *alloc;
+};
+
 static inline struct list_head *page_to_lru(struct page *p)
 {
 	struct binder_shrinker_mdata *mdata;
@@ -81,7 +88,9 @@ static inline struct list_head *page_to_lru(struct page *p)
 
 /**
  * struct binder_alloc - per-binder proc state for binder allocator
- * @mutex:              protects binder_alloc fields
+ * @lock:               protects binder_alloc fields
+ * @vma:                vm_area_struct passed to mmap_handler
+ *                      (invariant after mmap)
  * @mm:                 copy of task->mm (invariant after open)
  * @buffer:             base of per-proc address space mapped via mmap
  * @buffers:            list of all buffers for this proc
@@ -90,12 +99,10 @@ static inline struct list_head *page_to_lru(struct page *p)
  * @allocated_buffers:  rb tree of allocated buffers sorted by address
  * @free_async_space:   VA space available for async buffers. This is
  *                      initialized at mmap time to 1/2 the full VA space
- * @pages:              array of struct page *
+ * @pages:              array of binder_lru_page
  * @buffer_size:        size of address space specified via mmap
  * @pid:                pid for associated binder_proc (invariant after init)
  * @pages_high:         high watermark of offset in @pages
- * @mapped:             whether the vm area is mapped, each binder instance is
- *                      allowed a single mapping throughout its lifetime
  * @oneway_spam_detected: %true if oneway spam detection fired, clear that
  * flag once the async buffer has returned to a healthy state
  *
@@ -105,18 +112,18 @@ static inline struct list_head *page_to_lru(struct page *p)
  * struct binder_buffer objects used to track the user buffers
  */
 struct binder_alloc {
-	struct mutex mutex;
+	spinlock_t lock;
+	struct vm_area_struct *vma;
 	struct mm_struct *mm;
 	unsigned long buffer;
 	struct list_head buffers;
 	struct rb_root free_buffers;
 	struct rb_root allocated_buffers;
 	size_t free_async_space;
-	struct page **pages;
+	struct binder_lru_page *pages;
 	size_t buffer_size;
 	int pid;
 	size_t pages_high;
-	bool mapped;
 	bool oneway_spam_detected;
 	ANDROID_OEM_DATA(1);
 };
@@ -151,23 +158,6 @@ void binder_alloc_print_allocated(struct seq_file *m,
 				  struct binder_alloc *alloc);
 void binder_alloc_print_pages(struct seq_file *m,
 			      struct binder_alloc *alloc);
-
-/**
- * binder_alloc_get_free_async_space() - get free space available for async
- * @alloc:	binder_alloc for this proc
- *
- * Return:	the bytes remaining in the address-space for async transactions
- */
-static inline size_t
-binder_alloc_get_free_async_space(struct binder_alloc *alloc)
-{
-	size_t free_async_space;
-
-	mutex_lock(&alloc->mutex);
-	free_async_space = alloc->free_async_space;
-	mutex_unlock(&alloc->mutex);
-	return free_async_space;
-}
 
 unsigned long
 binder_alloc_copy_user_to_buffer(struct binder_alloc *alloc,
