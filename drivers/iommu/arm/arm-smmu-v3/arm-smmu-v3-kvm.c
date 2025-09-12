@@ -32,8 +32,16 @@ struct kvm_arm_smmu_master {
 	struct arm_smmu_device		*smmu;
 	struct device			*dev;
 	struct xarray			domains;
+	struct kvm_arm_smmu_stream	*streams;
+	unsigned int			num_streams;
 	u32				ssid_bits;
 	bool				idmapped; /* Stage-2 is transparently identity mapped*/
+};
+
+struct kvm_arm_smmu_stream {
+	u32				id;
+	struct kvm_arm_smmu_master	*master;
+	struct rb_node			node;
 };
 
 struct kvm_arm_smmu_domain {
@@ -83,11 +91,97 @@ kvm_arm_smmu_get_by_fwnode(struct fwnode_handle *fwnode)
 
 static struct iommu_ops kvm_arm_smmu_ops;
 
+static int kvm_arm_smmu_streams_cmp_key(const void *lhs, const struct rb_node *rhs)
+{
+	struct kvm_arm_smmu_stream *stream_rhs = rb_entry(rhs, struct kvm_arm_smmu_stream, node);
+	const u32 *sid_lhs = lhs;
+
+	if (*sid_lhs < stream_rhs->id)
+		return -1;
+	if (*sid_lhs > stream_rhs->id)
+		return 1;
+	return 0;
+}
+
+static int kvm_arm_smmu_streams_cmp_node(struct rb_node *lhs, const struct rb_node *rhs)
+{
+	return kvm_arm_smmu_streams_cmp_key(&rb_entry(lhs, struct kvm_arm_smmu_stream, node)->id,
+					    rhs);
+}
+
+static int kvm_arm_smmu_insert_master(struct arm_smmu_device *smmu,
+				      struct kvm_arm_smmu_master *master)
+{
+	int i;
+	int ret = 0;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(master->dev);
+
+	master->streams = kcalloc(fwspec->num_ids, sizeof(*master->streams), GFP_KERNEL);
+	if (!master->streams)
+		return -ENOMEM;
+	master->num_streams = fwspec->num_ids;
+
+	mutex_lock(&smmu->streams_mutex);
+	for (i = 0; i < fwspec->num_ids; i++) {
+		struct kvm_arm_smmu_stream *new_stream = &master->streams[i];
+		struct rb_node *existing;
+		u32 sid = fwspec->ids[i];
+
+		new_stream->id = sid;
+		new_stream->master = master;
+
+		existing = rb_find_add(&new_stream->node, &smmu->streams,
+				       kvm_arm_smmu_streams_cmp_node);
+		if (existing) {
+			struct kvm_arm_smmu_master *existing_master = rb_entry(existing,
+									struct kvm_arm_smmu_stream,
+									node)->master;
+
+			/* Bridged PCI devices may end up with duplicated IDs */
+			if (existing_master == master)
+				continue;
+
+			dev_warn(master->dev,
+				 "Aliasing StreamID 0x%x (from %s) unsupported, expect DMA to be broken\n",
+				 sid, dev_name(existing_master->dev));
+			ret = -ENODEV;
+			break;
+		}
+	}
+
+	if (ret) {
+		for (i--; i >= 0; i--)
+			rb_erase(&master->streams[i].node, &smmu->streams);
+		kfree(master->streams);
+	}
+	mutex_unlock(&smmu->streams_mutex);
+
+	return ret;
+}
+
+static void kvm_arm_smmu_remove_master(struct kvm_arm_smmu_master *master)
+{
+	int i;
+	struct arm_smmu_device *smmu = master->smmu;
+	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(master->dev);
+
+	if (!smmu || !master->streams)
+		return;
+
+	mutex_lock(&smmu->streams_mutex);
+	for (i = 0; i < fwspec->num_ids; i++)
+		rb_erase(&master->streams[i].node, &smmu->streams);
+	mutex_unlock(&smmu->streams_mutex);
+
+	kfree(master->streams);
+}
+
 static struct iommu_device *kvm_arm_smmu_probe_device(struct device *dev)
 {
 	struct arm_smmu_device *smmu;
 	struct kvm_arm_smmu_master *master;
 	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
+	int ret;
 
 	if (WARN_ON_ONCE(dev_iommu_priv_get(dev)))
 		return ERR_PTR(-EBUSY);
@@ -103,7 +197,12 @@ static struct iommu_device *kvm_arm_smmu_probe_device(struct device *dev)
 	master->dev = dev;
 	master->smmu = smmu;
 
+	ret = kvm_arm_smmu_insert_master(smmu, master);
+	if (ret)
+		goto err_free_master;
+
 	device_property_read_u32(dev, "pasid-num-bits", &master->ssid_bits);
+
 	master->ssid_bits = min(smmu->ssid_bits, master->ssid_bits);
 	xa_init(&master->domains);
 	master->idmapped = device_property_read_bool(dev, "iommu-idmapped");
@@ -111,11 +210,17 @@ static struct iommu_device *kvm_arm_smmu_probe_device(struct device *dev)
 	if (!device_link_add(dev, smmu->dev,
 			     DL_FLAG_PM_RUNTIME |
 			     DL_FLAG_AUTOREMOVE_SUPPLIER)) {
-		kfree(master);
-		return ERR_PTR(-ENOLINK);
+		ret = -ENOLINK;
+		goto err_remove_master;
 	}
 
 	return &smmu->iommu;
+
+err_remove_master:
+	kvm_arm_smmu_remove_master(master);
+err_free_master:
+	kfree(master);
+	return ERR_PTR(ret);
 }
 
 static struct iommu_domain *kvm_arm_smmu_domain_alloc(unsigned type)
@@ -246,14 +351,13 @@ static int kvm_arm_smmu_detach_dev_pasid(struct host_arm_smmu_device *host_smmu,
 {
 	int i, ret;
 	struct arm_smmu_device *smmu = &host_smmu->smmu;
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(master->dev);
 	struct kvm_arm_smmu_domain *domain = xa_load(&master->domains, pasid);
 
 	if (!domain)
 		return 0;
 
-	for (i = 0; i < fwspec->num_ids; i++) {
-		int sid = fwspec->ids[i];
+	for (i = 0; i < master->num_streams; i++) {
+		int sid = master->streams[i].id;
 
 		ret = kvm_iommu_detach_dev(host_smmu->id, domain->id, sid, pasid);
 		if (ret) {
@@ -290,6 +394,7 @@ static void kvm_arm_smmu_release_device(struct device *dev)
 
 	kvm_arm_smmu_detach_dev(host_smmu, master);
 	xa_destroy(&master->domains);
+	kvm_arm_smmu_remove_master(master);
 	kfree(master);
 	iommu_fwspec_free(dev);
 }
@@ -300,7 +405,6 @@ static int kvm_arm_smmu_set_dev_pasid(struct iommu_domain *domain,
 	int i, ret;
 	struct arm_smmu_device *smmu;
 	struct host_arm_smmu_device *host_smmu;
-	struct iommu_fwspec *fwspec = dev_iommu_fwspec_get(dev);
 	struct kvm_arm_smmu_master *master = dev_iommu_priv_get(dev);
 	struct kvm_arm_smmu_domain *kvm_smmu_domain = to_kvm_smmu_domain(domain);
 
@@ -320,8 +424,8 @@ static int kvm_arm_smmu_set_dev_pasid(struct iommu_domain *domain,
 	if (ret)
 		return ret;
 
-	for (i = 0; i < fwspec->num_ids; i++) {
-		int sid = fwspec->ids[i];
+	for (i = 0; i < master->num_streams; i++) {
+		int sid = master->streams[i].id;
 
 		ret = kvm_iommu_attach_dev(host_smmu->id, kvm_smmu_domain->id,
 					   sid, pasid, master->ssid_bits, 0);
@@ -566,6 +670,18 @@ static bool kvm_arm_smmu_validate_features(struct arm_smmu_device *smmu)
 	smmu->features &= keep_features;
 
 	return true;
+}
+
+static struct kvm_arm_smmu_master * kvm_arm_smmu_find_master(struct arm_smmu_device *smmu, u32 sid)
+{
+	struct rb_node *node;
+
+	lockdep_assert_held(&smmu->streams_mutex);
+
+	node = rb_find(&sid, &smmu->streams, kvm_arm_smmu_streams_cmp_key);
+	if (!node)
+		return NULL;
+	return rb_entry(node, struct kvm_arm_smmu_stream, node)->master;
 }
 
 static irqreturn_t kvm_arm_smmu_evt_handler(int irq, void *dev)
@@ -836,6 +952,9 @@ static int kvm_arm_smmu_probe(struct platform_device *pdev)
 	ret = arm_smmu_fw_probe(pdev, smmu);
 	if (ret)
 		return ret;
+
+	mutex_init(&smmu->streams_mutex);
+	smmu->streams = RB_ROOT;
 
 	ret = kvm_arm_probe_power_domain(dev, &host_smmu->power_domain);
 	if (ret)
