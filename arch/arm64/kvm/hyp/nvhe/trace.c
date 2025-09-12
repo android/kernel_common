@@ -543,7 +543,7 @@ int __pkvm_load_tracing(unsigned long desc_hva, size_t desc_size)
 	struct hyp_trace_desc *desc = (struct hyp_trace_desc *)kern_hyp_va(desc_hva);
 	struct trace_page_desc *trace_pdesc = &desc->page_desc;
 	struct rb_page_desc *pdesc;
-	int ret, cpu;
+	int ret, pdesc_cpu;
 
 	if (!desc_size || !PAGE_ALIGNED(desc_hva) || !PAGE_ALIGNED(desc_size))
 		return -EINVAL;
@@ -555,9 +555,9 @@ int __pkvm_load_tracing(unsigned long desc_hva, size_t desc_size)
 
 	hyp_spin_lock(&trace_rb_lock);
 
-	for_each_rb_page_desc(pdesc, cpu, trace_pdesc) {
+	for_each_rb_page_desc(pdesc, pdesc_cpu, trace_pdesc) {
 		struct hyp_rb_per_cpu *cpu_buffer;
-		int cpu;
+		unsigned int cpu;
 
 		ret = -EINVAL;
 		if (!rb_cpu_fits_desc(pdesc, desc_hva + desc_size))
