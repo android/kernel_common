@@ -5,6 +5,7 @@
   bdev_fput
   blkdev_issue_flush
   compact_node_async
+  delete_from_swap_cache
   dma_heap_try_get_pool_size_kb
   file_bdev
   file_ra_state_init
