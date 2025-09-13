@@ -682,7 +682,7 @@ static bool kvm_arm_smmu_validate_features(struct arm_smmu_device *smmu)
 	return true;
 }
 
-static struct kvm_arm_smmu_master * kvm_arm_smmu_find_master(struct arm_smmu_device *smmu, u32 sid)
+static struct kvm_arm_smmu_master *kvm_arm_smmu_find_master(struct arm_smmu_device *smmu, u32 sid)
 {
 	struct rb_node *node;
 
