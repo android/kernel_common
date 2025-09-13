@@ -247,6 +247,7 @@ void delete_from_swap_cache(struct folio *folio)
 	put_swap_folio(folio, entry);
 	folio_ref_sub(folio, folio_nr_pages(folio));
 }
+EXPORT_SYMBOL_GPL(delete_from_swap_cache);
 
 void clear_shadow_from_swap_cache(int type, unsigned long begin,
 				unsigned long end)
