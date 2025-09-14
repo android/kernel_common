@@ -307,8 +307,12 @@ static int smmu_alloc_l2_strtab(struct hyp_arm_smmu_v3_device *smmu, u32 sid)
 	struct arm_smmu_strtab_l2 *l2table;
 	size_t l2_order = get_order(sizeof(struct arm_smmu_strtab_l2));
 	int flags = 0;
+	u32 l1_idx = arm_smmu_strtab_l1_idx(sid);
 
-	l1_desc = &cfg->l2.l1tab[arm_smmu_strtab_l1_idx(sid)];
+	if (l1_idx >= cfg->l2.num_l1_ents)
+		return -EINVAL;
+
+	l1_desc = &cfg->l2.l1tab[l1_idx];
 	if (l1_desc->l2ptr)
 		return 0;
 
@@ -343,7 +347,7 @@ smmu_get_ste_ptr(struct hyp_arm_smmu_v3_device *smmu, u32 sid)
 					&cfg->l2.l1tab[arm_smmu_strtab_l1_idx(sid)];
 		struct arm_smmu_strtab_l2 *l2ptr;
 
-		if (arm_smmu_strtab_l1_idx(sid) > cfg->l2.num_l1_ents)
+		if (arm_smmu_strtab_l1_idx(sid) >= cfg->l2.num_l1_ents)
 			return NULL;
 		/* L2 should be allocated before calling this. */
 		if (WARN_ON(!l1_desc->l2ptr))
@@ -354,7 +358,7 @@ smmu_get_ste_ptr(struct hyp_arm_smmu_v3_device *smmu, u32 sid)
 		return &l2ptr->stes[arm_smmu_strtab_l2_idx(sid)];
 	}
 
-	if (sid > cfg->linear.num_ents)
+	if (sid >= cfg->linear.num_ents)
 		return NULL;
 	/* Simple linear lookup */
 	return &cfg->linear.table[sid];
