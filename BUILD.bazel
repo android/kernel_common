@@ -1836,6 +1836,9 @@ filegroup(
 ddk_headers(
     name = "all_headers_unsafe",
     hdrs = [
+        "arch/arm64/kvm/hyp/include/nvhe/alloc_mgt.h",
+        "arch/arm64/kvm/hyp/include/nvhe/iommu.h",
+        "arch/arm64/kvm/hyp/include/nvhe/spinlock.h",
         "drivers/devfreq/governor.h",
         "drivers/pinctrl/core.h",
         "drivers/ufs/core/ufshcd-priv.h",
@@ -1862,6 +1865,7 @@ ddk_headers(
     # Unsafe include directories are appended to ccflags-y.
     includes = [
         ".",
+        "arch/arm64/kvm/hyp/include",
         "drivers/devfreq",
         "drivers/pinctrl",
         "drivers/ufs/core",
