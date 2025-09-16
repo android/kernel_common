@@ -237,9 +237,6 @@ static inline bool pkvm_is_protected_vcpu(struct kvm_vcpu *vcpu)
 	return pkvm_is_protected_vm(vcpu->kvm);
 }
 
-int pkvm_tlb_remote_flush(struct kvm *kvm);
-int pkvm_tlb_remote_flush_with_range(struct kvm *kvm,
-				     gfn_t gfn, gfn_t nr_pages);
 int pkvm_set_mmio_ve(struct kvm_vcpu *vcpu, unsigned long gfn);
 int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_cap *cap);
 void pkvm_create_vm_debugfs(struct kvm *kvm);

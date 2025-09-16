@@ -487,51 +487,6 @@ static int pkvm_pgstate_pgt_free_leaf(struct pkvm_pgtable *pgt, unsigned long va
 	return ret;
 }
 
-static void __invalidate_shadow_ept_with_range(struct shadow_ept_desc *desc,
-					       unsigned long vaddr, unsigned long size)
-{
-	struct pkvm_shadow_vm *vm = sept_desc_to_shadow_vm(desc);
-	struct pkvm_pgtable *sept = &desc->sept;
-
-	if (!size)
-		return;
-
-	pkvm_spin_lock(&vm->lock);
-
-	if (!is_valid_eptp(desc->shadow_eptp))
-		goto out;
-
-	pkvm_pgtable_unmap_nosplit(sept, vaddr, size, NULL);
-
-	/*
-	 * As for normal VM, its memory might need to be swapped out
-	 * or other kinds of management from primary VM thus should
-	 * unmap from pgstate pgt as well.
-	 *
-	 * As for protected VM, its memory is pinned thus no need to
-	 * unmap from pgstate pgt.
-	 */
-	if (!shadow_vm_is_protected(vm))
-		pkvm_pgtable_unmap_nosplit(&vm->pgstate_pgt, vaddr, size,
-					   pkvm_pgstate_pgt_free_leaf);
-out:
-	pkvm_spin_unlock(&vm->lock);
-}
-
-void pkvm_invalidate_shadow_ept(struct shadow_ept_desc *desc)
-{
-	struct pkvm_pgtable *sept = &desc->sept;
-	unsigned long size = sept->pgt_ops->pgt_level_to_size(sept->level + 1);
-
-	__invalidate_shadow_ept_with_range(desc, 0, size);
-}
-
-void pkvm_invalidate_shadow_ept_with_range(struct shadow_ept_desc *desc,
-					   unsigned long vaddr, unsigned long size)
-{
-	__invalidate_shadow_ept_with_range(desc, vaddr, size);
-}
-
 void pkvm_pgstate_pgt_deinit(struct pkvm_shadow_vm *vm)
 {
 	pkvm_spin_lock(&vm->lock);
@@ -584,27 +539,4 @@ void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
 	 * "Suppress #VE" bit cleared. Accessing this pte will trigger #VE.
 	 */
 	pkvm_pgtable_annotate(sept, gpa, PAGE_SIZE, SHADOW_EPT_MMIO_ENTRY);
-}
-
-void pkvm_invalidate_guest_ept(int shadow_vm_handle, u64 start_gpa, u64 size)
-{
-	struct pkvm_vm *pkvm_vm = get_pkvm_vm(shadow_vm_handle);
-	struct pkvm_shadow_vm *vm;
-
-	if (!pkvm_vm)
-		return;
-
-	vm = kvm_to_shadow(to_kvm(pkvm_vm));
-
-	if (!start_gpa && !size)
-		/*
-		 * With start_gpa = 0 & size = 0, do invalidation
-		 * for the entire shadow EPT
-		 */
-		pkvm_invalidate_shadow_ept(&vm->sept_desc);
-	else
-		pkvm_invalidate_shadow_ept_with_range(&vm->sept_desc,
-						      start_gpa, size);
-
-	put_pkvm_vm(pkvm_vm);
 }

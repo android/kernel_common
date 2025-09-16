@@ -646,23 +646,6 @@ int pkvm_pgtable_unmap_safe(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 	return pgtable_walk(pgt, vaddr_start, size, true, &walker);
 }
 
-int pkvm_pgtable_unmap_nosplit(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
-		       unsigned long size, pgtable_leaf_ov_fn_t unmap_leaf)
-{
-	struct pkvm_pgtable_unmap_data data = {
-		.phys = INVALID_ADDR,
-		.split_huge_page = false,
-		.unmap_leaf_override = unmap_leaf,
-	};
-	struct pkvm_pgtable_walker walker = {
-		.cb = pgtable_unmap_cb,
-		.arg = &data,
-		.flags = PKVM_PGTABLE_WALK_LEAF | PKVM_PGTABLE_WALK_TABLE_POST,
-	};
-
-	return pgtable_walk(pgt, vaddr_start, size, true, &walker);
-}
-
 void pkvm_pgtable_lookup(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		     unsigned long *pphys, u64 *pprot, int *plevel)
 {

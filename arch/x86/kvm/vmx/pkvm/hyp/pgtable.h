@@ -143,8 +143,6 @@ int pkvm_pgtable_unmap(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 int pkvm_pgtable_unmap_safe(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 			    unsigned long phys_start, unsigned long size,
 			    pgtable_leaf_ov_fn_t unmap_leaf);
-int pkvm_pgtable_unmap_nosplit(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
-		       unsigned long size, pgtable_leaf_ov_fn_t unmap_leaf);
 void pkvm_pgtable_lookup(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		unsigned long *pphys, u64 *pprot, int *plevel);
 void pkvm_pgtable_destroy(struct pkvm_pgtable *pgt, pgtable_leaf_ov_fn_t free_leaf);
