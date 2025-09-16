@@ -42,3 +42,10 @@ type 'struct pkvm_module_ops' changed
 type 'enum iio_chan_type' changed
   enumerator 'IIO_ATTENTION' (39) was added
 
+type 'struct cgroup' changed
+  member 'u64 __kabi_reserved_backport1' was removed
+  member 'union { struct cgroup_kmi_ext_info* kmi_ext_info; struct { u64 __kabi_reserved_backport1; }; union { }; }' was added
+
+type 'struct bindings::bindings_raw::cgroup' changed
+  member 'u64 __kabi_reserved_backport1' was removed
+  member 'union bindings::bindings_raw::cgroup__bindgen_ty_1 __bindgen_anon_1' was added
