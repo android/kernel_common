@@ -3259,6 +3259,9 @@
   typec_altmode_enter
   typec_altmode_exit
   typec_altmode_get_plug
+  typec_altmode_entry_complete
+  typec_mode_selection_start
+  typec_mode_selection_delete
   typec_altmode_notify
   typec_altmode_put_plug
   __typec_altmode_register_driver
