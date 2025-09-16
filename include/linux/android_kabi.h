@@ -33,6 +33,8 @@
 #ifndef _ANDROID_KABI_H
 #define _ANDROID_KABI_H
 
+#ifdef CONFIG_ANDROID_KABI_RESERVE
+
 #include <linux/args.h>
 #include <linux/compiler.h>
 #include <linux/compiler_attributes.h>
@@ -164,5 +166,19 @@
  */
 #define ANDROID_BACKPORT_USE(number, _new) \
 	_ANDROID_KABI_REPLACE(ANDROID_BACKPORT_RESERVE(number), _new)
+
+#else /* CONFIG_ANDROID_KABI_RESERVE */
+
+#define ANDROID_KABI_RESERVE(number)
+#define ANDROID_BACKPORT_RESERVE(number)
+#define ANDROID_KABI_DECLONLY(fqn)
+#define ANDROID_KABI_ENUMERATOR_IGNORE(fqn, field)
+#define ANDROID_KABI_ENUMERATOR_VALUE(fqn, field, value)
+#define ANDROID_KABI_IGNORE(n, _new) _new
+#define ANDROID_KABI_REPLACE(_oldtype, _oldname, _new) _new
+#define ANDROID_KABI_USE(number, _new) _new
+#define ANDROID_KABI_USE2(number, _new1, _new2) _new1; _new2
+
+#endif /* CONFIG_ANDROID_KABI_RESERVE */
 
 #endif /* _ANDROID_KABI_H */
