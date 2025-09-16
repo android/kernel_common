@@ -6,24 +6,33 @@ optimize kernel builds for specific architectures and kernel versions.
 
 ## kernel.afdo
 
-kernel.afdo is an AArch64 kernel profile collected on kernel version 6.12.30 (
-SHA 21ed84930c160ed721c131a67e5ae6181ac40e1e, build server ID 13771236) using Pixel 6.
+kernel.afdo is an AArch64 kernel profile collected on kernel version 6.12.40 (
+SHA ca12b93f5d59c18d689dc5cda33ac140ce961090, build server ID 14055247) using Pixel 6.
 
 ### Performance improvements
 
-| Benchmark             | Improvement                                                            |
-| --------------------- | ---------------------------------------------------------------------- |
-| Boot time             | 2.2%                                                                   |
-| Cold App launch time  | 3.3% (Only for two apps, most app launch tests are broken b/432087996) |
-| Binder-rpc            | 8.3%                                                                   |
-| Binder-addints        | 15.2%                                                                  |
-| Hwbinder              | 17.8%                                                                  |
-| Bionic (syscall_mmap) | 6.6%                                                                   |
-| Bionic (pthread)      | 2.8%                                                                   |
-| Bionic (stdio)        | 1.2%                                                                   |
-| Bionic (all)          | 1.4%                                                                   |
+The following benchmarks demonstrate the performance gains from the latest AutoFDO profile.
+Please note that results can fluctuate slightly between updates due to inherent testing noise.
+A profile is considered successful when it yields positive improvements across the majority of
+benchmarks. All tests were performed on Pixel 6 devices.
 
-Benchmark results were tested on Pixel 6.
+
+| Benchmark             | Improvement |
+| --------------------- | ----------- |
+| Boot time             | 2.2%        |
+| Cold App launch time  | 3.7%        |
+| Binder-rpc            | 8.5%        |
+| Binder-addints        | 25.1%       |
+| Hwbinder              | 18.0%       |
+| Bionic (syscall_mmap) | 5.9%        |
+
+Other improvements tested on past profiles:
+
+| Benchmark        | Improvement |
+| ---------------- | ----------- |
+| Bionic (pthread) | 2.8%        |
+| Bionic (stdio)   | 1.2%        |
+| Bionic (all)     | 1.4%        |
 
 To test a kernel prebuilt with the AutoFDO profile, navigate to [Android build server](
 https://ci.android.com/builds/branches/aosp_kernel-common-android16-6.12/grid) and download
