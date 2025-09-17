@@ -2409,6 +2409,7 @@ cc_library(
     name = "kselftest_timers_common_hdrs",
     hdrs = [
         "include/vdso/time64.h",
+        "tools/testing/selftests/timers/helpers.h",
     ],
     copts = _KSELFTEST_COPTS,
     includes = ["."],

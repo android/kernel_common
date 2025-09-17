@@ -138,7 +138,7 @@ int main(int argc, char **argv)
 		fflush(stdout);
 
 		length = 10;
-		while (length <= (NSEC_PER_SEC * 10)) {
+		while (length <= (NSEC_PER_SEC * 10LL)) {
 			ret = nanosleep_test(clockid, length);
 			if (ret == UNSUPPORTED) {
 				ksft_test_result_skip("%-31s\n", clockstring(clockid));

@@ -264,16 +264,16 @@ int validate_set_offset(void)
 	if (set_offset(-NSEC_PER_SEC - 1, 1))
 		return -1;
 
-	if (set_offset(5 * NSEC_PER_SEC, 1))
+	if (set_offset(5LL * NSEC_PER_SEC, 1))
 		return -1;
 
-	if (set_offset(-5 * NSEC_PER_SEC, 1))
+	if (set_offset(-5LL * NSEC_PER_SEC, 1))
 		return -1;
 
-	if (set_offset(5 * NSEC_PER_SEC + NSEC_PER_SEC / 2, 1))
+	if (set_offset(5LL * NSEC_PER_SEC + NSEC_PER_SEC / 2, 1))
 		return -1;
 
-	if (set_offset(-5 * NSEC_PER_SEC - NSEC_PER_SEC / 2, 1))
+	if (set_offset(-5LL * NSEC_PER_SEC - NSEC_PER_SEC / 2, 1))
 		return -1;
 
 	if (set_offset(USEC_PER_SEC - 1, 0))
