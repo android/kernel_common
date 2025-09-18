@@ -38,6 +38,12 @@ static int __init early_pkvm_parse_cmdline(char *buf)
 }
 early_param("kvm-intel.pkvm", early_pkvm_parse_cmdline);
 
+static int __init early_pkvm_relax_cpu_bugs_parse_cmdline(char *buf)
+{
+	return kstrtobool(buf, &relax_cpu_bugs);
+}
+early_param("kvm-intel.pkvm_relax_cpu_bugs", early_pkvm_relax_cpu_bugs_parse_cmdline);
+
 static int __init early_pvmfw_parse_cmdline(char *buf)
 {
 	u64 start, size;
@@ -1761,6 +1767,8 @@ static int __init __vmx_pkvm_init(void)
 	if (pkvm_has_unmitigated_cpu_bugs()) {
 		if (relax_cpu_bugs) {
 			pr_warn("pkvm: allow pkvm to run with unmitigated CPU bugs\n");
+			pr_warn("pkvm: to prevent pkvm running on such CPU, ");
+			pr_cont("reboot with kvm-intel.pkvm_relax_cpu_bugs=false\n");
 		} else {
 			pr_err("pkvm: prevent pkvm from running due to unmitigated CPU bugs\n");
 			ret = -EOPNOTSUPP;

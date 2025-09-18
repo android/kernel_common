@@ -2880,6 +2880,15 @@
 			allows running guests whose state is protected from the
 			host. Default is 0 (disabled).
 
+	kvm-intel.pkvm_relax_cpu_bugs=
+			[KVM,Intel] If kvm-intel.pkvm=1, control whether run
+			pKVM hypervisor when pKVM is not able to mitigate all
+			CPU vulnerabilities. By default, this parameter is true
+			to allow pKVM hypervisor to run to enable pKVM usage
+			even when it cannot mitigate all CPU vulnerabilities
+			for the development purpose. It should be set to false
+			for the production purpose.
+
 	kvm-intel.unrestricted_guest=
 			[KVM,Intel] Control KVM's use of unrestricted guest
 			feature (virtualized real and unpaged mode). Default
