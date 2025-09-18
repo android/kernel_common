@@ -56,3 +56,11 @@ type 'struct usb_device' changed
   member 'union { unsigned int offload_at_suspend:1; struct { u64 __kabi_reserved1; }; union { }; }' was added
   member 'union { int offload_usage; struct { u64 __kabi_reserved2; }; union { }; }' was added
 
+2 function symbol(s) removed
+  'int __traceiter_android_vh_f2fs_printk(void*, struct f2fs_sb_info*, struct va_format*, int, bool)'
+  'int __traceiter_f2fs_submit_folio_write(void*, struct folio*, struct f2fs_io_info*)'
+
+2 variable symbol(s) removed
+  'struct tracepoint __tracepoint_android_vh_f2fs_printk'
+  'struct tracepoint __tracepoint_f2fs_submit_folio_write'
+
