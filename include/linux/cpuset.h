@@ -34,6 +34,8 @@
  */
 extern struct static_key_false cpusets_pre_enable_key;
 extern struct static_key_false cpusets_enabled_key;
+extern struct static_key_false cpusets_insane_config_key;
+
 static inline bool cpusets_enabled(void)
 {
 	return static_branch_unlikely(&cpusets_enabled_key);
@@ -49,6 +51,19 @@ static inline void cpuset_dec(void)
 {
 	static_branch_dec_cpuslocked(&cpusets_enabled_key);
 	static_branch_dec_cpuslocked(&cpusets_pre_enable_key);
+}
+
+/*
+ * This will get enabled whenever a cpuset configuration is considered
+ * unsupportable in general. E.g. movable only node which cannot satisfy
+ * any non movable allocations (see update_nodemask). Page allocator
+ * needs to make additional checks for those configurations and this
+ * check is meant to guard those checks without any overhead for sane
+ * configurations.
+ */
+static inline bool cpusets_insane_config(void)
+{
+	return static_branch_unlikely(&cpusets_insane_config_key);
 }
 
 extern int cpuset_init(void);
@@ -171,6 +186,8 @@ extern void cpuset_hotplug_workfn(struct work_struct *work);
 #else /* !CONFIG_CPUSETS */
 
 static inline bool cpusets_enabled(void) { return false; }
+
+static inline bool cpusets_insane_config(void) { return false; }
 
 static inline int cpuset_init(void) { return 0; }
 static inline void cpuset_init_smp(void) {}
