@@ -192,8 +192,9 @@ def get_gki_modules_list(arch = None, map_each = None):
         list comprehension); instead, use the |map_each| argument.
     """
 
-    # TODO: b/419603781 - Turn this into a select() expression.
-    return _get_gki_modules_list_minus_select(arch, map_each)
+    return select({
+        "//conditions:default": _get_gki_modules_list_minus_select(arch, map_each),
+    })
 
 # buildifier: disable=unnamed-macro
 def get_gki_modules_superset(arch = None, map_each = None):
@@ -294,8 +295,9 @@ def get_kunit_modules_list(arch = None, map_each = None):
         list comprehension); instead, use the |map_each| argument.
     """
 
-    # TODO: b/419603781 - Turn this into a select() expression.
-    return _get_kunit_modules_list_minus_select(arch, map_each)
+    return select({
+        "//conditions:default": _get_kunit_modules_list_minus_select(arch, map_each),
+    })
 
 # buildifier: disable=unnamed-macro
 def get_kunit_modules_superset(arch = None, map_each = None):
@@ -318,7 +320,9 @@ _COMMON_UNPROTECTED_MODULES_LIST = []
 
 # buildifier: disable=unused-variable
 def get_gki_unprotected_modules_list(arch = None):
-    return _COMMON_UNPROTECTED_MODULES_LIST
+    return select({
+        "//conditions:default": _COMMON_UNPROTECTED_MODULES_LIST,
+    })
 
 # buildifier: disable=unnamed-macro
 def get_gki_kunit_modules(arch, page_size = None):
