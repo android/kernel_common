@@ -5,6 +5,7 @@ load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_cc//cc:defs.bzl", "cc_library")
+load("@rules_devicetree//devicetree:devicetree_library.bzl", "devicetree_library")
 load("@rules_pkg//pkg:install.bzl", "pkg_install")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_filegroup", "pkg_files", "strip_prefix")
 load("@rules_pkg//pkg:pkg.bzl", "pkg_zip")
@@ -1685,6 +1686,31 @@ ddk_headers(
         "kernel/workqueue_internal.h",
     ],
     visibility = ["//visibility:private"],
+)
+
+devicetree_library(
+    name = "dt-bindings",
+    hdrs = glob([
+        "scripts/dtc/include-prefixes/dt-bindings/**/*.h",
+    ]),
+    includes = ["scripts/dtc/include-prefixes"],
+    visibility = ["//visibility:private"],
+)
+
+devicetree_library(
+    name = "dtc_includes_aarch64",
+    hdrs = glob([
+        "scripts/dtc/include-prefixes/arm64/**/*.h",
+    ]),
+    includes = ["scripts/dtc/include-prefixes"],
+    visibility = ["//visibility:public"],
+    deps = [":dt-bindings"],
+)
+
+alias(
+    name = "dtc_includes_x86_64",
+    actual = ":dt-bindings",
+    visibility = ["//visibility:public"],
 )
 
 _KSELFTEST_DIR = "testcases/selftests"
