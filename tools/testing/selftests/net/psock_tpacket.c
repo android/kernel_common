@@ -473,7 +473,7 @@ static void walk_tx(int sock, struct ring *ring)
 
 	bug_on(total_packets != 0);
 
-	ret = sendto(sock, NULL, 0, 0, NULL, 0);
+	ret = sendto(sock, "", 0, 0, NULL, 0);
 	if (ret == -1) {
 		perror("sendto");
 		exit(1);
