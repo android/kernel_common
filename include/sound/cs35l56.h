@@ -283,6 +283,7 @@ struct cs35l56_base {
 	struct cirrus_amp_cal_data cal_data;
 	struct gpio_desc *reset_gpio;
 	struct cs35l56_spi_payload *spi_payload_buf;
+	u64 silicon_uid;
 };
 
 static inline bool cs35l56_is_otp_register(unsigned int reg)

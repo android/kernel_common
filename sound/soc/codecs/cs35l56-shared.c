@@ -681,7 +681,7 @@ struct cs35l56_pte {
 } __packed;
 static_assert((sizeof(struct cs35l56_pte) % sizeof(u32)) == 0);
 
-static int cs35l56_read_silicon_uid(struct cs35l56_base *cs35l56_base, u64 *uid)
+static int cs35l56_read_silicon_uid(struct cs35l56_base *cs35l56_base)
 {
 	struct cs35l56_pte pte;
 	u64 unique_id;
@@ -700,7 +700,7 @@ static int cs35l56_read_silicon_uid(struct cs35l56_base *cs35l56_base, u64 *uid)
 
 	dev_dbg(cs35l56_base->dev, "UniqueID = %#llx\n", unique_id);
 
-	*uid = unique_id;
+	cs35l56_base->silicon_uid = unique_id;
 
 	return 0;
 }
@@ -718,18 +718,14 @@ EXPORT_SYMBOL_NS_GPL(cs35l56_calibration_controls, SND_SOC_CS35L56_SHARED);
 
 int cs35l56_get_calibration(struct cs35l56_base *cs35l56_base)
 {
-	u64 silicon_uid = 0;
 	int ret;
 
 	/* Driver can't apply calibration to a secured part, so skip */
 	if (cs35l56_base->secured)
 		return 0;
 
-	ret = cs35l56_read_silicon_uid(cs35l56_base, &silicon_uid);
-	if (ret < 0)
-		return ret;
-
-	ret = cs_amp_get_efi_calibration_data(cs35l56_base->dev, silicon_uid,
+	ret = cs_amp_get_efi_calibration_data(cs35l56_base->dev,
+					      cs35l56_base->silicon_uid,
 					      cs35l56_base->cal_index,
 					      &cs35l56_base->cal_data);
 
@@ -878,6 +874,12 @@ int cs35l56_hw_init(struct cs35l56_base *cs35l56_base)
 	regmap_update_bits(cs35l56_base->regmap, CS35L56_IRQ1_MASK_8,
 			   CS35L56_TEMP_ERR_EINT1_MASK,
 			   0);
+
+	ret = cs35l56_read_silicon_uid(cs35l56_base);
+	if (ret)
+		return ret;
+
+	dev_dbg(cs35l56_base->dev, "SiliconID = %#llx\n", cs35l56_base->silicon_uid);
 
 	return 0;
 }
