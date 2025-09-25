@@ -32,7 +32,6 @@ void pkvm_shadow_vm_unlink_ptdev(struct pkvm_shadow_vm *vm,
 				 struct list_head *node, bool coherency);
 void pkvm_kick_vcpu(struct kvm_vcpu *vcpu);
 int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid);
-int pkvm_load_pvmfw_pages(struct pkvm_shadow_vm *vm, u64 gpa, u64 phys, u64 size);
 
 #define PKVM_REQ_TLB_FLUSH_HOST_EPT			KVM_ARCH_REQ(0)
 
@@ -46,20 +45,6 @@ static inline bool shadow_vm_is_protected(struct pkvm_shadow_vm *vm)
 static inline bool shadow_vcpu_is_protected(struct shadow_vcpu_state *shadow_vcpu)
 {
 	return shadow_vm_is_protected(shadow_vcpu->vm);
-}
-
-static inline bool gpa_range_has_pvmfw(struct pkvm_shadow_vm *vm, u64 gpa_start, u64 gpa_end)
-{
-	struct kvm_protected_vm *pkvm = &shadow_to_kvm(vm)->arch.pkvm;
-	u64 pvmfw_load_end = pkvm->pvmfw_load_addr + pvmfw_size;
-
-	if (!pvmfw_present)
-		return false;
-
-	if (pkvm->pvmfw_load_addr == INVALID_GPA)
-		return false;
-
-	return gpa_end > pkvm->pvmfw_load_addr && gpa_start < pvmfw_load_end;
 }
 
 int pkvm_init_shadow_vm(struct kvm *kvm);

@@ -75,21 +75,6 @@ int pkvm_add_ptdev(int shadow_vm_handle, u16 bdf, u32 pasid)
 	return ret;
 }
 
-int pkvm_load_pvmfw_pages(struct pkvm_shadow_vm *vm, u64 gpa, u64 phys, u64 size)
-{
-	u64 offset = gpa - shadow_to_kvm(vm)->arch.pkvm.pvmfw_load_addr;
-
-	if (offset >= pvmfw_size)
-		return -EINVAL;
-
-	size = min(size, pvmfw_size - offset);
-	if (!PAGE_ALIGNED(size) || !PAGE_ALIGNED(offset))
-		return -EINVAL;
-
-	memcpy(__pkvm_va(phys), __pkvm_va(pvmfw_base + offset), size);
-	return 0;
-}
-
 int pkvm_init_shadow_vm(struct kvm *kvm)
 {
 	struct pkvm_shadow_vm *vm = kvm_to_shadow(kvm);
