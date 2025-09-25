@@ -2010,6 +2010,7 @@
   rdev_get_drvdata
   rdev_get_id
   rdev_get_regmap
+  read_comp_algo_dictionary
   reboot_mode
   refcount_dec_not_one
   refcount_warn_saturate
