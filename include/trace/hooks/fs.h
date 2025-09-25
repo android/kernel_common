@@ -8,7 +8,6 @@
 #define _TRACE_HOOK_FS_H
 
 #include <trace/hooks/vendor_hooks.h>
-struct f2fs_sb_info;
 struct va_format;
 
 DECLARE_RESTRICTED_HOOK(android_rvh_f2fs_down_read,
@@ -24,12 +23,16 @@ DECLARE_HOOK(android_vh_f2fs_restore_priority,
 	TP_ARGS(p, saved_prio));
 
 DECLARE_HOOK(android_vh_f2fs_printk,
-	TP_PROTO(struct f2fs_sb_info *sbi, struct va_format *vaf, int level, bool limit_rate),
-	TP_ARGS(sbi, vaf, level, limit_rate));
+	TP_PROTO(unsigned long s_flag, struct va_format *vaf, int level, bool limit_rate),
+	TP_ARGS(s_flag, vaf, level, limit_rate));
 
 DECLARE_HOOK(android_vh_f2fs_create,
 	TP_PROTO(struct inode *inode, struct dentry *dentry),
 	TP_ARGS(inode, dentry));
+
+DECLARE_HOOK(android_vh_f2fs_set_bio_flag,
+	TP_PROTO(struct folio *folio, struct bio *bio),
+	TP_ARGS(folio, bio));
 
 DECLARE_HOOK(android_vh_wb_dirty_limits,
 	TP_PROTO(unsigned long *thresh, struct bdi_writeback *wb),
