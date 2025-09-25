@@ -87,6 +87,12 @@
   __traceiter_android_vh_zs_shrinker_bypass
   __traceiter_console
   __traceiter_vm_unmapped_area
+  __traceiter_android_vh_handle_add_skipped_blks
+  __traceiter_android_vh_handle_data_error
+  __traceiter_android_vh_handle_metadata_error
+  __traceiter_android_vh_handle_add_blks_map
+  __traceiter_android_vh_handle_add_fec_mismatch_blks
+  __traceiter_android_vh_handle_get_b_info
   __tracepoint_android_rvh_die_kernel_fault
   __tracepoint_android_rvh_do_el1_undef
   __tracepoint_android_rvh_do_sp_pc_abort
@@ -137,4 +143,10 @@
   __tracepoint_android_vh_zs_shrinker_bypass
   __tracepoint_console
   __tracepoint_vm_unmapped_area
+  __tracepoint_android_vh_handle_add_fec_mismatch_blks
+  __tracepoint_android_vh_handle_data_error
+  __tracepoint_android_vh_handle_metadata_error
+  __tracepoint_android_vh_handle_add_skipped_blks
+  __tracepoint_android_vh_handle_add_blks_map
+  __tracepoint_android_vh_handle_get_b_info
   yield
