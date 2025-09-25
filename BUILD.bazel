@@ -194,6 +194,7 @@ filegroup(
         "gki/aarch64/symbols/galaxy",
         "gki/aarch64/symbols/honor",
         "gki/aarch64/symbols/imx",
+        "gki/aarch64/symbols/kunit",
         "gki/aarch64/symbols/lenovo",
         "gki/aarch64/symbols/meizu",
         "gki/aarch64/symbols/mtk",
