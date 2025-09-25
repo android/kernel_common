@@ -10,8 +10,7 @@
  *
  * Copyright (C) 2024 Google LLC.
  */
-#include <linux/list_lru.h>
-#include <linux/spinlock.h>
+#include "page_range_helper.h"
 
 unsigned int rust_shrink_free_page(struct list_head *item,
 				   struct list_lru_one *list, spinlock_t *lock,

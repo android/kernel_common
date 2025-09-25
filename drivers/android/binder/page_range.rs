@@ -673,18 +673,9 @@ unsafe extern "C" fn rust_shrink_scan(
     let nr_to_scan = unsafe { (*sc).nr_to_scan };
     // SAFETY: Accessing the lru list is okay. Just an FFI call.
     unsafe {
-        extern "C" {
-            fn rust_shrink_free_page_wrap(
-                item: *mut bindings::list_head,
-                list: *mut bindings::list_lru_one,
-                lock: *mut bindings::spinlock_t,
-                cb_arg: *mut kernel::ffi::c_void,
-            ) -> bindings::lru_status;
-        }
-
         bindings::list_lru_walk(
             list_lru,
-            Some(rust_shrink_free_page_wrap),
+            Some(bindings::rust_shrink_free_page_wrap),
             ptr::null_mut(),
             nr_to_scan,
         )

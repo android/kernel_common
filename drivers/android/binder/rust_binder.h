@@ -16,22 +16,6 @@ struct inode;
 struct dentry *rust_binderfs_create_proc_file(struct inode *nodp, int pid);
 void rust_binderfs_remove_file(struct dentry *dentry);
 
-typedef void *rust_binder_context;
-/**
- * struct binder_device - information about a binder device node
- * @minor:     the minor number used by this device
- * @ctx:       the Rust Context used by this device, or null for binder-control
- *
- * This is used as the private data for files directly in binderfs, but not
- * files in the binder_logs subdirectory. This struct owns a refcount on `ctx`
- * and the entry for `minor` in `binderfs_minors`. For binder-control `ctx` is
- * null.
- */
-struct binder_device {
-	int minor;
-	rust_binder_context ctx;
-};
-
 /*
  * The internal data types in the Rust Binder driver are opaque to C, so we use
  * void pointer typedefs for these types.

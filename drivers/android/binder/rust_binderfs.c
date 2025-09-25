@@ -33,6 +33,7 @@
 #include <uapi/linux/android/binder.h>
 #include <uapi/linux/android/binderfs.h>
 
+#include "rust_binder.h"
 #include "rust_binder_internal.h"
 
 #define FIRST_INODE 1
@@ -90,14 +91,6 @@ static struct binder_features binder_features = {
 static inline struct binderfs_info *BINDERFS_SB(const struct super_block *sb)
 {
 	return sb->s_fs_info;
-}
-
-bool is_rust_binderfs_device(const struct inode *inode)
-{
-	if (inode->i_sb->s_magic == RUST_BINDERFS_SUPER_MAGIC)
-		return true;
-
-	return false;
 }
 
 /**
@@ -512,9 +505,9 @@ void rust_binderfs_remove_file(struct dentry *dentry)
 	inode_unlock(parent_inode);
 }
 
-struct dentry *rust_binderfs_create_file(struct dentry *parent, const char *name,
-					 const struct file_operations *fops,
-					 void *data)
+static struct dentry *rust_binderfs_create_file(struct dentry *parent, const char *name,
+						const struct file_operations *fops,
+						void *data)
 {
 	struct dentry *dentry;
 	struct inode *new_inode, *parent_inode;
