@@ -725,12 +725,21 @@ static int smmu_alloc_domain(struct kvm_hyp_iommu_domain *domain, int type)
 static void smmu_free_domain(struct kvm_hyp_iommu_domain *domain)
 {
 	struct hyp_arm_smmu_v3_domain *smmu_domain = domain->priv;
+	struct domain_iommu_node *iommu_node, *temp;
 
 	if (smmu_domain->pgtable)
 		kvm_arm_io_pgtable_free(smmu_domain->pgtable);
 
-	/* Assert devices are detached at this point, otherwise we leak memory. */
-	WARN_ON(!list_empty(&smmu_domain->iommu_list));
+	/*
+	 * With device assignment it is possible to free a domain with attached devices,
+	 * they will be disabled through dev_block_dma op.
+	 * In that case free the IOMMU nodes to avoid leaking memory.
+	 */
+	list_for_each_entry_safe(iommu_node, temp, &smmu_domain->iommu_list, list) {
+		list_del(&iommu_node->list);
+		hyp_free(iommu_node);
+	}
+
 	hyp_free(smmu_domain);
 }
 
