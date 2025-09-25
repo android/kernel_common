@@ -997,10 +997,13 @@ static int ___host_check_page_state_range(u64 addr, u64 size,
 		.desired	= state,
 		.get_page_state	= host_get_mmio_page_state,
 	};
-	u64 end = addr + size;
 	struct hyp_page *p;
 	struct memblock_region *reg;
 	struct kvm_mem_range range;
+	u64 end;
+
+	if (check_add_overflow(addr, size, &end))
+		return -EINVAL;
 
 	/* Can't check the state of both MMIO and memory regions at once */
 	reg = find_mem_range(addr, &range);
@@ -1110,6 +1113,10 @@ static int __guest_check_page_state_range(struct pkvm_hyp_vcpu *vcpu, u64 addr,
 		.desired	= state,
 		.get_page_state	= guest_get_page_state,
 	};
+	u64 end;
+
+	if (check_add_overflow(addr, size, &end))
+		return -EINVAL;
 
 	hyp_assert_lock_held(&vm->pgtable_lock);
 	return check_page_state_range(&vm->pgt, addr, size, &d);
@@ -2002,10 +2009,10 @@ int __pkvm_host_share_guest(u64 pfn, u64 gfn, struct pkvm_hyp_vcpu *vcpu,
 	if (prot & ~KVM_PGTABLE_PROT_RWX)
 		return -EINVAL;
 
-	if (check_shl_overflow(nr_pages, PAGE_SHIFT, &size))
+	if (check_shl_overflow(nr_pages, PAGE_SHIFT, &size) ||
+	    check_add_overflow(phys, size, &end))
 		return -EINVAL;
 
-	end = phys + size;
 	ret = check_range_allowed_memory(phys, end);
 	if (ret)
 		return ret;
@@ -2068,7 +2075,9 @@ static int __check_host_shared_guest(struct pkvm_hyp_vm *vm, u64 *__phys, u64 ip
 		return -EPERM;
 
 	phys = kvm_pte_to_phys(pte);
-	end = phys + size;
+	if (check_add_overflow(phys, size, &end))
+		return -EINVAL;
+
 	ret = check_range_allowed_memory(phys, end);
 	if (WARN_ON(ret))
 		return ret;
