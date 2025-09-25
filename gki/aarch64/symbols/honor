@@ -277,6 +277,8 @@
   __traceiter_android_vh_f2fs_improve_priority
   __tracepoint_android_vh_f2fs_restore_priority
   __traceiter_android_vh_f2fs_restore_priority
+  __traceiter_android_vh_f2fs_set_bio_flag
+  __tracepoint_android_vh_f2fs_set_bio_flag
   __tracepoint_android_vh_io_statistics
   __traceiter_android_vh_io_statistics
   __traceiter_android_vh_ufs_eh_timed_out
@@ -301,6 +303,8 @@
   __traceiter_scsi_dispatch_cmd_done
   __tracepoint_f2fs_write_begin
   __traceiter_f2fs_write_begin
+  __tracepoint_android_vh_f2fs_printk
+  __traceiter_android_vh_f2fs_printk
   __tracepoint_android_vh_f2fs_create
   __traceiter_android_vh_f2fs_create
   wb_wakeup
