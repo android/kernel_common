@@ -49,3 +49,10 @@ type 'struct cgroup' changed
 type 'struct bindings::bindings_raw::cgroup' changed
   member 'u64 __kabi_reserved_backport1' was removed
   member 'union bindings::bindings_raw::cgroup__bindgen_ty_1 __bindgen_anon_1' was added
+
+type 'struct usb_device' changed
+  member 'u64 __kabi_reserved1' was removed
+  member 'u64 __kabi_reserved2' was removed
+  member 'union { unsigned int offload_at_suspend:1; struct { u64 __kabi_reserved1; }; union { }; }' was added
+  member 'union { int offload_usage; struct { u64 __kabi_reserved2; }; union { }; }' was added
+
