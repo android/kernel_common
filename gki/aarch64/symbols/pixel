@@ -54,6 +54,13 @@
   base64_decode
   bcmp
   bin2hex
+  __bio_add_page
+  bio_alloc_bioset
+  bio_chain
+  bio_endio
+  bio_end_io_acct_remapped
+  bio_init
+  bio_start_io_acct
   __bitmap_andnot
   __bitmap_clear
   __bitmap_equal
@@ -69,6 +76,7 @@
   bitmap_to_arr32
   __bitmap_weight
   bitmap_zalloc
+  __blk_alloc_disk
   blk_check_plugged
   blk_execute_rq_nowait
   blk_get_queue
@@ -314,6 +322,7 @@
   debugfs_rename
   default_llseek
   delayed_work_timer_fn
+  del_gendisk
   desc_to_gpio
   destroy_workqueue
   dev_addr_mod
@@ -346,6 +355,7 @@
   dev_get_by_name
   dev_get_regmap
   device_add
+  device_add_disk
   device_add_groups
   device_create
   device_create_file
@@ -369,6 +379,7 @@
   device_property_match_string
   device_property_present
   device_property_read_string
+  device_property_read_u16_array
   device_property_read_u32_array
   device_property_read_u8_array
   device_register
@@ -960,6 +971,9 @@
   fdget
   fd_install
   fget
+  file_path
+  filp_close
+  filp_open_block
   _find_first_bit
   _find_first_zero_bit
   find_get_pid
@@ -973,6 +987,7 @@
   finish_wait
   firmware_kobj
   firmware_request_nowarn
+  flush_dcache_page
   flush_delayed_work
   flush_work
   __flush_workqueue
@@ -1000,6 +1015,7 @@
   freq_qos_add_request
   freq_qos_remove_request
   freq_qos_update_request
+  fs_bio_set
   fsnotify
   __fsnotify_parent
   full_name_hash
@@ -1172,6 +1188,7 @@
   i3c_master_register
   i3c_master_set_info
   i3c_master_unregister
+  I_BDEV
   icc_link_create
   icc_node_add
   icc_node_create
@@ -1475,9 +1492,19 @@
   loops_per_jiffy
   lru_cache_disable
   lru_disable_count
+  LZ4_compress_fast
+  LZ4_compress_fast_continue
+  LZ4_compress_HC
   LZ4_compress_HC_continue
+  LZ4_decompress_safe
+  LZ4_decompress_safe_continue
+  LZ4_loadDict
   LZ4_loadDictHC
   LZ4_resetStreamHC
+  LZ4_setStreamDecode
+  lzo1x_1_compress
+  lzo1x_decompress_safe
+  lzorle1x_1_compress
   mac_pton
   mas_find
   max_load_balance_interval
@@ -1516,6 +1543,7 @@
   memremap
   mem_section
   memset
+  memset64
   __memset_io
   memstart_addr
   memunmap
@@ -1742,6 +1770,7 @@
   param_ops_long
   param_ops_string
   param_ops_uint
+  param_ops_ullong
   param_ops_ulong
   param_set_copystring
   param_set_int
@@ -1780,6 +1809,7 @@
   pci_irq_vector
   pci_load_and_free_saved_state
   pci_load_saved_state
+  pci_lock_rescan_remove
   pci_msi_mask_irq
   pci_msi_unmask_irq
   pci_prepare_ats
@@ -1798,6 +1828,7 @@
   pci_set_power_state
   pci_stop_and_remove_bus_device_locked
   pci_store_saved_state
+  pci_unlock_rescan_remove
   pci_unregister_driver
   pci_wake_from_d3
   pci_write_config_dword
@@ -1952,6 +1983,7 @@
   push_cpu_stop
   __put_cred
   put_device
+  put_disk
   put_iova_domain
   __put_net
   put_pid
@@ -2020,6 +2052,7 @@
   regcache_mark_dirty
   regcache_sync
   regcache_sync_region
+  __register_blkdev
   __register_chrdev
   register_chrdev_region
   register_console
@@ -2093,6 +2126,7 @@
   remap_vmalloc_range
   remove_cpu
   remove_proc_entry
+  remove_proc_subtree
   remove_resource
   remove_wait_queue
   report_iommu_fault
@@ -2192,6 +2226,8 @@
   seq_release_private
   seq_vprintf
   seq_write
+  set_capacity
+  set_capacity_and_notify
   set_cpus_allowed_ptr
   set_freezable
   set_normalized_timespec64
@@ -2429,12 +2465,15 @@
   strsep
   strspn
   strstr
+  submit_bio
+  submit_bio_wait
   subsys_system_register
   suspend_set_ops
   __sw_hweight16
   __sw_hweight32
   __sw_hweight64
   __sw_hweight8
+  sync_blockdev
   sync_file_create
   sync_file_get_fence
   synchronize_irq
@@ -2536,6 +2575,7 @@
   trace_event_raw_init
   trace_event_reg
   trace_handle_return
+  __traceiter_android_rvh_after_dequeue_task
   __traceiter_android_rvh_attach_entity_load_avg
   __traceiter_android_rvh_build_perf_domains
   __traceiter_android_rvh_can_migrate_task
@@ -2602,6 +2642,7 @@
   __traceiter_android_vh_dup_task_struct
   __traceiter_android_vh_early_resume_begin
   __traceiter_android_vh_enable_thermal_genl_check
+  __traceiter_android_vh_exit_check
   __traceiter_android_vh_filemap_get_folio
   __traceiter_android_vh_free_one_page_flag_check
   __traceiter_android_vh_free_pages_prepare_init
@@ -2662,6 +2703,7 @@
   __traceiter_workqueue_execute_end
   __traceiter_workqueue_execute_start
   trace_output_call
+  __tracepoint_android_rvh_after_dequeue_task
   __tracepoint_android_rvh_attach_entity_load_avg
   __tracepoint_android_rvh_build_perf_domains
   __tracepoint_android_rvh_can_migrate_task
@@ -2728,6 +2770,7 @@
   __tracepoint_android_vh_dup_task_struct
   __tracepoint_android_vh_early_resume_begin
   __tracepoint_android_vh_enable_thermal_genl_check
+  __tracepoint_android_vh_exit_check
   __tracepoint_android_vh_filemap_get_folio
   __tracepoint_android_vh_free_one_page_flag_check
   __tracepoint_android_vh_free_pages_prepare_init
@@ -2866,6 +2909,7 @@
   unlock_page
   unmap_mapping_range
   unpin_user_page
+  unregister_blkdev
   __unregister_chrdev
   unregister_chrdev_region
   unregister_inet6addr_notifier
@@ -3090,17 +3134,41 @@
   xhci_resume
   xhci_run
   xhci_sideband_add_endpoint
+  xhci_sideband_check
   xhci_sideband_create_interrupter
   xhci_sideband_register
   xhci_sideband_remove_endpoint
   xhci_sideband_remove_interrupter
   xhci_sideband_unregister
   xhci_suspend
+  zlib_deflate
+  zlib_deflateEnd
+  zlib_deflateInit2
+  zlib_deflateReset
+  zlib_deflate_workspacesize
+  zlib_inflate
+  zlib_inflateEnd
+  zlib_inflateInit2
+  zlib_inflateReset
+  zlib_inflate_workspacesize
+  zs_compact
+  zs_create_pool
+  zs_destroy_pool
+  zs_free
+  zs_get_total_pages
+  zs_huge_class_size
+  zs_malloc
+  zs_map_object
+  zs_pool_stats
+  zstd_cctx_workspace_bound
+  zstd_compress_cctx
   zstd_compress_using_cdict
   zstd_create_cctx_advanced
   zstd_create_cdict_byreference
   zstd_create_dctx_advanced
   zstd_create_ddict_byreference
+  zstd_dctx_workspace_bound
+  zstd_decompress_dctx
   zstd_decompress_using_ddict
   zstd_default_clevel
   zstd_free_cctx
@@ -3108,3 +3176,8 @@
   zstd_free_dctx
   zstd_free_ddict
   zstd_get_cparams
+  zstd_get_params
+  zstd_init_cctx
+  zstd_init_dctx
+  zstd_is_error
+  zs_unmap_object
