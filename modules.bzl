@@ -98,7 +98,7 @@ _ARM_GKI_MODULES_LIST = [
 _ARM64_GKI_MODULES_LIST = [
     # keep sorted
     "arch/arm64/geniezone/gzvm.ko",
-    "drivers/android/rust_binder.ko",
+    "drivers/android/binder/rust_binder.ko",
     "drivers/char/hw_random/cctrng.ko",
     "drivers/misc/open-dice.ko",
     "drivers/ptp/ptp_kvm.ko",
@@ -112,7 +112,7 @@ _X86_GKI_MODULES_LIST = [
 _X86_64_GKI_MODULES_LIST = [
     # keep sorted
     "drivers/acpi/fan.ko",
-    "drivers/android/rust_binder.ko",
+    "drivers/android/binder/rust_binder.ko",
     "drivers/powercap/intel_rapl_common.ko",
     "drivers/ptp/ptp_kvm.ko",
     "drivers/thermal/intel/int340x_thermal/acpi_thermal_rel.ko",

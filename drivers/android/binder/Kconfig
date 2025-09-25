@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0
+
+config ANDROID_BINDER_IPC_RUST
+	tristate "Rust version of Android Binder IPC Driver"
+	depends on RUST && ANDROID_BINDER_IPC && ANDROID_BINDERFS
+	help
+	  This enables the Rust implementation of the Binder driver. At this
+	  time, the Rust implementation can only be built as an alternative to
+	  the C implementation. By default, the C implementation is used, but
+	  if the binder.impl=rust kernel command-line parameter is provided,
+	  then the Rust implementation is used instead.
+
+	  To build this as a GKI module, choose m.
+
+config ANDROID_BINDER_IPC_RUST_DUMMY
+	tristate "Empty module called rust_binder.ko"
+	depends on ANDROID_BINDER_IPC && !ANDROID_BINDER_IPC_RUST
+	help
+	  This creates an empty module of the same name as the Rust Binder
+	  module. This option can be used to trick the build system into
+	  thinking that Rust Binder was successfully built in cases where Rust
+	  support is unavailable.
+
