@@ -95,6 +95,7 @@
   __traceiter_android_vh_cma_alloc_retry
   __traceiter_android_vh_get_page_wmark
   __traceiter_android_vh_killed_process
+  __traceiter_android_vh_oom_reaper_delay_bypass
   __traceiter_android_vh_kvmalloc_node_use_vmalloc
   __traceiter_android_vh_mem_cgroup_alloc
   __traceiter_android_vh_mem_cgroup_css_offline
@@ -119,6 +120,7 @@
   __tracepoint_android_vh_cma_alloc_retry
   __tracepoint_android_vh_get_page_wmark
   __tracepoint_android_vh_killed_process
+  __tracepoint_android_vh_oom_reaper_delay_bypass
   __tracepoint_android_vh_kvmalloc_node_use_vmalloc
   __tracepoint_android_vh_mem_cgroup_alloc
   __tracepoint_android_vh_mem_cgroup_css_online
