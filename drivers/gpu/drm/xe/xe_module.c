@@ -7,6 +7,7 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/stringify.h>
 
 #include <drm/drm_module.h>
 
@@ -16,12 +17,16 @@
 #include "xe_pm.h"
 #include "xe_observation.h"
 #include "xe_sched_job.h"
+#include "xe_gpufreqtracer.h"
 
 struct xe_modparam xe_modparam = {
 	.probe_display = true,
 	.guc_log_level = 5,
 	.force_probe = CONFIG_DRM_XE_FORCE_PROBE,
 	.wedged_mode = 1,
+#ifdef CONFIG_DRM_XE_GPUFREQTRACER
+	.gpufreq_monitoring_interval_ms = XE_GPUFREQ_MONITORING_DEFAULT_INTERVAL_MS,
+#endif
 	/* the rest are 0 by default */
 };
 
@@ -63,6 +68,16 @@ MODULE_PARM_DESC(max_vfs,
 module_param_named_unsafe(wedged_mode, xe_modparam.wedged_mode, int, 0600);
 MODULE_PARM_DESC(wedged_mode,
 		 "Module's default policy for the wedged mode - 0=never, 1=upon-critical-errors[default], 2=upon-any-hang");
+
+#ifdef CONFIG_DRM_XE_GPUFREQTRACER
+module_param_named(gpufreq_monitoring_interval_ms,
+		   xe_modparam.gpufreq_monitoring_interval_ms, uint, 0644);
+MODULE_PARM_DESC(gpufreq_monitoring_interval_ms,
+		"GPU frequency monitoring interval in milliseconds ("
+		__stringify(XE_GPUFREQ_MONITORING_MIN_INTERVAL_MS) "-"
+		__stringify(XE_GPUFREQ_MONITORING_MAX_INTERVAL_MS) ", default: "
+		__stringify(XE_GPUFREQ_MONITORING_DEFAULT_INTERVAL_MS) ")");
+#endif
 
 static int xe_check_nomodeset(void)
 {

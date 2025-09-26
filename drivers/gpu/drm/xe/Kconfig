@@ -88,6 +88,28 @@ config DRM_XE_FORCE_PROBE
 
 	  Use "!*" to block the probe of the driver for all known devices.
 
+config DRM_XE_GPUFREQTRACER
+	bool "Enable XE GPU frequency tracing"
+	depends on DRM_XE && FTRACE
+	default n
+	help
+	  Enable GPU frequency tracing support for Intel XE driver.
+	  This adds an ftrace tracepoint that reports GPU frequency changes
+	  at periodic boundaries (default 5 secs, configurable via the
+	  gpufreq_monitoring_interval_ms module parameter) and
+	  on direct frequency change events.
+
+	  The monitoring interval can be configured at runtime via the sysfs module parameter:
+	  /sys/module/xe/parameters/gpufreq_monitoring_interval_ms
+
+	  The tracepoint will be available at:
+	  /sys/kernel/debug/tracing/events/power/gpu_frequency
+
+	  Format: {unsigned int state, unsigned int gpu_id}
+	  Where state is the frequency in KHz and gpu_id is the GPU clock domain.
+
+	  If unsure, say N.
+
 menu "drm/Xe Debugging"
 depends on DRM_XE
 depends on EXPERT

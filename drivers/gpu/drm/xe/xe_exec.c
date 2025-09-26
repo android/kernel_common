@@ -4,6 +4,7 @@
  */
 
 #include "xe_exec.h"
+#include "xe_gpufreqtracer.h"
 
 #include <drm/drm_device.h>
 #include <drm/drm_exec.h>
@@ -324,6 +325,9 @@ retry:
 		xe_exec_queue_last_fence_set(q, vm, &job->drm.s_fence->finished);
 	xe_sched_job_push(job);
 	xe_vm_reactivate_rebind(vm);
+
+	if (q->gt)
+		xe_gpufreqtracer_track_submission(q->gt);
 
 	if (!err && !xe_vm_in_lr_mode(vm)) {
 		spin_lock(&xe->ttm.lru_lock);

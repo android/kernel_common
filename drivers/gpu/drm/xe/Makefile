@@ -142,6 +142,9 @@ xe-$(CONFIG_PCI_IOV) += \
 	xe_pci_sriov.o \
 	xe_sriov_pf.o
 
+# GPU frequency tracer
+xe-$(CONFIG_DRM_XE_GPUFREQTRACER) += xe_gpufreqtracer.o
+
 # include helpers for tests even when XE is built-in
 ifdef CONFIG_DRM_XE_KUNIT_TEST
 xe-y += tests/xe_kunit_helpers.o

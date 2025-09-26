@@ -33,6 +33,7 @@
 #endif
 
 struct xe_ggtt;
+struct xe_gpufreqtracer_data;
 struct xe_pat_ops;
 struct xe_pxp;
 
@@ -502,6 +503,9 @@ struct xe_device {
 
 	/** @pxp: Encapsulate Protected Xe Path support */
 	struct xe_pxp *pxp;
+
+	/** @gpufreqtracer_data: GPU frequency tracer data */
+	struct xe_gpufreqtracer_data *gpufreqtracer_data;
 
 	/** @needs_flr_on_fini: requests function-reset on fini */
 	bool needs_flr_on_fini;

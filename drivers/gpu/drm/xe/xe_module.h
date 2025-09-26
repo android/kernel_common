@@ -22,6 +22,9 @@ struct xe_modparam {
 	unsigned int max_vfs;
 #endif
 	int wedged_mode;
+#ifdef CONFIG_DRM_XE_GPUFREQTRACER
+	u32 gpufreq_monitoring_interval_ms;
+#endif
 };
 
 extern struct xe_modparam xe_modparam;
