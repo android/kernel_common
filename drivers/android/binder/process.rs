@@ -612,7 +612,7 @@ impl Process {
 
                 seq_print!(
                     m,
-                    "  ref {}: desc {} {}node {debug_id} s {strong} w {weak}",
+                    "  ref {}: desc {} {}node {debug_id} s {strong} w {weak}\n",
                     r.debug_id,
                     r.handle,
                     if dead { "dead " } else { "" },
