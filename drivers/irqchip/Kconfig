@@ -703,6 +703,10 @@ config MST_IRQ
 	help
 	  Support MStar Interrupt Controller.
 
+config MTK_IRQ
+	bool
+	default ARCH_MEDIATEK
+
 config WPCM450_AIC
 	bool "Nuvoton WPCM450 Advanced Interrupt Controller"
 	depends on ARCH_WPCM450
