@@ -126,6 +126,17 @@ config GKI_HIDDEN_QCOM_CONFIGS
 	  These are normally selected implicitly when a module
 	  that relies on it is configured.
 
+config GKI_HIDDEN_MTK_CONFIGS
+	bool "Hidden MTK configs needed for GKI"
+	select MTK_TIMER
+	help
+	  This dummy config option is used to enable hidden MediaTek (MTK)
+	  configs required for GKI. Specifically, it selects MTK_TIMER.
+	  These configurations are normally selected implicitly when an
+	  in-tree module or driver that depends on them is enabled.
+	  However, for GKI, modules are often built out-of-tree, meaning
+	  these implicit selections do not occur, necessitating this option.
+
 config GKI_HIDDEN_MEDIA_CONFIGS
 	bool "Hidden Media configs needed for GKI"
 	select VIDEOBUF2_CORE
@@ -313,6 +324,7 @@ config GKI_HACKS_TO_FIX
 	select GKI_HIDDEN_GPIO_CONFIGS
 	select GKI_HIDDEN_X86_CONFIGS
 	select GKI_HIDDEN_QCOM_CONFIGS
+	select GKI_HIDDEN_MTK_CONFIGS if (ARM64)
 	select GKI_LEGACY_WEXT_ALLCONFIG
 	select GKI_HIDDEN_MEDIA_CONFIGS
 	select GKI_HIDDEN_VIRTUAL_CONFIGS
