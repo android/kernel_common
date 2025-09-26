@@ -945,6 +945,7 @@
   watchdog_init_timeout
   ww_mutex_lock
   ww_mutex_lock_interruptible
+  ww_mutex_trylock
   ww_mutex_unlock
   __xa_alloc
   xa_erase

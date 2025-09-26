@@ -596,14 +596,14 @@ static void hidinput_cleanup_battery(struct hid_device *dev)
 }
 
 static bool hidinput_update_battery_charge_status(struct hid_device *dev,
-			                                       unsigned int usage, int value)
+						  unsigned int usage, int value)
 {
 	switch (usage) {
-		case HID_BAT_CHARGING:
-			dev->battery_charge_status = value ?
-					POWER_SUPPLY_STATUS_CHARGING :
-					POWER_SUPPLY_STATUS_DISCHARGING;
-			return true;
+	case HID_BAT_CHARGING:
+		dev->battery_charge_status = value ?
+					     POWER_SUPPLY_STATUS_CHARGING :
+					     POWER_SUPPLY_STATUS_DISCHARGING;
+		return true;
 	}
 
 	return false;
