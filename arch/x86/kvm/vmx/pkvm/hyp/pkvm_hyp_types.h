@@ -11,16 +11,6 @@
 /*
  * Descriptor for shadow EPT
  */
-struct shadow_ept_desc {
-	/* shadow EPTP value configured by pkvm */
-	u64 shadow_eptp;
-
-	/* Save the last guest EPTP value configured by kvm high */
-	u64 last_guest_eptp;
-
-	struct pkvm_pgtable sept;
-};
-
 /*
  * Store the Virtualization Exception(#VE) information when a #VE occurs. This
  * struture definition is based on
@@ -56,13 +46,6 @@ struct shadow_vcpu_state {
  * Holds the relevant data for running a protected vm.
  */
 struct pkvm_shadow_vm {
-	/*
-	 * VM's shadow EPT. All vCPU shares one mapping.
-	 * FIXME: a potential security issue if some vCPUs are
-	 * in SMM but the others are not.
-	 */
-	struct shadow_ept_desc sept_desc;
-
 	/*
 	 * Page state page table manages the page states, and
 	 * works as IOMMU second-level page table for protected

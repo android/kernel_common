@@ -13,8 +13,6 @@
 				(MTRR_TYPE_UNCACHABLE << VMX_EPT_MT_EPTE_SHIFT))
 #define EPT_PROT_DEF		VMX_EPT_SUPPRESS_VE_BIT
 
-#define SHADOW_EPT_MMIO_ENTRY	0
-
 void host_ept_lock(void);
 void host_ept_unlock(void);
 int pkvm_host_ept_map(unsigned long vaddr_start, unsigned long phys_start,
@@ -28,7 +26,6 @@ int pkvm_host_ept_init(struct pkvm_pgtable_cap *cap, void *ept_pool_base,
 int handle_host_ept_violation(struct kvm_vcpu *vcpu);
 void pkvm_flush_host_ept(void);
 int pkvm_shadow_ept_pool_init(void *ept_pool_base, unsigned long ept_pool_pages);
-void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn);
 
 int pkvm_pgstate_pgt_init(struct pkvm_shadow_vm *vm);
 void pkvm_pgstate_pgt_deinit(struct pkvm_shadow_vm *vm);

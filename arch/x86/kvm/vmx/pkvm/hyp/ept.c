@@ -521,22 +521,3 @@ void pkvm_shadow_sl_iommu_pgt_update_coherency(struct pkvm_pgtable *pgt, bool co
 	else
 		pkvm_pgtable_set_mm_ops(pgt, &shadow_sl_iommu_pgt_mm_ops_noncoherency);
 }
-
-void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
-{
-	struct pkvm_vcpu_vmx *pkvm_vcpu_vmx;
-	unsigned long gpa = gfn * PAGE_SIZE;
-	struct pkvm_pgtable *sept;
-
-	if (!pkvm_is_protected_vcpu(vcpu))
-		return;
-
-	pkvm_vcpu_vmx = container_of(to_vmx(vcpu), struct pkvm_vcpu_vmx, vmx);
-	sept = &pkvm_vcpu_vmx->shadow_vcpu.vm->sept_desc.sept;
-
-	/*
-	 * Set the mmio_pte with prot 0, which means it is invalid and with
-	 * "Suppress #VE" bit cleared. Accessing this pte will trigger #VE.
-	 */
-	pkvm_pgtable_annotate(sept, gpa, PAGE_SIZE, SHADOW_EPT_MMIO_ENTRY);
-}

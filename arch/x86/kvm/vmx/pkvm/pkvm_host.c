@@ -1238,20 +1238,6 @@ int kvm_arch_add_device_to_pkvm(struct kvm *kvm, struct iommu_group *grp)
 	return ret;
 }
 
-int pkvm_set_mmio_ve(struct kvm_vcpu *vcpu, unsigned long gfn)
-{
-	if (pkvm_is_protected_vcpu(vcpu)) {
-		int pkvm_vm_handle = vcpu->kvm->arch.pkvm.pkvm_vm_handle;
-		int pkvm_vcpu_handle = vcpu->arch.pkvm_vcpu_handle;
-
-		kvm_hypercall3(PKVM_HC_SET_MMIO_VE, pkvm_vm_handle,
-			       pkvm_vcpu_handle, gfn);
-		return 1;
-	}
-
-	return 0;
-}
-
 static int pkvm_vm_ioctl_set_fw_gpa(struct kvm *kvm, u64 gpa)
 {
 	struct kvm_protected_vm *pkvm = &kvm->arch.pkvm;

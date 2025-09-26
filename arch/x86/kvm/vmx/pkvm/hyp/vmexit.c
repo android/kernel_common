@@ -102,17 +102,6 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	case PKVM_HC_MMIO_ACCESS:
 		ret = pkvm_access_iommu(a0, a1, a2, a3);
 		break;
-	case PKVM_HC_SET_MMIO_VE: {
-		struct pkvm_vcpu *pkvm_vcpu = get_pkvm_vcpu(a0, a1);
-
-		if (!pkvm_vcpu) {
-			ret = -EINVAL;
-			break;
-		}
-		pkvm_shadow_clear_suppress_ve(to_kvm_vcpu(pkvm_vcpu), a2);
-		put_pkvm_vcpu(pkvm_vcpu);
-		break;
-	}
 	case PKVM_HC_ADD_PTDEV:
 		ret = pkvm_add_ptdev(a0, a1, a2);
 		break;

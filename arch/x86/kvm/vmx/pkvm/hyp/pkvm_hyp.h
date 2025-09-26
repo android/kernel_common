@@ -18,12 +18,6 @@ void pkvm_repriv_restore_cpu(unsigned long *vcpu_regs);
 		(((s64)(vm_handle) << SHADOW_VM_HANDLE_SHIFT) | \
 		 ((vcpu_idx) & SHADOW_VCPU_INDEX_MASK))
 
-#define sept_to_shadow_ept_desc(_sept)	container_of(_sept, struct shadow_ept_desc, sept)
-
-#define sept_desc_to_shadow_vm(desc) container_of(desc, struct pkvm_shadow_vm, sept_desc)
-
-#define sept_to_shadow_vm(_sept) sept_desc_to_shadow_vm(sept_to_shadow_ept_desc(_sept))
-
 #define pgstate_pgt_to_shadow_vm(_pgt) container_of(_pgt, struct pkvm_shadow_vm, pgstate_pgt)
 
 void pkvm_shadow_vm_link_ptdev(struct pkvm_shadow_vm *vm,
@@ -40,11 +34,6 @@ extern struct pkvm_hyp *pkvm_hyp;
 static inline bool shadow_vm_is_protected(struct pkvm_shadow_vm *vm)
 {
 	return vm->vm_type == KVM_X86_PKVM_PROTECTED_VM;
-}
-
-static inline bool shadow_vcpu_is_protected(struct shadow_vcpu_state *shadow_vcpu)
-{
-	return shadow_vm_is_protected(shadow_vcpu->vm);
 }
 
 int pkvm_init_shadow_vm(struct kvm *kvm);
