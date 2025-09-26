@@ -813,16 +813,7 @@ static void pkvm_vm_destroy(struct kvm *kvm)
 {
 	struct kvm_protected_vm *pkvm = &kvm->arch.pkvm;
 	struct kvm_pinned_page *ppage, *n;
-	struct kvm_vcpu *vcpu;
-	unsigned long i;
 	int ret;
-
-	/*
-	 * Make sure each vcpu is unloaded in the pkvm hypervisor before destroy
-	 * VM.
-	 */
-	kvm_for_each_vcpu(i, vcpu, kvm)
-		pkvm_vcpu_unload(vcpu);
 
 	ret = kvm_call_pkvm(vm_destroy, pkvm->pkvm_vm_handle);
 	if (ret)
@@ -916,6 +907,8 @@ free_pml:
 static void pkvm_vcpu_free(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+
+	pkvm_vcpu_unload(vcpu);
 
 	/* TODO: unshare struct vcpu_vmx with pkvm */
 
