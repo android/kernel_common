@@ -3307,6 +3307,7 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 {
 	struct kvm_vcpu *hvcpu = this_cpu_read(host_vcpu);
 	fastpath_t exit_fastpath;
+	u64 run_flags;
 	int ret, i;
 
 	pkvm_reset_reqs_to_host(vcpu);
@@ -3350,6 +3351,10 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 		else
 			req_immediate_exit = force_immediate_exit;
 
+		run_flags = 0;
+		if (req_immediate_exit)
+			run_flags |= KVM_RUN_FORCE_IMMEDIATE_EXIT;
+
 		if (unlikely(vcpu->arch.switch_db_regs)) {
 			set_debugreg(0, 7);
 			set_debugreg(vcpu->arch.eff_db[0], 0);
@@ -3361,7 +3366,7 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 				kvm_x86_call(set_dr6)(vcpu, vcpu->arch.dr6);
 		}
 
-		exit_fastpath = kvm_x86_call(vcpu_run)(vcpu, req_immediate_exit);
+		exit_fastpath = kvm_x86_call(vcpu_run)(vcpu, run_flags);
 
 		/* Sync the guest debug registers */
 		if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT)) {

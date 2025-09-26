@@ -1390,8 +1390,9 @@ static int pkvm_vcpu_pre_run(struct kvm_vcpu *vcpu)
 	return 1;
 }
 
-static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, bool force_immediate_exit)
+static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, u64 run_flags)
 {
+	bool force_immediate_exit = run_flags & KVM_RUN_FORCE_IMMEDIATE_EXIT;
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 	unsigned long reqs_to_host;
 	fastpath_t exit_fastpath;
