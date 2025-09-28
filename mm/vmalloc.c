@@ -1055,6 +1055,7 @@ unsigned long vmalloc_nr_pages(void)
 {
 	return atomic_long_read(&nr_vmalloc_pages);
 }
+EXPORT_SYMBOL_NS_GPL(vmalloc_nr_pages, "MINIDUMP");
 
 static struct vmap_area *__find_vmap_area(unsigned long addr, struct rb_root *root)
 {
