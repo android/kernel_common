@@ -136,12 +136,18 @@ out:
 static void teardown_donated_memory(struct pkvm_memcache *mc, void *addr, size_t size)
 {
 	size = PAGE_ALIGN(size);
-	memset(addr, 0, size);
+	pkvm_clear_memory(addr, size);
 
 	for (void *start = addr; start < addr + size; start += PAGE_SIZE)
 		push_pkvm_memcache(mc, start, pkvm_virt_to_host_gpa);
 
-	__pkvm_hyp_donate_host(pkvm_virt_to_phys(addr), size);
+	/*
+	 * The sensitive data is already cleared at the beginning of this
+	 * function. And then this memory range is used as memcache to store the
+	 * physical addresses of the memory pages for the host to free. So the
+	 * donation cannot clear the memory range.
+	 */
+	__pkvm_hyp_donate_host(pkvm_virt_to_phys(addr), size, false);
 }
 
 static int pkvm_vm_init(struct kvm *shared_kvm, unsigned long gpa)
@@ -193,7 +199,7 @@ mmu_destroy:
 vm_destroy:
 	kvm_x86_call(vm_destroy)(kvm);
 undonate:
-	__pkvm_hyp_donate_host(pkvm_vm_pa, pa_size);
+	__pkvm_hyp_donate_host(pkvm_vm_pa, pa_size, false);
 	return ret;
 }
 
@@ -352,7 +358,7 @@ vcpu_destroy:
 put_pkvm_vm:
 	put_pkvm_vm(pkvm_vm);
 undonate:
-	__pkvm_hyp_donate_host(pkvm_vcpu_pa, pa_size);
+	__pkvm_hyp_donate_host(pkvm_vcpu_pa, pa_size, false);
 	return ret;
 }
 
@@ -994,15 +1000,20 @@ static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu, unsi
 
 	if (kvm_set_cpuid(vcpu, new, nent) || vcpu->arch.cpuid_entries != new) {
 		/* New physical page is not consumed */
-		__pkvm_hyp_donate_host(new_pa, size);
+		__pkvm_hyp_donate_host(new_pa, size, false);
 	} else if (vcpu->arch.cpuid_entries == new) {
 		/* New physical page is consumed */
 		if (old) {
-			memset(old, 0, size);
 			/* Let the host VMM to free the old physical pages */
 			ret = __pkvm_pa(old);
-			/* Before that, undonate the old physical pages */
-			__pkvm_hyp_donate_host(ret, size);
+			/*
+			 * Undonate the old physical pages. There is no need to
+			 * clear these pages for npVM. For pVM, it is also not
+			 * necessary as this is the point before the pVM begins
+			 * execution. So the contents of these pages remain
+			 * unchanged and reflect what the host has constructed.
+			 */
+			__pkvm_hyp_donate_host(ret, size, false);
 		} else {
 			/* No physical page for the host VMM to free */
 			ret = INVALID_PAGE;

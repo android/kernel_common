@@ -2485,7 +2485,7 @@ void free_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
 	if (!loaded_vmcs->vmcs)
 		return;
 #ifdef __PKVM_HYP__
-	__pkvm_hyp_donate_host(__pkvm_pa(loaded_vmcs->vmcs), PAGE_SIZE);
+	__pkvm_hyp_donate_host(__pkvm_pa(loaded_vmcs->vmcs), PAGE_SIZE, true);
 	/*
 	 * The vmcs free may happen on a CPU which didn't load this vmcs and
 	 * pkvm hypervisor doesn't have smp call support, so not to do vmcs
@@ -2498,7 +2498,7 @@ void free_loaded_vmcs(struct loaded_vmcs *loaded_vmcs)
 	loaded_vmcs->vmcs = NULL;
 	if (loaded_vmcs->msr_bitmap)
 #ifdef __PKVM_HYP__
-		__pkvm_hyp_donate_host(__pkvm_pa(loaded_vmcs->msr_bitmap), PAGE_SIZE);
+		__pkvm_hyp_donate_host(__pkvm_pa(loaded_vmcs->msr_bitmap), PAGE_SIZE, true);
 #else
 		free_page((unsigned long)loaded_vmcs->msr_bitmap);
 #endif
@@ -5741,7 +5741,7 @@ static void vmx_destroy_pml_buffer(struct vcpu_vmx *vmx)
 {
 	if (vmx->pml_pg) {
 #ifdef __PKVM_HYP__
-		__pkvm_hyp_donate_host(__pkvm_pa(vmx->pml_pg), PAGE_SIZE);
+		__pkvm_hyp_donate_host(__pkvm_pa(vmx->pml_pg), PAGE_SIZE, true);
 #else
 		free_page((unsigned long)vmx->pml_pg);
 #endif
@@ -5753,7 +5753,7 @@ static void vmx_destroy_ve(struct vcpu_vmx *vmx)
 {
 	if (vmx->ve_info) {
 #ifdef __PKVM_HYP__
-		__pkvm_hyp_donate_host(__pkvm_pa(vmx->ve_info), PAGE_SIZE);
+		__pkvm_hyp_donate_host(__pkvm_pa(vmx->ve_info), PAGE_SIZE, true);
 #else
 		free_page((unsigned long)vmx->ve_info);
 #endif

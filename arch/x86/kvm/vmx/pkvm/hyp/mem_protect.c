@@ -405,7 +405,7 @@ int __pkvm_host_donate_hyp(u64 hpa, u64 size)
 	return ret;
 }
 
-int __pkvm_hyp_donate_host(u64 hpa, u64 size)
+int __pkvm_hyp_donate_host(u64 hpa, u64 size, bool clear)
 {
 	int ret;
 	u64 hyp_addr = (u64)__pkvm_va(hpa);
@@ -425,6 +425,9 @@ int __pkvm_hyp_donate_host(u64 hpa, u64 size)
 			.prot	= HOST_EPT_DEF_MEM_PROT,
 		},
 	};
+
+	if (clear)
+		pkvm_clear_memory(__pkvm_va(hpa), size);
 
 	host_ept_lock();
 
