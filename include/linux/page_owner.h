@@ -3,11 +3,14 @@
 #define __LINUX_PAGE_OWNER_H
 
 #include <linux/jump_label.h>
+#include <linux/stackdepot.h>
 
 #ifdef CONFIG_PAGE_OWNER
 extern struct static_key_false page_owner_inited;
 extern struct page_ext_operations page_owner_ops;
 
+extern depot_stack_handle_t get_page_owner_handle(struct page_ext *page_ext,
+					unsigned long pfn);
 extern void __reset_page_owner(struct page *page, unsigned short order);
 extern void __set_page_owner(struct page *page,
 			unsigned short order, gfp_t gfp_mask);
