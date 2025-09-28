@@ -88,6 +88,7 @@ struct dma_buf *dma_buf_iter_begin(void)
 	mutex_unlock(&dmabuf_list_mutex);
 	return ret;
 }
+EXPORT_SYMBOL_NS_GPL(dma_buf_iter_begin, "DMA_BUF");
 
 /**
  * dma_buf_iter_next - continue iteration through global list of all DMA buffers
@@ -122,6 +123,7 @@ struct dma_buf *dma_buf_iter_next(struct dma_buf *dmabuf)
 	mutex_unlock(&dmabuf_list_mutex);
 	return ret;
 }
+EXPORT_SYMBOL_NS_GPL(dma_buf_iter_next, "DMA_BUF");
 
 static char *dmabuffs_dname(struct dentry *dentry, char *buffer, int buflen)
 {
