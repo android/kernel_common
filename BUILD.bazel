@@ -823,83 +823,43 @@ _DB845C_WATCHDOG_MODULE_OUTS = [
 ]
 
 kernel_build(
-    name = "db845c_no_kgdb",
-    srcs = [":kernel_aarch64_sources"],
-    outs = [
-        "arch/arm64/boot/dts/qcom/qcs6490-rb3gen2.dtb",
-        "arch/arm64/boot/dts/qcom/qrb5165-rb5.dtb",
-        "arch/arm64/boot/dts/qcom/sdm845-db845c.dtb",
-        "arch/arm64/boot/dts/qcom/sm8450-hdk.dtb",
-        "arch/arm64/boot/dts/qcom/sm8450-qrd.dtb",
-        "arch/arm64/boot/dts/qcom/sm8550-hdk.dtb",
-        "arch/arm64/boot/dts/qcom/sm8550-qrd.dtb",
-        "arch/arm64/boot/dts/qcom/sm8650-hdk.dtb",
-        "arch/arm64/boot/dts/qcom/sm8650-qrd.dtb",
-    ],
-    arch = "arm64",
-    # Enable mixed build.
-    base_kernel = ":kernel_aarch64",
-    defconfig = "arch/arm64/configs/gki_defconfig",
-    make_goals = [
-        "modules",
-        "qcom/qrb5165-rb5.dtb",
-        "qcom/qcs6490-rb3gen2.dtb",
-        "qcom/sdm845-db845c.dtb",
-        "qcom/sm8450-hdk.dtb",
-        "qcom/sm8450-qrd.dtb",
-        "qcom/sm8550-hdk.dtb",
-        "qcom/sm8550-qrd.dtb",
-        "qcom/sm8650-hdk.dtb",
-        "qcom/sm8650-qrd.dtb",
-    ],
-    makefile = ":Makefile",
-    module_outs = _DB845C_MODULE_OUTS + _DB845C_WATCHDOG_MODULE_OUTS,
-    pre_defconfig_fragments = ["arch/arm64/configs/db845c_gki.fragment"],
-    strip_modules = True,
-)
-
-kernel_build(
-    name = "db845c_with_kgdb",
-    srcs = [":kernel_aarch64_sources"],
-    outs = [
-        "arch/arm64/boot/dts/qcom/qcs6490-rb3gen2.dtb",
-        "arch/arm64/boot/dts/qcom/qrb5165-rb5.dtb",
-        "arch/arm64/boot/dts/qcom/sdm845-db845c.dtb",
-        "arch/arm64/boot/dts/qcom/sm8450-hdk.dtb",
-        "arch/arm64/boot/dts/qcom/sm8450-qrd.dtb",
-        "arch/arm64/boot/dts/qcom/sm8550-hdk.dtb",
-        "arch/arm64/boot/dts/qcom/sm8550-qrd.dtb",
-        "arch/arm64/boot/dts/qcom/sm8650-hdk.dtb",
-        "arch/arm64/boot/dts/qcom/sm8650-qrd.dtb",
-    ],
-    arch = "arm64",
-    # Enable mixed build.
-    base_kernel = ":kernel_aarch64",
-    defconfig = "arch/arm64/configs/gki_defconfig",
-    make_goals = [
-        "modules",
-        "qcom/qrb5165-rb5.dtb",
-        "qcom/qcs6490-rb3gen2.dtb",
-        "qcom/sdm845-db845c.dtb",
-        "qcom/sm8450-hdk.dtb",
-        "qcom/sm8450-qrd.dtb",
-        "qcom/sm8550-hdk.dtb",
-        "qcom/sm8550-qrd.dtb",
-        "qcom/sm8650-hdk.dtb",
-        "qcom/sm8650-qrd.dtb",
-    ],
-    makefile = ":Makefile",
-    module_outs = _DB845C_MODULE_OUTS,
-    pre_defconfig_fragments = ["arch/arm64/configs/db845c_gki.fragment"],
-    strip_modules = True,
-)
-
-alias(
     name = "db845c",
-    actual = select({
-        "//build/kernel/kleaf:kgdb_is_true": "db845c_with_kgdb",
-        "//conditions:default": "db845c_no_kgdb",
+    srcs = [":kernel_aarch64_sources"],
+    outs = [
+        "arch/arm64/boot/dts/qcom/qcs6490-rb3gen2.dtb",
+        "arch/arm64/boot/dts/qcom/qrb5165-rb5.dtb",
+        "arch/arm64/boot/dts/qcom/sdm845-db845c.dtb",
+        "arch/arm64/boot/dts/qcom/sm8450-hdk.dtb",
+        "arch/arm64/boot/dts/qcom/sm8450-qrd.dtb",
+        "arch/arm64/boot/dts/qcom/sm8550-hdk.dtb",
+        "arch/arm64/boot/dts/qcom/sm8550-qrd.dtb",
+        "arch/arm64/boot/dts/qcom/sm8650-hdk.dtb",
+        "arch/arm64/boot/dts/qcom/sm8650-qrd.dtb",
+    ],
+    arch = "arm64",
+    # Enable mixed build.
+    base_kernel = ":kernel_aarch64",
+    defconfig = "arch/arm64/configs/gki_defconfig",
+    generate_out_targets = False,
+    make_goals = [
+        "modules",
+        "qcom/qrb5165-rb5.dtb",
+        "qcom/qcs6490-rb3gen2.dtb",
+        "qcom/sdm845-db845c.dtb",
+        "qcom/sm8450-hdk.dtb",
+        "qcom/sm8450-qrd.dtb",
+        "qcom/sm8550-hdk.dtb",
+        "qcom/sm8550-qrd.dtb",
+        "qcom/sm8650-hdk.dtb",
+        "qcom/sm8650-qrd.dtb",
+    ],
+    makefile = ":Makefile",
+    module_outs = _DB845C_MODULE_OUTS + select({
+        "//build/kernel/kleaf:kgdb_is_true": [],
+        "//conditions:default": _DB845C_WATCHDOG_MODULE_OUTS,
     }),
+    pre_defconfig_fragments = ["arch/arm64/configs/db845c_gki.fragment"],
+    strip_modules = True,
 )
 
 kernel_modules_install(
@@ -997,7 +957,7 @@ _ROCKPI4_WATCHDOG_MODULE_OUTS = [
 
 # TODO(b/258259749): Convert rockpi4 to mixed build
 kernel_build(
-    name = "rockpi4_no_kgdb",
+    name = "rockpi4",
     srcs = [":kernel_aarch64_sources"],
     outs = [
         "Image",
@@ -1016,43 +976,13 @@ kernel_build(
         "modules",
     ],
     makefile = ":Makefile",
-    module_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64") + _ROCKPI4_MODULE_OUTS + _ROCKPI4_WATCHDOG_MODULE_OUTS,
+    module_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64") + _ROCKPI4_MODULE_OUTS + select({
+        "//build/kernel/kleaf:kgdb_is_true": [],
+        "//conditions:default": _ROCKPI4_WATCHDOG_MODULE_OUTS,
+    }),
     pre_defconfig_fragments = ["arch/arm64/configs/rockpi4_gki.fragment"],
     trim_nonlisted_kmi = False,
     visibility = ["//visibility:private"],
-)
-
-# TODO(b/258259749): Convert rockpi4 to mixed build
-kernel_build(
-    name = "rockpi4_with_kgdb",
-    srcs = [":kernel_aarch64_sources"],
-    outs = [
-        "Image",
-        "System.map",
-        "modules.builtin",
-        "modules.builtin.modinfo",
-        "vmlinux",
-        "vmlinux.symvers",
-    ],
-    arch = "arm64",
-    generate_out_targets = False,
-    kmi_symbol_list_strict_mode = False,
-    make_goals = [
-        "Image",
-        "modules",
-    ],
-    makefile = ":Makefile",
-    module_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64") + _ROCKPI4_MODULE_OUTS,
-    trim_nonlisted_kmi = False,
-    visibility = ["//visibility:private"],
-)
-
-alias(
-    name = "rockpi4",
-    actual = select({
-        "//build/kernel/kleaf:kgdb_is_true": "rockpi4_with_kgdb",
-        "//conditions:default": "rockpi4_no_kgdb",
-    }),
 )
 
 kernel_modules_install(
@@ -1208,75 +1138,37 @@ _AMLOGIC_WATCHDOG_MODULE_OUTS = [
 ]
 
 kernel_build(
-    name = "yukawa_no_kgdb",
-    srcs = [":kernel_aarch64_sources"],
-    outs = [
-        "Image",
-        "System.map",
-        "arch/arm64/boot/dts/amlogic/meson-g12a-sei510.dtb",
-        "arch/arm64/boot/dts/amlogic/meson-g12b-a311d-khadas-vim3.dtb",
-        "arch/arm64/boot/dts/amlogic/meson-sm1-khadas-vim3l.dtb",
-        "arch/arm64/boot/dts/amlogic/meson-sm1-sei610.dtb",
-        "modules.builtin",
-        "modules.builtin.modinfo",
-        "vmlinux",
-        "vmlinux.symvers",
-    ],
-    arch = "arm64",
-    defconfig = "arch/arm64/configs/gki_defconfig",
-    generate_out_targets = False,
-    make_goals = [
-        "Image",
-        "modules",
-        "amlogic/meson-g12a-sei510.dtb",
-        "amlogic/meson-sm1-sei610.dtb",
-        "amlogic/meson-g12b-a311d-khadas-vim3.dtb",
-        "amlogic/meson-sm1-khadas-vim3l.dtb",
-    ],
-    makefile = ":Makefile",
-    module_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64") + _AMLOGIC_MODULE_OUTS + _AMLOGIC_WATCHDOG_MODULE_OUTS,
-    pre_defconfig_fragments = ["arch/arm64/configs/amlogic_gki.fragment"],
-    visibility = ["//visibility:private"],
-)
-
-kernel_build(
-    name = "yukawa_with_kgdb",
-    srcs = [":kernel_aarch64_sources"],
-    outs = [
-        "Image",
-        "System.map",
-        "arch/arm64/boot/dts/amlogic/meson-g12a-sei510.dtb",
-        "arch/arm64/boot/dts/amlogic/meson-g12b-a311d-khadas-vim3.dtb",
-        "arch/arm64/boot/dts/amlogic/meson-sm1-khadas-vim3l.dtb",
-        "arch/arm64/boot/dts/amlogic/meson-sm1-sei610.dtb",
-        "modules.builtin",
-        "modules.builtin.modinfo",
-        "vmlinux",
-        "vmlinux.symvers",
-    ],
-    arch = "arm64",
-    defconfig = "arch/arm64/configs/gki_defconfig",
-    generate_out_targets = False,
-    make_goals = [
-        "Image",
-        "modules",
-        "amlogic/meson-g12a-sei510.dtb",
-        "amlogic/meson-sm1-sei610.dtb",
-        "amlogic/meson-g12b-a311d-khadas-vim3.dtb",
-        "amlogic/meson-sm1-khadas-vim3l.dtb",
-    ],
-    makefile = ":Makefile",
-    module_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64") + _AMLOGIC_MODULE_OUTS,
-    pre_defconfig_fragments = ["arch/arm64/configs/amlogic_gki.fragment"],
-    visibility = ["//visibility:private"],
-)
-
-alias(
     name = "yukawa",
-    actual = select({
-        "//build/kernel/kleaf:kgdb_is_true": "yukawa_with_kgdb",
-        "//conditions:default": "yukawa_no_kgdb",
+    srcs = [":kernel_aarch64_sources"],
+    outs = [
+        "Image",
+        "System.map",
+        "arch/arm64/boot/dts/amlogic/meson-g12a-sei510.dtb",
+        "arch/arm64/boot/dts/amlogic/meson-g12b-a311d-khadas-vim3.dtb",
+        "arch/arm64/boot/dts/amlogic/meson-sm1-khadas-vim3l.dtb",
+        "arch/arm64/boot/dts/amlogic/meson-sm1-sei610.dtb",
+        "modules.builtin",
+        "modules.builtin.modinfo",
+        "vmlinux",
+        "vmlinux.symvers",
+    ],
+    arch = "arm64",
+    defconfig = "arch/arm64/configs/gki_defconfig",
+    generate_out_targets = False,
+    make_goals = [
+        "Image",
+        "modules",
+        "amlogic/meson-g12a-sei510.dtb",
+        "amlogic/meson-sm1-sei610.dtb",
+        "amlogic/meson-g12b-a311d-khadas-vim3.dtb",
+        "amlogic/meson-sm1-khadas-vim3l.dtb",
+    ],
+    makefile = ":Makefile",
+    module_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64") + _AMLOGIC_MODULE_OUTS + select({
+        "//build/kernel/kleaf:kgdb_is_true": [],
+        "//conditions:default": _AMLOGIC_WATCHDOG_MODULE_OUTS,
     }),
+    pre_defconfig_fragments = ["arch/arm64/configs/amlogic_gki.fragment"],
     visibility = ["//visibility:private"],
 )
 
