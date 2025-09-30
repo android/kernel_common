@@ -96,6 +96,7 @@
   acpi_unregister_gsi
   acpi_video_backlight_string
   acpi_walk_namespace
+  acpi_walk_resources
   add_device_randomness
   add_taint
   add_timer
