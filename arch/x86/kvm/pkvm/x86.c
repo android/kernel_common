@@ -3337,12 +3337,84 @@ static void kvm_restore_user_return_msr(void)
 	}
 }
 
+static bool __kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
+{
+	bool req_immediate_exit = false;
+	fastpath_t exit_fastpath;
+	u64 run_flags;
+
+	if (kvm_request_pending(vcpu)) {
+		if (kvm_check_request(KVM_REQ_TLB_FLUSH, vcpu))
+			kvm_vcpu_flush_tlb_all(vcpu);
+
+		if (kvm_check_request(KVM_REQ_TLB_FLUSH_CURRENT, vcpu))
+			kvm_vcpu_flush_tlb_current(vcpu);
+
+		if (kvm_check_request(KVM_REQ_EVENT, vcpu))
+			kvm_check_and_inject_events(vcpu, &req_immediate_exit);
+	}
+
+	kvm_x86_call(prepare_switch_to_guest)(vcpu);
+
+	/*
+	 * Make sure vcpu->mode is changed to IN_GUEST_MODE before
+	 * running to mark this vcpu should be kicked for any new
+	 * vcpu request.
+	 */
+	smp_store_mb(vcpu->mode, IN_GUEST_MODE);
+
+	if (req_immediate_exit)
+		kvm_make_request(KVM_REQ_EVENT, vcpu);
+	else
+		req_immediate_exit = force_immediate_exit;
+
+	run_flags = 0;
+	if (req_immediate_exit)
+		run_flags |= KVM_RUN_FORCE_IMMEDIATE_EXIT;
+
+	if (unlikely(vcpu->arch.switch_db_regs)) {
+		set_debugreg(0, 7);
+		set_debugreg(vcpu->arch.eff_db[0], 0);
+		set_debugreg(vcpu->arch.eff_db[1], 1);
+		set_debugreg(vcpu->arch.eff_db[2], 2);
+		set_debugreg(vcpu->arch.eff_db[3], 3);
+		/* When KVM_DEBUGREG_WONT_EXIT, dr6 is accessible in guest. */
+		if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT))
+			run_flags |= KVM_RUN_LOAD_GUEST_DR6;
+	}
+
+	exit_fastpath = kvm_x86_call(vcpu_run)(vcpu, run_flags);
+
+	/* Sync the guest debug registers */
+	if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT)) {
+		WARN_ON(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP);
+		kvm_x86_call(sync_dirty_debug_regs)(vcpu);
+		kvm_update_dr0123(vcpu);
+		kvm_update_dr7(vcpu);
+	}
+
+	/*
+	 * Make sure vcpu->mode is changed to OUTSIDE_GUEST_MODE after
+	 * vmexit to mark this vcpu no need to be kicked for any new
+	 * vcpu request.
+	 */
+	smp_store_mb(vcpu->mode, OUTSIDE_GUEST_MODE);
+
+	if (unlikely(exit_fastpath == EXIT_FASTPATH_REENTER_GUEST))
+		return true;
+
+	if (kvm_x86_call(handle_exit)(vcpu, exit_fastpath) <= 0) {
+		pkvm_make_req_to_host(HOST_HANDLE_EXIT, vcpu);
+		return false;
+	}
+
+	return !(unlikely(force_immediate_exit) || pkvm_reqs_to_host(vcpu));
+}
+
 unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_exit)
 {
 	struct kvm_vcpu *hvcpu = this_cpu_read(host_vcpu);
-	fastpath_t exit_fastpath;
-	u64 run_flags;
-	int ret, i;
+	int i;
 
 	pkvm_reset_reqs_to_host(vcpu);
 
@@ -3357,78 +3429,9 @@ unsigned long kvm_vcpu_enter_guest(struct kvm_vcpu *vcpu, bool force_immediate_e
 
 	vcpu->arch.host_debugctl = get_debugctlmsr();
 
-	for (;;) {
-		bool req_immediate_exit = false;
-
-		if (kvm_request_pending(vcpu)) {
-			if (kvm_check_request(KVM_REQ_TLB_FLUSH, vcpu))
-				kvm_vcpu_flush_tlb_all(vcpu);
-
-			if (kvm_check_request(KVM_REQ_TLB_FLUSH_CURRENT, vcpu))
-				kvm_vcpu_flush_tlb_current(vcpu);
-
-			if (kvm_check_request(KVM_REQ_EVENT, vcpu))
-				kvm_check_and_inject_events(vcpu, &req_immediate_exit);
-		}
-
-		kvm_x86_call(prepare_switch_to_guest)(vcpu);
-
-		/*
-		 * Make sure vcpu->mode is changed to IN_GUEST_MODE before
-		 * running to mark this vcpu should be kicked for any new
-		 * vcpu request.
-		 */
-		smp_store_mb(vcpu->mode, IN_GUEST_MODE);
-
-		if (req_immediate_exit)
-			kvm_make_request(KVM_REQ_EVENT, vcpu);
-		else
-			req_immediate_exit = force_immediate_exit;
-
-		run_flags = 0;
-		if (req_immediate_exit)
-			run_flags |= KVM_RUN_FORCE_IMMEDIATE_EXIT;
-
-		if (unlikely(vcpu->arch.switch_db_regs)) {
-			set_debugreg(0, 7);
-			set_debugreg(vcpu->arch.eff_db[0], 0);
-			set_debugreg(vcpu->arch.eff_db[1], 1);
-			set_debugreg(vcpu->arch.eff_db[2], 2);
-			set_debugreg(vcpu->arch.eff_db[3], 3);
-			/* When KVM_DEBUGREG_WONT_EXIT, dr6 is accessible in guest. */
-			if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT))
-				run_flags |= KVM_RUN_LOAD_GUEST_DR6;
-		}
-
-		exit_fastpath = kvm_x86_call(vcpu_run)(vcpu, run_flags);
-
-		/* Sync the guest debug registers */
-		if (unlikely(vcpu->arch.switch_db_regs & KVM_DEBUGREG_WONT_EXIT)) {
-			WARN_ON(vcpu->guest_debug & KVM_GUESTDBG_USE_HW_BP);
-			kvm_x86_call(sync_dirty_debug_regs)(vcpu);
-			kvm_update_dr0123(vcpu);
-			kvm_update_dr7(vcpu);
-		}
-
-		/*
-		 * Make sure vcpu->mode is changed to OUTSIDE_GUEST_MODE after
-		 * vmexit to mark this vcpu no need to be kicked for any new
-		 * vcpu request.
-		 */
-		smp_store_mb(vcpu->mode, OUTSIDE_GUEST_MODE);
-
-		if (unlikely(exit_fastpath == EXIT_FASTPATH_REENTER_GUEST))
-			continue;
-
-		ret = kvm_x86_call(handle_exit)(vcpu, exit_fastpath);
-		if (ret <= 0) {
-			pkvm_make_req_to_host(HOST_HANDLE_EXIT, vcpu);
+	for (;;)
+		if (!__kvm_vcpu_enter_guest(vcpu, force_immediate_exit))
 			break;
-		}
-
-		if (unlikely(force_immediate_exit) || pkvm_reqs_to_host(vcpu))
-			break;
-	}
 
 	kvm_x86_call(prepare_switch_to_host)(vcpu);
 
