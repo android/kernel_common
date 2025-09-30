@@ -37,6 +37,20 @@ static DEFINE_PER_CPU(union pkvm_pv_param *, pv_param);
 
 #define this_pv_param(f)	(&this_cpu_read(pv_param)->f)
 
+static void *donate_host_memory(unsigned long gpa, size_t size)
+{
+	unsigned long pa = host_gpa2hpa(gpa);
+
+	if (!VALID_PAGE(pa) || !PAGE_ALIGNED(pa) ||
+	    !PAGE_ALIGNED(size) || !size)
+		return NULL;
+
+	if (__pkvm_host_donate_hyp(pa, size))
+		return NULL;
+
+	return __pkvm_va(pa);
+}
+
 static int pkvm_enable_virtualization_cpu(unsigned long pv_param_pa)
 {
 	int r = kvm_arch_enable_virtualization_cpu();
@@ -978,49 +992,57 @@ static unsigned long pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immed
 	return reqs;
 }
 
-static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu, unsigned long new_pa)
+static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu,
+					       unsigned long gpa,
+					       size_t size)
 {
 	struct kvm_cpuid_entry2 *new, *old;
-	unsigned long ret = new_pa;
+	int new_nent, old_nent;
 	struct kvm_vcpu *vcpu;
-	int nent;
-	u64 size;
+	void *free;
 
 	if (WARN_ON_ONCE(!pkvm_vcpu))
-		return ret;
+		return gpa;
 
-	nent = pkvm_vcpu->shared_vcpu->arch.cpuid_nent;
-	size = PAGE_ALIGN(sizeof(struct kvm_cpuid_entry2) * nent);
-	if (__pkvm_host_donate_hyp(new_pa, size))
-		return ret;
+	free = new = donate_host_memory(gpa, size);
+	if (!new)
+		return gpa;
 
 	vcpu = to_kvm_vcpu(pkvm_vcpu);
 	old = vcpu->arch.cpuid_entries;
-	new = __pkvm_va(new_pa);
+	old_nent = vcpu->arch.cpuid_nent;
 
-	if (kvm_set_cpuid(vcpu, new, nent) || vcpu->arch.cpuid_entries != new) {
-		/* New physical page is not consumed */
-		__pkvm_hyp_donate_host(new_pa, size, false);
-	} else if (vcpu->arch.cpuid_entries == new) {
-		/* New physical page is consumed */
+	new_nent = size / sizeof(struct kvm_cpuid_entry2);
+	if (!kvm_set_cpuid(vcpu, new, new_nent) && (vcpu->arch.cpuid_entries == new)) {
+		/*
+		 * New physical page is consumed. Tear down the old cpuid
+		 * entry memory pages if there is.
+		 */
 		if (old) {
-			/* Let the host VMM to free the old physical pages */
-			ret = __pkvm_pa(old);
+			size = sizeof(struct kvm_cpuid_entry2) * old_nent;
 			/*
-			 * Undonate the old physical pages. There is no need to
-			 * clear these pages for npVM. For pVM, it is also not
-			 * necessary as this is the point before the pVM begins
-			 * execution. So the contents of these pages remain
-			 * unchanged and reflect what the host has constructed.
+			 * Store the free memory size at the beginning for the
+			 * host to retrieve.
 			 */
-			__pkvm_hyp_donate_host(ret, size, false);
+			*(size_t *)old = size;
+			free = old;
 		} else {
-			/* No physical page for the host VMM to free */
-			ret = INVALID_PAGE;
+			/* No old cpuid entry memory pages to free. */
+			return INVALID_PAGE;
 		}
 	}
 
-	return ret;
+	/*
+	 * Undonate the physical pages which are going to be freed by the host.
+	 * There is no need to clear these pages for npVM. For pVM, it is also
+	 * not necessary as this is the point before the pVM begins execution.
+	 * So the contents of these pages remain unchanged and reflect what the
+	 * host has constructed. Meanwhile the size may be stored in the memory
+	 * for the host to use, so also cannot be cleared.
+	 */
+	__pkvm_hyp_donate_host(__pkvm_pa(free), size, false);
+
+	return __pkvm_pa(free);
 }
 
 static void pkvm_reset_vcpu(struct pkvm_vcpu *pkvm_vcpu, bool init_event)
@@ -1598,7 +1620,7 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		ret = pkvm_vcpu_run(pkvm_vcpu, (bool)p2);
 		break;
 	case __pkvm__vcpu_after_set_cpuid:
-		ret = pkvm_vcpu_after_set_cpuid(pkvm_vcpu, p2);
+		ret = pkvm_vcpu_after_set_cpuid(pkvm_vcpu, p2, (size_t)p3);
 		break;
 	case __pkvm__vcpu_reset:
 		pkvm_reset_vcpu(pkvm_vcpu, (bool)p2);
