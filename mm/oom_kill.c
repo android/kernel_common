@@ -943,6 +943,8 @@ static bool task_will_free_mem(struct task_struct *task)
 /* Adds a killed process to the reaper. @p->mm has to be non NULL. */
 void add_to_oom_reaper(struct task_struct *p)
 {
+	bool thaw = false;
+
 	p = find_lock_task_mm(p);
 	if (!p)
 		return;
@@ -950,6 +952,9 @@ void add_to_oom_reaper(struct task_struct *p)
 	if (task_will_free_mem(p)) {
 		if (!cmpxchg(&p->signal->oom_mm, NULL, p->mm))
 			mmgrab(p->signal->oom_mm);
+		trace_android_vh_thaw_killed_process(&thaw);
+		if (thaw)
+			thaw_process(p);
 		queue_oom_reaper(p);
 	}
 	task_unlock(p);
