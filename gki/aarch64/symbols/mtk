@@ -3804,3 +3804,4 @@
   zlib_inflateInit2
   zlib_inflateReset
   zlib_inflate_workspacesize
+  zs_lookup_class_index
