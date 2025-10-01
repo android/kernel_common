@@ -394,6 +394,7 @@
   devm_iio_channel_get
   devm_iio_device_alloc
   __devm_iio_device_register
+  devm_iio_trigger_register
   devm_input_allocate_device
   devm_ioremap
   devm_ioremap_resource
@@ -2384,6 +2385,7 @@
   task_lookup_next_fdget_rcu
   thermal_cooling_device_unregister
   thermal_of_cooling_device_register
+  thermal_zone_device_critical
   thermal_zone_device_disable
   thermal_zone_device_enable
   thermal_zone_device_unregister
