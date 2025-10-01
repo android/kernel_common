@@ -64,3 +64,9 @@ type 'struct usb_device' changed
   'struct tracepoint __tracepoint_android_vh_f2fs_printk'
   'struct tracepoint __tracepoint_f2fs_submit_folio_write'
 
+type 'struct readahead_control' changed
+  member 'union { bool dropbehind; unsigned char __kabi_ignored1; }' was added
+
+type 'struct bindings::bindings_raw::readahead_control' changed
+  member 'union bindings::bindings_raw::readahead_control__bindgen_ty_1 __bindgen_anon_1' was added
+
