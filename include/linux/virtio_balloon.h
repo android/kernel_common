@@ -32,7 +32,7 @@ static inline bool page_relinquish_disallowed(void)
 static inline void page_relinquish(struct page *page, unsigned int nr)
 {
 	if (virtio_balloon_hyp_ops &&
-	    virtio_balloon_hyp_ops->page_relinquish_disallowed)
+	    virtio_balloon_hyp_ops->page_relinquish)
 		return virtio_balloon_hyp_ops->page_relinquish(page, nr);
 }
 
