@@ -513,6 +513,7 @@
   irq_work_queue
   irq_work_sync
   is_vmalloc_addr
+  iter_file_splice_write
   jiffies
   jiffies_to_usecs
   kasan_flag_enabled
