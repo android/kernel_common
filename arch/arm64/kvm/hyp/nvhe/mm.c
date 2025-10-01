@@ -555,7 +555,7 @@ int pkvm_create_stack(phys_addr_t phys, unsigned long *haddr)
 }
 
 /* Note: The caller has to use a local copy of the arg */
-static void *admit_host_page(void *arg, unsigned long order)
+void *admit_host_page(void *arg, unsigned long order)
 {
 	phys_addr_t p;
 	struct kvm_hyp_memcache *host_mc = arg;

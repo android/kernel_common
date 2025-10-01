@@ -1559,7 +1559,7 @@ void pkvm_el2_mod_frob_sections(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs, char *secstri
 }
 #endif /* CONFIG_MODULES */
 
-static int __pkvm_topup_hyp_alloc_mgt_mc(unsigned long id, struct kvm_hyp_memcache *mc)
+int __pkvm_topup_hyp_alloc_mgt_mc(unsigned long id, struct kvm_hyp_memcache *mc)
 {
 	struct arm_smccc_res res;
 
@@ -1569,6 +1569,7 @@ static int __pkvm_topup_hyp_alloc_mgt_mc(unsigned long id, struct kvm_hyp_memcac
 	mc->nr_pages = res.a3;
 	return res.a1;
 }
+EXPORT_SYMBOL(__pkvm_topup_hyp_alloc_mgt_mc);
 
 int __pkvm_topup_hyp_alloc(unsigned long nr_pages)
 {

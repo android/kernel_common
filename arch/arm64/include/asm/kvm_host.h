@@ -1704,6 +1704,7 @@ void kvm_set_vm_id_reg(struct kvm *kvm, u32 reg, u64 val);
 #define HYP_ALLOC_MGT_IOMMU_ID		1
 
 unsigned long __pkvm_reclaim_hyp_alloc_mgt(unsigned long nr_pages);
+int __pkvm_topup_hyp_alloc_mgt_mc(unsigned long id, struct kvm_hyp_memcache *mc);
 int __pkvm_topup_hyp_alloc_mgt_gfp(unsigned long id, unsigned long nr_pages,
 				   unsigned long sz_alloc, gfp_t gfp);
 
@@ -1733,6 +1734,9 @@ int kvm_iommu_init_hyp(struct kvm_iommu_ops *hyp_ops,
 int kvm_iommu_init_driver(void);
 void kvm_iommu_remove_driver(void);
 pkvm_handle_t kvm_get_iommu_id_by_of(struct device_node *np);
+
+struct page *kvm_iommu_cma_alloc(void);
+bool kvm_iommu_cma_release(struct page *p);
 
 int pkvm_iommu_suspend(struct device *dev);
 int pkvm_iommu_resume(struct device *dev);
