@@ -288,6 +288,10 @@ void madvise_vma_pad_pages(struct vm_area_struct *vma,
 	if (!linker_ctx())
 		return;
 
+	/* Keep this as the last check to avoid IO if possible. */
+	if (!is_elf_file(vma->vm_file))
+		return;
+
 	vma_set_pad_pages(vma, nr_pad_pages);
 }
 
