@@ -478,6 +478,8 @@ __traceiter_android_vh_filemap_map_pages
 __tracepoint_android_vh_filemap_map_pages
 
 #required by xiaomi network protocol
+__fl6_sock_lookup
+__get_hash_from_flowi6
 __percpu_counter_init_many
 __sk_dst_check
 __sk_mem_schedule
@@ -501,6 +503,7 @@ inet_unregister_protosw
 ip6_dst_lookup_flow
 ip_getsockopt
 ip_setsockopt
+ipv6_flowlabel_exclusive
 ipv6_getsockopt
 ipv6_setsockopt
 nr_free_buffer_pages
