@@ -113,30 +113,33 @@ static struct kvm_ffa_buffers *ffa_get_buffers(struct pkvm_hyp_vcpu *hyp_vcpu)
 
 DECLARE_STATIC_KEY_FALSE(kvm_ffa_unmap_on_lend);
 
-static struct ffa_handle *ffa_host_alloc_handle(void)
+static int ffa_host_store_handle(u64 ffa_handle, bool is_lend)
 {
 	u32 i;
-	struct ffa_handle *handle;
+	struct ffa_handle *free_handle = NULL;
 
 	if (!static_branch_unlikely(&kvm_ffa_unmap_on_lend))
-		return NULL;
+		return 0;
 
 	if (spm_free_handle) {
 		WARN_ON(spm_free_handle < spm_handles ||
 			spm_free_handle >= (spm_handles + num_spm_handles));
-		handle = spm_free_handle;
+		free_handle = spm_free_handle;
 		spm_free_handle = NULL;
-		return handle;
+	} else {
+		for (i = 0; i < num_spm_handles; i++)
+			if (spm_handles[i].handle == FFA_INVALID_SPM_HANDLE)
+				break;
+
+		if (i == num_spm_handles)
+			return -ENOSPC;
+
+		free_handle = &spm_handles[i];
 	}
 
-	for (i = 0; i < num_spm_handles; i++)
-		if (spm_handles[i].handle == FFA_INVALID_SPM_HANDLE)
-			break;
-
-	if (i == num_spm_handles)
-		return NULL;
-
-	return &spm_handles[i];
+	free_handle->handle = ffa_handle;
+	free_handle->is_lend = is_lend;
+	return 0;
 }
 
 static struct ffa_handle *ffa_host_get_handle(u64 ffa_handle)
@@ -909,7 +912,6 @@ static int __do_ffa_mem_xfer(const u64 func_id,
 	struct ffa_mem_transfer *transfer = NULL;
 	u64 ffa_handle;
 	bool is_lend = func_id == FFA_FN64_MEM_LEND;
-	struct ffa_handle *handle = NULL;
 
 	if (addr_mbz || npages_mbz || fraglen > len ||
 	    fraglen > KVM_FFA_MBOX_NR_PAGES * PAGE_SIZE) {
@@ -1010,14 +1012,6 @@ static int __do_ffa_mem_xfer(const u64 func_id,
 	if (ret)
 		goto out_unlock;
 
-	if (!hyp_vcpu) {
-		handle = ffa_host_alloc_handle();
-		if (!handle) {
-			ret = -ENOSPC;
-			goto out_unlock;
-		}
-	}
-
 	ffa_mem_xfer(res, func_id, len, fraglen);
 	if (fraglen != len) {
 		if (res->a0 != FFA_MEM_FRAG_RX)
@@ -1036,9 +1030,10 @@ static int __do_ffa_mem_xfer(const u64 func_id,
 	if (hyp_vcpu && transfer) {
 		transfer->ffa_handle = ffa_handle;
 		list_add(&transfer->node, &ffa_buf->xfer_list);
-	} else if (handle) {
-		handle->handle = ffa_handle;
-		handle->is_lend = is_lend;
+	} else if (!hyp_vcpu) {
+		ret = ffa_host_store_handle(ffa_handle, is_lend);
+		if (ret)
+			goto err_unshare;
 	}
 	hyp_spin_unlock(&kvm_ffa_hyp_lock);
 	return 0;
