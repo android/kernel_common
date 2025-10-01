@@ -844,6 +844,9 @@ static void do_ffa_mem_frag_tx(struct arm_smccc_res *res,
 
 	ret = ffa_host_share_ranges(buf, nr_ranges, is_lend);
 	if (ret) {
+		struct ffa_mem_transfer *transfer = __pkvm_get_vm_ffa_transfer(host_handle);
+		WARN_ON(transfer);
+
 		/*
 		 * We're effectively aborting the transaction, so we need
 		 * to restore the global state back to what it was prior to
