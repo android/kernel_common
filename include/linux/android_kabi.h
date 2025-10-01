@@ -70,9 +70,6 @@
 				__stringify(_new));			\
 	}
 
-#if defined(BUILD_VDSO) || defined(__DISABLE_EXPORTS)
-#define _ANDROID_KABI_REPLACE(_orig, _new)	_new
-#else
 #define _ANDROID_KABI_REPLACE(_orig, _new)		      \
 	union {						      \
 		_new;					      \
@@ -81,7 +78,6 @@
 		};					      \
 		_ANDROID_KABI_NORMAL_SIZE_ALIGN(_orig, _new); \
 	}
-#endif
 
 
 /*
