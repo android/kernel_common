@@ -1135,6 +1135,7 @@
   fileattr_fill_flags
   filemap_fault
   filemap_fdatawrite
+  filemap_fdatawrite_range_kick
   __filemap_get_folio
   filemap_map_pages
   filemap_splice_read
@@ -3257,11 +3258,9 @@
   typec_altmode2port
   typec_altmode_attention
   typec_altmode_enter
+  typec_altmode_entry_complete
   typec_altmode_exit
   typec_altmode_get_plug
-  typec_altmode_entry_complete
-  typec_mode_selection_start
-  typec_mode_selection_delete
   typec_altmode_notify
   typec_altmode_put_plug
   __typec_altmode_register_driver
@@ -3281,6 +3280,8 @@
   typec_get_drvdata
   typec_get_negotiated_svdm_version
   typec_match_altmode
+  typec_mode_selection_delete
+  typec_mode_selection_start
   typec_mux_get_drvdata
   typec_mux_put
   typec_mux_register
