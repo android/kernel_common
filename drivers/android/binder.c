@@ -7485,6 +7485,7 @@ int unload_binder(void)
 	mutex_unlock(&binder_use_rust_lock);
 
 	if (!ret) {
+		genl_unregister_family(&binder_nl_family);
 		unload_binderfs();
 		debugfs_remove_recursive(binder_debugfs_dir_entry_root);
 		binder_alloc_shrinker_exit();
