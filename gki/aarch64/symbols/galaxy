@@ -86,6 +86,7 @@
   __traceiter_android_vh_zs_shrinker_adjust
   __traceiter_android_vh_zs_shrinker_bypass
   __traceiter_console
+  __traceiter_error_report_end
   __traceiter_vm_unmapped_area
   __traceiter_android_vh_handle_add_skipped_blks
   __traceiter_android_vh_handle_data_error
@@ -142,6 +143,7 @@
   __tracepoint_android_vh_zs_shrinker_adjust
   __tracepoint_android_vh_zs_shrinker_bypass
   __tracepoint_console
+  __tracepoint_error_report_end
   __tracepoint_vm_unmapped_area
   __tracepoint_android_vh_handle_add_fec_mismatch_blks
   __tracepoint_android_vh_handle_data_error
