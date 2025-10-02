@@ -37,8 +37,8 @@ static const struct device_type power_supply_dev_type = {
 	.groups = power_supply_attr_groups,
 };
 
-struct match_device_node_array_param {
-	struct device_node *parent_of_node;
+struct match_fwnode_array_param {
+	struct fwnode_handle *parent_fwnode;
 	struct power_supply **psy;
 	ssize_t psy_size;
 	ssize_t psy_count;
@@ -545,22 +545,22 @@ struct power_supply *power_supply_get_by_reference(struct fwnode_handle *fwnode,
 }
 EXPORT_SYMBOL_GPL(power_supply_get_by_reference);
 
-static int power_supply_match_device_node_array(struct device *dev,
-						void *data)
+static int power_supply_match_device_fwnode_array(struct device *dev,
+						  void *data)
 {
-	struct match_device_node_array_param *param =
-		(struct match_device_node_array_param *)data;
+	struct match_fwnode_array_param *param =
+		(struct match_fwnode_array_param *)data;
 	struct power_supply **psy = param->psy;
 	ssize_t size = param->psy_size;
 	ssize_t *count = &param->psy_count;
 
-	if (!dev->parent || dev->parent->of_node != param->parent_of_node)
+	if (!dev->parent || dev_fwnode(dev->parent) != param->parent_fwnode)
 		return 0;
 
 	if (*count >= size)
 		return -EOVERFLOW;
 
-	psy[*count] = dev_get_drvdata(dev);
+	psy[*count] = dev_to_psy(dev);
 	atomic_inc(&psy[*count]->use_cnt);
 	(*count)++;
 
@@ -568,13 +568,13 @@ static int power_supply_match_device_node_array(struct device *dev,
 }
 
 /**
- * power_supply_get_by_phandle_array() - Similar to
- * power_supply_get_by_phandle but returns an array of power supply
+ * power_supply_get_by_reference_array() - Similar to
+ * power_supply_get_by_reference but returns an array of power supply
  * objects which are associated with the phandle.
- * @np: Pointer to device node holding phandle property.
+ * @fwnode: Pointer to fwnode node holding phandle property.
  * @property: Name of property holding a power supply name.
- * @psy: Array of power_supply pointers provided by the client which is
- * filled by power_supply_get_by_phandle_array.
+ * @psy: Array of power_supply pointers provided by the client, which is
+ * filled by power_supply_get_by_reference_array.
  * @size: size of power_supply pointer array.
  *
  * If power supply was found, it increases reference count for the
@@ -585,36 +585,36 @@ static int power_supply_match_device_node_array(struct device *dev,
  * in the @psy array.
  * -EOVERFLOW when size of @psy array is not suffice.
  * -EINVAL when @psy is NULL or @size is 0.
- * -ENODEV when matching device_node is not found.
+ * -ENODEV when matching fwnode is not found.
  */
-int power_supply_get_by_phandle_array(struct device_node *np,
-				      const char *property,
-				      struct power_supply **psy,
-				      ssize_t size)
+int power_supply_get_by_reference_array(struct fwnode_handle *fwnode,
+					const char *property,
+					struct power_supply **psy,
+					ssize_t size)
 {
-	struct device_node *power_supply_np;
+	struct fwnode_handle *power_supply_fwnode;
 	int ret;
-	struct match_device_node_array_param param;
+	struct match_fwnode_array_param param;
 
 	if (!psy || !size)
 		return -EINVAL;
 
-	power_supply_np = of_parse_phandle(np, property, 0);
-	if (!power_supply_np)
+	power_supply_fwnode = fwnode_find_reference(fwnode, property, 0);
+	if (IS_ERR(power_supply_fwnode))
 		return -ENODEV;
 
-	param.parent_of_node = power_supply_np;
+	param.parent_fwnode = power_supply_fwnode;
 	param.psy = psy;
 	param.psy_size = size;
 	param.psy_count = 0;
 	ret = class_for_each_device(&power_supply_class, NULL, &param,
-				    power_supply_match_device_node_array);
+				    power_supply_match_device_fwnode_array);
 
-	of_node_put(power_supply_np);
+	fwnode_handle_put(power_supply_fwnode);
 
 	return param.psy_count;
 }
-EXPORT_SYMBOL_GPL(power_supply_get_by_phandle_array);
+EXPORT_SYMBOL_GPL(power_supply_get_by_reference_array);
 
 static void devm_power_supply_put(struct device *dev, void *res)
 {

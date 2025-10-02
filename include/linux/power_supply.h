@@ -813,21 +813,12 @@ static inline void power_supply_put(struct power_supply *psy) {}
 static inline struct power_supply *power_supply_get_by_name(const char *name)
 { return NULL; }
 #endif
-#ifdef CONFIG_OF
-extern int power_supply_get_by_phandle_array(struct device_node *np,
-					     const char *property,
-					     struct power_supply **psy,
-					     ssize_t size);
-#else /* !CONFIG_OF */
-static inline int
-power_supply_get_by_phandle_array(struct device_node *np,
-				  const char *property,
-				  struct power_supply **psy,
-				  int size)
-{ return 0; }
-#endif /* CONFIG_OF */
 extern struct power_supply *power_supply_get_by_reference(struct fwnode_handle *fwnode,
 							  const char *property);
+extern int power_supply_get_by_reference_array(struct fwnode_handle *fwnode,
+					       const char *property,
+					       struct power_supply **psy,
+					       ssize_t size);
 extern struct power_supply *devm_power_supply_get_by_reference(
 				    struct device *dev, const char *property);
 
