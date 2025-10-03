@@ -36,7 +36,7 @@ static void mmu_put_page(void *vaddr)
 	hyp_put_page(&mmu_pool, vaddr);
 }
 
-static struct pkvm_mm_ops mmu_mm_ops = {
+static const struct pkvm_mm_ops mmu_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = mmu_zalloc_page,
@@ -112,7 +112,7 @@ static u64 mmu_level_page_mask(int level)
 	return (~((1UL << SPTE_LEVEL_SHIFT(level)) - 1));
 }
 
-struct pkvm_pgtable_ops mmu_ops = {
+const struct pkvm_pgtable_ops mmu_ops = {
 	.pgt_entry_present = mmu_entry_present,
 	.pgt_entry_mapped = mmu_entry_present,
 	.pgt_entry_huge = mmu_entry_huge,
@@ -138,8 +138,8 @@ static int finalize_host_mappings_walker(struct pkvm_pgtable *mmu,
 					 struct pgt_flush_data *flush_data,
 					 void *const arg)
 {
-	struct pkvm_mm_ops *mm_ops = arg;
-	struct pkvm_pgtable_ops *pgt_ops = mmu->pgt_ops;
+	const struct pkvm_mm_ops *mm_ops = mmu->mm_ops;
+	const struct pkvm_pgtable_ops *pgt_ops = mmu->pgt_ops;
 
 	if (!pgt_ops->pgt_entry_present(ptep))
 		return 0;
@@ -157,11 +157,11 @@ static int finalize_host_mappings_walker(struct pkvm_pgtable *mmu,
 static int fix_pgtable_refcnt(void)
 {
 	unsigned long size;
-	struct pkvm_pgtable_ops *pgt_ops;
+	const struct pkvm_pgtable_ops *pgt_ops;
 	struct pkvm_pgtable_walker walker = {
 		.cb 	= finalize_host_mappings_walker,
 		.flags 	= PKVM_PGTABLE_WALK_LEAF | PKVM_PGTABLE_WALK_TABLE_POST,
-		.arg 	= hyp_mmu.mm_ops,
+		.arg 	= NULL,
 	};
 
 	pgt_ops = hyp_mmu.pgt_ops;

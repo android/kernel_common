@@ -103,7 +103,7 @@ static void host_ept_flush_cache(void *vaddr, unsigned int size)
 		pkvm_clflush_cache_range(vaddr, size);
 }
 
-struct pkvm_mm_ops host_ept_mm_ops = {
+const struct pkvm_mm_ops host_ept_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = host_ept_zalloc_page,
@@ -114,7 +114,7 @@ struct pkvm_mm_ops host_ept_mm_ops = {
 	.flush_cache = host_ept_flush_cache,
 };
 
-static struct pkvm_mm_ops host_ept_mm_ops_no_tlbflush = {
+static const struct pkvm_mm_ops host_ept_mm_ops_no_tlbflush = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = host_ept_zalloc_page,
@@ -209,7 +209,7 @@ static void ept_set_entry(void *sptep, u64 spte)
 	WRITE_ONCE(*(u64 *)sptep, spte);
 }
 
-struct pkvm_pgtable_ops ept_ops = {
+const struct pkvm_pgtable_ops ept_ops = {
 	.pgt_entry_present = ept_entry_present,
 	.pgt_entry_mapped = ept_entry_mapped,
 	.pgt_entry_huge = ept_entry_huge,
@@ -460,7 +460,7 @@ static void shadow_ept_flush_tlb(struct pkvm_pgtable *pgt,
 	}
 }
 
-static struct pkvm_mm_ops shadow_ept_mm_ops = {
+static const struct pkvm_mm_ops shadow_ept_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = shadow_pgt_zalloc_page,
@@ -496,7 +496,7 @@ static struct pkvm_mm_ops shadow_ept_mm_ops = {
  * of 2nd level iommu page tables to iommu_spgt.c to some common API.
  * That means also refactoring of pkvm_ptdev structure.
  */
-static struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops = {
+static const struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = shadow_pgt_zalloc_page,
@@ -511,7 +511,7 @@ static struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops = {
  * so it can be used for a pgtable which is used as IOMMU page table
  * with noncoherent IOMMU.
  */
-static struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops_noncoherency = {
+static const struct pkvm_mm_ops shadow_sl_iommu_pgt_mm_ops_noncoherency = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = shadow_pgt_zalloc_page,
@@ -525,7 +525,7 @@ static int pkvm_pgstate_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vad
 				     void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {
 	struct pkvm_pgtable_map_data *data = arg;
-	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
+	const struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
 	unsigned long level_size = pgt_ops->pgt_level_to_size(level);
 	unsigned long map_phys = data->phys & PAGE_MASK;
 	struct pkvm_shadow_vm *vm = pgstate_pgt_to_shadow_vm(pgt);
@@ -751,7 +751,7 @@ int pkvm_pgstate_pgt_init(struct pkvm_shadow_vm *vm)
 	return pkvm_pgtable_init(pgt, &shadow_sl_iommu_pgt_mm_ops, &ept_ops, &cap, true);
 }
 
-struct pkvm_mm_ops *pkvm_shadow_sl_iommu_pgt_get_mm_ops(bool coherent)
+const struct pkvm_mm_ops *pkvm_shadow_sl_iommu_pgt_get_mm_ops(bool coherent)
 {
 	return coherent ? &shadow_sl_iommu_pgt_mm_ops
 			: &shadow_sl_iommu_pgt_mm_ops_noncoherency;
@@ -771,7 +771,7 @@ void pkvm_shadow_sl_iommu_pgt_update_coherency(struct pkvm_pgtable *pgt, bool co
  * The physical address in this ept is the host VM GPA, which is
  * the same with HPA.
  */
-struct pkvm_mm_ops virtual_ept_mm_ops = {
+const struct pkvm_mm_ops virtual_ept_mm_ops = {
 	.phys_to_virt = host_gpa2hva,
 };
 
@@ -950,7 +950,7 @@ pkvm_handle_shadow_ept_violation(struct shadow_vcpu_state *shadow_vcpu, u64 l2_g
 	struct pkvm_shadow_vm *vm = shadow_vcpu->vm;
 	struct shadow_ept_desc *desc = &vm->sept_desc;
 	struct pkvm_pgtable *sept = &desc->sept;
-	struct pkvm_pgtable_ops *pgt_ops = sept->pgt_ops;
+	const struct pkvm_pgtable_ops *pgt_ops = sept->pgt_ops;
 	struct pkvm_pgtable *vept = &shadow_vcpu->vept;
 	enum sept_handle_ret ret = PKVM_NOT_HANDLED;
 	unsigned long phys;

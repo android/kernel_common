@@ -85,8 +85,9 @@ void pkvm_put_ptdev(struct pkvm_ptdev *ptdev)
 }
 
 void pkvm_setup_ptdev_vpgt(struct pkvm_ptdev *ptdev, unsigned long root_gpa,
-			   struct pkvm_mm_ops *mm_ops, struct pkvm_pgtable_ops *paging_ops,
-			   struct pkvm_pgtable_cap *cap, bool shadowed)
+			   const struct pkvm_mm_ops *mm_ops,
+			   const struct pkvm_pgtable_ops *paging_ops,
+			   const struct pkvm_pgtable_cap *cap, bool shadowed)
 {
 	pkvm_spin_lock(&ptdev->lock);
 

@@ -109,8 +109,8 @@ void *host_mmio2hva(unsigned long gpa)
 	return pkvm_iophys_to_virt(gpa);
 }
 
-extern struct pkvm_pgtable_ops mmu_ops;
-static struct pkvm_mm_ops mm_ops = {
+extern const struct pkvm_pgtable_ops mmu_ops;
+static const struct pkvm_mm_ops mm_ops = {
 	.phys_to_virt = host_gpa2hva,
 };
 

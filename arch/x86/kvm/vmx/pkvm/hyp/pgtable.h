@@ -45,8 +45,8 @@ struct pkvm_pgtable {
 	int level;
 	int allowed_pgsz;
 	u64 table_prot;
-	struct pkvm_mm_ops *mm_ops;
-	struct pkvm_pgtable_ops *pgt_ops;
+	const struct pkvm_mm_ops *mm_ops;
+	const struct pkvm_pgtable_ops *pgt_ops;
 };
 
 struct pgt_flush_data {
@@ -122,9 +122,9 @@ int pgtable_walk(struct pkvm_pgtable *pgt, unsigned long vaddr,
 		unsigned long size, bool page_aligned,
 		struct pkvm_pgtable_walker *walker);
 int pkvm_pgtable_init(struct pkvm_pgtable *pgt,
-		struct pkvm_mm_ops *mm_ops,
-		struct pkvm_pgtable_ops *pgt_ops,
-		struct pkvm_pgtable_cap *cap,
+		const struct pkvm_mm_ops *mm_ops,
+		const struct pkvm_pgtable_ops *pgt_ops,
+		const struct pkvm_pgtable_cap *cap,
 		bool alloc_root);
 int pkvm_pgtable_map(struct pkvm_pgtable *pgt, unsigned long vaddr_start,
 		unsigned long phys_start, unsigned long size,
@@ -155,7 +155,8 @@ int pkvm_pgtable_sync_map_range(struct pkvm_pgtable *src, struct pkvm_pgtable *d
 				u64 *prot, pgtable_leaf_ov_fn_t map_leaf,
 				pgtable_leaf_ov_fn_t unmap_leaf);
 
-static inline void pkvm_pgtable_set_mm_ops(struct pkvm_pgtable *pgt, struct pkvm_mm_ops *mm_ops)
+static inline void pkvm_pgtable_set_mm_ops(struct pkvm_pgtable *pgt,
+					   const struct pkvm_mm_ops *mm_ops)
 {
 	pgt->mm_ops = mm_ops;
 }

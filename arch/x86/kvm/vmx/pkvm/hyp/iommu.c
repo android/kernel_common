@@ -115,11 +115,11 @@ static void iommu_flush_cache(void *ptep, unsigned int size)
 	pkvm_clflush_cache_range(ptep, size);
 }
 
-static struct pkvm_mm_ops viommu_mm_ops = {
+static const struct pkvm_mm_ops viommu_mm_ops = {
 	.phys_to_virt = host_gpa2hva,
 };
 
-static struct pkvm_mm_ops iommu_pw_coherency_mm_ops = {
+static const struct pkvm_mm_ops iommu_pw_coherency_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = iommu_zalloc_page,
@@ -128,7 +128,7 @@ static struct pkvm_mm_ops iommu_pw_coherency_mm_ops = {
 	.page_count = hyp_page_count,
 };
 
-static struct pkvm_mm_ops iommu_pw_noncoherency_mm_ops = {
+static const struct pkvm_mm_ops iommu_pw_noncoherency_mm_ops = {
 	.phys_to_virt = pkvm_phys_to_virt,
 	.virt_to_phys = pkvm_virt_to_phys,
 	.zalloc_page = iommu_zalloc_page,
@@ -235,7 +235,7 @@ static unsigned long iommu_sm_id_level_to_size(int level)
 	return 0;
 }
 
-struct pkvm_pgtable_ops iommu_sm_id_ops = {
+const struct pkvm_pgtable_ops iommu_sm_id_ops = {
 	.pgt_entry_present = iommu_id_entry_present,
 	.pgt_entry_to_phys = iommu_id_entry_to_phys,
 	.pgt_entry_to_index = iommu_sm_id_entry_to_index,
@@ -301,7 +301,7 @@ static unsigned long iommu_lm_id_level_to_size(int level)
 	return 0;
 }
 
-struct pkvm_pgtable_ops iommu_lm_id_ops = {
+const struct pkvm_pgtable_ops iommu_lm_id_ops = {
 	.pgt_entry_present = iommu_id_entry_present,
 	.pgt_entry_to_phys = iommu_id_entry_to_phys,
 	.pgt_entry_to_index = iommu_lm_id_entry_to_index,
@@ -382,7 +382,7 @@ static int shadow_pgt_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, in
 			       void *ptep, struct pgt_flush_data *flush_data, void *arg)
 {
 	struct pkvm_pgtable_map_data *data = arg;
-	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
+	const struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
 	struct hyp_page *old_page = NULL, *new_page = NULL;
 	unsigned long map_phys;
 	int ret = 0;
@@ -844,8 +844,8 @@ static int initialize_iommu_pgt(struct pkvm_iommu *iommu)
 {
 	struct pkvm_pgtable *pgt = &iommu->pgt;
 	struct pkvm_pgtable *vpgt = &iommu->viommu.pgt;
-	static struct pkvm_mm_ops *iommu_mm_ops;
-	struct pkvm_pgtable_ops *iommu_ops;
+	static const struct pkvm_mm_ops *iommu_mm_ops;
+	const struct pkvm_pgtable_ops *iommu_ops;
 	struct pkvm_pgtable_cap cap;
 	int ret;
 
@@ -1002,8 +1002,8 @@ static int free_shadow_id_cb(struct pkvm_pgtable *pgt, unsigned long vaddr,
 			  unsigned long flags, struct pgt_flush_data *flush_data,
 			  void *const arg)
 {
-	struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
-	struct pkvm_mm_ops *mm_ops = pgt->mm_ops;
+	const struct pkvm_pgtable_ops *pgt_ops = pgt->pgt_ops;
+	const struct pkvm_mm_ops *mm_ops = pgt->mm_ops;
 	struct id_sync_data sync_data = {0};
 	struct pkvm_iommu *iommu = pgt_to_pkvm_iommu(pgt);
 	void *child_ptep;
@@ -1112,7 +1112,7 @@ static int sync_shadow_id_cb(struct pkvm_pgtable *vpgt, unsigned long vaddr,
 			  unsigned long flags, struct pgt_flush_data *flush_data,
 			  void *const arg)
 {
-	struct pkvm_pgtable_ops *vpgt_ops = vpgt->pgt_ops;
+	const struct pkvm_pgtable_ops *vpgt_ops = vpgt->pgt_ops;
 	struct id_sync_walk_data *data = arg;
 	struct pkvm_iommu *iommu = data->iommu;
 	struct pkvm_pgtable *shadow_id = &iommu->pgt;

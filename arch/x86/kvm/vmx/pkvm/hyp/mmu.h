@@ -23,6 +23,6 @@ void pkvm_mmu_clone_host(int level, unsigned long start_vaddr);
 static inline void pkvm_mmu_clone_host(int level, unsigned long start_vaddr) {}
 #endif
 
-extern struct pkvm_pgtable_ops mmu_ops;
+extern const struct pkvm_pgtable_ops mmu_ops;
 
 #endif

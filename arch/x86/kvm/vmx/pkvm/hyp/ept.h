@@ -50,7 +50,7 @@ void pkvm_shadow_clear_suppress_ve(struct kvm_vcpu *vcpu, unsigned long gfn);
 int pkvm_pgstate_pgt_init(struct pkvm_shadow_vm *vm);
 void pkvm_pgstate_pgt_deinit(struct pkvm_shadow_vm *vm);
 
-struct pkvm_mm_ops *pkvm_shadow_sl_iommu_pgt_get_mm_ops(bool coherent);
+const struct pkvm_mm_ops *pkvm_shadow_sl_iommu_pgt_get_mm_ops(bool coherent);
 void pkvm_shadow_sl_iommu_pgt_update_coherency(struct pkvm_pgtable *pgt, bool coherent);
 
 bool is_pgt_ops_ept(struct pkvm_pgtable *pgt);
@@ -64,7 +64,7 @@ static inline bool is_valid_eptp(u64 eptp)
 	return true;
 }
 
-extern struct pkvm_pgtable_ops ept_ops;
+extern const struct pkvm_pgtable_ops ept_ops;
 
 int pkvm_handle_guest_ept_violation(struct kvm_vcpu *vcpu, u64 gpa);
 void pkvm_setup_virtual_ept(struct kvm_vcpu *vcpu, u64 veptp);
