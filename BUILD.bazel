@@ -31,9 +31,9 @@ load(
     "merged_kernel_uapi_headers",
     "modinfo_summary_report",
 )
-load(":abi.bzl", "cc_binary_with_abi")
+load(":bazel/abi.bzl", "cc_binary_with_abi")
 load(
-    ":modules.bzl",
+    ":bazel/modules_private.bzl",
     "get_gki_kunit_modules",
     "get_gki_modules_list",
     "get_gki_modules_superset",

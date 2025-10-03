@@ -7,6 +7,7 @@ ABI aware build rules.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load(
     "@rules_pkg//pkg:mappings.bzl",
     "pkg_files",
@@ -87,7 +88,7 @@ def cc_binary_with_abi(
             The output filename. Default is `name`.
         **kwargs: the rest args that cc_binary uses.
     """
-    native.cc_binary(
+    cc_binary(
         name = name,
         visibility = visibility,
         **kwargs
