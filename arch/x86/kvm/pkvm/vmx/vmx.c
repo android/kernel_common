@@ -7586,7 +7586,7 @@ __init int vmx_hardware_setup(void)
 	    !cpu_has_vmx_ept_mt_wb() ||
 	    !cpu_has_vmx_invept_global())
 #ifdef __PKVM_HYP__
-		return -EINVAL;
+		return -EOPNOTSUPP;
 #else
 		enable_ept = 0;
 #endif
@@ -7608,7 +7608,7 @@ __init int vmx_hardware_setup(void)
 
 	if (!cpu_has_virtual_nmis())
 #ifdef __PKVM_HYP__
-		return -EINVAL;
+		return -EOPNOTSUPP;
 #else
 		enable_vnmi = 0;
 #endif
@@ -7628,7 +7628,7 @@ __init int vmx_hardware_setup(void)
 
 	if (!cpu_has_vmx_tpr_shadow())
 #ifdef __PKVM_HYP__
-		return -EINVAL;
+		return -EOPNOTSUPP;
 #else
 		vt_x86_ops.update_cr8_intercept = NULL;
 #endif
@@ -7722,7 +7722,7 @@ __init int vmx_hardware_setup(void)
 		 * The pkvm hypervisor requires to use the preemption timer
 		 * to handle the force_immediate_exit for the vcpu run
 		 */
-		return -EINVAL;
+		return -EOPNOTSUPP;
 #else
 		vt_x86_ops.set_hv_timer = NULL;
 		vt_x86_ops.cancel_hv_timer = NULL;
