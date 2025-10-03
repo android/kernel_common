@@ -1419,8 +1419,7 @@ static int dir_rename(struct inode *old_dir, struct dentry *old_dentry,
 	rd.new_parent	= backing_new_dir_dentry;
 	rd.new_dentry	= backing_new_dentry;
 	rd.flags	= flags;
-	rd.old_mnt_idmap = &nop_mnt_idmap;
-	rd.new_mnt_idmap = &nop_mnt_idmap;
+	rd.mnt_idmap	= &nop_mnt_idmap;
 	rd.delegated_inode = NULL;
 
 	error = vfs_rename(&rd);
