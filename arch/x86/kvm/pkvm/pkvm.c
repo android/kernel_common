@@ -360,7 +360,7 @@ static int pkvm_vm_finalize(int handle)
 
 	pvmfw_load_addr = READ_ONCE(shared_kvm->arch.pkvm.pvmfw_load_addr);
 	if (pvmfw_load_addr != INVALID_GPA) {
-		if (!pvmfw_present) {
+		if (!pvmfw_present || U64_MAX - pvmfw_load_addr < pvmfw_size) {
 			ret = -EINVAL;
 			goto unlock;
 		}
