@@ -7204,6 +7204,10 @@ restart:
 
 void kvm_arch_flush_shadow_all(struct kvm *kvm)
 {
+	/* pKVM itself removes all guest's mappings when destroying VM. */
+	if (enable_pkvm)
+		return;
+
 	kvm_mmu_zap_all(kvm);
 }
 
