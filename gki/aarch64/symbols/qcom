@@ -3446,6 +3446,7 @@
   __traceiter_android_vh_thermal_pm_notify_suspend
   __traceiter_android_vh_timer_calc_index
   __traceiter_android_vh_try_fixup_sea
+  __traceiter_android_vh_kernel_nofault
   __traceiter_android_vh_ufs_check_int_errors
   __traceiter_android_vh_ufs_compl_command
   __traceiter_android_vh_ufs_send_command
@@ -3591,6 +3592,7 @@
   __tracepoint_android_vh_thermal_pm_notify_suspend
   __tracepoint_android_vh_timer_calc_index
   __tracepoint_android_vh_try_fixup_sea
+  __tracepoint_android_vh_kernel_nofault
   __tracepoint_android_vh_ufs_check_int_errors
   __tracepoint_android_vh_ufs_compl_command
   __tracepoint_android_vh_ufs_send_command
