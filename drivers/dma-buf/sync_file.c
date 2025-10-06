@@ -116,9 +116,6 @@ struct dma_fence *sync_file_get_fence(int fd)
 }
 EXPORT_SYMBOL(sync_file_get_fence);
 
-const char *sync_fence_signaled_obj_name = "signaled-timeline";
-const char *sync_fence_signaled_driver_name = "signaled-driver";
-
 /**
  * sync_file_get_name - get the name of the sync_file
  * @sync_file:		sync_file to get the fence from
@@ -140,6 +137,7 @@ char *sync_file_get_name(struct sync_file *sync_file, char *buf, int len)
 		struct dma_fence *fence = sync_file->fence;
 		const char __rcu *timeline;
 		const char __rcu *driver;
+
 		rcu_read_lock();
 		driver = dma_fence_driver_name(fence);
 		timeline = dma_fence_timeline_name(fence);
@@ -375,9 +373,6 @@ static int sync_file_ioctl_set_deadline(struct sync_file *sync_file,
 
 	if (ts.pad)
 		return -EINVAL;
-
-	if (test_bit(DMA_FENCE_FLAG_SIGNALED_BIT, &sync_file->fence->flags))
-		return 0;
 
 	dma_fence_set_deadline(sync_file->fence, ns_to_ktime(ts.deadline_ns));
 
