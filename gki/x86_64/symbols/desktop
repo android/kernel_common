@@ -3400,6 +3400,7 @@
   usb_driver_release_interface
   usb_enable_autosuspend
   usb_ep_set_maxpacket_limit
+  usb_find_common_endpoints
   usb_free_coherent
   usb_free_urb
   usb_gadget_giveback_request
@@ -3409,6 +3410,7 @@
   usb_get_from_anchor
   usb_get_function
   usb_get_function_instance
+  usb_get_intf
   usb_hcd_check_unlink_urb
   usb_hcd_giveback_urb
   usb_hcd_is_primary_hcd
@@ -3459,10 +3461,12 @@
   usb_put_function
   usb_put_function_instance
   usb_put_hcd
+  usb_put_intf
   usb_queue_reset_device
   usb_register_dev
   usb_register_driver
   usb_remove_hcd
+  usb_reset_device
   usb_role_switch_get_drvdata
   usb_role_switch_put
   usb_role_switch_register
