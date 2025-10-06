@@ -644,3 +644,4 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_handle_metadata_error);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_handle_add_skipped_blks);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_handle_add_blks_map);
 EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_handle_get_b_info);
+EXPORT_TRACEPOINT_SYMBOL_GPL(android_vh_kernel_nofault);
