@@ -9480,8 +9480,6 @@ static void cpu_cgroup_attach(struct cgroup_taskset *tset)
 		sched_move_task(task, false);
 
 	trace_android_rvh_cpu_cgroup_attach(tset);
-
-	scx_cgroup_finish_attach();
 }
 
 static void cpu_cgroup_cancel_attach(struct cgroup_taskset *tset)
