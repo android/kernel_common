@@ -496,9 +496,9 @@ static int drm_atomic_connector_check(struct drm_connector *connector,
 	if (connector->min_bpc_property)
 		state->min_bpc = state->min_requested_bpc;
 	if (connector->max_bpc_property && connector->min_bpc_property &&
-	    state->max_requested_bpc <= state->min_requested_bpc) {
+	    state->max_requested_bpc < state->min_requested_bpc) {
 		drm_dbg_atomic(connector->dev,
-			       "[CONNECTOR:%d:%s] max bpc %d <= min bpc %d\n",
+			       "[CONNECTOR:%d:%s] max bpc %d < min bpc %d\n",
 			       connector->base.id, connector->name,
 			       state->max_requested_bpc,
 			       state->min_requested_bpc);
