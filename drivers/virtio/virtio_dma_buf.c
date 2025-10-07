@@ -29,7 +29,7 @@ struct dma_buf *virtio_dma_buf_export
 		return ERR_PTR(-EINVAL);
 	}
 
-	if (!(IS_ENABLED(CONFIG_CFI_CLANG) && IS_ENABLED(CONFIG_MODULES)) &&
+	if (!(IS_ENABLED(CONFIG_CFI) && IS_ENABLED(CONFIG_MODULES)) &&
 	    exp_info->ops->attach != &virtio_dma_buf_attach)
 		return ERR_PTR(-EINVAL);
 
@@ -65,7 +65,7 @@ EXPORT_SYMBOL(virtio_dma_buf_attach);
  */
 bool is_virtio_dma_buf(struct dma_buf *dma_buf)
 {
-	if (IS_ENABLED(CONFIG_CFI_CLANG) && IS_ENABLED(CONFIG_MODULES))
+	if (IS_ENABLED(CONFIG_CFI) && IS_ENABLED(CONFIG_MODULES))
 		return true;
 
 	return dma_buf->ops->attach == &virtio_dma_buf_attach;
