@@ -64,7 +64,7 @@ void thc_wot_config(struct thc_device *thc_dev, const struct acpi_gpio_mapping *
 		device_init_wakeup(thc_dev->dev, false);
 	}
 }
-EXPORT_SYMBOL_NS_GPL(thc_wot_config, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_wot_config, INTEL_THC);
 
 /**
  * thc_wot_unconfig - Unconfig wake-on-touch feature
@@ -91,4 +91,4 @@ void thc_wot_unconfig(struct thc_device *thc_dev)
 		acpi_dev_remove_driver_gpios(adev);
 	}
 }
-EXPORT_SYMBOL_NS_GPL(thc_wot_unconfig, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_wot_unconfig, INTEL_THC);

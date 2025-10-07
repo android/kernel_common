@@ -1606,7 +1606,7 @@ int thc_i2c_set_rx_max_size(struct thc_device *dev, u32 max_rx_size)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_set_rx_max_size, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_set_rx_max_size, INTEL_THC);
 
 /**
  * thc_i2c_rx_max_size_enable - Enable I2C Rx max input size control
@@ -1639,7 +1639,7 @@ int thc_i2c_rx_max_size_enable(struct thc_device *dev, bool enable)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_rx_max_size_enable, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_rx_max_size_enable, INTEL_THC);
 
 /**
  * thc_i2c_set_rx_int_delay - Set I2C Rx input interrupt delay value
@@ -1676,7 +1676,7 @@ int thc_i2c_set_rx_int_delay(struct thc_device *dev, u32 delay_us)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_set_rx_int_delay, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_set_rx_int_delay, INTEL_THC);
 
 /**
  * thc_i2c_rx_int_delay_enable - Enable I2C Rx interrupt delay
@@ -1709,7 +1709,7 @@ int thc_i2c_rx_int_delay_enable(struct thc_device *dev, bool enable)
 
 	return 0;
 }
-EXPORT_SYMBOL_NS_GPL(thc_i2c_rx_int_delay_enable, "INTEL_THC");
+EXPORT_SYMBOL_NS_GPL(thc_i2c_rx_int_delay_enable, INTEL_THC);
 
 MODULE_AUTHOR("Xinpeng Sun <xinpeng.sun@intel.com>");
 MODULE_AUTHOR("Even Xu <even.xu@intel.com>");
