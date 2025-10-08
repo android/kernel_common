@@ -2960,8 +2960,9 @@ void kvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 	 */
 	if (old_cr0 & X86_CR0_PG) {
 		kvm_make_request(KVM_REQ_TLB_FLUSH_GUEST, vcpu);
-#ifndef __PKVM_HYP__
-		/* FIXME: How to handle this with PV EPT in the pkvm hypervisor? */
+#ifdef __PKVM_HYP__
+		/* kvm_mmu_reset_context() will be called by the host. */
+#else
 		kvm_mmu_reset_context(vcpu);
 #endif
 	}
