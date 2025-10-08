@@ -883,6 +883,15 @@ config ACRN_GUEST
 	  IOT with small footprint and real-time features. More details can be
 	  found in https://projectacrn.org/.
 
+config BHYVE_GUEST
+	bool "Bhyve (BSD Hypervisor) Guest support"
+	depends on X86_64
+	help
+	  This option allows to run Linux to recognise when it is running as a
+	  guest in the Bhyve hypervisor, and to support more than 255 vCPUs when
+	  when doing so. More details about Bhyve can be found at https://bhyve.org
+	  and https://wiki.freebsd.org/bhyve/.
+
 config INTEL_TDX_GUEST
 	bool "Intel TDX (Trust Domain Extensions) - Guest Support"
 	depends on X86_64 && CPU_SUP_INTEL
@@ -1321,7 +1330,7 @@ config MICROCODE_LATE_LOADING
 	  use this at your own risk. Late loading taints the kernel unless the
 	  microcode header indicates that it is safe for late loading via the
 	  minimal revision check. This minimal revision check can be enforced on
-	  the kernel command line with "microcode.minrev=Y".
+	  the kernel command line with "microcode=force_minrev".
 
 config MICROCODE_LATE_FORCE_MINREV
 	bool "Enforce late microcode loading minimal revision check"
@@ -1337,9 +1346,21 @@ config MICROCODE_LATE_FORCE_MINREV
 	  revision check fails.
 
 	  This minimal revision check can also be controlled via the
-	  "microcode.minrev" parameter on the kernel command line.
+	  "microcode=force_minrev" parameter on the kernel command line.
 
 	  If unsure say Y.
+
+config MICROCODE_DBG
+	bool "Enable microcode loader debugging"
+	default n
+	depends on MICROCODE
+	help
+	  Enable code which allows for debugging the microcode loader in
+	  a guest. Meaning the patch loading is simulated but everything else
+	  related to patch parsing and handling is done as on baremetal with
+	  the purpose of debugging solely the software side of things.
+
+	  You almost certainly want to say n here.
 
 config X86_MSR
 	tristate "/dev/cpu/*/msr - Model-specific register support"
@@ -1734,11 +1755,7 @@ config X86_UMIP
 config CC_HAS_IBT
 	# GCC >= 9 and binutils >= 2.29
 	# Retpoline check to work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=93654
-	# Clang/LLVM >= 14
-	# https://github.com/llvm/llvm-project/commit/e0b89df2e0f0130881bf6c39bf31d7f6aac00e0f
-	# https://github.com/llvm/llvm-project/commit/dfcf69770bc522b9e411c66454934a37c1f35332
-	def_bool ((CC_IS_GCC && $(cc-option, -fcf-protection=branch -mindirect-branch-register)) || \
-		  (CC_IS_CLANG && CLANG_VERSION >= 140000)) && \
+	def_bool ((CC_IS_GCC && $(cc-option, -fcf-protection=branch -mindirect-branch-register)) || CC_IS_CLANG) && \
 		  $(as-instr,endbr64)
 
 config X86_CET
@@ -1750,8 +1767,6 @@ config X86_KERNEL_IBT
 	prompt "Indirect Branch Tracking"
 	def_bool y
 	depends on X86_64 && CC_HAS_IBT && HAVE_OBJTOOL
-	# https://github.com/llvm/llvm-project/commit/9d7001eba9c4cb311e03cd8cdc231f9e579f2d0f
-	depends on !LD_IS_LLD || LLD_VERSION >= 140000
 	select OBJTOOL
 	select X86_CET
 	help
