@@ -817,6 +817,11 @@ static void pkvm_vcpu_share_state_to_host(struct pkvm_vcpu *pkvm_vcpu)
 		/*
 		 * Share the npVM's GPRs/EFER/CR0/CR4 to the host which may be
 		 * used by the host to handle vmexit.
+		 *
+		 * In particular, EFER/CR0/CR4 need to be shared when making
+		 * HOST_INIT_MMU or HOST_RESET_MMU requests to the host,
+		 * to let the host update the guest stage-1 MMU info which is
+		 * needed for instruction emulation for npVM.
 		 */
 		memcpy(shared_vcpu->arch.regs, vcpu->arch.regs,
 		       NR_VCPU_REGS * sizeof(*vcpu->arch.regs));
@@ -843,13 +848,6 @@ static void pkvm_vcpu_share_state_to_host(struct pkvm_vcpu *pkvm_vcpu)
 		       ARRAY_SIZE(vcpu->arch.db) * sizeof(*vcpu->arch.db));
 		shared_vcpu->arch.dr6 = vcpu->arch.dr6;
 		shared_vcpu->arch.dr7 = vcpu->arch.dr7;
-	} else if (pkvm_has_req_to_host(HOST_INIT_MMU, vcpu) ||
-		   pkvm_has_req_to_host(HOST_RESET_MMU, vcpu)) {
-		shared_vcpu->arch.cr0 = kvm_read_cr0(vcpu);
-		kvm_register_mark_available(shared_vcpu, VCPU_EXREG_CR0);
-		shared_vcpu->arch.cr4 = kvm_read_cr4(vcpu);
-		kvm_register_mark_available(shared_vcpu, VCPU_EXREG_CR4);
-		shared_vcpu->arch.efer = vcpu->arch.efer;
 	}
 
 	pkvm_x86_call(sync_vcpu_state_pre_switch)(pkvm_vcpu);
