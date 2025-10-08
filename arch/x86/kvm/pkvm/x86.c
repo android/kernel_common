@@ -615,7 +615,6 @@ void kvm_post_set_cr0(struct kvm_vcpu *vcpu, unsigned long old_cr0, unsigned lon
 
 		if (tdp_enabled) {
 #ifdef __PKVM_HYP__
-			/* TODO: Revisit when the PV EPT implementation is ready. */
 			pkvm_make_req_to_host(HOST_INIT_MMU, vcpu);
 #else
 			kvm_init_mmu(vcpu);
@@ -638,7 +637,6 @@ void kvm_post_set_cr0(struct kvm_vcpu *vcpu, unsigned long old_cr0, unsigned lon
 
 	if ((cr0 ^ old_cr0) & KVM_MMU_CR0_ROLE_BITS)
 #ifdef __PKVM_HYP__
-		/* TODO: Revisit when the PV EPT implementation is ready. */
 		pkvm_make_req_to_host(HOST_RESET_MMU, vcpu);
 #else
 		kvm_mmu_reset_context(vcpu);
@@ -825,7 +823,6 @@ void kvm_post_set_cr4(struct kvm_vcpu *vcpu, unsigned long old_cr4, unsigned lon
 {
 	if ((cr4 ^ old_cr4) & KVM_MMU_CR4_ROLE_BITS)
 #ifdef __PKVM_HYP__
-		/* TODO: Revisit when the PV EPT implementation is ready. */
 		pkvm_make_req_to_host(HOST_RESET_MMU, vcpu);
 #else
 		kvm_mmu_reset_context(vcpu);
@@ -1058,7 +1055,6 @@ static int set_efer(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 
 	if ((efer ^ old_efer) & KVM_MMU_EFER_ROLE_BITS)
 #ifdef __PKVM_HYP__
-		/* TODO: Revisit when the PV EPT implementation is ready. */
 		pkvm_make_req_to_host(HOST_RESET_MMU, vcpu);
 #else
 		kvm_mmu_reset_context(vcpu);
