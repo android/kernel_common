@@ -532,6 +532,10 @@ static bool is_kvm_vcpu_accessible(struct kvm_vcpu *vcpu, unsigned long fn)
 	case __pkvm__get_rflags:
 	case __pkvm__set_rflags:
 	case __pkvm__set_dr7:
+	case __pkvm__flush_tlb_all:
+	case __pkvm__flush_tlb_current:
+	case __pkvm__flush_tlb_gva:
+	case __pkvm__flush_tlb_guest:
 	case __pkvm__set_interrupt_shadow:
 	case __pkvm__get_interrupt_shadow:
 	case __pkvm__inject_exception:
