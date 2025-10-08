@@ -1078,10 +1078,6 @@ static void pkvm_set_rflags(struct pkvm_vcpu *pkvm_vcpu, unsigned long val)
 	kvm_x86_call(set_rflags)(to_kvm_vcpu(pkvm_vcpu), val);
 }
 
-/*
- * FIXME: For the 4 tlb flushing PV interfaces, revisit to see how to work with
- * the PV EPT when the PV EPT is ready.
- */
 static void pkvm_flush_tlb_all(struct pkvm_vcpu *pkvm_vcpu)
 {
 	if (WARN_ON_ONCE(!pkvm_vcpu))
