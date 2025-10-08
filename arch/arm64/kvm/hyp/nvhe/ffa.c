@@ -391,7 +391,7 @@ static int kvm_notify_vm_availability(uint16_t vm_handle, struct kvm_ffa_buffers
 				      u32 availability_msg)
 {
 	int i;
-	struct arm_smccc_res res;
+	struct arm_smccc_1_2_regs res;
 	u64 avail_bit = availability_msg != FFA_VM_DESTRUCTION_MSG;
 
 	for (i = 0; i < num_vm_avail_sps; i++) {
@@ -428,7 +428,13 @@ static int kvm_notify_vm_availability(uint16_t vm_handle, struct kvm_ffa_buffers
 		 * Some TEEs return NOT_SUPPORTED instead.
 		 * If that happens, ignore the error and continue.
 		 */
-		arm_smccc_1_1_smc(FFA_RUN, dest, 0, 0, 0, 0, 0, 0, &res);
+		res = (struct arm_smccc_1_2_regs) {
+			.a0 = FFA_RUN,
+			.a1 = dest,
+		};
+		__hyp_exit();
+		arm_smccc_1_2_smc(&res, &res);
+		__hyp_enter();
 		if (res.a0 == FFA_ERROR && (int)res.a2 != FFA_RET_NOT_SUPPORTED)
 			return ffa_to_linux_errno(res.a2);
 		else if (res.a0 == FFA_INTERRUPT)
@@ -447,10 +453,17 @@ static int kvm_notify_vm_availability(uint16_t vm_handle, struct kvm_ffa_buffers
 			 * we will never retry the creation message, and the SP
 			 * will probably leak its state for the pending VM.
 			 */
-			arm_smccc_1_1_smc(FFA_MSG_SEND_DIRECT_REQ, vm_avail_sps[i].sp_id,
-					  FFA_VM_CREATION_MSG, HANDLE_LOW(FFA_INVALID_HANDLE),
-					  HANDLE_HIGH(FFA_INVALID_HANDLE), vm_handle, 0, 0,
-					  &res);
+			res = (struct arm_smccc_1_2_regs) {
+				.a0 = FFA_MSG_SEND_DIRECT_REQ,
+				.a1 = vm_avail_sps[i].sp_id,
+				.a2 = FFA_VM_CREATION_MSG,
+				.a3 = HANDLE_LOW(FFA_INVALID_HANDLE),
+				.a4 = HANDLE_HIGH(FFA_INVALID_HANDLE),
+				.a5 = vm_handle,
+			};
+			__hyp_exit();
+			arm_smccc_1_2_smc(&res, &res);
+			__hyp_enter();
 
 			if (res.a0 != FFA_MSG_SEND_DIRECT_RESP)
 				return -EINVAL;
@@ -461,10 +474,17 @@ static int kvm_notify_vm_availability(uint16_t vm_handle, struct kvm_ffa_buffers
 			ffa_buf->vm_creating_bitmap &= ~sp_mask;
 		}
 
-		arm_smccc_1_1_smc(FFA_MSG_SEND_DIRECT_REQ, vm_avail_sps[i].sp_id,
-				  availability_msg, HANDLE_LOW(FFA_INVALID_HANDLE),
-				  HANDLE_HIGH(FFA_INVALID_HANDLE), vm_handle, 0, 0,
-				  &res);
+		res = (struct arm_smccc_1_2_regs) {
+				.a0 = FFA_MSG_SEND_DIRECT_REQ,
+				.a1 = vm_avail_sps[i].sp_id,
+				.a2 = availability_msg,
+				.a3 = HANDLE_LOW(FFA_INVALID_HANDLE),
+				.a4 = HANDLE_HIGH(FFA_INVALID_HANDLE),
+				.a5 = vm_handle,
+			};
+		__hyp_exit();
+		arm_smccc_1_2_smc(&res, &res);
+		__hyp_enter();
 		if (res.a0 != FFA_MSG_SEND_DIRECT_RESP)
 			return -EINVAL;
 
