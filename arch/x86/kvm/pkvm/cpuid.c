@@ -409,12 +409,13 @@ static void kvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 	/* Invoke the vendor callback only after the above state is updated. */
 	kvm_x86_call(vcpu_after_set_cpuid)(vcpu);
 
-	/* FIXME: How to do this with PV EPT? */
-#ifndef __PKVM_HYP__
 	/*
 	 * Except for the MMU, which needs to do its thing any vendor specific
 	 * adjustments to the reserved GPA bits.
 	 */
+#ifdef __PKVM_HYP__
+	/* kvm_mmu_after_set_cpuid() will be called by the host. */
+#else
 	kvm_mmu_after_set_cpuid(vcpu);
 #endif
 }
