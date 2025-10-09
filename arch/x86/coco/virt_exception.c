@@ -4,7 +4,7 @@
 #include <asm/insn-eval.h>
 #include <asm/virt_exception.h>
 
-int ve_handle_mmio(struct pt_regs *regs, struct ve_info *ve)
+int handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 {
 	unsigned long *reg, val, vaddr;
 	char buffer[MAX_INSN_SIZE];

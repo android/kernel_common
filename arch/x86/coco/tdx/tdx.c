@@ -622,7 +622,7 @@ static int virt_exception_kernel(struct pt_regs *regs, struct ve_info *ve)
 	case EXIT_REASON_EPT_VIOLATION:
 		if (is_private_gpa(ve->gpa))
 			panic("Unexpected EPT-violation on private memory.");
-		return ve_handle_mmio(regs, ve);
+		return handle_mmio(regs, ve);
 	case EXIT_REASON_IO_INSTRUCTION:
 		return handle_io(regs, ve);
 	default:
