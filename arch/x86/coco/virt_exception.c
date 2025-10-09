@@ -4,8 +4,6 @@
 #include <asm/insn-eval.h>
 #include <asm/virt_exception.h>
 
-struct ve_x86_ops ve_x86_ops;
-
 int ve_handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 {
 	unsigned long *reg, val, vaddr;
@@ -52,12 +50,12 @@ int ve_handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 	switch (mmio) {
 	case INSN_MMIO_WRITE:
 		memcpy(&val, reg, size);
-		if (!ve_x86_ops.mmio_write(size, ve->gpa, val))
+		if (!mmio_write(size, ve->gpa, val))
 			return -EIO;
 		return insn.length;
 	case INSN_MMIO_WRITE_IMM:
 		val = insn.immediate.value;
-		if (!ve_x86_ops.mmio_write(size, ve->gpa, val))
+		if (!mmio_write(size, ve->gpa, val))
 			return -EIO;
 		return insn.length;
 	case INSN_MMIO_READ:
@@ -79,7 +77,7 @@ int ve_handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 	}
 
 	/* Handle reads */
-	if (!ve_x86_ops.mmio_read(size, ve->gpa, &val))
+	if (!mmio_read(size, ve->gpa, &val))
 		return -EIO;
 
 	switch (mmio) {
@@ -109,18 +107,4 @@ int ve_handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 		memset(reg, extend_val, extend_size);
 	memcpy(reg, &val, size);
 	return insn.length;
-}
-
-bool handle_virt_exception(struct pt_regs *regs, struct ve_info *ve)
-{
-	if (ve_x86_ops.handle_virt_exception)
-		return ve_x86_ops.handle_virt_exception(regs, ve);
-
-	return false;
-}
-
-void get_ve_info(struct ve_info *ve)
-{
-	if (ve_x86_ops.get_ve_info)
-		ve_x86_ops.get_ve_info(ve);
 }
