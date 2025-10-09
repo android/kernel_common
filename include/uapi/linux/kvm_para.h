@@ -43,6 +43,12 @@
 #define PKVM_GHC_UNSHARE_MEM		PKVM_GHC_NUM(2)
 #define PKVM_GHC_IOREAD			PKVM_GHC_NUM(3)
 #define PKVM_GHC_IOWRITE		PKVM_GHC_NUM(4)
+
+/*
+ * PKVM_GHC_GET_VE_INFO is deprecated, it is not used by pKVM guests
+ * anymore. Keep it defined just for the case when compiling as a
+ * host kernel with pKVM hypervisor enabled, not as a guest kernel.
+ */
 #define PKVM_GHC_GET_VE_INFO		PKVM_GHC_NUM(5)
 
 enum kerncs_boost_type {
