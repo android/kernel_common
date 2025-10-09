@@ -1,0 +1,88 @@
+{
+  "desktop-postsubmit": [
+    {
+      "name": "IgtCoreAuthTestCases"
+    },
+    {
+      "name": "IgtDrmMmTestCases"
+    },
+    {
+      "name": "IgtKmsAddfbBasicTestCases"
+    },
+    {
+      "name": "IgtKmsAtomicTestCases"
+    },
+    {
+      "name": "IgtKmsAtomicInterruptibleTestCases"
+    },
+    {
+      "name": "IgtKmsBwTestCases"
+    },
+    {
+      "name": "IgtKmsColorTestCases"
+    },
+    {
+      "name": "IgtKmsConcurrentTestCases"
+    },
+    {
+      "name": "IgtKmsContentProtectionTestCases"
+    },
+    {
+      "name": "IgtKmsCursorEdgeWalkTestCases"
+    },
+    {
+      "name": "IgtKmsDisplayModesTestCases"
+    },
+    {
+      "name": "IgtKmsHdmiInjectTestCases"
+    },
+    {
+      "name": "IgtKmsHdrTestCases"
+    },
+    {
+      "name": "IgtKmsInvalidModeTestCases"
+    },
+    {
+      "name": "IgtKmsPipeCrcBasicTestCases"
+    },
+    {
+      "name": "IgtKmsPlaneCursorTestCases"
+    },
+    {
+      "name": "IgtKmsPlaneLowresTestCases"
+    },
+    {
+      "name": "IgtKmsPlaneMultipleTestCases"
+    },
+    {
+      "name": "IgtKmsPlaneScalingTestCases"
+    },
+    {
+      "name": "IgtKmsPlaneTestCases"
+    },
+    {
+      "name": "IgtKmsPropertiesTestCases"
+    },
+    {
+      "name": "IgtKmsRotationCrcTestCases"
+    },
+    {
+      "name": "IgtKmsScalingModesTestCases"
+    },
+    {
+      "name": "IgtKmsSetmodeTestCases"
+    },
+    {
+      "name": "IgtKmsSysfsEdidTimingTestCases"
+    },
+    {
+      "name": "IgtKmsTiledDisplayTestCases"
+    },
+    {
+      "name": "IgtKmsVBlankTestCases"
+    },
+    {
+      "name": "IgtKmsVrrTestCases"
+    }
+  ]
+}
