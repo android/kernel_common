@@ -108,16 +108,18 @@ static void fuse_file_put(struct inode *inode, struct fuse_file *ff, bool sync)
 		struct fuse_args *args = (ra ? &ra->args : NULL);
 
 #ifdef CONFIG_FUSE_BPF
-		struct fuse_err_ret fer;
+		struct fuse_err_ret fer = {0};
 
-		fer = fuse_bpf_backing(inode, struct fuse_release_in,
-				fuse_release_initialize, fuse_release_backing,
-				fuse_release_finalize,
-				inode, ff);
+		if (inode)
+			fer = fuse_bpf_backing(inode, struct fuse_release_in,
+					fuse_release_initialize,
+					fuse_release_backing,
+					fuse_release_finalize,
+					inode, ff);
 		if (fer.ret) {
 			fuse_release_end(ff->fm, args, 0);
 		} else
-#endif		
+#endif
 		{
 			if (ra && ra->inode)
 				fuse_file_io_release(ff, ra->inode);
@@ -385,7 +387,7 @@ void fuse_file_release(struct inode *inode, struct fuse_file *ff,
 	 * synchronous RELEASE is allowed (and desirable) in this case
 	 * because the server can be trusted not to screw up.
 	 */
-	fuse_file_put(ra->inode, ff, ff->fm->fc->destroy);
+	fuse_file_put(ra ? ra->inode : NULL, ff, ff->fm->fc->destroy);
 }
 
 void fuse_release_common(struct file *file, bool isdir)
