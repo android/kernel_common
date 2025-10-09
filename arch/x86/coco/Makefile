@@ -6,4 +6,4 @@ CFLAGS_core.o		+= -fno-stack-protector
 obj-y += core.o
 
 obj-$(CONFIG_INTEL_TDX_GUEST)	+= tdx/ virt_exception.o
-obj-$(CONFIG_PKVM_GUEST)	+= pkvm/ virt_exception.o
+obj-$(CONFIG_PKVM_GUEST)	+= pkvm/

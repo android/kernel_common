@@ -8,7 +8,6 @@
 #include <asm/kvm_para.h>
 #include <asm/io.h>
 #include <asm/coco.h>
-#include <asm/virt_exception.h>
 
 /* PKVM Hypercalls */
 #define PKVM_HC_INIT_FINALISE		1

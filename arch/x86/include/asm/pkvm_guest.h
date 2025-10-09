@@ -6,10 +6,6 @@
 
 #ifdef CONFIG_PKVM_GUEST
 
-#include <asm/shared/tdx.h>
-
-u64 __pkvm_module_call(u64 fn, struct tdx_module_args *out);
-
 void pkvm_guest_init_coco(void);
 int pkvm_set_mem_host_visibility(unsigned long addr, int numpages, bool enc);
 DECLARE_STATIC_KEY_FALSE(pkvm_guest_detected);
