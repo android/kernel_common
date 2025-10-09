@@ -259,6 +259,7 @@ enum pkvm_fn {
 	__pkvm__vm_mmu_unmap,
 	__pkvm__vm_mmu_age,
 	__pkvm__vcpu_create,
+	__pkvm__vcpu_free,
 	__pkvm__vcpu_reset,
 	__pkvm__vcpu_load,
 	__pkvm__vcpu_put,
