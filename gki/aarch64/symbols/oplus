@@ -1,6 +1,8 @@
 [abi_symbol_list]
   address_space_init_once
   alarm_start
+  backing_file_open
+  backing_tmpfile_open
   bio_add_page
   bio_associate_blkg
   bio_put
@@ -13,6 +15,7 @@
   __break_lease
   cgroup_add_legacy_cftypes
   clk_hw_init_rate_request
+  clone_private_mount
   config_item_init_type_name
   console_printk
   contpte_ptep_test_and_clear_young
@@ -23,25 +26,33 @@
   crypto_register_scomp
   crypto_unregister_scomp
   d_drop
+  __d_drop
   dentry_open
   device_create_bin_file
   device_remove_bin_file
   devres_destroy
   dev_get_by_index_rcu
   devm_led_classdev_unregister
+  d_find_any_alias
   dget_parent
   d_invalidate
+  d_mark_tmpfile
   down_write_killable
+  do_splice_direct
   do_traversal_all_lruvec
   arm64_mismatched_32bit_el0
   d_rehash
   drm_crtc_vblank_waitqueue
   d_set_d_op
+  errseq_sample
+  exportfs_decode_fh
+  exportfs_encode_inode_fh
   filp_close
   folio_add_lru
   folio_mapping
   folio_referenced
   for_each_kernel_tracepoint
+  free_anon_bdev
   freq_qos_add_notifier
   freq_qos_remove_notifier
   fsnotify_add_mark
@@ -51,8 +62,14 @@
   fsnotify_put_group
   fsnotify_put_mark
   fsstack_copy_inode_size
+  fsverity_get_digest
   generic_delete_inode
   __generic_file_fsync
+  generic_fill_statx_attr
+  get_anon_bdev
+  get_cached_acl_rcu
+  get_inode_acl
+  get_tree_nodev
   get_wchan
   gether_cleanup
   gether_connect
@@ -84,6 +101,9 @@
   iio_get_channel_type
   __inet6_lookup_established
   __inet_lookup_established
+  inode_insert5
+  inode_owner_or_capable
+  inode_permission
   iov_iter_advance
   ip6_local_out
   ip6_route_me_harder
@@ -92,15 +112,23 @@
   ip_route_me_harder
   ipv6_find_hdr
   is_dma_buf_file
+  is_subdir
   iterate_dir
   jiffies_64_to_clock_t
   jiffies64_to_nsecs
+  kernel_tmpfile_open
+  kernel_file_open
+  kern_unmount_array
   kick_process
   ktime_get_coarse_real_ts64
   ktime_get_real_ts64
   ktime_get_raw_ts64
   lock_rename
+  lookup_one
+  lookup_one_len
   lookup_one_len_unlocked
+  lookup_one_positive_unlocked
+  lookup_one_unlocked
   memcg_kmem_online_key
   memcg_page_state
   mem_cgroup_from_id
@@ -109,7 +137,13 @@
   memory_cgrp_subsys_enabled_key
   mipi_dsi_generic_write
   mmc_wait_for_cmd
+  mnt_drop_write
   mntget
+  mnt_get_write_access
+  __mnt_is_readonly
+  mntput
+  mnt_put_write_access
+  mnt_want_write
   __mod_lruvec_state
   __mod_zone_page_state
   mount_nodev
@@ -142,6 +176,7 @@
   platform_device_alloc
   platform_device_put
   platform_driver_unregister
+  posix_acl_clone
   prepare_creds
   prepare_kernel_cred
   prepare_to_wait_exclusive
@@ -166,6 +201,7 @@
   register_btf_kfunc_id_set
   register_tcf_proto_ops
   regulator_map_voltage_linear_range
+  release_dentry_name_snapshot
   remove_proc_subtree
   revert_creds
   root_mem_cgroup
@@ -173,10 +209,15 @@
   rtc_set_alarm
   __rtnl_link_register
   __rtnl_link_unregister
+  rw_verify_area
+  sb_init_dio_done_wq
   sdio_memcpy_fromio
   sdio_memcpy_toio
   sdio_set_block_size
   sdio_writeb_readb
+  security_dentry_create_files_as
+  security_inode_copy_up
+  security_inode_copy_up_xattr
   security_file_ioctl
   send_sig
   send_sig_info
@@ -200,6 +241,7 @@
   css_task_iter_end
   css_task_iter_next
   css_task_iter_start
+  take_dentry_name_snapshot
   tcf_action_exec
   tcf_block_get
   tcf_block_put
@@ -508,19 +550,40 @@
   udp_table
   unregister_net_sysctl_table
   unregister_sysctl_table
+  uuid_gen
   v4l2_i2c_subdev_init
+  vfs_fallocate
+  vfs_clone_file_range
+  vfs_copy_file_range
   vfs_create
+  vfs_dedupe_file_range_one
+  vfs_fileattr_get
+  vfs_fileattr_set
+  vfs_get_acl
   vfs_getattr
   vfs_getattr_nosec
+  vfs_get_link
+  vfs_getxattr
+  vfs_iocb_iter_read
+  vfs_iocb_iter_write
   vfs_iter_read
   vfs_iter_write
+  vfs_link
+  vfs_listxattr
   vfs_llseek
   vfs_mkdir
+  vfs_mknod
+  vfs_parse_monolithic_sep
   vfs_path_lookup
+  vfs_remove_acl
+  vfs_removexattr
   vfs_rename
   vfs_rmdir
+  vfs_set_acl
+  vfs_setxattr
   vfs_splice_read
   vfs_statfs
+  vfs_symlink
   vfs_unlink
   vma_set_file
   __vmalloc_array_noprof
