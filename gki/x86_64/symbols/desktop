@@ -78,6 +78,7 @@
   acpi_os_read_port
   acpi_os_unmap_iomem
   acpi_os_write_port
+  __acpi_platform_driver_register
   acpi_pm_wakeup_event
   acpi_processor_get_bios_limit
   acpi_processor_notify_smm
@@ -2376,9 +2377,6 @@
   radix_tree_lookup
   radix_tree_next_chunk
   radix_tree_tagged
-  rapl_add_package_cpuslocked
-  rapl_find_package_domain_cpuslocked
-  rapl_remove_package_cpuslocked
   ___ratelimit
   _raw_read_lock
   _raw_read_lock_bh
