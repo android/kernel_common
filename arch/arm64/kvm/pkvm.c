@@ -1215,7 +1215,7 @@ static struct pkvm_el2_module *pkvm_el2_mod_lookup_symbol(const char *name,
 static bool within_pkvm_module_section(struct pkvm_module_section *section,
 				       unsigned long addr)
 {
-	return (addr > (unsigned long)section->start) &&
+	return (addr >= (unsigned long)section->start) &&
 		(addr < (unsigned long)section->end);
 }
 
