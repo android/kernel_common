@@ -8,6 +8,7 @@
 #include <asm/coco.h>
 #include <asm/pkvm_guest.h>
 #include <asm/pgtable.h>
+#include <asm/apic.h>
 
 DEFINE_STATIC_KEY_FALSE(pkvm_guest_detected);
 
@@ -132,6 +133,11 @@ static void pkvm_mmio_writeq(u64 v, volatile void __iomem *addr)
 	pkvm_virt_mmio(8, true, (unsigned long)addr, &val);
 }
 
+static int pkvm_wakeup_secondary_cpu(u32 apic_id, unsigned long start_ip)
+{
+	return kvm_hypercall2(PKVM_GHC_START_CPU, apic_id, start_ip);
+}
+
 __init void pkvm_guest_init_coco(void)
 {
 	cc_vendor = CC_VENDOR_PKVM;
@@ -162,4 +168,6 @@ __init void pkvm_guest_init_coco(void)
 	pv_ops.mmio.pci_mmcfg_writeb = pkvm_mmio_writeb;
 	pv_ops.mmio.pci_mmcfg_writew = pkvm_mmio_writew;
 	pv_ops.mmio.pci_mmcfg_writel = pkvm_mmio_writel;
+
+	apic_update_callback(wakeup_secondary_cpu, pkvm_wakeup_secondary_cpu);
 }
