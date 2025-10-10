@@ -907,10 +907,19 @@ free_pml:
 static void pkvm_vcpu_free(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	int ret;
 
 	pkvm_vcpu_unload(vcpu);
 
+	ret = kvm_call_pkvm(vcpu_free, vcpu);
+	if (ret) {
+		pr_err("pkvm: failed to free pkvm_vcpu, err %d\n", ret);
+		return;
+	}
+
 	/* TODO: unshare struct vcpu_vmx with pkvm */
+
+	free_pkvm_memcache(&vcpu->kvm->arch.pkvm.teardown_mc);
 
 	if (enable_pml)
 		free_pml_buffer(vmx);
