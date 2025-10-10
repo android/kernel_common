@@ -4940,6 +4940,10 @@ static bool should_abort_scan(struct lruvec *lruvec, struct scan_control *sc)
 
 	trace_android_vh_mglru_should_abort_scan(sc->nr_reclaimed,
 		sc->nr_to_reclaim, sc->order, &bypass);
+#ifdef CONFIG_ANDROID_VENDOR_OEM_DATA
+	trace_android_vh_mglru_should_abort_scan_ex(&sc->android_vendor_data1,
+						    &bypass);
+#endif
 	/* don't abort memcg reclaim to ensure fairness */
 	if (!root_reclaim(sc) && !bypass)
 		return false;
