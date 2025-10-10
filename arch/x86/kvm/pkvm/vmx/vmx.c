@@ -5126,6 +5126,17 @@ static int kvm_pkvm_hypercall(struct kvm_vcpu *vcpu)
 		/* Hypercall for MMIO accessing should be forwared to the host */
 		kvm_skip_emulated_instruction(vcpu);
 		return 0;
+	case PKVM_GHC_START_CPU:
+		ret = pkvm_start_secondary_vcpu(pkvm_vm, a0, a1);
+		if (!ret) {
+			/* Avoid exposing start address to the host. */
+			kvm_rcx_write(vcpu, 0);
+
+			/* Let the host finish handling the hypercall. */
+			kvm_skip_emulated_instruction(vcpu);
+			return 0;
+		}
+		break;
 	default:
 		/* The other hypercalls are not supported */
 		break;

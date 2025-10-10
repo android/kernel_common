@@ -10035,17 +10035,40 @@ static int complete_hypercall_exit(struct kvm_vcpu *vcpu)
 	return kvm_skip_emulated_instruction(vcpu);
 }
 
+static int pkvm_start_secondary_vcpu(struct kvm *kvm, int apic_id)
+{
+	struct kvm_vcpu *vcpu = kvm_get_vcpu_by_id(kvm, apic_id);
+	struct kvm_lapic *apic;
+
+	if (WARN_ON(!vcpu))
+		return -EINVAL;
+
+	apic = vcpu->arch.apic;
+	if (WARN_ON(!apic))
+		return -EOPNOTSUPP;
+
+	/*
+	 * "Assert" both INIT and SIPI to let the vcpu thread start the vcpu
+	 * in the usual way. Note that it doesn't matter which value of
+	 * apic->sipi_vector the host will use, since pKVM will enforce
+	 * the needed start vector anyway.
+	 */
+	set_bit(KVM_APIC_INIT, &apic->pending_events);
+	set_bit(KVM_APIC_SIPI, &apic->pending_events);
+	kvm_vcpu_kick(vcpu);
+
+	return 0;
+}
+
 static int kvm_pkvm_hypercall(struct kvm_vcpu *vcpu)
 {
-	unsigned long val, nr;
-	int size;
-	gpa_t gpa;
+	unsigned long nr, a0, a1, a2;
 	int ret;
 
 	nr = kvm_rax_read(vcpu);
-	gpa = kvm_rbx_read(vcpu);
-	size = kvm_rcx_read(vcpu);
-	val = kvm_rdx_read(vcpu);
+	a0 = kvm_rbx_read(vcpu);
+	a1 = kvm_rcx_read(vcpu);
+	a2 = kvm_rdx_read(vcpu);
 
 	/*
 	 * Reuse the sev_es handler to emulate the mmio.
@@ -10053,12 +10076,17 @@ static int kvm_pkvm_hypercall(struct kvm_vcpu *vcpu)
 	switch (nr) {
 	case PKVM_GHC_IOREAD:
 		vcpu->mmio_is_write = 0;
-		ret = kvm_sev_es_mmio_read(vcpu, gpa, size,
+		ret = kvm_sev_es_mmio_read(vcpu, a0, a1,
 				&vcpu->arch.regs[VCPU_REGS_RAX]);
 		break;
 	case PKVM_GHC_IOWRITE:
 		vcpu->mmio_is_write = 1;
-		ret = kvm_sev_es_mmio_write(vcpu, gpa, size, &val);
+		ret = kvm_sev_es_mmio_write(vcpu, a0, a1, &a2);
+		break;
+	case PKVM_GHC_START_CPU:
+		ret = pkvm_start_secondary_vcpu(vcpu->kvm, a0);
+		kvm_rax_write(vcpu, ret);
+		ret = 1;
 		break;
 	default:
 		ret = 1;

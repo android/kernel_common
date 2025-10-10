@@ -44,6 +44,8 @@ struct pkvm_vcpu {
 	unsigned long reqs_to_host;
 	/* The host emulated MSR error */
 	int host_emulated_msr_err;
+	/* The SIPI vector enforced by the hypervisor */
+	u8 sipi_vector;
 	/* Vmexit perf data on this vcpu */
 	struct vmexit_perf perf;
 } __aligned(PAGE_SIZE);
@@ -188,6 +190,8 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 void pkvm_x86_ops_init(struct pkvm_x86_ops *ops);
 typedef int (*pkvm_vm_func_t)(struct pkvm_vm *vm, void *arg);
 int pkvm_walk_each_vm(pkvm_vm_func_t func, void *arg);
+int pkvm_start_secondary_vcpu(struct pkvm_vm *pkvm_vm, u32 apic_id,
+			      unsigned long start_ip);
 
 static inline bool pkvm_vm_has_pvmfw(struct kvm *kvm)
 {
