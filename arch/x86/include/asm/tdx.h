@@ -9,7 +9,6 @@
 #include <asm/errno.h>
 #include <asm/ptrace.h>
 #include <asm/shared/tdx.h>
-#include <asm/virt_exception.h>
 
 /*
  * SW-defined error codes.
@@ -22,6 +21,23 @@
 #define TDX_SEAMCALL_VMFAILINVALID	(TDX_SW_ERROR | _UL(0xFFFF0000))
 
 #ifndef __ASSEMBLY__
+
+/*
+ * Used by the #VE exception handler to gather the #VE exception
+ * info from the TDX module. This is a software only structure
+ * and not part of the TDX module/VMM ABI.
+ */
+struct ve_info {
+	u64 exit_reason;
+	u64 exit_qual;
+	/* Guest Linear (virtual) Address */
+	u64 gla;
+	/* Guest Physical Address */
+	u64 gpa;
+	u32 instr_len;
+	u32 instr_info;
+};
+
 #ifdef CONFIG_INTEL_TDX_GUEST
 
 void __init tdx_early_init(void);
