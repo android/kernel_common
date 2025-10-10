@@ -43,6 +43,7 @@
 #define PKVM_GHC_UNSHARE_MEM		PKVM_GHC_NUM(2)
 #define PKVM_GHC_IOREAD			PKVM_GHC_NUM(3)
 #define PKVM_GHC_IOWRITE		PKVM_GHC_NUM(4)
+#define PKVM_GHC_START_CPU		PKVM_GHC_NUM(5)
 
 /*
  * PKVM_GHC_GET_VE_INFO is deprecated, it is not used by pKVM guests
