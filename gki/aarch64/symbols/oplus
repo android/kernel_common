@@ -606,3 +606,22 @@
   ashmem_area_name
   ashmem_area_size
   ashmem_area_vmfile
+  __traceiter_android_vh_lru_gen_add_folio_skip
+  __traceiter_android_vh_lru_gen_del_folio_skip
+  __traceiter_android_vh_evict_folios_bypass
+  __traceiter_android_vh_keep_reclaimed_folio
+  __traceiter_android_vh_clear_reclaimed_folio
+  __traceiter_android_vh_filemap_pages
+  __traceiter_android_rvh_kswapd_shrink_node
+  __traceiter_android_rvh_perform_reclaim
+  __traceiter_android_vh_mglru_should_abort_scan_ex
+  __tracepoint_android_vh_lru_gen_add_folio_skip
+  __tracepoint_android_vh_lru_gen_del_folio_skip
+  __tracepoint_android_vh_evict_folios_bypass
+  __tracepoint_android_vh_keep_reclaimed_folio
+  __tracepoint_android_vh_clear_reclaimed_folio
+  __tracepoint_android_vh_filemap_pages
+  __tracepoint_android_rvh_kswapd_shrink_node
+  __tracepoint_android_rvh_perform_reclaim
+  __tracepoint_android_vh_mglru_should_abort_scan_ex
+  isolate_folio
