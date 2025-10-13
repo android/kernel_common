@@ -81,6 +81,11 @@ struct pkvm_vm {
 	 * cannot be loaded anymore.
 	 */
 	bool is_dying;
+	/*
+	 * Reference counters for each possible pkvm_vcpu to indicate if a
+	 * pkvm_vcpu is in use or not.
+	 */
+	atomic_t vcpu_refs[KVM_MAX_VCPUS];
 };
 
 struct pkvm_vm_ref {

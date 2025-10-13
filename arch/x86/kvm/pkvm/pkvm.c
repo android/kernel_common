@@ -240,12 +240,28 @@ static int attach_pkvm_vcpu_to_vm(struct pkvm_vm *pkvm_vm, struct pkvm_vcpu *pkv
 
 	pkvm_spin_unlock(&pkvm_vm->lock);
 
+	atomic_set(&pkvm_vm->vcpu_refs[vcpu_handle], 1);
+
 	return vcpu_handle;
 }
 
 static struct pkvm_vcpu *detach_pkvm_vcpu_from_vm(struct pkvm_vm *pkvm_vm, int vcpu_handle)
 {
+	int refcount = atomic_cmpxchg(&pkvm_vm->vcpu_refs[vcpu_handle], 1, 0);
 	struct pkvm_vcpu *pkvm_vcpu;
+
+	if (refcount > 1) {
+		/* The pkvm_vcpu is in use and cannot be detached . */
+		pr_err("pkvm: VM%d vcpu%d is busy, refcount %d\n",
+		       to_kvm(pkvm_vm)->arch.pkvm.pkvm_vm_handle,
+		       vcpu_handle, refcount);
+		return NULL;
+	} else if (refcount == 0) {
+		/* No pkvm_vcpu is attached. */
+		return NULL;
+	}
+
+	BUG_ON(refcount != 1);
 
 	pkvm_spin_lock(&pkvm_vm->lock);
 
@@ -450,41 +466,29 @@ static void pkvm_vm_destroy(int handle)
 	/* TODO: unpin shared_kvm */
 }
 
-static struct pkvm_vcpu *get_pkvm_vcpu_from_vm(struct pkvm_vm *pkvm_vm, int handle)
-{
-	struct pkvm_vcpu *pkvm_vcpu = NULL;
-	struct kvm *kvm = to_kvm(pkvm_vm);
-
-	pkvm_spin_lock(&pkvm_vm->lock);
-
-	if (handle < kvm->created_vcpus) {
-		handle = array_index_nospec(handle, kvm->created_vcpus);
-		pkvm_vcpu = pkvm_vm->vcpus[handle];
-	}
-
-	pkvm_spin_unlock(&pkvm_vm->lock);
-
-	return pkvm_vcpu;
-}
-
 struct pkvm_vcpu *get_pkvm_vcpu(int vm_handle, int vcpu_handle)
 {
-	struct pkvm_vcpu *pkvm_vcpu;
 	struct pkvm_vm *pkvm_vm;
+
+	if (vcpu_handle < 0 || vcpu_handle >= KVM_MAX_VCPUS)
+		return NULL;
 
 	pkvm_vm = get_pkvm_vm(vm_handle);
 	if (!pkvm_vm)
 		return NULL;
 
-	pkvm_vcpu = get_pkvm_vcpu_from_vm(pkvm_vm, vcpu_handle);
-	if (!pkvm_vcpu)
-		put_pkvm_vm(pkvm_vm);
+	vcpu_handle = array_index_nospec(vcpu_handle, KVM_MAX_VCPUS);
+	if (atomic_inc_not_zero(&pkvm_vm->vcpu_refs[vcpu_handle]))
+		return pkvm_vm->vcpus[vcpu_handle];
 
-	return pkvm_vcpu;
+	put_pkvm_vm(pkvm_vm);
+	return NULL;
 }
 
 void put_pkvm_vcpu(struct pkvm_vcpu *pkvm_vcpu)
 {
+	WARN_ON(atomic_dec_if_positive(&pkvm_vcpu->pkvm_vm->vcpu_refs[pkvm_vcpu->vcpu_idx]) <= 0);
+
 	put_pkvm_vm(pkvm_vcpu->pkvm_vm);
 }
 
