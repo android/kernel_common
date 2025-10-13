@@ -149,6 +149,8 @@ static int copy_pkvm_vm_trace(struct pkvm_vm *vm, void *param)
 
 	pkvm_spin_lock(&vm->lock);
 	for (i = 0; i < to_kvm(vm)->created_vcpus; i++) {
+		if (!vm->vcpus[i])
+			continue;
 		perf = &vm->vcpus[i]->perf;
 
 		if (arg->size >= sizeof(struct perf_data)) {

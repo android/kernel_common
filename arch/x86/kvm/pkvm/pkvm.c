@@ -448,8 +448,12 @@ static int pkvm_vm_finalize(int handle)
 	smp_wmb();
 
 	for (i = 0; i < kvm->created_vcpus; i++) {
-		struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vm->vcpus[i]);
+		struct kvm_vcpu *vcpu;
 
+		if (WARN_ON_ONCE(!pkvm_vm->vcpus[i]))
+			continue;
+
+		vcpu = to_kvm_vcpu(pkvm_vm->vcpus[i]);
 		if (vcpu->vcpu_id == kvm->arch.bsp_vcpu_id)
 			WRITE_ONCE(vcpu->arch.mp_state, KVM_MP_STATE_RUNNABLE);
 

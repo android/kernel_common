@@ -59,7 +59,7 @@ static void guest_mmu_flush_tlb(struct pkvm_pgtable *pgt,
 		struct kvm_vcpu *vcpu;
 
 		pkvm_vcpu = pkvm_vm->vcpus[i];
-		if (WARN_ON_ONCE(!pkvm_vcpu))
+		if (!pkvm_vcpu)
 			continue;
 
 		vcpu = to_kvm_vcpu(pkvm_vcpu);
