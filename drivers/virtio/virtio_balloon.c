@@ -19,6 +19,10 @@
 #include <linux/mm.h>
 #include <linux/page_reporting.h>
 
+#ifdef CONFIG_PKVM_GUEST
+#include <asm/pkvm_guest.h>
+#endif
+
 /*
  * Balloon device works in 4K page units.  So each page is pointed to by
  * multiple balloon pages.  All memory counters in this driver are in balloon
@@ -1094,6 +1098,11 @@ static int virtballoon_restore(struct virtio_device *vdev)
 
 static int virtballoon_validate(struct virtio_device *vdev)
 {
+#ifdef CONFIG_PKVM_GUEST
+	if (pkvm_is_protected_guest())
+		return -EINVAL;
+#endif
+
 	/*
 	 * Inform the hypervisor that our pages are poisoned or
 	 * initialized. If we cannot do that then we should disable
