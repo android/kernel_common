@@ -33,43 +33,9 @@ static pkvm_spinlock_t _host_ept_lock = __PKVM_SPINLOCK_UNLOCKED;
 
 struct hyp_pool shadow_pgt_pool;
 
-static inline void pkvm_init_ept_page(void *page)
-{
-	/*
-	 * Normal VM: Never clear the "suppress #VE" bit, so #VE will never
-	 * be triggered.
-	 *
-	 * Protected VM: pkvm sets EPT_VIOLATION_VE for Protected VM, "suppress
-	 * #VE" bit must be set to get EPT violation, thus pkvm can build the
-	 * EPT mapping for memory region, and clear "suppress #VE" for mmio
-	 * region, thus mmio can trigger #VE.
-	 *
-	 * For simplicity, unconditionally initialize SEPT to set "suppress
-	 * #VE".
-	 */
-	memset64((u64 *)page, EPT_PROT_DEF, 512);
-}
-
-static void *ept_zalloc_page(struct hyp_pool *pool)
-{
-	void *page;
-
-	page = hyp_alloc_pages(pool, 0);
-	if (page)
-		pkvm_init_ept_page(page);
-
-	return page;
-}
-
 static void *host_ept_zalloc_page(void)
 {
-	/*
-	 * Also initiailize the host ept with SUPPRESS_VE bit set although this
-	 * bit is ignored in host ept. Because host_ept and shadow_ept share the
-	 * same ept_ops, this will make the ept_entry_mapped work for both
-	 * host_ept and shadow_ept.
-	 */
-	return ept_zalloc_page(&host_ept_pool);
+	return hyp_alloc_pages(&host_ept_pool, 0);
 }
 
 static void host_ept_get_page(void *vaddr)
@@ -138,11 +104,8 @@ static bool ept_entry_mapped(void *ptep)
 	 * contain page state and ownership information created through map
 	 * operation. So simply count non-zero entry as mapped to cover both
 	 * cases.
-	 *
-	 * Since we initialize every pte with SUPPRESS_VE bit set, which means
-	 * if a pte does not equal to the default value, it has been mapped.
 	 */
-	return !(*(u64 *)ptep == EPT_PROT_DEF);
+	return !!(*(u64 *)ptep);
 }
 
 static bool ept_entry_huge(void *ptep)
@@ -222,7 +185,6 @@ const struct pkvm_pgtable_ops ept_ops = {
 	.pgt_level_to_entries = ept_level_to_entries,
 	.pgt_level_to_size = ept_level_to_size,
 	.pgt_set_entry = ept_set_entry,
-	.default_prot = EPT_PROT_DEF,
 };
 
 bool is_pgt_ops_ept(struct pkvm_pgtable *pgt)
@@ -371,7 +333,7 @@ int pkvm_shadow_ept_pool_init(void *ept_pool_base, unsigned long ept_pool_pages)
 
 static void *shadow_pgt_zalloc_page(void)
 {
-	return ept_zalloc_page(&shadow_pgt_pool);
+	return hyp_alloc_pages(&shadow_pgt_pool, 0);
 }
 
 static void shadow_pgt_get_page(void *vaddr)

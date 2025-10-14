@@ -282,7 +282,7 @@ int pgtable_unmap_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr,
 	if (pgt_ops->pgt_entry_present(ptep))
 		flush_data->flushtlb |= true;
 
-	pgtable_set_entry(pgt_ops, mm_ops, ptep, pgt_ops->default_prot);
+	pgtable_set_entry(pgt_ops, mm_ops, ptep, 0);
 	mm_ops->put_page(ptep);
 
 	if (data->phys != INVALID_ADDR) {
@@ -306,7 +306,7 @@ static void pgtable_free_child(struct pkvm_pgtable *pgt, void *ptep,
 	 */
 	child_ptep = mm_ops->phys_to_virt(pgt_ops->pgt_entry_to_phys(ptep));
 	if (mm_ops->page_count(child_ptep) == 1) {
-		pgtable_set_entry(pgt_ops, mm_ops, ptep, pgt_ops->default_prot);
+		pgtable_set_entry(pgt_ops, mm_ops, ptep, 0);
 		mm_ops->put_page(ptep);
 		put_page_to_freelist(child_ptep, &flush_data->free_list);
 	}

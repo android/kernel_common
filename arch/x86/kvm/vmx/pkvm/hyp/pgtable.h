@@ -40,7 +40,6 @@ struct pkvm_pgtable_ops {
 	bool (*pgt_entry_young)(void *ptep);
 	void (*pgt_entry_mkold)(void *ptep);
 	void (*pgt_set_entry)(void *ptep, u64 val);
-	u64 default_prot;
 };
 
 struct pkvm_pgtable {

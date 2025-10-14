@@ -11,7 +11,6 @@
 				(MTRR_TYPE_WRBACK << VMX_EPT_MT_EPTE_SHIFT))
 #define HOST_EPT_DEF_MMIO_PROT	(VMX_EPT_RWX_MASK |				\
 				(MTRR_TYPE_UNCACHABLE << VMX_EPT_MT_EPTE_SHIFT))
-#define EPT_PROT_DEF		VMX_EPT_SUPPRESS_VE_BIT
 
 void host_ept_lock(void);
 void host_ept_unlock(void);
