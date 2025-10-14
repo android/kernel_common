@@ -9,23 +9,6 @@
 #include "pgtable.h"
 
 /*
- * Descriptor for shadow EPT
- */
-/*
- * Store the Virtualization Exception(#VE) information when a #VE occurs. This
- * struture definition is based on
- * sdm Volume 3, 25.5.7.2 Virtualizaiton-Exception Information.
- */
-struct pkvm_ve_info {
-	u32 exit_reason;
-	u32 valid;
-	u64 exit_qual;
-	u64 gla;
-	u64 gpa;
-	u16 eptp_index;
-};
-
-/*
  * A container for the vcpu state that hyp needs to maintain for protected VMs.
  */
 struct shadow_vcpu_state {
@@ -38,8 +21,6 @@ struct shadow_vcpu_state {
 	s64 shadow_vcpu_handle;
 
 	struct pkvm_shadow_vm *vm;
-
-	struct pkvm_ve_info ve_info __aligned(PAGE_SIZE);
 } __aligned(PAGE_SIZE);
 
 /*
