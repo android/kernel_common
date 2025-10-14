@@ -273,7 +273,7 @@ static inline unsigned long kvm_mmu_get_guest_pgd(struct kvm_vcpu *vcpu,
 
 static inline bool kvm_available_flush_remote_tlbs_range(void)
 {
-#if IS_ENABLED(CONFIG_HYPERV) || IS_ENABLED(CONFIG_PKVM_INTEL)
+#if IS_ENABLED(CONFIG_HYPERV)
 	return kvm_x86_ops.flush_remote_tlbs_range;
 #else
 	return false;
