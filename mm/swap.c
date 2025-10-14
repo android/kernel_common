@@ -43,6 +43,9 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/pagemap.h>
 
+#undef CREATE_TRACE_POINTS
+#include <trace/hooks/mm.h>
+
 /* How many pages do we try to swap or page in/out together? */
 int page_cluster;
 
@@ -471,6 +474,7 @@ void folio_mark_accessed(struct folio *folio)
 		return;
 	}
 
+	trace_android_vh_mark_folio_accessed(folio);
 	if (!folio_test_referenced(folio)) {
 		folio_set_referenced(folio);
 	} else if (folio_test_unevictable(folio)) {
