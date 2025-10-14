@@ -3347,12 +3347,12 @@ static struct list_head *get_populated_pcp_list(struct zone *zone,
 		int batch = READ_ONCE(pcp->batch);
 		int alloced;
 
-		trace_android_vh_nr_pcp_alloc(pcp, zone, &(zones_extra_data[zone_idx(zone)].pad),
-			order, &batch);
 		trace_android_vh_rmqueue_bulk_bypass(order, pcp, migratetype, list);
 		if (!list_empty(list))
 			return list;
 
+		trace_android_vh_nr_pcp_alloc(pcp, zone, &(zones_extra_data[zone_idx(zone)].pad),
+			order, &batch);
 		/*
 		 * Scale batch relative to order if batch implies
 		 * free pages can be stored on the PCP. Batch can
