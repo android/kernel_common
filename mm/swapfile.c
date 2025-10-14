@@ -1461,6 +1461,7 @@ put_out:
 	percpu_ref_put(&si->users);
 	return NULL;
 }
+EXPORT_SYMBOL_GPL(get_swap_device);
 
 static void swap_entries_put_cache(struct swap_info_struct *si,
 				   swp_entry_t entry, int nr)
