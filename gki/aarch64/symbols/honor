@@ -167,6 +167,8 @@
   __tracepoint_android_vh_dma_buf_attr_show_start
   __traceiter_android_vh_dma_buf_attr_show_end
   __tracepoint_android_vh_dma_buf_attr_show_end
+  __traceiter_android_vh_mark_folio_accessed
+  __tracepoint_android_vh_mark_folio_accessed
   __traceiter_android_vh_process_madvise_begin
   __tracepoint_android_vh_process_madvise_begin
   __traceiter_android_vh_process_madvise_iter
