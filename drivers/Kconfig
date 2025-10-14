@@ -241,4 +241,6 @@ source "drivers/most/Kconfig"
 
 source "drivers/cma_test/Kconfig"
 
+source "drivers/cma/mm/Kconfig"
+
 endmenu

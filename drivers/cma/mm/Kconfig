@@ -1,0 +1,10 @@
+
+#
+# Configs for the Memory drivers
+#
+config MEM_PHYSICAL_LAYOUT
+       tristate "Driver to print the physical memory layout"
+       default y
+       help
+         Driver to print the physical memory layout
+

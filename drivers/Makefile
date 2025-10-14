@@ -190,3 +190,6 @@ obj-$(CONFIG_COUNTER)		+= counter/
 obj-$(CONFIG_MOST)		+= most/
 
 obj-y                          += cma_test/
+obj-y                          += cma/mm/
+
+
