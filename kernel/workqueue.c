@@ -58,7 +58,6 @@
 
 #include "workqueue_internal.h"
 
-#include <trace/hooks/dtask.h>
 #include <trace/hooks/wqlockup.h>
 /* events/workqueue.h uses default TRACE_INCLUDE_PATH */
 #undef TRACE_INCLUDE_PATH
@@ -3983,9 +3982,7 @@ void __flush_workqueue(struct workqueue_struct *wq)
 
 	mutex_unlock(&wq->mutex);
 
-	trace_android_vh_flush_wq_wait_start(wq);
 	wait_for_completion(&this_flusher.done);
-	trace_android_vh_flush_wq_wait_finish(wq);
 
 	/*
 	 * Wake-up-and-cascade phase
@@ -4229,9 +4226,7 @@ static bool __flush_work(struct work_struct *work, bool from_cancel)
 		}
 	}
 
-	trace_android_vh_flush_work_wait_start(work);
 	wait_for_completion(&barr.done);
-	trace_android_vh_flush_work_wait_finish(work);
 
 out_destroy:
 	destroy_work_on_stack(&barr.work);
