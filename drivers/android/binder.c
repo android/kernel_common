@@ -7462,8 +7462,7 @@ device_initcall(binder_init);
 
 int binder_use_rust;
 EXPORT_SYMBOL_GPL(binder_use_rust);
-int binder_loaded;
-EXPORT_SYMBOL_GPL(binder_loaded);
+static int binder_loaded;
 
 static DEFINE_MUTEX(binder_use_rust_lock);
 
