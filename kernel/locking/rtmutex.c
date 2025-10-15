@@ -1653,7 +1653,6 @@ static int __sched rt_mutex_slowlock_block(struct rt_mutex_base *lock,
 		set_current_state(state);
 	}
 
-	trace_android_vh_rtmutex_wait_finish(lock);
 	__set_current_state(TASK_RUNNING);
 	return ret;
 }
