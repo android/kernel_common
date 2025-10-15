@@ -237,6 +237,26 @@ static inline bool pkvm_is_protected_vcpu(struct kvm_vcpu *vcpu)
 	return pkvm_is_protected_vm(vcpu->kvm);
 }
 
+static inline size_t pkvm_guest_initial_fpstate_size(struct kvm *kvm)
+{
+	/*
+	 * The pkvm hypervisor requires to have at least the size of struct
+	 * fpstate for both pVM (to switch FPU and emulate XFD MSR) and npVM
+	 * (to emulate XFD MSR only).
+	 */
+	size_t size = ALIGN(offsetof(struct fpstate, regs), 64);
+
+	/*
+	 * The pkvm hypervisor switches the FPU registers for pVM thus the size
+	 * should be extended with fpu_user_cfg.default_size to satisfy the
+	 * default features (w/o dynamic features).
+	 */
+	if (pkvm_is_protected_vm(kvm))
+		size += fpu_user_cfg.default_size;
+
+	return PAGE_ALIGN(size);
+}
+
 int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_cap *cap);
 void pkvm_create_vm_debugfs(struct kvm *kvm);
 #else
