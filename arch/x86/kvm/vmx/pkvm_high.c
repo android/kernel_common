@@ -177,6 +177,8 @@ static bool pkvm_hyp_emulated_msr(u32 msr)
 	case MSR_FS_BASE:
 	case MSR_GS_BASE:
 	case MSR_KERNEL_GS_BASE:
+	case MSR_IA32_XFD:
+	case MSR_IA32_XFD_ERR:
 #endif
 	case MSR_IA32_SYSENTER_CS:
 	case MSR_IA32_SYSENTER_EIP:
