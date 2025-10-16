@@ -613,5 +613,9 @@ int kvm_sev_es_string_io(struct kvm_vcpu *vcpu, unsigned int size,
 			 int in);
 
 #define KVM_MAX_MCE_BANKS 32
+#define MCE_BANKS		(KVM_MAX_MCE_BANKS * 4)
+#define MCI_CTL2_BANKS		KVM_MAX_MCE_BANKS
+#define MCE_BANKS_SIZE		(MCE_BANKS * sizeof(u64))
+#define MCI_CTL2_BANKS_SIZE	(MCI_CTL2_BANKS * sizeof(u64))
 
 #endif

@@ -241,6 +241,9 @@ static int pkvm_arch_vcpu_create(struct pkvm_vcpu *pkvm_vcpu, struct fpstate *fp
 	vcpu->arch.apic_base = pkvm_vcpu->shared_vcpu->arch.apic_base;
 	vcpu->arch.guest_fpu.fpstate = fps;
 
+	vcpu->arch.mce_banks = (void *)pkvm_vcpu + pkvm_vcpu_sz;
+	vcpu->arch.mci_ctl2_banks = (void *)vcpu->arch.mce_banks + MCE_BANKS_SIZE;
+
 	ret = kvm_arch_vcpu_create(vcpu);
 	if (ret)
 		return ret;
@@ -327,7 +330,7 @@ void put_pkvm_vm(struct pkvm_vm *pkvm_vm)
 
 static struct pkvm_vcpu *donate_pkvm_vcpu(unsigned long vcpu_gpa)
 {
-	size_t size = PAGE_ALIGN(pkvm_vcpu_sz);
+	size_t size = PAGE_ALIGN(pkvm_vcpu_sz + MCE_BANKS_SIZE + MCI_CTL2_BANKS_SIZE);
 	struct pkvm_vcpu *pkvm_vcpu;
 
 	pkvm_vcpu = donate_host_memory(vcpu_gpa, size, true);
@@ -1571,13 +1574,31 @@ static void pkvm_load_mmu_pgd(struct pkvm_vcpu *pkvm_vcpu, hpa_t root_hpa, int r
 
 static void pkvm_setup_mce(struct pkvm_vcpu *pkvm_vcpu, u64 mcg_cap)
 {
+	unsigned bank_num = mcg_cap & 0xff, bank;
 	struct kvm_vcpu *vcpu;
+
+	if (!bank_num || bank_num > KVM_MAX_MCE_BANKS)
+		return;
+
+	if (mcg_cap & ~(kvm_caps.supported_mce_cap | 0xff | 0xff0000))
+		return;
 
 	if (WARN_ON_ONCE(!pkvm_vcpu))
 		return;
 
 	vcpu = to_kvm_vcpu(pkvm_vcpu);
 	vcpu->arch.mcg_cap = mcg_cap;
+
+	/* Init IA32_MCG_CTL to all 1s */
+	if (mcg_cap & MCG_CTL_P)
+		vcpu->arch.mcg_ctl = ~(u64)0;
+	/* Init IA32_MCi_CTL to all 1s, IA32_MCi_CTL2 to all 0s */
+	for (bank = 0; bank < bank_num; bank++) {
+		vcpu->arch.mce_banks[bank*4] = ~(u64)0;
+		if (mcg_cap & MCG_CMCI_P)
+			vcpu->arch.mci_ctl2_banks[bank] = 0;
+	}
+
 	kvm_x86_call(setup_mce)(vcpu);
 }
 

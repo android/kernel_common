@@ -732,13 +732,6 @@ static bool pkvm_has_emulated_msr(struct kvm *kvm, u32 index)
 	case MSR_IA32_APICBASE:
 	case APIC_BASE_MSR ... APIC_BASE_MSR + 0xff:
 	case MSR_IA32_TSC_DEADLINE:
-	case MSR_IA32_P5_MC_ADDR:
-	case MSR_IA32_P5_MC_TYPE:
-	case MSR_IA32_MCG_CAP:
-	case MSR_IA32_MCG_CTL:
-	case MSR_IA32_MCG_STATUS:
-	case MSR_IA32_MC0_CTL ... MSR_IA32_MCx_CTL(KVM_MAX_MCE_BANKS) - 1:
-	case MSR_IA32_MC0_CTL2 ... MSR_IA32_MCx_CTL2(KVM_MAX_MCE_BANKS) - 1:
 		return true;
 	default:
 		/*
