@@ -12,9 +12,9 @@
 
 #define TEST_NAME "futex-requeue"
 #define timeout_ns  30000000
+#define WAKE_WAIT_US 10000
 
 volatile futex_t *f1;
-static pthread_barrier_t barrier;
 
 void usage(char *prog)
 {
@@ -31,8 +31,6 @@ void *waiterfn(void *arg)
 
 	to.tv_sec = 0;
 	to.tv_nsec = timeout_ns;
-
-	pthread_barrier_wait(&barrier);
 
 	if (futex_wait(f1, *f1, &to, 0))
 		printf("waiter failed errno %d\n", errno);
@@ -72,15 +70,13 @@ int main(int argc, char *argv[])
 	ksft_print_msg("%s: Test futex_requeue\n",
 		       basename(argv[0]));
 
-	pthread_barrier_init(&barrier, NULL, 2);
 	/*
 	 * Requeue a waiter from f1 to f2, and wake f2.
 	 */
 	if (pthread_create(&waiter[0], NULL, waiterfn, NULL))
 		error("pthread_create failed\n", errno);
 
-	pthread_barrier_wait(&barrier);
-	pthread_barrier_destroy(&barrier);
+	usleep(WAKE_WAIT_US);
 
 	info("Requeuing 1 futex from f1 to f2\n");
 	res = futex_cmp_requeue(f1, 0, &f2, 0, 1, 0);
@@ -103,7 +99,6 @@ int main(int argc, char *argv[])
 		ksft_test_result_pass("futex_requeue simple succeeds\n");
 	}
 
-	pthread_barrier_init(&barrier, NULL, 11);
 
 	/*
 	 * Create 10 waiters at f1. At futex_requeue, wake 3 and requeue 7.
@@ -114,8 +109,7 @@ int main(int argc, char *argv[])
 			error("pthread_create failed\n", errno);
 	}
 
-	pthread_barrier_wait(&barrier);
-	pthread_barrier_destroy(&barrier);
+	usleep(WAKE_WAIT_US);
 
 	info("Waking 3 futexes at f1 and requeuing 7 futexes from f1 to f2\n");
 	res = futex_cmp_requeue(f1, 0, &f2, 3, 7, 0);
