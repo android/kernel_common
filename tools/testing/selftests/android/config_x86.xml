@@ -30,25 +30,6 @@ SPDX-License-Identifier: GPL-2.0 OR Apache-2.0
         <option name="test-command-line" key="kselftest_capabilities_test_execve" value="cd &ktest_dir;; ./kselftest_capabilities_test_execve" />
         <option name="test-command-line" key="kselftest_futex_requeue" value="cd &ktest_dir;; ./futex_requeue" />
         <option name="test-command-line" key="kselftest_futex_requeue_pi" value="cd &ktest_dir;; ./futex_requeue_pi" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_b" value="cd &ktest_dir;; ./futex_requeue_pi -b" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_bl" value="cd &ktest_dir;; ./futex_requeue_pi -b -l" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_bo" value="cd &ktest_dir;; ./futex_requeue_pi -b -o" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_l" value="cd &ktest_dir;; ./futex_requeue_pi -l" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_o" value="cd &ktest_dir;; ./futex_requeue_pi -o" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_5k" value="cd &ktest_dir;; ./futex_requeue_pi -t 5000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_b_5k" value="cd &ktest_dir;; ./futex_requeue_pi -b -t 5000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_bl_5k" value="cd &ktest_dir;; ./futex_requeue_pi -b -l -t 5000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_bo_5k" value="cd &ktest_dir;; ./futex_requeue_pi -b -o -t 5000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_l_5k" value="cd &ktest_dir;; ./futex_requeue_pi -l -t 5000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_o_5k" value="cd &ktest_dir;; ./futex_requeue_pi -o -t 5000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_500k" value="cd &ktest_dir;; ./futex_requeue_pi -t 500000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_b_500k" value="cd &ktest_dir;; ./futex_requeue_pi -b -t 500000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_bl_500k" value="cd &ktest_dir;; ./futex_requeue_pi -b -l -t 500000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_bo_500k" value="cd &ktest_dir;; ./futex_requeue_pi -b -o -t 500000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_l_500k" value="cd &ktest_dir;; ./futex_requeue_pi -l -t 500000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_o_500k" value="cd &ktest_dir;; ./futex_requeue_pi -o -t 500000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_bl_2G" value="cd &ktest_dir;; ./futex_requeue_pi -b -l -t 2000000000" />
-        <option name="test-command-line" key="kselftest_futex_requeue_pi_l_2G" value="cd &ktest_dir;; ./futex_requeue_pi -l -t 2000000000" />
         <option name="test-command-line" key="kselftest_futex_requeue_pi_mismatched_ops" value="cd &ktest_dir;; ./futex_requeue_pi_mismatched_ops" />
         <option name="test-command-line" key="kselftest_futex_requeue_pi_signal_restart" value="cd &ktest_dir;; ./futex_requeue_pi_signal_restart" />
         <option name="test-command-line" key="kselftest_futex_wait" value="cd &ktest_dir;; ./futex_wait" />
