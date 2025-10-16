@@ -21,7 +21,7 @@
 
 	chosen {
 		/* Bootloader expects bootargs specified otherwise it crashes */
-		bootargs = "";
+		bootargs = "androidboot.boot_devices=soc@0/14700000.ufs";
 		stdout-path = &serial_0;
 
 		/* Use display framebuffer as setup by bootloader */
