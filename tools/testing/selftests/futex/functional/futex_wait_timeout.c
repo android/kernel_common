@@ -64,14 +64,9 @@ void *get_pi_lock(void *arg)
 static void test_timeout(int res, int *ret, char *test_name, int err)
 {
 	if (!res || errno != err) {
-		if (errno == ENOSYS) {
-			ksft_test_result_skip("%s returned %d\n", test_name,
-					      errno);
-		} else {
-			ksft_test_result_fail("%s returned %d\n", test_name,
-					      res < 0 ? errno : res);
-			*ret = RET_FAIL;
-		}
+		ksft_test_result_fail("%s returned %d\n", test_name,
+				      res < 0 ? errno : res);
+		*ret = RET_FAIL;
 	} else {
 		ksft_test_result_pass("%s succeeds\n", test_name);
 	}
