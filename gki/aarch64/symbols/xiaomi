@@ -529,3 +529,5 @@ vfs_fadvise
 __tracepoint_android_rvh_update_cpus_allowed
 __traceiter_android_rvh_update_cpus_allowed
 
+# required by mi cap manager
+task_work_add
