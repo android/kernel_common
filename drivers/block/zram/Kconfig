@@ -145,3 +145,12 @@ config ZRAM_MULTI_COMP
 	  re-compress pages using a potentially slower but more effective
 	  compression algorithm. Note, that IDLE page recompression
 	  requires ZRAM_TRACK_ENTRY_ACTIME.
+
+config ZRAM_ANDROID_IOCTL
+       bool "zram ioctl interface for Android"
+       depends on ZRAM_WRITEBACK
+       help
+	 With this feature, admin can use the zram ioctl interface to operate
+	 on a target process's virtual memory areas (VMAs) in zram. Then we can
+	 invokes the corresponding operations like writeback the compressed
+	 pages into the backing device.
