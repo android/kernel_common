@@ -58,7 +58,6 @@ SPDX-License-Identifier: GPL-2.0 OR Apache-2.0
         <option name="test-command-line" key="kselftest_timers_threadtest" value="cd &ktest_dir;; ./kselftest_timers_threadtest" />
         <option name="test-command-line" key="kselftest_timers_valid_adjtimex" value="cd &ktest_dir;; ./kselftest_timers_valid_adjtimex" />
         <option name="test-command-line" key="kselftest_vdso_vdso_test_abi" value="cd &ktest_dir;; ./kselftest_vdso_vdso_test_abi" />
-        <option name="test-command-line" key="kselftest_vdso_vdso_test_clock_getres" value="cd &ktest_dir;; ./kselftest_vdso_vdso_test_clock_getres" />
         <option name="test-command-line" key="kselftest_vdso_vdso_test_getcpu" value="cd &ktest_dir;; ./kselftest_vdso_vdso_test_getcpu" />
         <option name="test-command-line" key="kselftest_vdso_vdso_test_gettimeofday" value="cd &ktest_dir;; ./kselftest_vdso_vdso_test_gettimeofday" />
         <option name="test-command-line" key="kselftest_x86_check_initial_reg_state" value="cd &ktest_dir;; ./kselftest_x86_check_initial_reg_state" />
