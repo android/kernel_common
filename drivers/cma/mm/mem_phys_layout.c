@@ -13,6 +13,7 @@
 #include <linux/init.h>
 #include <linux/memblock.h>
 #include <linux/module.h>
+#include <linux/nodemask.h>
 #include <linux/printk.h>
 #include <linux/types.h>
 
@@ -40,9 +41,46 @@ static void print_ram_info(void)
 	pr_info("    reserved_size: %10llu == %#010Lx", (u64)reserved_size, (u64)reserved_size);
 }
 
+// Prints the node information in:
+//
+//     struct pglist_data *node_data;
+//
+// It uses NODE_DATA to access node_data.
+//
+//     #define NODE_DATA(nid)		(node_data[(nid)])
+static void print_node_data(void)
+{
+	// Note: NUMA nodes are configured in the device tree.
+	int nodeId;
+	unsigned long phys_pages = get_num_physpages();
+
+	for_each_online_node(nodeId) {
+		// Number of Physical pages including holes in the node.
+		uint64_t num_spanned_pages = NODE_DATA(nodeId)->node_spanned_pages;
+		// Number of Physical pages in the node.
+		uint64_t num_present_pages = NODE_DATA(nodeId)->node_present_pages;
+		uint64_t start_pfn = NODE_DATA(nodeId)->node_start_pfn;
+		uint64_t end_pfn = NODE_DATA(nodeId)->node_start_pfn + num_spanned_pages;
+
+		pr_info("Node %d", nodeId);
+		pr_info("    Page frames numbers (range): [pfn %#010Lx-%#010Lx)\n",
+				start_pfn, end_pfn);
+		pr_info("    Number of Page Spanned pages (includes holes): %#010Lx : %llu\n",
+				num_spanned_pages, num_spanned_pages);
+		pr_info("    Number of Page Present pages:                  %#010Lx : %llu",
+				num_present_pages, num_present_pages);
+		pr_info("    Number of Page frames (end_pfn - start_pfn):   %#010Lx : %llu",
+				end_pfn - start_pfn, end_pfn - start_pfn);
+	}
+
+	pr_info("Total number of Physical Pages in all nodes (DO NOT include holes) %lu",
+			phys_pages);
+}
+
 static int __init mem_phys_layout_init(void)
 {
 	print_ram_info();
+	print_node_data();
 
 	return 0;
 }
@@ -58,6 +96,4 @@ module_exit(mem_phys_layout_exit);
 MODULE_AUTHOR("Juan Yescas");
 MODULE_DESCRIPTION("Nodes, Zones and Physical Memory Model");
 MODULE_LICENSE("GPL v2");
-
-
 
