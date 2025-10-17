@@ -759,11 +759,13 @@ static int pkvm_vm_init(struct kvm *kvm)
 
 	kvm_account_pgtable_pages(vm_init_pool, 1);
 
-	/* TODO: share struct kvm_vmx with pkvm */
+	ret = kvm_share_hyp(kvm, (void *)kvm + sizeof(struct kvm_vmx));
+	if (ret)
+		goto free_pgtable_page;
 
 	ret = kvm_call_pkvm(vm_init, kvm, __pa(pkvm_vm), __pa(vm_init_pool));
 	if (ret < 0)
-		goto free_pgtable_page;
+		goto unshare;
 
 	pkvm->pkvm_vm_handle = ret;
 
@@ -772,6 +774,8 @@ static int pkvm_vm_init(struct kvm *kvm)
 
 	return 0;
 
+unshare:
+	kvm_unshare_hyp(kvm, (void *)kvm + sizeof(struct kvm_vmx));
 free_pgtable_page:
 	kvm_account_pgtable_pages(vm_init_pool, -1);
 	free_page((unsigned long)vm_init_pool);
@@ -790,7 +794,7 @@ static void pkvm_vm_destroy(struct kvm *kvm)
 	if (ret)
 		return;
 
-	/* TODO: unshare struct kvm_vmx with pkvm */
+	kvm_unshare_hyp(kvm, (void *)kvm + sizeof(struct kvm_vmx));
 
 	free_pkvm_memcache(&pkvm->teardown_mc);
 	free_pkvm_memcache(&pkvm->guest_mmu_teardown_mc);
