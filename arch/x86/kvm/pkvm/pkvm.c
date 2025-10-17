@@ -242,12 +242,6 @@ static int pkvm_arch_vcpu_create(struct pkvm_vcpu *pkvm_vcpu, struct fpstate *fp
 	vcpu->cpu = -1;
 	vcpu->kvm = to_kvm(pkvm_vcpu->pkvm_vm);
 	vcpu->vcpu_id = pkvm_vcpu->shared_vcpu->vcpu_id;
-	/*
-	 * Set apic in vcpu->arch points to the apic in the shared vcpu
-	 * to make the pkvm hypervisor knows if lapic_in_kernel() is true or
-	 * not. The pkvm hypervisor should not use this as a normal memory.
-	 */
-	vcpu->arch.apic = pkvm_vcpu->shared_vcpu->arch.apic;
 	vcpu->arch.apic_base = pkvm_vcpu->shared_vcpu->arch.apic_base;
 	vcpu->arch.guest_fpu.fpstate = fps;
 
@@ -369,6 +363,72 @@ static struct fpstate *donate_fpu(unsigned long fpu_gpa, size_t size)
 	return fps;
 }
 
+static void pkvm_unpin_shared_vcpu(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_lapic *apic = to_kvm_vcpu(pkvm_vcpu)->arch.apic;
+
+	if (apic) {
+		void *apic_regs = kern_pkvm_va(apic->regs);
+
+		if (apic_regs)
+			__pkvm_unpin_shared_mem(__pkvm_pa(apic_regs), PAGE_SIZE);
+
+		__pkvm_unpin_shared_mem(__pkvm_pa(apic), sizeof(struct kvm_lapic));
+	}
+
+	__pkvm_unpin_shared_mem(__pkvm_pa(pkvm_vcpu->shared_vcpu), kvm_vcpu_sz);
+}
+
+static int pkvm_pin_shared_vcpu(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *shared_vcpu = pkvm_vcpu->shared_vcpu;
+	struct kvm_lapic *apic;
+	void *apic_regs;
+	int ret;
+
+	ret = __pkvm_pin_shared_mem(__pkvm_pa(shared_vcpu), kvm_vcpu_sz);
+	if (ret)
+		return ret;
+
+	apic = kern_pkvm_va(shared_vcpu->arch.apic);
+	if (!apic)
+		return 0;
+
+	apic_regs = kern_pkvm_va(apic->regs);
+	if (!apic_regs) {
+		/*
+		 * The regs page should exist if the host has provided a kvm_lapic
+		 * instance.
+		 */
+		ret = -EINVAL;
+		goto unpin_vcpu;
+	}
+
+	ret = __pkvm_pin_shared_mem(__pkvm_pa(apic), sizeof(struct kvm_lapic));
+	if (ret)
+		goto unpin_vcpu;
+
+	ret = __pkvm_pin_shared_mem(__pkvm_pa(apic_regs), PAGE_SIZE);
+	if (ret)
+		goto unpin_apic;
+
+	/*
+	 * Set vcpu->arch.apic points to the apic in the shared vcpu
+	 * to make the pKVM hypervisor being able to access the up-to-date lapic
+	 * state if it is necessary. The pKVM hypervisor should not store private
+	 * data to this apic structure.
+	 */
+	to_kvm_vcpu(pkvm_vcpu)->arch.apic = apic;
+
+	return 0;
+
+unpin_apic:
+	__pkvm_unpin_shared_mem(__pkvm_pa(apic), sizeof(struct kvm_lapic));
+unpin_vcpu:
+	__pkvm_unpin_shared_mem(__pkvm_pa(shared_vcpu), kvm_vcpu_sz);
+	return ret;
+}
+
 static int pkvm_vcpu_create(struct kvm_vcpu *shared_vcpu, unsigned long vcpu_gpa,
 			    unsigned long fpu_gpa)
 {
@@ -395,17 +455,15 @@ static int pkvm_vcpu_create(struct kvm_vcpu *shared_vcpu, unsigned long vcpu_gpa
 		goto undonate_vcpu;
 	}
 
-	/*
-	 * TODO: Assume host is already share the kvm_vcpu structure
-	 * (represented by shared_vcpu) with pkvm. So just pin
-	 * shared_vcpu. Unpin shared_vcpu when destroying
-	 */
 	pkvm_vcpu->shared_vcpu = shared_vcpu;
+	ret = pkvm_pin_shared_vcpu(pkvm_vcpu);
+	if (ret)
+		goto undonate_fpu;
 
 	pkvm_vcpu->pkvm_vm = pkvm_vm;
 	ret = pkvm_arch_vcpu_create(pkvm_vcpu, fps);
 	if (ret)
-		goto undonate_fpu;
+		goto unpin;
 
 	ret = attach_pkvm_vcpu_to_vm(pkvm_vm, pkvm_vcpu);
 	if (ret < 0)
@@ -417,6 +475,8 @@ static int pkvm_vcpu_create(struct kvm_vcpu *shared_vcpu, unsigned long vcpu_gpa
 
 vcpu_destroy:
 	kvm_x86_call(vcpu_free)(to_kvm_vcpu(pkvm_vcpu));
+unpin:
+	pkvm_unpin_shared_vcpu(pkvm_vcpu);
 undonate_fpu:
 	__pkvm_hyp_donate_host(__pkvm_pa(fps), fps->size, false);
 undonate_vcpu:
@@ -439,6 +499,8 @@ static int __pkvm_vcpu_free(struct pkvm_vm *pkvm_vm, int vcpu_handle)
 	vcpu = to_kvm_vcpu(pkvm_vcpu);
 	kvm_x86_call(vcpu_free)(vcpu);
 
+	pkvm_unpin_shared_vcpu(pkvm_vcpu);
+
 	shared_pkvm = &pkvm_vm->shared_kvm->arch.pkvm;
 
 	pkvm_free_mmu_memcache(vcpu, &shared_pkvm->guest_mmu_teardown_mc);
@@ -452,8 +514,6 @@ static int __pkvm_vcpu_free(struct pkvm_vm *pkvm_vm, int vcpu_handle)
 				vcpu->arch.guest_fpu.fpstate->size);
 	teardown_donated_memory(&shared_pkvm->teardown_mc,
 				(void *)pkvm_vcpu, pkvm_vcpu->size);
-
-	/* TODO: unpin shared kvm_vcpu */
 
 	return 0;
 }
