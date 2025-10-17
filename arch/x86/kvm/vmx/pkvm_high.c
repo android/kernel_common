@@ -680,7 +680,6 @@ static int pkvm_enable_virtualization_cpu(void)
 	unsigned long pv_param_pa = __pa(this_cpu_ptr(&pv_param));
 	int r;
 
-	/* TODO: share union pkvm_pv_param with pkvm */
 	r = kvm_call_pkvm(enable_virtualization_cpu, pv_param_pa);
 	if (r)
 		return r;
@@ -693,7 +692,6 @@ static void pkvm_disable_virtualization_cpu(void)
 {
 	intel_pt_handle_vmx(0);
 	kvm_call_pkvm(disable_virtualization_cpu);
-	/* TODO: unshare union pkvm_pv_param with pkvm */
 }
 
 static void pkvm_emergency_disable_virtualization_cpu(void) { /* TODO */ }

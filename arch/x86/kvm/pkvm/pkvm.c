@@ -62,27 +62,60 @@ static void *donate_host_memory(unsigned long gpa, size_t size, bool clear)
 	return va;
 }
 
-static int pkvm_enable_virtualization_cpu(unsigned long pv_param_pa)
+static int pkvm_enable_virtualization_cpu(unsigned long pv_param_gpa)
 {
-	int r = kvm_arch_enable_virtualization_cpu();
+	unsigned long pv_param_pa = host_gpa2hpa(pv_param_gpa);
+	size_t size = sizeof(union pkvm_pv_param);
+	int r;
 
-	if (!r)
-		/*
-		 * TODO: Assume host is already share the pv_param structure
-		 * with pkvm. Pin the pv_param_pa so that it won't be re-used
-		 * as guest memory.
-		 */
-		this_cpu_write(pv_param, __pkvm_va(pv_param_pa));
+	/*
+	 * The host could follow the way of sharing struct kvm and kvm_vcpu by
+	 * sharing pv_param page via PV interface and the pKVM hypervisor then
+	 * pin the page in this function. But then the host will need to unshare
+	 * this page in pkvm_disable_virtualization_cpu() which may run in the
+	 * irq disabled context. This will conflict with the usage of the mutex
+	 * hyp_shared_pfns_lock.
+	 *
+	 * So instead of that, ensure the pv_param memory as PAGE_SIZE aligned
+	 * and let the pkvm hypervisor to proactively share/unshare the pv_param
+	 * page without involving the host.
+	 */
+	r = __pkvm_host_share_hyp(pv_param_pa, size);
+	if (r)
+		return r;
 
+	r = __pkvm_pin_shared_mem(pv_param_pa, size);
+	if (r)
+		goto unshare;
+
+	r = kvm_arch_enable_virtualization_cpu();
+	if (r)
+		goto unpin;
+
+	this_cpu_write(pv_param, __pkvm_va(pv_param_pa));
+	return 0;
+
+unpin:
+	__pkvm_unpin_shared_mem(pv_param_pa, size);
+unshare:
+	__pkvm_host_unshare_hyp(pv_param_pa, size);
 	return r;
 }
 
 static void pkvm_disable_virtualization_cpu(void)
 {
+	void *pv_param_va = this_cpu_read(pv_param);
+	size_t size = sizeof(union pkvm_pv_param);
+
+	if (!pv_param_va)
+		return;
+
+	this_cpu_write(pv_param, NULL);
+
 	kvm_arch_disable_virtualization_cpu();
 
-	/* TODO: unpin the shared pv_param memory */
-	this_cpu_write(pv_param, NULL);
+	__pkvm_unpin_shared_mem(__pkvm_pa(pv_param_va), size);
+	__pkvm_host_unshare_hyp(__pkvm_pa(pv_param_va), size);
 }
 
 #define HANDLE_OFFSET 1
