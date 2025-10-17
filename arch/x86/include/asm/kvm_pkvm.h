@@ -293,6 +293,8 @@ enum pkvm_fn {
 	__pkvm__update_cpuid_runtime,
 	__pkvm__update_exception_bitmap,
 	__pkvm__vcpu_add_fpstate,
+	__pkvm__host_share_hyp,
+	__pkvm__host_unshare_hyp,
 };
 
 #define HOST_HANDLE_EXIT		0

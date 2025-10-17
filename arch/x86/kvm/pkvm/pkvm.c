@@ -1972,6 +1972,12 @@ unsigned long handle_kvm_call(unsigned long fn, unsigned long p1,
 	case __pkvm__vcpu_free:
 		ret = pkvm_vcpu_free((struct kvm_vcpu *)kern_pkvm_va((void *)p1));
 		break;
+	case __pkvm__host_share_hyp:
+		ret = __pkvm_host_share_hyp(host_gpa2hpa(PFN_PHYS(p1)), p2 * PAGE_SIZE);
+		break;
+	case __pkvm__host_unshare_hyp:
+		ret = __pkvm_host_unshare_hyp(host_gpa2hpa(PFN_PHYS(p1)), p2 * PAGE_SIZE);
+		break;
 	default:
 		ret = pkvm_vcpu_handle_kvm_call(fn, (struct kvm_vcpu *)kern_pkvm_va((void *)p1),
 						p2, p3);
