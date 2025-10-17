@@ -14,6 +14,7 @@
 #include <linux/memblock.h>
 #include <linux/module.h>
 #include <linux/nodemask.h>
+#include <linux/pfn.h>
 #include <linux/printk.h>
 #include <linux/types.h>
 
@@ -77,10 +78,31 @@ static void print_node_data(void)
 			phys_pages);
 }
 
+static void print_pfn_start_address(void)
+{
+	struct page *first_page = pfn_to_page(0);
+
+	pr_info("First struct page starts at: pfn_to_page(0) [mem %#010Lx]\n",
+			(unsigned long long)first_page);
+
+#ifdef CONFIG_SPARSEMEM_VMEMMAP
+	pr_info("First struct page starts at: vmemmap        [mem %#010Lx]\n",
+			(unsigned long long)vmemmap);
+#endif
+}
+
+static void print_pageblock_info(void)
+{
+	pr_info("pageblock_order %d", pageblock_order);
+	pr_info("pageblock_nr_pages %lu", pageblock_nr_pages);
+}
+
 static int __init mem_phys_layout_init(void)
 {
 	print_ram_info();
 	print_node_data();
+	print_pfn_start_address();
+	print_pageblock_info();
 
 	return 0;
 }
