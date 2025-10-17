@@ -220,6 +220,8 @@ static inline size_t pkvm_guest_initial_fpstate_size(struct kvm *kvm)
 
 int pkvm_vm_ioctl_enable_cap(struct kvm *kvm, struct kvm_enable_cap *cap);
 void pkvm_create_vm_debugfs(struct kvm *kvm);
+int kvm_share_hyp(void *from, void *to);
+void kvm_unshare_hyp(void *from, void *to);
 #else
 static inline void kvm_hyp_reserve(void) {}
 static inline bool pkvm_is_protected_vm(struct kvm *kvm) { return false; }

@@ -9,6 +9,7 @@
 #include <linux/sort.h>
 
 #include <asm/kvm_pkvm.h>
+#include "../pkvm.h"
 
 static struct memblock_region *_hyp_memory = pkvm_sym(hyp_memory);
 static unsigned int *hyp_memblock_nr_ptr = &pkvm_sym(hyp_memblock_nr);
@@ -130,4 +131,137 @@ int topup_pkvm_memcache(struct pkvm_memcache *mc, unsigned long min_pages)
 
 	return __topup_pkvm_memcache(mc, min_pages, pkvm_mc_alloc_fn,
 				     host_pa, (void *)flags);
+}
+
+struct hyp_shared_pfn {
+	u64 pfn;
+	int count;
+	struct rb_node node;
+};
+
+static DEFINE_MUTEX(hyp_shared_pfns_lock);
+static struct rb_root hyp_shared_pfns = RB_ROOT;
+
+static struct hyp_shared_pfn *find_shared_pfn(u64 pfn, struct rb_node ***node,
+					      struct rb_node **parent)
+{
+	struct hyp_shared_pfn *this;
+
+	*node = &hyp_shared_pfns.rb_node;
+	*parent = NULL;
+	while (**node) {
+		this = container_of(**node, struct hyp_shared_pfn, node);
+		*parent = **node;
+		if (this->pfn < pfn)
+			*node = &((**node)->rb_left);
+		else if (this->pfn > pfn)
+			*node = &((**node)->rb_right);
+		else
+			return this;
+	}
+
+	return NULL;
+}
+
+static int share_pfn_hyp(u64 pfn)
+{
+	struct rb_node **node, *parent;
+	struct hyp_shared_pfn *this;
+	int ret;
+
+	guard(mutex)(&hyp_shared_pfns_lock);
+
+	this = find_shared_pfn(pfn, &node, &parent);
+	if (this) {
+		this->count++;
+		return 0;
+	}
+
+	this = kzalloc(sizeof(*this), GFP_KERNEL);
+	if (!this)
+		return -ENOMEM;
+
+	ret = kvm_call_pkvm(host_share_hyp, pfn, 1);
+	if (ret) {
+		kfree(this);
+		return ret;
+	}
+
+	this->pfn = pfn;
+	this->count = 1;
+	rb_link_node(&this->node, parent, node);
+	rb_insert_color(&this->node, &hyp_shared_pfns);
+
+	return 0;
+}
+
+static int unshare_pfn_hyp(u64 pfn)
+{
+	struct rb_node **node, *parent;
+	struct hyp_shared_pfn *this;
+	int ret;
+
+	guard(mutex)(&hyp_shared_pfns_lock);
+
+	this = find_shared_pfn(pfn, &node, &parent);
+	if (WARN_ON(!this))
+		return -ENOENT;
+
+	this->count--;
+	if (this->count)
+		return 0;
+
+	ret = kvm_call_pkvm(host_unshare_hyp, pfn, 1);
+	if (ret) {
+		/* Revert back the counter. */
+		this->count++;
+		return ret;
+	}
+
+	rb_erase(&this->node, &hyp_shared_pfns);
+	kfree(this);
+
+	return 0;
+}
+
+int kvm_share_hyp(void *from, void *to)
+{
+	phys_addr_t start, end, cur;
+	u64 pfn;
+	int ret;
+
+	/*
+	 * The share PV interface maps things in the 'fixed-offset' region of
+	 * the hyp VA space, so we can only share physically contiguous
+	 * data-structures for now.
+	 */
+	if (is_vmalloc_or_module_addr(from) || is_vmalloc_or_module_addr(to))
+		return -EINVAL;
+
+	start = ALIGN_DOWN(__pa(from), PAGE_SIZE);
+	end = ALIGN(__pa(to), PAGE_SIZE);
+	for (cur = start; cur < end; cur += PAGE_SIZE) {
+		pfn = __phys_to_pfn(cur);
+		ret = share_pfn_hyp(pfn);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
+void kvm_unshare_hyp(void *from, void *to)
+{
+	phys_addr_t start, end, cur;
+	u64 pfn;
+
+	if (!from || !to)
+		return;
+
+	start = ALIGN_DOWN(__pa(from), PAGE_SIZE);
+	end = ALIGN(__pa(to), PAGE_SIZE);
+	for (cur = start; cur < end; cur += PAGE_SIZE) {
+		pfn = __phys_to_pfn(cur);
+		WARN_ON(unshare_pfn_hyp(pfn));
+	}
 }
