@@ -55,11 +55,13 @@ static int zram_process_walker(pmd_t *pmd, unsigned long start,
 	struct zram *zram = private->zram;
 	struct zram_pp_ctl *pp_ctl = private->pp_ctl;
 	struct vm_area_struct *vma = walk->vma;
+	struct swap_info_struct *sis;
 	pte_t *ptep, pte;
 	swp_entry_t entry;
 	spinlock_t *ptl;
 	unsigned long addr;
-	u32 index;
+	unsigned long index;
+	u64 nr_pages = zram->disksize >> PAGE_SHIFT;
 
 	for (addr = start; addr < end; addr += PAGE_SIZE) {
 		ptep = pte_offset_map_lock(vma->vm_mm, pmd, addr, &ptl);
@@ -71,14 +73,26 @@ static int zram_process_walker(pmd_t *pmd, unsigned long start,
 
 		if (!is_swap_pte(pte))
 			continue;
+
 		entry = pte_to_swp_entry(pte);
-		if (unlikely(non_swap_entry(entry)))
+
+		/* prevent the swapoff race condition */
+		sis = get_swap_device(entry);
+		if (unlikely(!sis))
 			continue;
+		if (unlikely(!sis->bdev || !sis->bdev->bd_disk ||
+			     sis->bdev->bd_disk->private_data != zram))
+			goto unlock_swap_device;
 
 		index = swp_offset(entry);
+		if (unlikely(index >= nr_pages))
+			goto unlock_swap_device;
 
 		/* Use PAGE_WRITEBACK for single index */
 		scan_slots_for_writeback(zram, 0, index, index+1, pp_ctl);
+
+unlock_swap_device:
+		put_swap_device(sis);
 	}
 
 	cond_resched();
