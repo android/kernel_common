@@ -200,8 +200,10 @@
   __const_udelay
   consume_skb
   contig_page_data
+  contpte_ptep_get
   _copy_from_iter
   __copy_overflow
+  copy_page
   _copy_to_iter
   __cpu_active_mask
   cpu_all_bits
@@ -1066,6 +1068,7 @@
   get_random_u8
   get_reclaim_params
   get_sg_io_hdr
+  get_swap_device
   __get_task_comm
   get_task_cred
   get_task_mm
@@ -1626,6 +1629,7 @@
   netlink_unregister_notifier
   net_ns_type_operations
   net_ratelimit
+  next_arg
   nf_register_net_hooks
   nf_unregister_net_hooks
   nla_find
@@ -1867,6 +1871,7 @@
   phy_power_on
   phy_set_mode_ext
   phy_set_speed
+  pidfd_get_task
   pid_task
   pinconf_generic_dt_free_map
   pinconf_generic_dt_node_to_map
@@ -1980,6 +1985,7 @@
   pskb_expand_head
   __pskb_pull_tail
   ___pskb_trim
+  __pte_offset_map_lock
   push_cpu_stop
   __put_cred
   put_device
@@ -3105,6 +3111,7 @@
   wakeup_source_register
   wakeup_source_unregister
   __wake_up_sync
+  walk_page_range
   __warn_printk
   watchdog_init_timeout
   watchdog_register_device
@@ -3163,6 +3170,7 @@
   zs_free
   zs_get_total_pages
   zs_huge_class_size
+  zs_lookup_class_index
   zs_malloc
   zs_map_object
   zs_pool_stats
