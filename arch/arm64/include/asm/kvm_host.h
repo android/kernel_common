@@ -1784,6 +1784,7 @@ int kvm_iommu_map_pages(pkvm_handle_t domain_id, unsigned long iova,
 size_t kvm_iommu_unmap_pages(pkvm_handle_t domain_id, unsigned long iova,
 			     size_t pgsize, size_t pgcount);
 phys_addr_t kvm_iommu_iova_to_phys(pkvm_handle_t domain_id, unsigned long iova);
+int kvm_iommu_iotlb_sync_map(pkvm_handle_t domain_id, unsigned long iova, size_t size);
 size_t kvm_iommu_map_sg(pkvm_handle_t domain_id, struct kvm_iommu_sg *sg,
 			unsigned long iova, unsigned int nent,
 			unsigned int prot, gfp_t gfp);

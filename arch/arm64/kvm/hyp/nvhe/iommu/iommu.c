@@ -1011,3 +1011,28 @@ int kvm_iommu_id_to_token(pkvm_handle_t id, u64 *out_token)
 		return -ENODEV;
 	return kvm_iommu_ops->get_iommu_token_by_id(id, out_token);
 }
+
+int kvm_iommu_iotlb_sync_map(pkvm_handle_t domain_id,
+			     unsigned long iova, size_t size)
+{
+	struct kvm_hyp_iommu_domain *domain;
+	int ret;
+
+	if (!kvm_iommu_ops || !kvm_iommu_ops->iotlb_sync_map)
+		return -ENODEV;
+
+	if (!size || (iova + size < iova))
+		return -EINVAL;
+
+	if (domain_id == KVM_IOMMU_DOMAIN_IDMAP_ID)
+		return -EINVAL;
+
+	domain = handle_to_domain(domain_id);
+
+	if (!domain || domain_get(domain))
+		return -EINVAL;
+
+	ret = kvm_iommu_ops->iotlb_sync_map(domain, iova, size);
+	domain_put(domain);
+	return ret;
+}
