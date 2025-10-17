@@ -409,6 +409,9 @@ DECLARE_RESTRICTED_HOOK(android_rvh_set_task_comm,
 	TP_PROTO(struct task_struct *tsk, bool exec),
 	TP_ARGS(tsk, exec), 1);
 
+DECLARE_HOOK(android_vh_move_entity,
+	TP_PROTO(int *move, unsigned int flags),
+	TP_ARGS(move, flags));
 DECLARE_HOOK(android_vh_task_should_scx,
 	TP_PROTO(int *should_scx, int policy, int prio),
 	TP_ARGS(should_scx, policy, prio));
