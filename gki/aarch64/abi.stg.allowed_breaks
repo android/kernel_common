@@ -70,3 +70,7 @@ type 'struct readahead_control' changed
 type 'struct bindings::bindings_raw::readahead_control' changed
   member 'union bindings::bindings_raw::readahead_control__bindgen_ty_1 __bindgen_anon_1' was added
 
+type 'struct kvm_iommu_ops' changed
+  member 'u64 __kabi_reserved1' was removed
+  member 'union { int(* iotlb_sync_map)(struct kvm_hyp_iommu_domain*, unsigned long, size_t); struct { u64 __kabi_reserved1; }; union { }; }' was added
+
