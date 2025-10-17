@@ -1043,11 +1043,7 @@ static int comp_params_store(struct zram *zram, u32 prio, s32 level,
 	comp_params_reset(zram, prio);
 
 	if (dict_path) {
-		sz = kernel_read_file_from_path(dict_path, 0,
-						&zram->params[prio].dict,
-						INT_MAX,
-						NULL,
-						READING_POLICY);
+		sz = read_comp_algo_dictionary(&zram->params[prio].dict, dict_path);
 		if (sz < 0)
 			return -EINVAL;
 	}
