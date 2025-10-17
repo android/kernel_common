@@ -808,6 +808,44 @@ static void pkvm_vm_destroy(struct kvm *kvm)
 	vmx_vm_destroy(kvm);
 }
 
+static void pkvm_unshare_vcpu(struct kvm_vcpu *vcpu)
+{
+	struct kvm_lapic *apic = vcpu->arch.apic;
+
+	if (apic) {
+		kvm_unshare_hyp(apic->regs, apic->regs + PAGE_SIZE);
+		kvm_unshare_hyp(apic, (void *)apic + sizeof(struct kvm_lapic));
+	}
+
+	kvm_unshare_hyp(vcpu, (void *)vcpu + sizeof(struct vcpu_vmx));
+}
+
+static int pkvm_share_vcpu(struct kvm_vcpu *vcpu)
+{
+	struct kvm_lapic *apic = vcpu->arch.apic;
+	int ret;
+
+	ret = kvm_share_hyp(vcpu, (void *)vcpu + sizeof(struct vcpu_vmx));
+	if (ret || !apic)
+		return ret;
+
+	ret = kvm_share_hyp(apic, (void *)apic + sizeof(struct kvm_lapic));
+	if (ret)
+		goto unshare_vcpu;
+
+	ret = kvm_share_hyp(apic->regs, apic->regs + PAGE_SIZE);
+	if (ret)
+		goto unshare_apic;
+
+	return 0;
+
+unshare_apic:
+	kvm_unshare_hyp(apic, (void *)apic + sizeof(struct kvm_lapic));
+unshare_vcpu:
+	kvm_unshare_hyp(vcpu, (void *)vcpu + sizeof(struct vcpu_vmx));
+	return ret;
+}
+
 static int pkvm_vcpu_create(struct kvm_vcpu *vcpu)
 {
 	size_t pkvm_vcpu_sz, fpu_sz;
@@ -864,11 +902,13 @@ static int pkvm_vcpu_create(struct kvm_vcpu *vcpu)
 	if (!fpu)
 		goto free_vcpu;
 
-	/* TODO: share struct vcpu_vmx with pkvm */
+	ret = pkvm_share_vcpu(vcpu);
+	if (ret)
+		goto free_fpu;
 
 	ret = kvm_call_pkvm(vcpu_create, vcpu, __pa(pkvm_vcpu), __pa(fpu));
 	if (ret < 0)
-		goto free_fpu;
+		goto unshare;
 
 	vcpu->arch.pkvm_vcpu.handle = ret;
 
@@ -876,6 +916,8 @@ static int pkvm_vcpu_create(struct kvm_vcpu *vcpu)
 
 	return 0;
 
+unshare:
+	pkvm_unshare_vcpu(vcpu);
 free_fpu:
 	free_pages_exact(fpu, fpu_sz);
 free_vcpu:
@@ -902,7 +944,7 @@ static void pkvm_vcpu_free(struct kvm_vcpu *vcpu)
 		return;
 	}
 
-	/* TODO: unshare struct vcpu_vmx with pkvm */
+	pkvm_unshare_vcpu(vcpu);
 
 	free_pkvm_memcache(&vcpu->kvm->arch.pkvm.teardown_mc);
 
