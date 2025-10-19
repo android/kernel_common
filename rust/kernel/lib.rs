@@ -17,6 +17,7 @@
 // the unstable features in use.
 //
 // Stable since Rust 1.79.0.
+#![feature(generic_nonzero)]
 #![feature(inline_const)]
 //
 // Stable since Rust 1.81.0.
@@ -28,6 +29,7 @@
 // Stable since Rust 1.83.0.
 #![feature(const_maybe_uninit_as_mut_ptr)]
 #![feature(const_mut_refs)]
+#![feature(const_option)]
 #![feature(const_ptr_write)]
 #![feature(const_refs_to_cell)]
 //
@@ -76,6 +78,7 @@ pub mod cpu;
 pub mod cpufreq;
 pub mod cpumask;
 pub mod cred;
+pub mod debugfs;
 pub mod device;
 pub mod device_id;
 pub mod devres;
@@ -92,6 +95,7 @@ pub mod fs;
 pub mod init;
 pub mod io;
 pub mod ioctl;
+pub mod irq;
 pub mod jump_label;
 #[cfg(CONFIG_KUNIT)]
 pub mod kunit;
@@ -110,6 +114,8 @@ pub mod pid_namespace;
 pub mod platform;
 pub mod prelude;
 pub mod print;
+pub mod processor;
+pub mod ptr;
 pub mod rbtree;
 pub mod regulator;
 pub mod revocable;
@@ -206,7 +212,7 @@ impl ThisModule {
     }
 }
 
-#[cfg(not(any(testlib, test)))]
+#[cfg(not(testlib))]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo<'_>) -> ! {
     pr_emerg!("{}\n", info);
