@@ -20,6 +20,7 @@
   cancel_delayed_work
   cancel_delayed_work_sync
   cancel_work_sync
+  cc_mkdec
   cec_s_phys_addr
   cec_unregister_adapter
   __check_object_size

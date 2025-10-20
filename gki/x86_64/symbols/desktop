@@ -238,6 +238,7 @@
   cancel_work
   cancel_work_sync
   capable
+  cc_mkdec
   cdc_ncm_bind_common
   cdc_ncm_change_mtu
   cdc_ncm_fill_tx_frame
@@ -2245,6 +2246,7 @@
   phy_select_page
   phy_set_asym_pause
   phy_set_max_speed
+  physical_mask
   phy_speed_down
   phy_speed_up
   phy_start
