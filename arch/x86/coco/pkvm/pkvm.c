@@ -10,6 +10,7 @@
 #include <asm/pgtable.h>
 
 DEFINE_STATIC_KEY_FALSE(pkvm_guest_detected);
+EXPORT_SYMBOL(pkvm_guest_detected);
 
 int pkvm_set_mem_host_visibility(unsigned long addr, int numpages, bool enc)
 {
