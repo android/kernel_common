@@ -63,30 +63,20 @@ static unsigned short __swap_cgroup_id_xchg(struct swap_cgroup *map,
 unsigned short swap_cgroup_cmpxchg(swp_entry_t ent,
 					unsigned short old, unsigned short new)
 {
+	struct swap_cgroup_ctrl *ctrl;
 	struct swap_cgroup *sc;
-	struct swap_cgroup *map;
-	unsigned short retval = 0;
-	pgoff_t offset;
-	unsigned int new_ids, old_ids;
-	unsigned int shift;
-	bool ret;
+	unsigned long flags;
+	unsigned short retval;
 
-	map = swap_cgroup_ctrl[swp_type(ent)].map;
-	offset = swp_offset(ent);
-	sc = &map[offset / ID_PER_SC];
-	old_ids = atomic_read(&sc->ids);
-	shift = (offset % ID_PER_SC) * ID_SHIFT;
+	sc = lookup_swap_cgroup(ent, &ctrl);
 
-	while (((old_ids >> shift) & ID_MASK) == old) {
-		new_ids = (old_ids & ~(ID_MASK << shift));
-		new_ids |= ((unsigned int)new) << shift;
-		ret = atomic_try_cmpxchg(&sc->ids, &old_ids, new_ids);
-		if (ret) {
-			retval = old;
-			break;
-		}
-	}
-
+	spin_lock_irqsave(&ctrl->lock, flags);
+	retval = sc->id;
+	if (retval == old)
+		sc->id = new;
+	else
+		retval = 0;
+	spin_unlock_irqrestore(&ctrl->lock, flags);
 	return retval;
 }
 
