@@ -7466,6 +7466,36 @@ static int binder_loaded;
 
 static DEFINE_MUTEX(binder_use_rust_lock);
 
+// Declared in kernel/trace/trace.h, so can't be included from here.
+extern struct list_head ftrace_events;
+extern struct rw_semaphore trace_event_sem;
+extern struct mutex event_mutex;
+extern struct mutex trace_types_lock;
+void remove_event_from_tracers(struct trace_event_call *call);
+
+void binder_remove_trace_events(struct module *module)
+{
+	struct trace_event_call *call, *tmp;
+	const char *name;
+
+	mutex_lock(&event_mutex);
+	mutex_lock(&trace_types_lock);
+	down_write(&trace_event_sem);
+	list_for_each_entry_safe(call, tmp, &ftrace_events, list) {
+		name = trace_event_name(call);
+		if (!name || strncmp(name, "binder_", 7))
+			continue;
+		if (call->module != module)
+			continue;
+		remove_event_from_tracers(call);
+		list_del_init(&call->list);
+	}
+	up_write(&trace_event_sem);
+	mutex_unlock(&trace_types_lock);
+	mutex_unlock(&event_mutex);
+}
+EXPORT_SYMBOL_GPL(binder_remove_trace_events);
+
 /*
  * Called by Rust Binder to unload the C Binder driver.
  */
@@ -7488,6 +7518,7 @@ int unload_binder(void)
 		unload_binderfs();
 		debugfs_remove_recursive(binder_debugfs_dir_entry_root);
 		binder_alloc_shrinker_exit();
+		binder_remove_trace_events(THIS_MODULE);
 	}
 
 	return ret;

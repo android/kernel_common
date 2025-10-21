@@ -2804,7 +2804,7 @@ event_create_dir(struct eventfs_inode *parent, struct trace_event_file *file)
 	return 0;
 }
 
-static void remove_event_from_tracers(struct trace_event_call *call)
+void remove_event_from_tracers(struct trace_event_call *call)
 {
 	struct trace_event_file *file;
 	struct trace_array *tr;
