@@ -6,7 +6,7 @@
 #undef TRACE_SYSTEM
 #undef TRACE_INCLUDE_FILE
 #undef TRACE_INCLUDE_PATH
-#define TRACE_SYSTEM rust_binder
+#define TRACE_SYSTEM binder
 #define TRACE_INCLUDE_FILE rust_binder_events
 #define TRACE_INCLUDE_PATH ../drivers/android/binder
 
@@ -15,7 +15,7 @@
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(rust_binder_ioctl,
+TRACE_EVENT(binder_ioctl,
 	TP_PROTO(unsigned int cmd, unsigned long arg),
 	TP_ARGS(cmd, arg),
 
@@ -30,7 +30,7 @@ TRACE_EVENT(rust_binder_ioctl,
 	TP_printk("cmd=0x%x arg=0x%lx", __entry->cmd, __entry->arg)
 );
 
-DECLARE_EVENT_CLASS(rust_binder_function_return_class,
+DECLARE_EVENT_CLASS(binder_function_return_class,
 	TP_PROTO(int ret),
 	TP_ARGS(ret),
 	TP_STRUCT__entry(
@@ -43,15 +43,15 @@ DECLARE_EVENT_CLASS(rust_binder_function_return_class,
 );
 
 #define DEFINE_RBINDER_FUNCTION_RETURN_EVENT(name)	\
-DEFINE_EVENT(rust_binder_function_return_class, name,	\
+DEFINE_EVENT(binder_function_return_class, name,	\
 	TP_PROTO(int ret), \
 	TP_ARGS(ret))
 
-DEFINE_RBINDER_FUNCTION_RETURN_EVENT(rust_binder_ioctl_done);
-DEFINE_RBINDER_FUNCTION_RETURN_EVENT(rust_binder_read_done);
-DEFINE_RBINDER_FUNCTION_RETURN_EVENT(rust_binder_write_done);
+DEFINE_RBINDER_FUNCTION_RETURN_EVENT(binder_ioctl_done);
+DEFINE_RBINDER_FUNCTION_RETURN_EVENT(binder_read_done);
+DEFINE_RBINDER_FUNCTION_RETURN_EVENT(binder_write_done);
 
-TRACE_EVENT(rust_binder_set_priority,
+TRACE_EVENT(binder_set_priority,
 	TP_PROTO(struct task_struct *thread, int desired_prio, int new_prio),
 	TP_ARGS(thread, desired_prio, new_prio),
 
@@ -74,7 +74,7 @@ TRACE_EVENT(rust_binder_set_priority,
 		  __entry->new_prio, __entry->desired_prio)
 );
 
-TRACE_EVENT(rust_binder_wait_for_work,
+TRACE_EVENT(binder_wait_for_work,
 	TP_PROTO(bool proc_work, bool transaction_stack, bool thread_todo),
 	TP_ARGS(proc_work, transaction_stack, thread_todo),
 
@@ -93,39 +93,37 @@ TRACE_EVENT(rust_binder_wait_for_work,
 		  __entry->thread_todo)
 );
 
-TRACE_EVENT(rust_binder_transaction,
-	TP_PROTO(bool reply, rust_binder_transaction t),
-	TP_ARGS(reply, t),
+TRACE_EVENT(binder_transaction,
+	TP_PROTO(bool reply, rust_binder_transaction t, struct task_struct *thread),
+	TP_ARGS(reply, t, thread),
 	TP_STRUCT__entry(
 		__field(int, debug_id)
 		__field(int, target_node)
-		__field(int, from_proc)
 		__field(int, to_proc)
+		__field(int, to_thread)
 		__field(int, reply)
 		__field(unsigned int, code)
 		__field(unsigned int, flags)
 	),
 	TP_fast_assign(
-		rust_binder_thread from_thread = rust_binder_transaction_from_thread(t);
-		rust_binder_process from = rust_binder_thread_proc(from_thread);
 		rust_binder_process to = rust_binder_transaction_to_proc(t);
 		rust_binder_node target_node = rust_binder_transaction_target_node(t);
 
 		__entry->debug_id = rust_binder_transaction_debug_id(t);
 		__entry->target_node = target_node ? rust_binder_node_debug_id(target_node) : 0;
-		__entry->from_proc = rust_binder_process_task(from)->pid;
 		__entry->to_proc = rust_binder_process_task(to)->pid;
+		__entry->to_thread = thread ? thread->pid : 0;
 		__entry->reply = reply;
 		__entry->code = rust_binder_transaction_code(t);
 		__entry->flags = rust_binder_transaction_flags(t);
 	),
-	TP_printk("transaction=%d target_node=%d dest_proc=%d from_proc=%d reply=%d flags=0x%x code=0x%x",
-		__entry->debug_id, __entry->target_node, __entry->to_proc,
-		__entry->from_proc, __entry->reply, __entry->flags,
-		__entry->code)
+	TP_printk("transaction=%d dest_node=%d dest_proc=%d dest_thread=%d reply=%d flags=0x%x code=0x%x",
+		  __entry->debug_id, __entry->target_node,
+		  __entry->to_proc, __entry->to_thread,
+		  __entry->reply, __entry->flags, __entry->code)
 );
 
-TRACE_EVENT(rust_binder_transaction_thread_selected,
+TRACE_EVENT(binder_transaction_thread_selected,
 	TP_PROTO(rust_binder_transaction t, rust_binder_thread thread),
 	TP_ARGS(t, thread),
 	TP_STRUCT__entry(
@@ -139,7 +137,7 @@ TRACE_EVENT(rust_binder_transaction_thread_selected,
 	TP_printk("transaction=%d thread=%d", __entry->debug_id, __entry->to_thread)
 );
 
-TRACE_EVENT(rust_binder_transaction_received,
+TRACE_EVENT(binder_transaction_received,
 	TP_PROTO(rust_binder_transaction t),
 	TP_ARGS(t),
 	TP_STRUCT__entry(
@@ -151,7 +149,7 @@ TRACE_EVENT(rust_binder_transaction_received,
 	TP_printk("transaction=%d", __entry->debug_id)
 );
 
-TRACE_EVENT(rust_binder_transaction_node_send,
+TRACE_EVENT(binder_transaction_node_send,
 	TP_PROTO(int t_debug_id, rust_binder_node node,
 		const struct flat_binder_object *original,
 		const struct flat_binder_object *translated),
@@ -193,7 +191,7 @@ TRACE_EVENT(rust_binder_transaction_node_send,
 		  __entry->translated_handle)
 );
 
-TRACE_EVENT(rust_binder_transaction_fd_send,
+TRACE_EVENT(binder_transaction_fd_send,
 	TP_PROTO(int t_debug_id, int fd, size_t offset),
 	TP_ARGS(t_debug_id, fd, offset),
 
@@ -211,7 +209,7 @@ TRACE_EVENT(rust_binder_transaction_fd_send,
 		  __entry->debug_id, __entry->fd, __entry->offset)
 );
 
-TRACE_EVENT(rust_binder_transaction_fd_recv,
+TRACE_EVENT(binder_transaction_fd_recv,
 	TP_PROTO(int t_debug_id, int fd, size_t offset),
 	TP_ARGS(t_debug_id, fd, offset),
 
@@ -229,7 +227,7 @@ TRACE_EVENT(rust_binder_transaction_fd_recv,
 		  __entry->debug_id, __entry->fd, __entry->offset)
 );
 
-TRACE_EVENT(rust_binder_transaction_alloc_buf,
+TRACE_EVENT(binder_transaction_alloc_buf,
 	TP_PROTO(int debug_id, const struct binder_transaction_data_sg *data),
 	TP_ARGS(debug_id, data),
 
@@ -250,7 +248,7 @@ TRACE_EVENT(rust_binder_transaction_alloc_buf,
 		  __entry->extra_buffers_size)
 );
 
-DECLARE_EVENT_CLASS(rust_binder_buffer_release_class,
+DECLARE_EVENT_CLASS(binder_buffer_release_class,
 	TP_PROTO(int debug_id),
 	TP_ARGS(debug_id),
 	TP_STRUCT__entry(
@@ -262,19 +260,19 @@ DECLARE_EVENT_CLASS(rust_binder_buffer_release_class,
 	TP_printk("transaction=%d", __entry->debug_id)
 );
 
-DEFINE_EVENT(rust_binder_buffer_release_class, rust_binder_transaction_buffer_release,
+DEFINE_EVENT(binder_buffer_release_class, binder_transaction_buffer_release,
 	TP_PROTO(int debug_id),
 	TP_ARGS(debug_id));
 
-DEFINE_EVENT(rust_binder_buffer_release_class, rust_binder_transaction_failed_buffer_release,
+DEFINE_EVENT(binder_buffer_release_class, binder_transaction_failed_buffer_release,
 	TP_PROTO(int debug_id),
 	TP_ARGS(debug_id));
 
-DEFINE_EVENT(rust_binder_buffer_release_class, rust_binder_transaction_update_buffer_release,
+DEFINE_EVENT(binder_buffer_release_class, binder_transaction_update_buffer_release,
 	TP_PROTO(int debug_id),
 	TP_ARGS(debug_id));
 
-TRACE_EVENT(rust_binder_update_page_range,
+TRACE_EVENT(binder_update_page_range,
 	TP_PROTO(int pid, bool allocate, size_t start, size_t end),
 	TP_ARGS(pid, allocate, start, end),
 	TP_STRUCT__entry(
@@ -294,7 +292,7 @@ TRACE_EVENT(rust_binder_update_page_range,
 		  __entry->offset, __entry->size)
 );
 
-DECLARE_EVENT_CLASS(rust_binder_lru_page_class,
+DECLARE_EVENT_CLASS(binder_lru_page_class,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index),
 	TP_STRUCT__entry(
@@ -309,47 +307,47 @@ DECLARE_EVENT_CLASS(rust_binder_lru_page_class,
 		  __entry->proc, __entry->page_index)
 );
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_alloc_lru_start,
+DEFINE_EVENT(binder_lru_page_class, binder_alloc_lru_start,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_alloc_lru_end,
+DEFINE_EVENT(binder_lru_page_class, binder_alloc_lru_end,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_free_lru_start,
+DEFINE_EVENT(binder_lru_page_class, binder_free_lru_start,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_free_lru_end,
+DEFINE_EVENT(binder_lru_page_class, binder_free_lru_end,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_alloc_page_start,
+DEFINE_EVENT(binder_lru_page_class, binder_alloc_page_start,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_alloc_page_end,
+DEFINE_EVENT(binder_lru_page_class, binder_alloc_page_end,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_unmap_user_start,
+DEFINE_EVENT(binder_lru_page_class, binder_unmap_user_start,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_unmap_user_end,
+DEFINE_EVENT(binder_lru_page_class, binder_unmap_user_end,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_unmap_kernel_start,
+DEFINE_EVENT(binder_lru_page_class, binder_unmap_kernel_start,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-DEFINE_EVENT(rust_binder_lru_page_class, rust_binder_unmap_kernel_end,
+DEFINE_EVENT(binder_lru_page_class, binder_unmap_kernel_end,
 	TP_PROTO(int pid, size_t page_index),
 	TP_ARGS(pid, page_index));
 
-TRACE_EVENT(rust_binder_command,
+TRACE_EVENT(binder_command,
 	TP_PROTO(uint32_t cmd),
 	TP_ARGS(cmd),
 	TP_STRUCT__entry(
@@ -365,20 +363,20 @@ TRACE_EVENT(rust_binder_command,
 			  "unknown")
 );
 
-TRACE_EVENT(rust_binder_return,
-    TP_PROTO(uint32_t ret),
-    TP_ARGS(ret),
-    TP_STRUCT__entry(
-        __field(uint32_t, ret)
-    ),
-    TP_fast_assign(
-        __entry->ret = ret;
-    ),
-    TP_printk("ret=0x%x %s",
-          __entry->ret,
-          _IOC_NR(__entry->ret) < ARRAY_SIZE(binder_return_strings) ?
-              binder_return_strings[_IOC_NR(__entry->ret)] :
-              "unknown")
+TRACE_EVENT(binder_return,
+	TP_PROTO(uint32_t cmd),
+	TP_ARGS(cmd),
+	TP_STRUCT__entry(
+		__field(uint32_t, cmd)
+	),
+	TP_fast_assign(
+		__entry->cmd = cmd;
+	),
+	TP_printk("cmd=0x%x %s",
+		  __entry->cmd,
+		  _IOC_NR(__entry->cmd) < ARRAY_SIZE(binder_return_strings) ?
+			  binder_return_strings[_IOC_NR(__entry->cmd)] :
+			  "unknown")
 );
 
 #endif /* _RUST_BINDER_TRACE_H */

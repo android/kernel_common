@@ -276,8 +276,6 @@ impl Transaction {
     ///
     /// Not used for replies.
     pub(crate) fn submit(self: DLArc<Self>) -> BinderResult {
-        crate::trace::trace_transaction(false, &self);
-
         // Defined before `process_inner` so that the destructor runs after releasing the lock.
         let mut _t_outdated;
 
@@ -289,6 +287,7 @@ impl Transaction {
 
         if oneway {
             if let Some(target_node) = self.target_node.clone() {
+                crate::trace::trace_transaction(false, &self, None);
                 if process_inner.is_frozen.is_frozen() {
                     process_inner.async_recv = true;
                     if self.flags & TF_UPDATE_TXN != 0 {
@@ -329,11 +328,13 @@ impl Transaction {
         }
 
         let res = if let Some(thread) = self.find_target_thread() {
+            crate::trace::trace_transaction(false, &self, Some(&thread.task));
             match thread.push_work(self) {
                 PushWorkRes::Ok => Ok(()),
                 PushWorkRes::FailedDead(me) => Err((BinderError::new_dead(), me)),
             }
         } else {
+            crate::trace::trace_transaction(false, &self, None);
             process_inner.push_work(self)
         };
         drop(process_inner);
