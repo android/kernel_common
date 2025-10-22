@@ -51,6 +51,7 @@
   __traceiter_android_rvh_process_madvise_bypass
   __traceiter_android_rvh_report_bug
   __traceiter_android_rvh_try_alloc_pages_gfp
+  __traceiter_android_vh_adjust_nr_reclaimed
   __traceiter_android_vh_alloc_contig_range_not_isolated
   __traceiter_android_vh_alloc_pages_slowpath_start
   __traceiter_android_vh_alloc_pages_slowpath_end
@@ -133,6 +134,7 @@
   __tracepoint_android_rvh_process_madvise_bypass
   __tracepoint_android_rvh_report_bug
   __tracepoint_android_rvh_try_alloc_pages_gfp
+  __tracepoint_android_vh_adjust_nr_reclaimed
   __tracepoint_android_vh_alloc_contig_range_not_isolated
   __tracepoint_android_vh_alloc_pages_slowpath_start
   __tracepoint_android_vh_alloc_pages_slowpath_end
