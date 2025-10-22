@@ -578,6 +578,9 @@ DECLARE_HOOK(android_vh_gcma_cc_allow_nonworkingset,
 DECLARE_HOOK(android_vh_gcma_cc_store_page_bypass,
 	TP_PROTO(bool *bypass),
 	TP_ARGS(bypass));
+DECLARE_HOOK(android_vh_adjust_nr_reclaimed,
+	TP_PROTO(struct folio *folio, unsigned int *nr_reclaimed),
+	TP_ARGS(folio, nr_reclaimed));
 DECLARE_HOOK(android_vh_swap_bio_charge,
 	TP_PROTO(struct bio *bio),
 	TP_ARGS(bio));
