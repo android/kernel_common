@@ -729,9 +729,6 @@ static bool pkvm_has_emulated_msr(struct kvm *kvm, u32 index)
 	case MSR_KVM_POLL_CONTROL:
 	case MSR_IA32_TSC_ADJUST:
 	case MSR_IA32_TSC:
-	case MSR_MTRRcap:
-	case MTRRphysBase_MSR(0) ... MSR_MTRRfix4K_F8000:
-	case MSR_MTRRdefType:
 	case MSR_IA32_APICBASE:
 	case APIC_BASE_MSR ... APIC_BASE_MSR + 0xff:
 	case MSR_IA32_TSC_DEADLINE:

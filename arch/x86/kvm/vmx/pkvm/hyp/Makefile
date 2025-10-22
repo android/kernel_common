@@ -23,7 +23,7 @@ pkvm-hyp-y	+= $(pkvm)/cpu.o $(pkvm)/pkvm.o $(pkvm)/x86.o $(pkvm)/vmx/vmx.o $(pkv
 		   $(pkvm)/fpu/xstate.o $(pkvm)/fpu/fpu.o
 
 pkvm-kvm	:= ../../..
-pkvm-hyp-y	+= $(pkvm-kvm)/vmx/vmenter.o
+pkvm-hyp-y	+= $(pkvm-kvm)/vmx/vmenter.o $(pkvm-kvm)/mtrr.o
 
 lib-dir		:= lib
 lib2-dir	:= ../../../../../../lib

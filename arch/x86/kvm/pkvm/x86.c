@@ -1525,16 +1525,6 @@ static bool pkvm_host_can_emulate_msr(struct kvm_vcpu *vcpu, struct msr_data *ms
 		 * and __pkvm__write_tsc_multiplier.
 		 */
 		return true;
-	case MSR_MTRRcap:
-		/* MTRRcap MSR is read-only */
-		if (set)
-			break;
-		fallthrough;
-	case MTRRphysBase_MSR(0) ... MSR_MTRRfix4K_F8000:
-	case MSR_MTRRdefType:
-		if (guest_cpuid_has(vcpu, X86_FEATURE_MTRR))
-			return true;
-		break;
 	case MSR_IA32_APICBASE:
 	case APIC_BASE_MSR ... APIC_BASE_MSR + 0xff:
 	case MSR_IA32_TSC_DEADLINE:
@@ -1688,10 +1678,10 @@ int kvm_set_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 
 		vcpu->arch.pat = data;
 		break;
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MTRRphysBase_MSR(0) ... MSR_MTRRfix4K_F8000:
 	case MSR_MTRRdefType:
 		return kvm_mtrr_set_msr(vcpu, msr, data);
+#ifndef __PKVM_HYP__
 	case MSR_IA32_APICBASE:
 		return kvm_set_apic_base(vcpu, msr_info);
 	case APIC_BASE_MSR ... APIC_BASE_MSR + 0xff:
@@ -2058,12 +2048,10 @@ int kvm_get_msr_common(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 	case MSR_IA32_CR_PAT:
 		msr_info->data = vcpu->arch.pat;
 		break;
-#ifndef __PKVM_HYP__ /* FIXME: Leave to the host to emulate */
 	case MSR_MTRRcap:
 	case MTRRphysBase_MSR(0) ... MSR_MTRRfix4K_F8000:
 	case MSR_MTRRdefType:
 		return kvm_mtrr_get_msr(vcpu, msr_info->index, &msr_info->data);
-#endif
 	case 0xcd: /* fsb frequency */
 		msr_info->data = 3;
 		break;
