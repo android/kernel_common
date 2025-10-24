@@ -2,7 +2,7 @@
 
 #include <linux/bug.h>
 
-__noreturn void rust_helper_BUG(void)
+__rust_helper __noreturn void rust_helper_BUG(void)
 {
 	BUG();
 }

@@ -2,6 +2,7 @@
 
 #include <linux/mman.h>
 
+__rust_helper
 void rust_helper_lockdep_set_class_rwsem(struct rw_semaphore *lock, struct lock_class_key *key,
 					 const char *name)
 {

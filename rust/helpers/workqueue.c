@@ -3,9 +3,11 @@
 #include <linux/export.h>
 #include <linux/workqueue.h>
 
-void rust_helper_init_work_with_key(struct work_struct *work, work_func_t func,
-				    bool onstack, const char *name,
-				    struct lock_class_key *key)
+__rust_helper void rust_helper_init_work_with_key(struct work_struct *work,
+						  work_func_t func,
+						  bool onstack,
+						  const char *name,
+						  struct lock_class_key *key)
 {
 	__init_work(work, onstack);
 	work->data = (atomic_long_t)WORK_DATA_INIT();
