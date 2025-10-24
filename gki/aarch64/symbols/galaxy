@@ -35,6 +35,7 @@
   register_gcma_area
   scsi_device_quiesce
   scsi_device_resume
+  snd_ctl_remove_id
   stack_trace_save_regs
   stack_trace_save_tsk
   blk_queue_rq_timeout
