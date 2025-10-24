@@ -347,16 +347,9 @@ $(obj)/bindings/bindings_helpers_generated.rs: private bindgen_target_extra = ; 
 $(obj)/bindings/bindings_helpers_generated.rs: $(src)/helpers/helpers.c FORCE
 	$(call if_changed_dep,bindgen)
 
-# Add `linkonce_odr` to make functions inlineable and allow LLVM to omit
-# unreferenced functions.
-#
-# We also patch dwarf language tag to tell pahole that this should be treated
-# similar to Rust code.
 quiet_cmd_rust_helper = HELPER  $@
       cmd_rust_helper = \
-	$(CC) $(filter-out $(CFLAGS_REMOVE_helpers/helpers.o), $(c_flags)) -S $< -emit-llvm -o $(patsubst %.bc,%.ll,$@); \
-	sed -i -e 's/^define dso_local/define linkonce_odr dso_local/g' -e 's/DW_LANG_C[0-9]*/DW_LANG_Rust/g' $(patsubst %.bc,%.ll,$@); \
-	$(LLVM_AS) $(patsubst %.bc,%.ll,$@) -o $@
+	$(CC) $(filter-out $(CFLAGS_REMOVE_helpers/helpers.o), $(c_flags)) -c -g0 $< -emit-llvm -o $@
 
 $(obj)/helpers/helpers.bc: $(obj)/helpers/helpers.c FORCE
 	+$(call if_changed_dep,rust_helper)
@@ -411,7 +404,7 @@ quiet_cmd_rustc_library = $(if $(skip_clippy),RUSTC,$(RUSTC_OR_CLIPPY_QUIET)) L 
 		--crate-type rlib -L$(objtree)/$(obj) \
 		--crate-name $(patsubst %.o,%,$(notdir $@)) $< \
 		--sysroot=/dev/null \
-	$(if $(link_helper),;$(LLVM_LINK) $(patsubst %.o,%.bc,$@) $(obj)/helpers/helpers.bc -o $(patsubst %.o,%.m.bc,$@); \
+	$(if $(link_helper),;$(LLVM_LINK) --internalize --suppress-warnings $(patsubst %.o,%.bc,$@) $(obj)/helpers/helpers.bc -o $(patsubst %.o,%.m.bc,$@); \
 		$(CC) $(CLANG_FLAGS) $(KBUILD_CFLAGS) -c $(patsubst %.o,%.m.bc,$@) -o $@) \
 	$(if $(rustc_objcopy),;$(OBJCOPY) $(rustc_objcopy) $@) \
 	$(cmd_objtool)
