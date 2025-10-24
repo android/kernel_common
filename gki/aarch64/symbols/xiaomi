@@ -531,3 +531,7 @@ __traceiter_android_rvh_update_cpus_allowed
 
 # required by mi cap manager
 task_work_add
+
+# required by xr-qi.ko
+__tracepoint_android_vh_futex_wait_queue_start
+__traceiter_android_vh_futex_wait_queue_start
