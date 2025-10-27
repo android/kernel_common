@@ -823,8 +823,10 @@ static int cs35l56_perform_calibration(struct cs35l56_base *cs35l56_base)
 		return ret;
 
 	ret = cs35l56_wait_for_ps3(cs35l56_base);
-	if (ret)
+	if (ret) {
+		ret = -EBUSY;
 		goto err_pm_put;
+	}
 
 	regmap_update_bits_check(cs35l56_base->regmap, CS35L56_MIXER_NGATE_CH1_CFG,
 				 CS35L56_AUX_NGATE_CHn_EN, 0, &ngate_ch1_was_enabled);
@@ -839,7 +841,7 @@ static int cs35l56_perform_calibration(struct cs35l56_base *cs35l56_base)
 		if (!ctl) {
 			dev_err(cs35l56_base->dev, "Could not get %s control\n",
 				calibration_controls->status);
-			ret = -ENXIO;
+			ret = -EIO;
 			goto err;
 		}
 
@@ -851,12 +853,15 @@ static int cs35l56_perform_calibration(struct cs35l56_base *cs35l56_base)
 					      0, &val, sizeof(val));
 		if (ret < 0) {
 			dev_err(cs35l56_base->dev, "Could not write %s: %d\n", "CALI_NORM_EN", ret);
+			ret = -EIO;
 			goto err;
 		}
 
 		ret = cs35l56_mbox_send(cs35l56_base, CS35L56_MBOX_CMD_AUDIO_CALIBRATION);
-		if (ret)
+		if (ret) {
+			ret = -EIO;
 			goto err;
+		}
 
 		if (read_poll_timeout(cs_dsp_coeff_read_ctrl, ret,
 				      (val == cpu_to_be32(1)),
@@ -866,16 +871,24 @@ static int cs35l56_perform_calibration(struct cs35l56_base *cs35l56_base)
 				      ctl, 0, &val, sizeof(val))) {
 			dev_err(cs35l56_base->dev, "Calibration timed out (CAL_STATUS: %u)\n",
 				be32_to_cpu(val));
-			ret = -ETIMEDOUT;
-			goto err;
+			switch (be32_to_cpu(val)) {
+			case CS35L56_CAL_STATUS_OUT_OF_RANGE:
+				ret = -ERANGE;
+				goto err;
+			default:
+				ret = -ETIMEDOUT;
+				goto err;
+			}
 		}
 	}
 
 	cs35l56_base->cal_data_valid = false;
 	memset(&cal_data, 0, sizeof(cal_data));
 	ret = cs_amp_read_cal_coeffs(dsp, calibration_controls, &cal_data);
-	if (ret)
+	if (ret) {
+		ret = -EIO;
 		goto err;
+	}
 
 	dev_info(cs35l56_base->dev, "Cal status:%d calR:%d ambient:%d\n",
 		 cal_data.calStatus, cal_data.calR, cal_data.calAmbient);
@@ -927,7 +940,7 @@ ssize_t cs35l56_calibrate_debugfs_write(struct cs35l56_base *cs35l56_base,
 			return ret;
 		break;
 	default:
-		return -ENXIO;
+		return -EOPNOTSUPP;
 	}
 
 	return count;
@@ -956,6 +969,8 @@ ssize_t cs35l56_cal_ambient_debugfs_write(struct cs35l56_base *cs35l56_base,
 		goto out;
 
 	ret = cs_amp_write_ambient_temp(cs35l56_base->dsp, &cs35l56_calibration_controls, val);
+	if (ret)
+		ret = -EIO;
 out:
 	pm_runtime_put(cs35l56_base->dev);
 
