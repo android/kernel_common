@@ -2048,7 +2048,8 @@ static void arm_smmu_tlb_inv_page_nosync(struct iommu_iotlb_gather *gather,
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct iommu_domain *domain = &smmu_domain->domain;
 
-	iommu_iotlb_gather_add_page(domain, gather, iova, granule);
+	if (gather)
+		iommu_iotlb_gather_add_page(domain, gather, iova, granule);
 }
 
 static void arm_smmu_tlb_inv_walk(unsigned long iova, size_t size,
