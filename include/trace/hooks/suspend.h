@@ -9,10 +9,6 @@
 
 #include <trace/hooks/vendor_hooks.h>
 
-DECLARE_HOOK(android_vh_resume_begin,
-	TP_PROTO(void *unused),
-	TP_ARGS(unused));
-
 DECLARE_HOOK(android_vh_resume_end,
 	TP_PROTO(void *unused),
 	TP_ARGS(unused));

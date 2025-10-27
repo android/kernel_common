@@ -634,7 +634,8 @@ static gfp_t kmalloc_gfp_adjust(gfp_t flags, size_t size)
 		flags &= ~__GFP_NOFAIL;
 	}
 
-	trace_android_vh_adjust_kvmalloc_flags(get_order(size), &flags);
+	if (size > 0)
+		trace_android_vh_adjust_kvmalloc_flags(get_order(size), &flags);
 
 	return flags;
 }

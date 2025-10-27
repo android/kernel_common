@@ -200,8 +200,10 @@
   __const_udelay
   consume_skb
   contig_page_data
+  contpte_ptep_get
   _copy_from_iter
   __copy_overflow
+  copy_page
   _copy_to_iter
   __cpu_active_mask
   cpu_all_bits
@@ -1066,6 +1068,7 @@
   get_random_u8
   get_reclaim_params
   get_sg_io_hdr
+  get_swap_device
   __get_task_comm
   get_task_cred
   get_task_mm
@@ -1626,6 +1629,7 @@
   netlink_unregister_notifier
   net_ns_type_operations
   net_ratelimit
+  next_arg
   nf_register_net_hooks
   nf_unregister_net_hooks
   nla_find
@@ -1867,6 +1871,7 @@
   phy_power_on
   phy_set_mode_ext
   phy_set_speed
+  pidfd_get_task
   pid_task
   pinconf_generic_dt_free_map
   pinconf_generic_dt_node_to_map
@@ -1980,6 +1985,7 @@
   pskb_expand_head
   __pskb_pull_tail
   ___pskb_trim
+  __pte_offset_map_lock
   push_cpu_stop
   __put_cred
   put_device
@@ -2535,6 +2541,7 @@
   tcpm_pd_receive
   tcpm_pd_transmit_complete
   tcpm_port_clean
+  tcpm_port_error_recovery
   tcpm_port_is_toggling
   tcpm_register_port
   tcpm_sink_frs
@@ -2630,6 +2637,7 @@
   __traceiter_android_rvh_vmscan_kswapd_done
   __traceiter_android_rvh_vmscan_kswapd_wake
   __traceiter_android_trigger_vendor_lmk_kill
+  __traceiter_android_vh_adjust_kvmalloc_flags
   __traceiter_android_vh_arch_set_freq_scale
   __traceiter_android_vh_binder_proc_transaction_finish
   __traceiter_android_vh_binder_restore_priority
@@ -2646,10 +2654,15 @@
   __traceiter_android_vh_filemap_get_folio
   __traceiter_android_vh_free_one_page_flag_check
   __traceiter_android_vh_free_pages_prepare_init
+  __traceiter_android_vh_ep_create_wakeup_source
   __traceiter_android_vh_ipi_stop
   __traceiter_android_vh_mm_compaction_begin
   __traceiter_android_vh_mm_compaction_end
   __traceiter_android_vh_mm_kcompactd_cpu_online
+  __traceiter_android_vh_platform_pci_choose_state
+  __traceiter_android_vh_platform_pci_get_power_state
+  __traceiter_android_vh_platform_pci_power_manageable
+  __traceiter_android_vh_platform_pci_set_power_state
   __traceiter_android_vh_post_alloc_hook
   __traceiter_android_vh_prio_inheritance
   __traceiter_android_vh_prio_restore
@@ -2661,6 +2674,7 @@
   __traceiter_android_vh_swap_writepage
   __traceiter_android_vh_sysrq_crash
   __traceiter_android_vh_tune_swappiness
+  __traceiter_android_vh_timerfd_create
   __traceiter_android_vh_uclamp_validate
   __traceiter_android_vh_ufs_check_int_errors
   __traceiter_android_vh_ufs_compl_command
@@ -2758,6 +2772,7 @@
   __tracepoint_android_rvh_vmscan_kswapd_done
   __tracepoint_android_rvh_vmscan_kswapd_wake
   __tracepoint_android_trigger_vendor_lmk_kill
+  __tracepoint_android_vh_adjust_kvmalloc_flags
   __tracepoint_android_vh_arch_set_freq_scale
   __tracepoint_android_vh_binder_proc_transaction_finish
   __tracepoint_android_vh_binder_restore_priority
@@ -2774,10 +2789,15 @@
   __tracepoint_android_vh_filemap_get_folio
   __tracepoint_android_vh_free_one_page_flag_check
   __tracepoint_android_vh_free_pages_prepare_init
+  __tracepoint_android_vh_ep_create_wakeup_source
   __tracepoint_android_vh_ipi_stop
   __tracepoint_android_vh_mm_compaction_begin
   __tracepoint_android_vh_mm_compaction_end
   __tracepoint_android_vh_mm_kcompactd_cpu_online
+  __tracepoint_android_vh_platform_pci_choose_state
+  __tracepoint_android_vh_platform_pci_get_power_state
+  __tracepoint_android_vh_platform_pci_power_manageable
+  __tracepoint_android_vh_platform_pci_set_power_state
   __tracepoint_android_vh_post_alloc_hook
   __tracepoint_android_vh_prio_inheritance
   __tracepoint_android_vh_prio_restore
@@ -2789,6 +2809,7 @@
   __tracepoint_android_vh_swap_writepage
   __tracepoint_android_vh_sysrq_crash
   __tracepoint_android_vh_tune_swappiness
+  __tracepoint_android_vh_timerfd_create
   __tracepoint_android_vh_uclamp_validate
   __tracepoint_android_vh_ufs_check_int_errors
   __tracepoint_android_vh_ufs_compl_command
@@ -3099,6 +3120,7 @@
   wakeup_source_register
   wakeup_source_unregister
   __wake_up_sync
+  walk_page_range
   __warn_printk
   watchdog_init_timeout
   watchdog_register_device
@@ -3157,6 +3179,7 @@
   zs_free
   zs_get_total_pages
   zs_huge_class_size
+  zs_lookup_class_index
   zs_malloc
   zs_map_object
   zs_pool_stats

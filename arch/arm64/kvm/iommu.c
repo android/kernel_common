@@ -420,6 +420,12 @@ phys_addr_t kvm_iommu_iova_to_phys(pkvm_handle_t domain_id, unsigned long iova)
 }
 EXPORT_SYMBOL(kvm_iommu_iova_to_phys);
 
+int kvm_iommu_iotlb_sync_map(pkvm_handle_t domain_id, unsigned long iova, size_t size)
+{
+	return kvm_call_hyp_nvhe(__pkvm_host_iommu_iotlb_sync_map, domain_id, iova, size);
+}
+EXPORT_SYMBOL(kvm_iommu_iotlb_sync_map);
+
 size_t kvm_iommu_map_sg(pkvm_handle_t domain_id, struct kvm_iommu_sg *sg,
 			unsigned long iova, unsigned int nent,
 			unsigned int prot, gfp_t gfp)

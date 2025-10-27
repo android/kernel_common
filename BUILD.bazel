@@ -321,7 +321,9 @@ common_kernel(
     kmi_symbol_list_strict_mode = False,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
-    module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
+    module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64") + [
+        "fs/xfs/xfs.ko",
+    ],
     pre_defconfig_fragments = ["arch/arm64/configs/tv_gki.fragment"],
     protected_module_names_list = ":gki_aarch64_protected_module_names",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],

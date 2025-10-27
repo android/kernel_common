@@ -45,6 +45,7 @@
 #include <linux/debugfs.h>
 #include <trace/events/kmem.h>
 #include <trace/hooks/mm.h>
+#include <trace/hooks/fault.h>
 
 #include "internal.h"
 
@@ -512,9 +513,11 @@ __no_kmsan_checks
 static inline void *get_freepointer_safe(struct kmem_cache *s, void *object)
 {
 	unsigned long freepointer_addr;
+	bool use_nofault = false;
 	freeptr_t p;
 
-	if (!debug_pagealloc_enabled_static())
+	trace_android_vh_kernel_nofault(&use_nofault);
+	if (!debug_pagealloc_enabled_static() && !use_nofault)
 		return get_freepointer(s, object);
 
 	object = kasan_reset_tag(object);

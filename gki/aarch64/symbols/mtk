@@ -927,6 +927,7 @@
   drm_property_create_blob
   drm_property_create_range
   drm_property_lookup_blob
+  drm_property_replace_global_blob
   drm_read
   drm_release
   drm_universal_plane_init
@@ -3804,3 +3805,4 @@
   zlib_inflateInit2
   zlib_inflateReset
   zlib_inflate_workspacesize
+  zs_lookup_class_index

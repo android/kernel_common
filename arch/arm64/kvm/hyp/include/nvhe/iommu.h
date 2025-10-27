@@ -28,6 +28,7 @@ size_t kvm_iommu_map_pages(pkvm_handle_t domain_id,
 size_t kvm_iommu_unmap_pages(pkvm_handle_t domain_id, unsigned long iova,
 			     size_t pgsize, size_t pgcount);
 phys_addr_t kvm_iommu_iova_to_phys(pkvm_handle_t domain_id, unsigned long iova);
+int kvm_iommu_iotlb_sync_map(pkvm_handle_t domain_id, unsigned long iova, size_t size);
 bool kvm_iommu_host_dabt_handler(struct kvm_cpu_context *host_ctxt, u64 esr, u64 addr);
 size_t kvm_iommu_map_sg(pkvm_handle_t domain, unsigned long iova, struct kvm_iommu_sg *sg,
 			unsigned int nent, unsigned int prot);
@@ -79,7 +80,8 @@ struct kvm_iommu_ops {
 	int (*dev_block_dma)(struct kvm_hyp_iommu *iommu, u32 endpoint_id,
 			     bool is_host_to_guest);
 	int (*get_iommu_token_by_id)(pkvm_handle_t smmu_id, u64 *out_token);
-	ANDROID_KABI_RESERVE(1);
+	ANDROID_KABI_USE(1, int (*iotlb_sync_map)(struct kvm_hyp_iommu_domain *domain,
+						  unsigned long iova, size_t size));
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);

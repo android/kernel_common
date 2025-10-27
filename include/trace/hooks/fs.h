@@ -72,6 +72,13 @@ DECLARE_HOOK(android_vh_f2fs_file_open,
 	TP_PROTO(struct inode *inode, struct file *filp),
 	TP_ARGS(inode, filp));
 
+DECLARE_HOOK(android_vh_ep_create_wakeup_source,
+	TP_PROTO(char *name, int len),
+	TP_ARGS(name, len));
+
+DECLARE_HOOK(android_vh_timerfd_create,
+	TP_PROTO(char *name, int len),
+	TP_ARGS(name, len));
 #endif /* _TRACE_HOOK_FS_H */
 
 /* This part must be outside protection */

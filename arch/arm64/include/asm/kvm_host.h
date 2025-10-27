@@ -164,11 +164,12 @@ int topup_hyp_memcache_gfp(struct kvm_hyp_memcache *mc, unsigned long min_pages,
 static inline void init_hyp_memcache(struct kvm_hyp_memcache *mc)
 {
 	memset(mc, 0, sizeof(*mc));
+	mc->mapping = ZERO_SIZE_PTR; /* Prevent allocation, solely useful for stage2 memcache */
 }
 
 static inline void init_hyp_stage2_memcache(struct kvm_hyp_memcache *mc)
 {
-	init_hyp_memcache(mc);
+	memset(mc, 0, sizeof(*mc));
 	mc->flags = HYP_MEMCACHE_ACCOUNT_KMEMCG | HYP_MEMCACHE_ACCOUNT_STAGE2;
 }
 
@@ -1783,6 +1784,7 @@ int kvm_iommu_map_pages(pkvm_handle_t domain_id, unsigned long iova,
 size_t kvm_iommu_unmap_pages(pkvm_handle_t domain_id, unsigned long iova,
 			     size_t pgsize, size_t pgcount);
 phys_addr_t kvm_iommu_iova_to_phys(pkvm_handle_t domain_id, unsigned long iova);
+int kvm_iommu_iotlb_sync_map(pkvm_handle_t domain_id, unsigned long iova, size_t size);
 size_t kvm_iommu_map_sg(pkvm_handle_t domain_id, struct kvm_iommu_sg *sg,
 			unsigned long iova, unsigned int nent,
 			unsigned int prot, gfp_t gfp);

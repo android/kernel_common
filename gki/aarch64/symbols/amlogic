@@ -146,12 +146,14 @@
   clk_get_parent
   clk_get_rate
   clk_get_sys
+  clk_hw_forward_rate_request
   clk_hw_get_flags
   clk_hw_get_name
   clk_hw_get_num_parents
   clk_hw_get_parent
   clk_hw_get_parent_by_index
   clk_hw_get_rate
+  clk_hw_get_rate_range
   clk_hw_is_enabled
   clk_hw_round_rate
   clk_hw_set_parent
@@ -493,8 +495,10 @@
   disable_irq
   disable_irq_nosync
   discard_new_inode
+  divider_determine_rate
   divider_get_val
   divider_recalc_rate
+  divider_ro_determine_rate
   divider_ro_round_rate_parent
   divider_round_rate_parent
   dma_alloc_attrs
@@ -1291,6 +1295,7 @@
   kstrtobool_from_user
   kstrtoint
   kstrtoll
+  kstrtos16
   kstrtos8
   kstrtou16
   kstrtou16_from_user
@@ -1543,7 +1548,9 @@
   of_clk_add_provider
   of_clk_get
   of_clk_get_by_name
+  of_clk_get_from_provider
   of_clk_hw_onecell_get
+  of_clk_hw_simple_get
   of_clk_set_defaults
   of_clk_src_onecell_get
   of_count_phandle_with_args
@@ -2201,7 +2208,9 @@
   snd_pcm_set_ops
   snd_pcm_stop
   snd_pcm_stop_xrun
+  snd_pcm_stream_lock
   _snd_pcm_stream_lock_irqsave
+  snd_pcm_stream_unlock
   snd_pcm_stream_unlock_irqrestore
   snd_soc_add_card_controls
   snd_soc_add_component_controls

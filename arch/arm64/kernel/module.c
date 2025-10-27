@@ -521,9 +521,9 @@ module_init_hyp_imported_sym(const Elf_Ehdr *hdr, const Elf_Shdr *sechdrs,
 			if (!pkvm_sym)
 				return -ENOMEM;
 
-			len = strlen(strtab + sym->st_name);
-			pkvm_sym->name = kmalloc(len, GFP_KERNEL);
-			memcpy(pkvm_sym->name, strtab + sym->st_name, len);
+			len = strlen(strtab + sym->st_name) + 1;
+			pkvm_sym->name = kzalloc(len, GFP_KERNEL);
+			strscpy(pkvm_sym->name, strtab + sym->st_name, len);
 			pkvm_sym->rela_pos = (void *)orig->sh_addr + rela->r_offset;
 
 			list_add(&pkvm_sym->node, &hyp_mod->ext_symbols);

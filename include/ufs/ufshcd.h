@@ -709,6 +709,9 @@ enum ufshcd_android_quirks {
 
 	/* Do not read IS after H8 enter */
 	UFSHCD_ANDROID_QUIRK_NO_IS_READ_ON_H8		= 1 << 1,
+
+	/* Initiate Cleanup (ICU) is not supported */
+	UFSHCD_ANDROID_QUIRK_MCQ_BROKEN_ICU		= 1 << 2,
 };
 
 enum ufshcd_caps {

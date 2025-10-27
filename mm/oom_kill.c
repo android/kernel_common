@@ -523,7 +523,7 @@ bool __oom_reap_task_mm(struct mm_struct *mm)
 {
 	struct vm_area_struct *vma;
 	bool ret = true;
-	VMA_ITERATOR(vmi, mm, 0);
+	MA_STATE(mas, &mm->mm_mt, ULONG_MAX, ULONG_MAX);
 
 	/*
 	 * Tell all users of get_user/copy_from_user etc... that the content
@@ -534,7 +534,14 @@ bool __oom_reap_task_mm(struct mm_struct *mm)
 	set_bit(MMF_UNSTABLE, &mm->flags);
 
 	trace_android_vh_oom_swapmem_gather_init(mm);
-	for_each_vma(vmi, vma) {
+
+	/*
+	 * It might start racing with the dying task and compete for shared
+	 * resources - e.g. page table lock contention has been observed.
+	 * Reduce those races by reaping the oom victim from the other end
+	 * of the address space.
+	 */
+	mas_for_each_rev(&mas, vma, 0) {
 		if (vma->vm_flags & (VM_HUGETLB|VM_PFNMAP))
 			continue;
 
@@ -787,12 +794,12 @@ static void mark_oom_victim(struct task_struct *tsk)
 		mmgrab(tsk->signal->oom_mm);
 
 	/*
-	 * Make sure that the task is woken up from uninterruptible sleep
-	 * if it is frozen because OOM killer wouldn't be able to free
-	 * any memory and livelock. freezing_slow_path will tell the freezer
-	 * that TIF_MEMDIE tasks should be ignored.
+	 * Make sure that the process is woken up from uninterruptible sleep
+	 * if it is frozen because OOM killer wouldn't be able to free any
+	 * memory and livelock. The freezer will thaw the tasks that are OOM
+	 * victims regardless of the PM freezing and cgroup freezing states.
 	 */
-	__thaw_task(tsk);
+	thaw_process(tsk);
 	atomic_inc(&oom_victims);
 	cred = get_task_cred(tsk);
 	trace_mark_victim(tsk, cred->uid.val);
@@ -936,6 +943,8 @@ static bool task_will_free_mem(struct task_struct *task)
 /* Adds a killed process to the reaper. @p->mm has to be non NULL. */
 void add_to_oom_reaper(struct task_struct *p)
 {
+	bool thaw = false;
+
 	p = find_lock_task_mm(p);
 	if (!p)
 		return;
@@ -943,6 +952,9 @@ void add_to_oom_reaper(struct task_struct *p)
 	if (task_will_free_mem(p)) {
 		if (!cmpxchg(&p->signal->oom_mm, NULL, p->mm))
 			mmgrab(p->signal->oom_mm);
+		trace_android_vh_thaw_killed_process(&thaw);
+		if (thaw)
+			thaw_process(p);
 		queue_oom_reaper(p);
 	}
 	task_unlock(p);

@@ -32,6 +32,9 @@
 /* Max mcq register polling time in microseconds */
 #define MCQ_POLL_US 500000
 
+static bool ufshcd_mcq_sqe_search(struct ufs_hba *hba, struct ufs_hw_queue *hwq,
+				  int task_tag);
+
 static int rw_queue_count_set(const char *val, const struct kernel_param *kp)
 {
 	return param_set_uint_minmax(val, kp, UFS_MCQ_MIN_RW_QUEUES,
@@ -554,6 +557,10 @@ int ufshcd_mcq_sq_cleanup(struct ufs_hba *hba, int task_tag)
 	} else {
 		hwq = hba->dev_cmd_queue;
 	}
+
+	if (hba->android_quirks & UFSHCD_ANDROID_QUIRK_MCQ_BROKEN_ICU)
+		return ufshcd_mcq_sqe_search(hba, hwq, task_tag) ? -ETIMEDOUT :
+			0;
 
 	id = hwq->id;
 

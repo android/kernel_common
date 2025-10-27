@@ -536,7 +536,6 @@ int suspend_devices_and_enter(suspend_state_t state)
 	} while (!error && !wakeup && platform_suspend_again(state));
 
  Resume_devices:
-	trace_android_vh_resume_begin(NULL);
 	suspend_test_start();
 	dpm_resume_end(PMSG_RESUME);
 	suspend_test_finish("resume devices");

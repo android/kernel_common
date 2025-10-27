@@ -1096,14 +1096,18 @@ int pkvm_load_pvmfw_pages(struct pkvm_hyp_vm *vm, u64 ipa, phys_addr_t phys,
 			  u64 size)
 {
 	struct kvm_protected_vm *pkvm = &vm->kvm.arch.pkvm;
-	u64 npages, offset = ipa - pkvm->pvmfw_load_addr;
-	void *src = hyp_phys_to_virt(pvmfw_base) + offset;
+	void *src = hyp_phys_to_virt(pvmfw_base);
+	u64 npages, start, end;
 
-	if (offset >= pvmfw_size)
-		return -EINVAL;
+	/* intersection between [ipa, ipa + size) and pvmfw region */
+	start = max(ipa, pkvm->pvmfw_load_addr);
+	end = min(ipa + size, pkvm->pvmfw_load_addr + pvmfw_size);
+	size = end - start;
 
-	size = min(size, pvmfw_size - offset);
-	if (!PAGE_ALIGNED(size) || !PAGE_ALIGNED(src))
+	src += start - pkvm->pvmfw_load_addr;
+	phys += start - ipa;
+
+	if (!PAGE_ALIGNED(size) || !PAGE_ALIGNED(src) || !PAGE_ALIGNED(phys))
 		return -EINVAL;
 
 	npages = size >> PAGE_SHIFT;

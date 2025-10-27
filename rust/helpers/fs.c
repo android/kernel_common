@@ -6,12 +6,12 @@
 
 #include <linux/fs.h>
 
-struct file *rust_helper_get_file(struct file *f)
+__rust_helper struct file *rust_helper_get_file(struct file *f)
 {
 	return get_file(f);
 }
 
-loff_t rust_helper_i_size_read(const struct inode *inode)
+__rust_helper loff_t rust_helper_i_size_read(const struct inode *inode)
 {
 	return i_size_read(inode);
 }

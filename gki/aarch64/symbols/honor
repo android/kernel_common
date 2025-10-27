@@ -96,6 +96,7 @@
   __traceiter_android_vh_get_page_wmark
   __traceiter_android_vh_killed_process
   __traceiter_android_vh_oom_reaper_delay_bypass
+  __traceiter_android_vh_thaw_killed_process
   __traceiter_android_vh_kvmalloc_node_use_vmalloc
   __traceiter_android_vh_mem_cgroup_alloc
   __traceiter_android_vh_mem_cgroup_css_offline
@@ -121,6 +122,7 @@
   __tracepoint_android_vh_get_page_wmark
   __tracepoint_android_vh_killed_process
   __tracepoint_android_vh_oom_reaper_delay_bypass
+  __tracepoint_android_vh_thaw_killed_process
   __tracepoint_android_vh_kvmalloc_node_use_vmalloc
   __tracepoint_android_vh_mem_cgroup_alloc
   __tracepoint_android_vh_mem_cgroup_css_online
@@ -165,6 +167,8 @@
   __tracepoint_android_vh_dma_buf_attr_show_start
   __traceiter_android_vh_dma_buf_attr_show_end
   __tracepoint_android_vh_dma_buf_attr_show_end
+  __traceiter_android_vh_mark_folio_accessed
+  __tracepoint_android_vh_mark_folio_accessed
   __traceiter_android_vh_process_madvise_begin
   __tracepoint_android_vh_process_madvise_begin
   __traceiter_android_vh_process_madvise_iter

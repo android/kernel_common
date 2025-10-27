@@ -465,7 +465,7 @@ static size_t __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		/* Clear the remaining entries */
 		__arm_lpae_clear_pte(ptep, &iop->cfg, i);
 
-		if (gather && !iommu_iotlb_gather_queued(gather))
+		if (!iommu_iotlb_gather_queued(gather))
 			for (int j = 0; j < i; j++)
 				io_pgtable_tlb_add_page(iop, gather, iova + j * size, size);
 

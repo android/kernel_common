@@ -2493,3 +2493,4 @@ module_exit(exit_xfs_fs);
 MODULE_AUTHOR("Silicon Graphics, Inc.");
 MODULE_DESCRIPTION(XFS_VERSION_STRING " with " XFS_BUILD_OPTIONS " enabled");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
