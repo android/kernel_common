@@ -1035,7 +1035,7 @@ ssize_t af_alg_sendpage(struct socket *sock, struct page *page,
 	ctx->used += size;
 
 done:
-	ctx->more = flags & MSG_MORE;
+	ctx->more = !!(flags & MSG_MORE);
 
 unlock:
 	af_alg_data_wakeup(sk);
