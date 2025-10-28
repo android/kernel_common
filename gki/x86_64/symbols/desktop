@@ -1323,6 +1323,7 @@
   gpiod_put_array
   gpiod_remove_lookup_table
   gpiod_set_consumer_name
+  gpiod_set_raw_value_cansleep
   gpiod_set_value
   gpiod_set_value_cansleep
   gpiod_to_irq
@@ -2916,6 +2917,7 @@
   snd_soc_debugfs_root
   snd_soc_dpcm_get_substream
   snd_soc_dummy_dlc
+  snd_soc_find_dai
   snd_soc_get_enum_double
   snd_soc_get_volsw
   snd_soc_get_volsw_range
