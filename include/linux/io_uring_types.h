@@ -6,6 +6,7 @@
 #include <linux/task_work.h>
 #include <linux/bitmap.h>
 #include <linux/llist.h>
+#include <linux/android_kabi.h>
 #include <uapi/linux/io_uring.h>
 
 enum {
@@ -37,6 +38,7 @@ enum io_uring_cmd_flags {
 	/* set when uring wants to cancel a previously issued command */
 	IO_URING_F_CANCEL		= (1 << 11),
 	IO_URING_F_COMPAT		= (1 << 12),
+	IO_URING_F_TASK_DEAD		= (1 << 13),
 };
 
 struct io_wq_work_node {
@@ -646,8 +648,16 @@ struct io_kiocb {
 	atomic_t			refs;
 	bool				cancel_seq_set;
 	struct io_task_work		io_task_work;
-	/* for polled requests, i.e. IORING_OP_POLL_ADD and async armed poll */
-	struct hlist_node		hash_node;
+	union {
+		/*
+		 * for polled requests, i.e. IORING_OP_POLL_ADD and async armed
+		 * poll
+		 */
+		struct hlist_node	hash_node;
+
+		/* for private io_kiocb freeing */
+		struct rcu_head		rcu_head;
+	};
 	/* internal polling, see IORING_FEAT_FAST_POLL */
 	struct async_poll		*apoll;
 	/* opcode allocated if it needs to store data for async defer */
@@ -664,6 +674,8 @@ struct io_kiocb {
 		u64			extra2;
 	} big_cqe;
 };
+
+ANDROID_KABI_TYPE_STRING("s#io_kiocb", "structure_type io_kiocb { member union_type { member pointer_type { s#file } file data_member_location(0) , member s#io_cmd_data cmd data_member_location(0) } byte_size(64) data_member_location(0) , member t#u8 opcode data_member_location(64) , member t#u8 iopoll_completed data_member_location(65) , member t#u16 buf_index data_member_location(66) , member base_type unsigned int byte_size(4) encoding(7) nr_tw data_member_location(68) , member t#io_req_flags_t flags data_member_location(72) , member s#io_cqe cqe data_member_location(80) , member pointer_type { s#io_ring_ctx } ctx data_member_location(96) , member pointer_type { s#task_struct } task data_member_location(104) , member union_type { member pointer_type { s#io_mapped_ubuf } imu data_member_location(0) , member pointer_type { s#io_buffer } kbuf data_member_location(0) , member pointer_type { s#io_buffer_list } buf_list data_member_location(0) } byte_size(8) data_member_location(112) , member union_type { member s#io_wq_work_node comp_list data_member_location(0) , member t#__poll_t apoll_events data_member_location(0) } byte_size(8) data_member_location(120) , member pointer_type { s#io_rsrc_node } rsrc_node data_member_location(128) , member t#atomic_t refs data_member_location(136) , member t#bool cancel_seq_set data_member_location(140) , member s#io_task_work io_task_work data_member_location(144) , member s#hlist_node hash_node data_member_location(160) , member pointer_type { s#async_poll } apoll data_member_location(176) , member pointer_type { base_type void } async_data data_member_location(184) , member t#atomic_t poll_refs data_member_location(192) , member pointer_type { s#io_kiocb } link data_member_location(200) , member pointer_type { const_type { s#cred } } creds data_member_location(208) , member s#io_wq_work work data_member_location(216) , member structure_type { member t#u64 extra1 data_member_location(0) , member t#u64 extra2 data_member_location(8) } byte_size(16) big_cqe data_member_location(232) } byte_size(248)");
 
 struct io_overflow_cqe {
 	struct list_head list;

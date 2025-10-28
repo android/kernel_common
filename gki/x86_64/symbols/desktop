@@ -613,6 +613,7 @@
   dirty_writeback_interval
   disable_irq
   disable_irq_nosync
+  disable_work_sync
   discard_new_inode
   disk_check_media_change
   dma_alloc_attrs
@@ -1215,6 +1216,7 @@
   fwnode_handle_get
   fwnode_irq_get_byname
   fwnode_property_match_property_string
+  fwnode_property_match_string
   fwnode_property_present
   fwnode_property_read_string
   fwnode_property_read_u16_array

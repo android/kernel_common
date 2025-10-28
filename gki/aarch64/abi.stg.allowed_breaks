@@ -74,3 +74,7 @@ type 'struct kvm_iommu_ops' changed
   member 'u64 __kabi_reserved1' was removed
   member 'union { int(* iotlb_sync_map)(struct kvm_hyp_iommu_domain*, unsigned long, size_t); struct { u64 __kabi_reserved1; }; union { }; }' was added
 
+type 'struct io_kiocb' changed
+  member 'struct hlist_node hash_node' was removed
+  member 'union { struct hlist_node hash_node; struct callback_head callback_head; }' was added
+
