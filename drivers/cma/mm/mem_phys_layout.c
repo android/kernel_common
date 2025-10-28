@@ -63,6 +63,12 @@ static void print_node_data(void)
 		uint64_t start_pfn = NODE_DATA(nodeId)->node_start_pfn;
 		uint64_t end_pfn = NODE_DATA(nodeId)->node_start_pfn + num_spanned_pages;
 
+
+	struct page *first_page = pfn_to_page(start_pfn);
+
+	pr_info("First VALID struct page starts at: pfn_to_page(start_pfn) [mem %#010Lx]\n",
+			(unsigned long long)first_page);
+
 		pr_info("Node %d", nodeId);
 		pr_info("    Page frames numbers (range): [pfn %#010Lx-%#010Lx)\n",
 				start_pfn, end_pfn);
@@ -97,12 +103,71 @@ static void print_pageblock_info(void)
 	pr_info("pageblock_nr_pages %lu", pageblock_nr_pages);
 }
 
+inline void print_mem_model(unsigned long pfn)
+{
+	struct page *page = pfn_to_page(pfn);
+
+	pr_info("    PFN: %10llu == %#010Lx  struct page[mem %#010Lx], PHYS[mem %#010Lx]",
+			(u64)pfn,
+			(u64)pfn,
+			(u64) page,
+			(u64)PFN_PHYS(pfn));
+}
+
+static void print_page_info(void)
+{
+	unsigned long pfn;
+	int valid = 0;
+	int invalid = 0;
+	unsigned long num_physpages = get_num_physpages();
+
+	// Start address as per DTS memory@40000000. The first valid PFN represents
+	// this page frame.
+	phys_addr_t start_addr = memblock_start_of_DRAM();
+	unsigned long start_pfn = PHYS_PFN(start_addr);
+
+	for (pfn = start_pfn; pfn < (start_pfn + num_physpages); pfn++) {
+		if (pfn_valid(pfn))
+			valid++;
+		else
+			invalid++;
+	}
+
+	pr_info("get_num_physpages() = %lu", num_physpages);
+	pr_info("valid %d, invalid %d, physpages %lu", valid, invalid, num_physpages);
+
+	pr_info("Start PFN");
+	print_mem_model(start_pfn);
+	pr_info("End PFN");
+	print_mem_model(pfn - 1);
+
+#ifdef CONFIG_SPARSEMEM_VMEMMAP
+	// CALCULATE STRUCT *P GIVEN THE PFN and vmemmap address
+	pr_info("First struct page starts at: vmemmap        [mem %#010Lx]\n",
+			(unsigned long long)vmemmap);
+
+	// How to calculate Physical Address of the Page Frame and the struct page
+	// given the PFN.
+	unsigned long last_pfn = pfn - 1;
+	struct page *page = vmemmap + last_pfn;
+	phys_addr_t addr = last_pfn << PAGE_SHIFT;
+
+	pr_info("Calculating physical address given vmemmap and PFN %10llu == %#010Lx",
+				(u64)last_pfn, (u64)last_pfn);
+	pr_info("    PFN: %10llu == %#010Lx  struct page[mem %#010Lx], PHYS[mem %#010Lx]",
+			(u64)last_pfn,
+			(u64)last_pfn,
+			(u64)page,
+			addr);
+#endif
+}
 static int __init mem_phys_layout_init(void)
 {
 	print_ram_info();
 	print_node_data();
 	print_pfn_start_address();
 	print_pageblock_info();
+	print_page_info();
 
 	return 0;
 }
