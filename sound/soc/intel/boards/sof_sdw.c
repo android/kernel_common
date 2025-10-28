@@ -697,7 +697,7 @@ static const struct dmi_system_id sof_sdw_quirk_table[] = {
 		.callback = sof_sdw_quirk_cb,
 		.matches = {
 			DMI_MATCH(DMI_SYS_VENDOR, "Google"),
-			DMI_MATCH(DMI_PRODUCT_FAMILY, "Google_Fatcat"),
+			DMI_MATCH(DMI_PRODUCT_NAME, "Fatcat"),
 		},
 		.driver_data = (void *)(SOC_SDW_PCH_DMIC |
 					SOF_BT_OFFLOAD_SSP(2) |
