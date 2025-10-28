@@ -1,3 +1,4 @@
+
 [abi_symbol_list]
   add_cpu
   add_timer
@@ -515,8 +516,10 @@
   discard_new_inode
   disk_end_io_acct
   disk_start_io_acct
+  divider_determine_rate
   divider_get_val
   divider_recalc_rate
+  divider_ro_determine_rate
   divider_ro_round_rate_parent
   divider_round_rate_parent
   dma_alloc_attrs
@@ -1305,6 +1308,7 @@
   kstrtobool_from_user
   kstrtoint
   kstrtoll
+  kstrtos16
   kstrtos8
   kstrtou16
   kstrtou16_from_user
@@ -1554,7 +1558,9 @@
   of_clk_add_provider
   of_clk_get
   of_clk_get_by_name
+  of_clk_get_from_provider
   of_clk_hw_onecell_get
+  of_clk_hw_simple_get
   of_clk_set_defaults
   of_clk_src_onecell_get
   of_count_phandle_with_args
@@ -2189,6 +2195,7 @@
   smpboot_register_percpu_thread
   smp_call_function
   smp_call_function_single
+  snd_card_free_when_closed
   snd_card_ref
   snd_card_register
   snd_card_rw_proc_new
@@ -2221,7 +2228,9 @@
   snd_pcm_set_ops
   snd_pcm_stop
   snd_pcm_stop_xrun
+  snd_pcm_stream_lock
   _snd_pcm_stream_lock_irqsave
+  snd_pcm_stream_unlock
   snd_pcm_stream_unlock_irqrestore
   snd_soc_add_card_controls
   snd_soc_add_component_controls

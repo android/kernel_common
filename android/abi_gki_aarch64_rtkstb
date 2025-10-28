@@ -79,6 +79,7 @@
   debugfs_create_bool
   debugfs_create_dir
   debugfs_create_file
+  debugfs_create_file_unsafe
   debugfs_lookup
   debugfs_remove
   delayed_work_timer_fn
@@ -91,6 +92,7 @@
   _dev_err
   dev_err_probe
   dev_fetch_sw_netstats
+  devfreq_recommended_opp
   dev_fwnode
   dev_get_regmap
   device_create
@@ -100,6 +102,7 @@
   device_get_match_data
   device_initialize
   device_init_wakeup
+  device_link_add
   device_node_to_regmap
   device_property_present
   device_register
@@ -114,6 +117,7 @@
   devm_clk_get
   devm_clk_get_optional
   devm_clk_hw_register
+  devm_devfreq_add_device
   devm_extcon_dev_allocate
   devm_extcon_dev_register
   devm_gpiod_get
@@ -135,6 +139,7 @@
   devm_pinctrl_get
   devm_platform_get_and_ioremap_resource
   devm_platform_ioremap_resource
+  devm_pm_opp_of_add_table
   devm_power_supply_register
   __devm_regmap_init_i2c
   devm_regulator_get_optional
@@ -144,6 +149,7 @@
   devm_reset_controller_register
   devm_rtc_device_register
   dev_pm_domain_detach
+  dev_pm_opp_put
   dev_pm_opp_set_rate
   _dev_printk
   devres_add
@@ -332,6 +338,7 @@
   memchr
   memcpy
   __memcpy_fromio
+  memdup_user_nul
   memset
   __memset_io
   memstart_addr
@@ -476,6 +483,7 @@
   platform_device_unregister
   __platform_driver_register
   platform_driver_unregister
+  platform_find_device_by_driver
   platform_get_irq
   platform_get_resource
   platform_get_resource_byname
@@ -810,8 +818,6 @@
   clk_hw_get_num_parents
   clk_hw_get_parent
   __clk_mux_determine_rate
-  debugfs_create_file_unsafe
-  memdup_user_nul
   of_clk_hw_onecell_get
   _raw_spin_trylock
   regmap_multi_reg_write
@@ -906,6 +912,7 @@
 # required by extcon-rtk-type-c.ko
   device_get_named_child_node
   fwnode_property_read_string
+  hrtimer_active
   typec_find_port_data_role
   typec_find_port_power_role
   typec_get_drvdata
@@ -1242,7 +1249,6 @@
   __skb_gso_segment
 
 # required by r8169soc.ko
-  cancel_work
   devm_alloc_etherdev_mqs
   devm_mdiobus_alloc_size
   __devm_mdiobus_register
@@ -1280,7 +1286,6 @@
   phy_speed_down
   phy_speed_up
   phy_start
-  phy_start_aneg
   phy_stop
   phy_support_asym_pause
   phy_suspend
@@ -1314,6 +1319,10 @@
 
 # required by rtd13xx-ve1.ko
   dev_pm_domain_attach_by_id
+
+# required by rtd13xxe-ve1.ko
+  devfreq_resume_device
+  devfreq_suspend_device
 
 # required by rtd1625_lsadc.ko
   dev_pm_domain_attach_by_name
@@ -1351,10 +1360,7 @@
   sg_init_table
 
 # required by rtk-thermal.ko
-  of_thermal_get_trip_points
-  of_thermal_is_trip_valid
-  thermal_zone_of_sensor_register
-  thermal_zone_of_sensor_unregister
+  devm_thermal_zone_of_sensor_register
 
 # required by rtk-usb-manager.ko
   class_compat_create_link
@@ -1404,7 +1410,6 @@
   cec_register_adapter
   cec_transmit_done_ts
   cec_unregister_adapter
-  device_link_add
 
 # required by rtk_chip.ko
   soc_device_register
@@ -1494,6 +1499,11 @@
   drm_dp_aux_register
   drm_dp_dpcd_read
   drm_dp_dpcd_write
+  drm_dp_clock_recovery_ok
+  drm_dp_channel_eq_ok
+  drm_dp_bw_code_to_link_rate
+  drm_dp_get_adjust_request_pre_emphasis
+  drm_dp_get_adjust_request_voltage
   drm_edid_is_valid
   drm_encoder_cleanup
   drm_encoder_init
@@ -1547,6 +1557,8 @@
   drm_of_component_probe
   drm_of_find_panel_or_bridge
   drm_of_find_possible_crtcs
+  drm_of_lvds_get_dual_link_pixel_order
+  drm_of_encoder_active_endpoint
   drm_open
   drm_panel_disable
   drm_panel_enable
@@ -1579,6 +1591,7 @@
   ktime_get_raw
   mipi_dsi_host_register
   of_find_node_by_name
+  of_graph_get_port_by_id
   __platform_register_drivers
   platform_unregister_drivers
   reset_control_status
@@ -1672,6 +1685,7 @@
   vmalloc_to_page
 
 # required by rtk_mipicsi.ko
+  bpf_trace_run9
   vb2_dqbuf
 
 # required by rtk_npp.ko
@@ -1740,8 +1754,11 @@
   fput
   put_unused_fd
 
-# required by rtk_tee_mem_api.ko
-  platform_find_device_by_driver
+# required by rtk_sysh.ko
+  clk_notifier_register
+  clk_notifier_unregister
+  clk_round_rate
+  devm_get_clk_from_child
 
 # required by rtk_uart_wrapper.ko
   devm_of_platform_populate
@@ -1824,9 +1841,9 @@
   usb_disable_autosuspend
 
 # preserved by --additions-only
+  cancel_work
   __clk_get_hw
   clk_hw_get_name
-  clk_round_rate
   __device_reset
   devm_clk_hw_unregister
   devm_extcon_dev_free
@@ -1872,6 +1889,8 @@
   of_irq_parse_one
   of_property_read_variable_u16_array
   of_property_read_variable_u8_array
+  of_thermal_get_trip_points
+  of_thermal_is_trip_valid
   pci_alloc_host_bridge
   pci_bus_add_devices
   pci_bus_assign_resources
@@ -1886,6 +1905,7 @@
   pcim_set_mwi
   pci_scan_root_bus_bridge
   pci_status_get_and_clear_errors
+  phy_start_aneg
   platform_irqchip_probe
   pm_schedule_suspend
   power_supply_register
@@ -1904,6 +1924,8 @@
   snd_pcm_lib_ioctl
   strchrnul
   syscon_regmap_lookup_by_compatible
+  thermal_zone_of_sensor_register
+  thermal_zone_of_sensor_unregister
   __traceiter_dwc3_writel
   __tracepoint_dwc3_writel
   trace_print_symbols_seq
