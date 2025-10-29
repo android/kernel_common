@@ -16,4 +16,6 @@ int pkvm_vm_mmu_map(struct kvm_vcpu *shared_vcpu, u64 gpa, u64 hpa, u64 size, bo
 int pkvm_vm_mmu_unmap(int vm_handle, u64 gpa, u64 size);
 int pkvm_vm_mmu_age(int vm_handle, u64 gpa, u64 size, bool mkold);
 
+void pkvm_free_mmu_memcache(struct kvm_vcpu *vcpu, struct pkvm_memcache *teardown_mc);
+
 #endif /* __PKVM_X86_MMU_H */

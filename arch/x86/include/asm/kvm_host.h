@@ -745,6 +745,8 @@ struct kvm_queued_exception {
 struct pkvm_memcache {
 	phys_addr_t head;
 	unsigned long nr_pages;
+#define PKVM_MC_ACCOUNT_PGTABLE_PAGES BIT(1)
+	unsigned long flags;
 };
 
 static inline void push_pkvm_memcache(struct pkvm_memcache *mc,
@@ -770,6 +772,24 @@ static inline void *pop_pkvm_memcache(struct pkvm_memcache *mc,
 	return p;
 }
 
+static inline int __topup_pkvm_memcache(struct pkvm_memcache *mc,
+					unsigned long min_pages,
+					void *(*alloc_fn)(void *arg),
+					phys_addr_t (*to_pa)(void *virt),
+					void *arg)
+{
+	while (mc->nr_pages < min_pages) {
+		phys_addr_t *p = alloc_fn(arg);
+
+		if (!p)
+			return -ENOMEM;
+
+		push_pkvm_memcache(mc, p, to_pa);
+	}
+
+	return 0;
+}
+
 static inline void __free_pkvm_memcache(struct pkvm_memcache *mc,
 					void (*free_fn)(void *virt, void *arg),
 					void *(*to_va)(phys_addr_t phys),
@@ -780,6 +800,13 @@ static inline void __free_pkvm_memcache(struct pkvm_memcache *mc,
 }
 
 void free_pkvm_memcache(struct pkvm_memcache *mc);
+int topup_pkvm_memcache(struct pkvm_memcache *mc, unsigned long min_pages);
+
+static inline void init_pkvm_mmu_memcache(struct pkvm_memcache *mc)
+{
+	memset(mc, 0, sizeof(*mc));
+	mc->flags = PKVM_MC_ACCOUNT_PGTABLE_PAGES;
+}
 
 struct kvm_pinned_page {
 	struct list_head list;
@@ -790,6 +817,7 @@ struct kvm_protected_vm {
 	int pkvm_vm_handle;
 
 	struct pkvm_memcache teardown_mc;
+	struct pkvm_memcache guest_mmu_teardown_mc;
 	struct list_head pinned_pages;
 	spinlock_t pinned_page_lock;
 

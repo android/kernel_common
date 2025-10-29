@@ -212,6 +212,8 @@ static int pkvm_vm_init(struct kvm *shared_kvm, unsigned long gpa)
 	if (ret)
 		goto mmu_destroy;
 
+	init_pkvm_mmu_memcache(&pkvm_vm->shared_kvm->arch.pkvm.guest_mmu_teardown_mc);
+
 	return kvm->arch.pkvm.pkvm_vm_handle;
 
 mmu_destroy:
@@ -430,6 +432,9 @@ static int __pkvm_vcpu_free(struct pkvm_vm *pkvm_vm, int vcpu_handle)
 	kvm_x86_call(vcpu_free)(vcpu);
 
 	shared_pkvm = &pkvm_vm->shared_kvm->arch.pkvm;
+
+	pkvm_free_mmu_memcache(vcpu, &shared_pkvm->guest_mmu_teardown_mc);
+
 	teardown_donated_memory(&shared_pkvm->teardown_mc,
 				(void *)vcpu->arch.cpuid_entries,
 				sizeof(struct kvm_cpuid_entry2) *

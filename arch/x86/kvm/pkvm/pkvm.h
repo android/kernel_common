@@ -7,6 +7,7 @@
 #include <pkvm_trace.h>
 //FIXME: clean up the header files
 #include <vmx/pkvm/hyp/pgtable.h>
+#include <vmx/pkvm/hyp/gfp.h>
 
 #define PKVM_MAX_NORMAL_VM_NUM		8
 #define PKVM_MAX_PROTECTED_VM_NUM	2

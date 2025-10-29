@@ -87,8 +87,11 @@ void __init kvm_hyp_reserve(void)
 		 hyp_mem_base);
 }
 
-static void pkvm_mc_free_fn(void *addr, void *unused)
+static void pkvm_mc_free_fn(void *addr, void *flags)
 {
+	if ((unsigned long)flags & PKVM_MC_ACCOUNT_PGTABLE_PAGES)
+		kvm_account_pgtable_pages(addr, -1);
+
 	free_page((unsigned long)addr);
 }
 
@@ -100,5 +103,31 @@ static void *kvm_host_va(phys_addr_t phys)
 void free_pkvm_memcache(struct pkvm_memcache *mc)
 {
 	__free_pkvm_memcache(mc, pkvm_mc_free_fn,
-			     kvm_host_va, NULL);
+			     kvm_host_va, (void *)mc->flags);
+}
+
+static void *pkvm_mc_alloc_fn(void *flags)
+{
+	unsigned long __flags = (unsigned long)flags;
+	void *addr;
+
+	addr = (void *)__get_free_page(GFP_KERNEL_ACCOUNT);
+
+	if (addr && __flags & PKVM_MC_ACCOUNT_PGTABLE_PAGES)
+		kvm_account_pgtable_pages(addr, 1);
+
+	return addr;
+}
+
+static phys_addr_t host_pa(void *addr)
+{
+	return __pa(addr);
+}
+
+int topup_pkvm_memcache(struct pkvm_memcache *mc, unsigned long min_pages)
+{
+	unsigned long flags = mc->flags;
+
+	return __topup_pkvm_memcache(mc, min_pages, pkvm_mc_alloc_fn,
+				     host_pa, (void *)flags);
 }

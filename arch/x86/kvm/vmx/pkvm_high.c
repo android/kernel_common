@@ -780,6 +780,7 @@ static void pkvm_vm_destroy(struct kvm *kvm)
 	/* TODO: unshare struct kvm_vmx with pkvm */
 
 	free_pkvm_memcache(&pkvm->teardown_mc);
+	free_pkvm_memcache(&pkvm->guest_mmu_teardown_mc);
 
 	list_for_each_entry_safe(ppage, n, &pkvm->pinned_pages, list) {
 		list_del(&ppage->list);
@@ -853,6 +854,8 @@ static int pkvm_vcpu_create(struct kvm_vcpu *vcpu)
 		goto free_fpu;
 
 	vcpu->arch.pkvm_vcpu.handle = ret;
+
+	init_pkvm_mmu_memcache(&vcpu->arch.pkvm_vcpu.guest_mmu_memcache);
 
 	return 0;
 

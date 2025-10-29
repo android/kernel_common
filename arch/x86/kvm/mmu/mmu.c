@@ -4794,6 +4794,15 @@ static int pkvm_pin_page(struct kvm *kvm, struct kvm_page_fault *fault)
 	return 0;
 }
 
+/*
+ * Minimum pages required to install stage-2 translation.
+ * The root page table was pre-allocated during per-vm pool creation.
+ */
+static inline u8 pkvm_mmu_cache_min_pages(void)
+{
+	return kvm_mmu_get_max_tdp_level() - 1;
+}
+
 static int pkvm_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 {
 	gfn_t base_gfn;
@@ -4814,6 +4823,11 @@ static int pkvm_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 	}
 
 	WARN_ON_ONCE(!fault->slot);
+
+	r = topup_pkvm_memcache(&vcpu->arch.pkvm_vcpu.guest_mmu_memcache,
+				pkvm_mmu_cache_min_pages());
+	if (r)
+		return r;
 
 	r = RET_PF_RETRY;
 	write_lock(&vcpu->kvm->mmu_lock);
@@ -7553,6 +7567,14 @@ out:
 void kvm_mmu_destroy(struct kvm_vcpu *vcpu)
 {
 	kvm_mmu_unload(vcpu);
+
+#ifdef CONFIG_PKVM_INTEL
+	if (enable_pkvm) {
+		free_pkvm_memcache(&vcpu->arch.pkvm_vcpu.guest_mmu_memcache);
+		return;
+	}
+#endif
+
 	free_mmu_pages(&vcpu->arch.root_mmu);
 	free_mmu_pages(&vcpu->arch.guest_mmu);
 	mmu_free_memory_caches(vcpu);

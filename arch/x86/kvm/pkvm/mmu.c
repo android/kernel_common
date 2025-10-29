@@ -189,6 +189,46 @@ static int guest_mmu_map_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int
 	return ret;
 }
 
+static void *admit_host_page(void *arg)
+{
+	struct pkvm_memcache *host_mc = arg;
+
+	if (!host_mc->nr_pages)
+		return NULL;
+
+	if (__pkvm_host_donate_hyp(host_mc->head, PAGE_SIZE)) {
+		WARN_ON(1);
+		return NULL;
+	}
+
+	return pop_pkvm_memcache(host_mc, hyp_phys_to_virt);
+}
+
+/* Refill our local memcache by popping pages from the one provided by the host. */
+static int refill_memcache(struct pkvm_memcache *mc, unsigned long min_pages,
+		    struct pkvm_memcache *host_mc)
+{
+	struct pkvm_memcache tmp = *host_mc;
+	int ret;
+
+	ret =  __topup_pkvm_memcache(mc, min_pages, admit_host_page,
+				     hyp_virt_to_phys, &tmp);
+	*host_mc = tmp;
+
+	return ret;
+}
+
+static int pkvm_refill_mmu_memcache(struct pkvm_vcpu *pkvm_vcpu)
+{
+	struct kvm_vcpu *vcpu = to_kvm_vcpu(pkvm_vcpu);
+	struct pkvm_memcache *host_mc;
+
+	host_mc = &pkvm_vcpu->shared_vcpu->arch.pkvm_vcpu.guest_mmu_memcache;
+
+	return refill_memcache(&vcpu->arch.pkvm_vcpu.guest_mmu_memcache,
+			       host_mc->nr_pages, host_mc);
+}
+
 int pkvm_vm_mmu_map(struct kvm_vcpu *shared_vcpu, u64 gpa, u64 hpa, u64 size, bool writable)
 {
 	struct pkvm_vcpu *pkvm_vcpu;
@@ -211,6 +251,11 @@ int pkvm_vm_mmu_map(struct kvm_vcpu *shared_vcpu, u64 gpa, u64 hpa, u64 size, bo
 		ret = -EPERM;
 		goto put_pkvm_vcpu;
 	}
+
+	/* Top-up our per-vcpu memcache from the host's */
+	ret = pkvm_refill_mmu_memcache(pkvm_vcpu);
+	if (ret)
+		goto put_pkvm_vcpu;
 
 	/* permission bits */
 	prot = pkvm_vm->mmu.pgt_ops->pgt_entry_calc_perm(true, writable, true);
@@ -301,6 +346,26 @@ int pkvm_vm_mmu_age(int vm_handle, u64 gpa, u64 size, bool mkold)
 put_pkvm_vm:
 	put_pkvm_vm(pkvm_vm);
 	return ret;
+}
+
+void pkvm_free_mmu_memcache(struct kvm_vcpu *vcpu, struct pkvm_memcache *teardown_mc)
+{
+	struct pkvm_memcache *vcpu_mc;
+	void *addr;
+
+	vcpu_mc = &vcpu->arch.pkvm_vcpu.guest_mmu_memcache;
+	while (vcpu_mc->nr_pages) {
+		/* Drain hyp owned memcache and push pages to the teardown memcache */
+		addr = pop_pkvm_memcache(vcpu_mc, hyp_phys_to_virt);
+
+		/*
+		 * Since pages comes from non-used memcache, there is no need to
+		 * zero them before pushing to teardown_mc (which host can
+		 * access after donating them back to the host in next step).
+		 */
+		push_pkvm_memcache(teardown_mc, addr, hyp_virt_to_phys);
+		WARN_ON(__pkvm_hyp_donate_host(pkvm_virt_to_phys(addr), PAGE_SIZE, false));
+	}
 }
 
 static int guest_mmu_free_leaf(struct pkvm_pgtable *pgt, unsigned long vaddr, int level,
