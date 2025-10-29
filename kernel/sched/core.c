@@ -6606,6 +6606,8 @@ __pick_next_task(struct rq *rq, struct task_struct *prev, struct rq_flags *rf)
 		if (unlikely(p == RETRY_TASK))
 			goto restart;
 
+		trace_android_vh_chk_task(&p, rq);
+
 		/* Assume the next prioritized class is idle_sched_class */
 		if (!p) {
 			p = pick_task_idle(rq);
@@ -6621,10 +6623,12 @@ restart:
 	for_each_active_class(class) {
 		if (class->pick_next_task) {
 			p = class->pick_next_task(rq, prev);
+			trace_android_vh_chk_task(&p, rq);
 			if (p)
 				return p;
 		} else {
 			p = class->pick_task(rq);
+			trace_android_vh_chk_task(&p, rq);
 			if (p) {
 				put_prev_set_next_task(rq, prev, p);
 				return p;

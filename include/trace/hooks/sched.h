@@ -539,6 +539,14 @@ DECLARE_HOOK(android_vh_dump_dl_server,
 	TP_PROTO(struct sched_dl_entity *dl_se, struct task_struct *p),
 	TP_ARGS(dl_se, p));
 
+DECLARE_HOOK(android_vh_chk_task,
+	TP_PROTO(struct task_struct **pp, struct rq *rq),
+	TP_ARGS(pp, rq));
+
+DECLARE_HOOK(android_vh_put_task,
+	TP_PROTO(struct task_struct *p),
+	TP_ARGS(p));
+
 /* macro versions of hooks are no longer required */
 
 #endif /* _TRACE_HOOK_SCHED_H */
