@@ -203,6 +203,7 @@ filegroup(
         "gki/aarch64/symbols/pixel",
         "gki/aarch64/symbols/pixel_watch",
         "gki/aarch64/symbols/qcom",
+        "gki/aarch64/symbols/rockchip",
         "gki/aarch64/symbols/rtkstb",
         "gki/aarch64/symbols/rtktv",
         "gki/aarch64/symbols/tcl",
