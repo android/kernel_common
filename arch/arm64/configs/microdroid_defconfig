@@ -37,7 +37,7 @@ CONFIG_ARM64_SW_TTBR0_PAN=y
 CONFIG_RANDOMIZE_BASE=y
 # CONFIG_RANDOMIZE_MODULE_REGION_FULL is not set
 CONFIG_UNWIND_PATCH_PAC_INTO_SCS=y
-CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off cgroup_disable=pressure ioremap_guard panic=-1 bootconfig"
+CONFIG_CMDLINE="stack_depot_disable=on kasan.stacktrace=off cgroup_disable=pressure ioremap_guard panic=-1 bootconfig arm64.nompam"
 CONFIG_CMDLINE_EXTEND=y
 # CONFIG_EFI is not set
 # CONFIG_SUSPEND is not set
