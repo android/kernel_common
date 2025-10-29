@@ -163,8 +163,10 @@ static int __init register_moveable_fdt_resource(struct device_node *np,
 
 		start = res.start;
 		size = resource_size(&res);
-		if (!PAGE_ALIGNED(start) || !PAGE_ALIGNED(size))
+		if (!PAGE_ALIGNED(start) || !PAGE_ALIGNED(size)) {
+			kvm_err("Not %lu page aligned node: %s\n", PAGE_SIZE, np->full_name);
 			return -EINVAL;
+		}
 
 		moveable_regs[i].start = start;
 		moveable_regs[i].size = size;
