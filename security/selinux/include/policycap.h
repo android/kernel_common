@@ -21,6 +21,13 @@ enum {
 };
 #define POLICYDB_CAP_MAX (__POLICYDB_CAP_MAX - 1)
 
+/*
+ * ANDROID: Define this outside of the enum to preserve the KMI.
+ *
+ * This value must match what userspace expects the capability number to be.
+ */
+#define POLICYDB_CAP_MEMFD_CLASS 13
+
 extern const char *const selinux_policycap_names[__POLICYDB_CAP_MAX];
 
 #endif /* _SELINUX_POLICYCAP_H_ */

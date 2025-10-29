@@ -333,6 +333,7 @@ SYSCALL_DEFINE2(memfd_create,
 {
 	unsigned int *file_seals;
 	struct file *file;
+	struct inode *inode;
 	int fd, error;
 	char *name;
 	long len;
@@ -395,12 +396,17 @@ SYSCALL_DEFINE2(memfd_create,
 		error = PTR_ERR(file);
 		goto err_fd;
 	}
+
+	inode = file_inode(file);
+	error = security_inode_init_security_anon(inode,
+			&QSTR(MEMFD_ANON_NAME), NULL);
+	if (error)
+		goto err_file;
+
 	file->f_mode |= FMODE_LSEEK | FMODE_PREAD | FMODE_PWRITE;
 	file->f_flags |= O_LARGEFILE;
 
 	if (flags & MFD_NOEXEC_SEAL) {
-		struct inode *inode = file_inode(file);
-
 		inode->i_mode &= ~0111;
 		file_seals = memfd_file_seals_ptr(file);
 		if (file_seals) {
@@ -418,6 +424,8 @@ SYSCALL_DEFINE2(memfd_create,
 	kfree(name);
 	return fd;
 
+err_file:
+	fput(file);
 err_fd:
 	put_unused_fd(fd);
 err_name:

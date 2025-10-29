@@ -2137,13 +2137,19 @@ static void security_load_policycaps(struct selinux_policy *policy)
 		WRITE_ONCE(selinux_state.policycap[i],
 			ebitmap_get_bit(&p->policycaps, i));
 
+	WRITE_ONCE(selinux_memfd_class_policycap, ebitmap_get_bit(&p->policycaps,
+								  POLICYDB_CAP_MEMFD_CLASS));
+
 	for (i = 0; i < ARRAY_SIZE(selinux_policycap_names); i++)
 		pr_info("SELinux:  policy capability %s=%d\n",
 			selinux_policycap_names[i],
 			ebitmap_get_bit(&p->policycaps, i));
 
+	pr_info("SELinux: policy capability memfd_class=%d\n",
+		ebitmap_get_bit(&p->policycaps, POLICYDB_CAP_MEMFD_CLASS));
+
 	ebitmap_for_each_positive_bit(&p->policycaps, node, i) {
-		if (i >= ARRAY_SIZE(selinux_policycap_names))
+		if (i >= ARRAY_SIZE(selinux_policycap_names) && i != POLICYDB_CAP_MEMFD_CLASS)
 			pr_info("SELinux:  unknown policy capability %u\n",
 				i);
 	}
