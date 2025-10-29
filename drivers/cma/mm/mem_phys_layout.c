@@ -232,6 +232,34 @@ static void print_page_flags(void)
 	pr_info("tail_pages           = %09d", tail_pages);
 }
 
+static void print_phys_memory_model(void)
+{
+	pr_info("MAX_PAGE_ORDER                = %d", MAX_PAGE_ORDER);
+	pr_info("pageblock_order               = %d", pageblock_order);
+	pr_info("PFN_SECTION_SHIFT             = %d", PFN_SECTION_SHIFT);
+	pr_info("(MAX_PAGE_ORDER + PAGE_SHIFT) = %d", (MAX_PAGE_ORDER + PAGE_SHIFT));
+	pr_info("SECTION_SIZE_BITS             = %d", SECTION_SIZE_BITS);
+	pr_info("2 ^ SECTION_SIZE_BITS         = %d", (1 << SECTION_SIZE_BITS));
+	pr_info("SUBSECTION_SIZE               = %ld", SUBSECTION_SIZE);
+	pr_info("SUBSECTIONS_PER_SECTION       = %ld", SUBSECTIONS_PER_SECTION);
+	pr_info("SUBSECTION_SIZE * SUBSECTIONS_PER_SECTION = %ld = %ldMiB",
+			SUBSECTION_SIZE * SUBSECTIONS_PER_SECTION,
+			SUBSECTION_SIZE * SUBSECTIONS_PER_SECTION / 1024 / 1024);
+	pr_info("PAGES_PER_SUBSECTION    = %ld", PAGES_PER_SUBSECTION);
+
+	phys_addr_t start_addr = memblock_start_of_DRAM();
+	unsigned long start_pfn = PHYS_PFN(start_addr);
+	struct mem_section *section = __pfn_to_section(start_pfn);
+	struct page *page = __section_mem_map_addr(section);
+
+	pr_info("Using struct mem_section");
+	pr_info("    PFN: %10llu == %#010Lx  struct page[mem %#010Lx], PHYS[mem %#010Lx]",
+			(u64)start_pfn,
+			(u64)start_pfn,
+			(u64) page,
+			(u64)PFN_PHYS(start_pfn));
+}
+
 static int __init mem_phys_layout_init(void)
 {
 	print_ram_info();
@@ -240,6 +268,7 @@ static int __init mem_phys_layout_init(void)
 	print_pageblock_info();
 	print_page_info();
 	print_page_flags();
+	print_phys_memory_model();
 
 	return 0;
 }
