@@ -2737,7 +2737,6 @@ F:	Documentation/devicetree/bindings/spi/hpe,gxp-spifi.yaml
 F:	Documentation/devicetree/bindings/timer/hpe,gxp-timer.yaml
 F:	Documentation/hwmon/gxp-fan-ctrl.rst
 F:	arch/arm/boot/dts/hpe/
-F:	arch/arm/mach-hpe/
 F:	drivers/clocksource/timer-gxp.c
 F:	drivers/hwmon/gxp-fan-ctrl.c
 F:	drivers/i2c/busses/i2c-gxp.c
@@ -4299,6 +4298,7 @@ F:	include/linux/bits.h
 F:	include/linux/cpumask.h
 F:	include/linux/cpumask_types.h
 F:	include/linux/find.h
+F:	include/linux/hw_bitfield.h
 F:	include/linux/nodemask.h
 F:	include/linux/nodemask_types.h
 F:	include/uapi/linux/bits.h
@@ -4322,7 +4322,17 @@ F:	tools/lib/find_bit.c
 BITMAP API BINDINGS [RUST]
 M:	Yury Norov <yury.norov@gmail.com>
 S:	Maintained
+F:	rust/helpers/bitmap.c
 F:	rust/helpers/cpumask.c
+
+BITMAP API [RUST]
+M:	Alice Ryhl <aliceryhl@google.com>
+M:	Burak Emir <bqe@google.com>
+R:	Yury Norov <yury.norov@gmail.com>
+S:	Maintained
+F:	lib/find_bit_benchmark_rust.rs
+F:	rust/kernel/bitmap.rs
+F:	rust/kernel/id_pool.rs
 
 BITOPS API
 M:	Yury Norov <yury.norov@gmail.com>
@@ -4337,6 +4347,11 @@ F:	include/asm-generic/bitops.h
 F:	include/linux/bitops.h
 F:	lib/test_bitops.c
 F:	tools/*/bitops*
+
+BITOPS API BINDINGS [RUST]
+M:	Yury Norov <yury.norov@gmail.com>
+S:	Maintained
+F:	rust/helpers/bitops.c
 
 BLINKM RGB LED DRIVER
 M:	Jan-Simon Moeller <jansimon.moeller@gmx.de>
@@ -4367,7 +4382,7 @@ W:	https://rust-for-linux.com
 B:	https://github.com/Rust-for-Linux/linux/issues
 C:	https://rust-for-linux.zulipchat.com/#narrow/stream/Block
 T:	git https://github.com/Rust-for-Linux/linux.git rust-block-next
-F:	drivers/block/rnull.rs
+F:	drivers/block/rnull/
 F:	rust/kernel/block.rs
 F:	rust/kernel/block/
 
@@ -7262,10 +7277,11 @@ F:	include/linux/dmaengine.h
 F:	include/linux/of_dma.h
 
 DMA MAPPING BENCHMARK
-M:	Xiang Chen <chenxiang66@hisilicon.com>
+M:	Barry Song <baohua@kernel.org>
+M:	Qinxin Xia <xiaqinxin@huawei.com>
 L:	iommu@lists.linux.dev
 F:	kernel/dma/map_benchmark.c
-F:	tools/testing/selftests/dma/
+F:	tools/dma/
 
 DMA MAPPING HELPERS
 M:	Marek Szyprowski <m.szyprowski@samsung.com>
