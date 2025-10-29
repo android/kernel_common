@@ -783,6 +783,7 @@ _DB845C_MODULE_OUTS = [
     "sound/soc/codecs/snd-soc-rt5682-i2c.ko",
     "sound/soc/codecs/snd-soc-rt5682s.ko",
     "sound/soc/codecs/snd-soc-wcd-classh.ko",
+    "sound/soc/codecs/snd-soc-wcd-common.ko",
     "sound/soc/codecs/snd-soc-wcd-mbhc.ko",
     "sound/soc/codecs/snd-soc-wcd9335.ko",
     "sound/soc/codecs/snd-soc-wcd934x.ko",
