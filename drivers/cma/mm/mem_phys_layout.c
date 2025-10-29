@@ -12,8 +12,10 @@
 
 #include <linux/init.h>
 #include <linux/memblock.h>
+#include <linux/mm.h>
 #include <linux/module.h>
 #include <linux/nodemask.h>
+#include <linux/page-flags.h>
 #include <linux/pfn.h>
 #include <linux/printk.h>
 #include <linux/types.h>
@@ -161,6 +163,75 @@ static void print_page_info(void)
 			addr);
 #endif
 }
+
+static void print_page_flags(void)
+{
+	unsigned long pfn;
+	int valid = 0;
+	int slab_pages = 0;
+	int buddy_pages = 0;
+	int guard_pages = 0;
+	int page_table_pages = 0;
+	int userspace_map_pages = 0;
+	int pinned_pages = 0;
+	int compound_pages = 0;
+	int head_pages = 0;
+	int tail_pages = 0;
+
+	phys_addr_t start_addr = memblock_start_of_DRAM();
+	unsigned long start_pfn = PHYS_PFN(start_addr);
+	unsigned long num_physpages = get_num_physpages();
+
+	for (pfn = start_pfn; pfn < (start_pfn + num_physpages); pfn++) {
+		if (!pfn_valid(pfn))
+			continue;
+
+		struct page *page = pfn_to_page(pfn);
+
+		valid++;
+		if (PageSlab(page)) {
+			slab_pages++;
+		} else {
+			if (page_has_type(page)) {
+				// The struct page->page_type is used instead of _mapcount.
+				if (PageBuddy(page))
+					buddy_pages++;
+				else if (PageGuard(page))
+					guard_pages++;
+				else if (PageTable(page))
+					page_table_pages++;
+
+			} else {
+				// The struct page->_mapcount is used instead of page_type.
+				userspace_map_pages++;
+			}
+
+			if (PagePinned(page))
+				pinned_pages++;
+
+			if (PageCompound(page))
+				compound_pages++;
+
+			if (PageHead(page))
+				head_pages++;
+
+			if (PageTail(page))
+				tail_pages++;
+		}
+	}
+
+	pr_info("valid pages          = %09d", valid);
+	pr_info("slab_pages           = %09d", slab_pages);
+	pr_info("buddy_pages          = %09d", buddy_pages);
+	pr_info("guard_pages          = %09d", guard_pages);
+	pr_info("page_table_pages     = %09d", page_table_pages);
+	pr_info("userspace_map_pages  = %09d", userspace_map_pages);
+	pr_info("pinned_pages         = %09d", pinned_pages);
+	pr_info("compound_pages       = %09d", compound_pages);
+	pr_info("head_pages           = %09d", head_pages);
+	pr_info("tail_pages           = %09d", tail_pages);
+}
+
 static int __init mem_phys_layout_init(void)
 {
 	print_ram_info();
@@ -168,6 +239,7 @@ static int __init mem_phys_layout_init(void)
 	print_pfn_start_address();
 	print_pageblock_info();
 	print_page_info();
+	print_page_flags();
 
 	return 0;
 }
