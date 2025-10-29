@@ -75,6 +75,7 @@
   debugfs_create_bool
   debugfs_create_dir
   debugfs_create_file
+  debugfs_create_file_unsafe
   debugfs_lookup
   debugfs_remove
   delayed_work_timer_fn
@@ -86,6 +87,7 @@
   _dev_err
   dev_err_probe
   dev_fetch_sw_netstats
+  devfreq_recommended_opp
   __dev_fwnode
   dev_get_regmap
   device_create
@@ -94,6 +96,7 @@
   device_for_each_child
   device_get_match_data
   device_initialize
+  device_link_add
   device_node_to_regmap
   device_property_present
   device_register
@@ -110,6 +113,7 @@
   devm_clk_get
   devm_clk_get_optional
   devm_clk_hw_register
+  devm_devfreq_add_device
   devm_extcon_dev_allocate
   devm_extcon_dev_register
   devm_gpiod_get
@@ -129,6 +133,7 @@
   devm_pinctrl_put
   devm_platform_get_and_ioremap_resource
   devm_platform_ioremap_resource
+  devm_pm_opp_of_add_table
   devm_power_supply_register
   devm_regmap_field_alloc
   __devm_regmap_init_i2c
@@ -140,7 +145,9 @@
   __devm_reset_control_get
   devm_reset_controller_register
   devm_rtc_device_register
+  _dev_notice
   dev_pm_opp_clear_config
+  dev_pm_opp_put
   dev_pm_opp_set_config
   dev_pm_opp_set_rate
   _dev_printk
@@ -349,6 +356,7 @@
   __memcpy_fromio
   __memcpy_toio
   memdup_user
+  memdup_user_nul
   memmove
   memset
   __memset_io
@@ -414,6 +422,7 @@
   of_address_to_resource
   of_alias_get_id
   of_clk_get_by_name
+  of_clk_hw_onecell_get
   of_clk_hw_simple_get
   of_count_phandle_with_args
   of_device_get_match_data
@@ -499,6 +508,7 @@
   platform_device_unregister
   __platform_driver_register
   platform_driver_unregister
+  platform_find_device_by_driver
   platform_get_irq
   platform_get_resource
   platform_get_resource_byname
@@ -708,7 +718,6 @@
   __v4l2_device_register_subdev_nodes
   v4l2_enum_dv_timings_cap
   v4l2_fh_open
-  v4l2_find_dv_timings_cea861_vic
   v4l2_i2c_subdev_init
   vb2_buffer_done
   vb2_dma_contig_memops
@@ -830,13 +839,19 @@
   wireless_nlevent_flush
   x509_load_certificate_list
 
+# required by clk-rtd1319d-cc.ko
+  clk_get_parent
+  clk_is_match
+  clk_notifier_register
+  clk_round_rate
+
+# required by clk-rtd1635-scpu.ko
+  devm_clk_notifier_register
+
 # required by clk-rtk.ko
   clk_hw_get_num_parents
   clk_hw_get_parent
   __clk_mux_determine_rate
-  debugfs_create_file_unsafe
-  memdup_user_nul
-  of_clk_hw_onecell_get
   _raw_spin_trylock
   regmap_multi_reg_write
 
@@ -963,6 +978,10 @@
   mmc_gpio_get_ro
   mmc_regulator_get_supply
 
+# required by dwc3-rtk-debugfs.ko
+  __of_get_address
+  of_translate_address
+
 # required by dwc3-rtk.ko
   usb_get_dr_mode
   usb_role_switch_get_drvdata
@@ -972,6 +991,7 @@
 # required by extcon-rtk-type-c.ko
   device_get_named_child_node
   fwnode_property_read_string
+  hrtimer_active
   typec_find_port_data_role
   typec_find_port_power_role
   typec_get_drvdata
@@ -1402,15 +1422,16 @@
   dev_pm_domain_attach_by_id
   dev_pm_domain_detach
 
+# required by rtd13xxe-ve1.ko
+  devfreq_resume_device
+  devfreq_suspend_device
+
 # required by rtd1xxx_ac.ko
   param_ops_string
 
 # required by rtd1xxx_battery.ko
   power_supply_changed
   power_supply_get_drvdata
-
-# required by rtk-gpu_cache.ko
-  _dev_notice
 
 # required by rtk-gpu_wrap.ko
   devm_platform_ioremap_resource_byname
@@ -1467,7 +1488,6 @@
   cec_register_adapter
   cec_transmit_done_ts
   cec_unregister_adapter
-  device_link_add
 
 # required by rtk_chip.ko
   soc_device_register
@@ -1693,6 +1713,7 @@
   vmalloc_to_page
 
 # required by rtk_mipicsi.ko
+  bpf_trace_run9
   vb2_dqbuf
 
 # required by rtk_npp.ko
@@ -1762,9 +1783,6 @@
   dma_fence_signal_locked
   fput
   put_unused_fd
-
-# required by rtk_tee_mem_api.ko
-  platform_find_device_by_driver
 
 # required by rtk_uncore_pmu.ko
   vsnprintf
@@ -1859,6 +1877,7 @@
   idr_replace
   in_egroup_p
   pin_user_pages_fast
+  sg_nents
   unpin_user_pages
   uuid_null
 
@@ -1866,7 +1885,6 @@
   regulator_set_ramp_delay_regmap
 
 # preserved by --additions-only
-  clk_round_rate
   dev_pm_opp_register_notifier
   dev_pm_opp_unregister_notifier
   dma_buf_set_name
@@ -1876,3 +1894,4 @@
   regulator_get_voltage
   regulator_list_voltage
   regulator_set_voltage
+  v4l2_find_dv_timings_cea861_vic
