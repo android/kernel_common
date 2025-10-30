@@ -36,6 +36,7 @@
 #include <linux/hrtimer_api.h>
 #include <linux/interrupt.h>
 #include <linux/irq_work.h>
+#include <linux/irqflags.h>
 #include <linux/jiffies.h>
 #include <linux/kref_api.h>
 #include <linux/kthread.h>
@@ -95,7 +96,26 @@ struct cpuidle_state;
 #include "cpudeadline.h"
 
 #ifdef CONFIG_SCHED_DEBUG
+#ifdef CONFIG_PROVE_LOCKING
+# define SCHED_WARN_ON(x)				\
+	({						\
+		bool __ret = false;			\
+							\
+		if (unlikely(x)) {			\
+			unsigned long __flags;		\
+							\
+			local_irq_save(__flags);	\
+			printk_deferred_enter();	\
+			WARN_ONCE(true, #x);		\
+			printk_deferred_exit();		\
+			local_irq_restore(__flags);	\
+			__ret = true;			\
+		}					\
+		unlikely(__ret);			\
+	})
+#else
 # define SCHED_WARN_ON(x)      WARN_ONCE(x, #x)
+#endif
 #else
 # define SCHED_WARN_ON(x)      ({ (void)(x), 0; })
 #endif

@@ -31,12 +31,14 @@ void __printk_deferred_enter(void)
 	cant_migrate();
 	__printk_safe_enter();
 }
+EXPORT_SYMBOL(__printk_deferred_enter);
 
 void __printk_deferred_exit(void)
 {
 	cant_migrate();
 	__printk_safe_exit();
 }
+EXPORT_SYMBOL(__printk_deferred_exit);
 
 bool is_printk_legacy_deferred(void)
 {
