@@ -861,6 +861,10 @@ static void pkvm_vcpu_pvmfw_entry_init(struct kvm_vcpu *vcpu)
 
 static void pkvm_vcpu_ap_entry_init(struct kvm_vcpu *vcpu)
 {
+	/* FIXME: temporary, until guest kernel is updated to use PKVM_GHC_START_CPU. */
+	if (!to_pkvm_vcpu(vcpu)->sipi_vector)
+		return;
+
 	kvm_vcpu_reset(vcpu, true);
 	kvm_vcpu_deliver_sipi_vector(vcpu, to_pkvm_vcpu(vcpu)->sipi_vector);
 }
