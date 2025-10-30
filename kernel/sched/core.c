@@ -154,6 +154,7 @@ static int __init setup_proxy_exec(char *str)
 	}
 	return 1;
 }
+EXPORT_SYMBOL_GPL(__sched_proxy_exec);
 #else
 static int __init setup_proxy_exec(char *str)
 {
