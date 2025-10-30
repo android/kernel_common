@@ -58,11 +58,13 @@ static struct erofs_attr erofs_attr_##_name = {			\
 #ifdef CONFIG_EROFS_FS_ZIP
 EROFS_ATTR_RW_UI(sync_decompress, erofs_mount_opts);
 #endif
+EROFS_ATTR_RW_UI(dir_ra_bytes, erofs_sb_info);
 
 static struct attribute *erofs_attrs[] = {
 #ifdef CONFIG_EROFS_FS_ZIP
 	ATTR_LIST(sync_decompress),
 #endif
+	ATTR_LIST(dir_ra_bytes),
 	NULL,
 };
 ATTRIBUTE_GROUPS(erofs);
