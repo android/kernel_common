@@ -1968,6 +1968,8 @@
   print_hex_dump
   _printk
   _printk_deferred
+  __printk_deferred_enter
+  __printk_deferred_exit
   probe_irq_off
   probe_irq_on
   proc_create
