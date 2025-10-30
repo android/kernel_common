@@ -260,6 +260,96 @@ static void print_phys_memory_model(void)
 			(u64)PFN_PHYS(start_pfn));
 }
 
+static const char *get_migrate_type_name(enum migratetype type)
+{
+	switch (type) {
+	case MIGRATE_UNMOVABLE:
+		return "UNMOVABLE";
+	case MIGRATE_MOVABLE:
+		return "MOVABLE";
+	case MIGRATE_RECLAIMABLE:
+		return "RECLAIMABLE";
+	case MIGRATE_PCPTYPES:
+	// case MIGRATE_HIGHATOMIC:
+		return "PCPTYPES or HIGHATOMIC";
+	case MIGRATE_CMA:
+		return "CMA";
+	case MIGRATE_ISOLATE:
+		return "ISOLATE";
+	default:
+		return "UNKNOWN MIGRATE TYPE";
+	}
+}
+
+static void free_memory_per_area(struct free_area *area, int order)
+{
+	pr_info("    zone->free_area[order]->nr_free = %lu list nodes, order = %d",
+			area->nr_free, order);
+
+	if (area->nr_free == 0)
+		return;
+
+	for (int migrate_type = 0; migrate_type < MIGRATE_TYPES; migrate_type++) {
+		const char *migrate_name = get_migrate_type_name(migrate_type);
+
+		// free_list contains the struct page objects.
+		if (!list_empty(&area->free_list[migrate_type]))
+			pr_info("        free_list[%s] is NOT empty", migrate_name);
+		else
+			pr_info("        free_list[%s] is EMPTY", migrate_name);
+	}
+}
+
+static void free_memory_per_zone(int idx, struct zone *zone)
+{
+	unsigned long flags;
+	struct free_area *area;
+
+	if (!zone) {
+		pr_info("zone %d is NULL", idx);
+		return;
+	}
+	pr_info("zone %d (%s)", idx, zone->name);
+
+	if (managed_zone(zone))
+		pr_info("    zone managed by the buddy allocator");
+	else
+		pr_info("    zone NOT managed by the buddy allocator");
+
+	if (populated_zone(zone))
+		pr_info("    zone has memory");
+	else {
+		pr_info("    zone has NOT memory");
+		return;
+	}
+
+	for (int current_order = 0; current_order < NR_PAGE_ORDERS; current_order++) {
+		area = &(zone->free_area[current_order]);
+
+		spin_lock_irqsave(&zone->lock, flags);
+		free_memory_per_area(area, current_order);
+		spin_unlock_irqrestore(&zone->lock, flags);
+	}
+}
+
+/*
+ * Displays the free memory available per node, zone, order and migration type.
+ */
+static void free_memory_per_node(void)
+{
+	int nodeId;
+
+	for_each_online_node(nodeId) {
+		struct pglist_data *node = NODE_DATA(nodeId);
+
+		pr_info("Node %d has %d zones", nodeId, node->nr_zones);
+		for (int i = 0; i < node->nr_zones; i++) {
+			struct zone *zone = &node->node_zones[i];
+
+			free_memory_per_zone(i, zone);
+		}
+	}
+}
 static int __init mem_phys_layout_init(void)
 {
 	print_ram_info();
@@ -269,6 +359,7 @@ static int __init mem_phys_layout_init(void)
 	print_page_info();
 	print_page_flags();
 	print_phys_memory_model();
+	free_memory_per_node();
 
 	return 0;
 }
