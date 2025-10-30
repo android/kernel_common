@@ -868,7 +868,7 @@ static int pkvm_vcpu_create(struct kvm_vcpu *vcpu)
 	if (ret < 0)
 		goto free_fpu;
 
-	vcpu->arch.pkvm_vcpu_handle = ret;
+	vcpu->arch.pkvm_vcpu.handle = ret;
 
 	return 0;
 

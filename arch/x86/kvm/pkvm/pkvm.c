@@ -448,7 +448,7 @@ static int __pkvm_vcpu_free(struct pkvm_vm *pkvm_vm, int vcpu_handle)
 static int pkvm_vcpu_free(struct kvm_vcpu *shared_vcpu)
 {
 	struct kvm *shared_kvm = kern_pkvm_va(shared_vcpu->kvm);
-	int vcpu_handle = shared_vcpu->arch.pkvm_vcpu_handle;
+	int vcpu_handle = shared_vcpu->arch.pkvm_vcpu.handle;
 	struct pkvm_vm *pkvm_vm;
 	int ret;
 
@@ -605,7 +605,7 @@ struct pkvm_vcpu *get_pkvm_vcpu_via_shared(struct kvm_vcpu *shared_vcpu)
 	 */
 	shared_kvm = kern_pkvm_va(shared_vcpu->kvm);
 	pkvm_vcpu = get_pkvm_vcpu(shared_kvm->arch.pkvm.pkvm_vm_handle,
-				  shared_vcpu->arch.pkvm_vcpu_handle);
+				  shared_vcpu->arch.pkvm_vcpu.handle);
 	if (!pkvm_vcpu)
 		return NULL;
 
