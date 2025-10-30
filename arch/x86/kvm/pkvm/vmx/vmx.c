@@ -4752,7 +4752,7 @@ static int handle_io(struct kvm_vcpu *vcpu)
 	++vcpu->stat.io_exits;
 
 	if ((exit_qualification & 16) != 0) {
-		if (WARN_ON_ONCE(pkvm_is_protected_vcpu(vcpu))) {
+		if (pkvm_is_protected_vcpu(vcpu)) {
 			/*
 			 * The pVM should be enlighted to unroll the string IO
 			 * instruction to IO instruction, so the string IO
