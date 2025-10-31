@@ -862,7 +862,10 @@ kernel_build(
         "//conditions:default": _DB845C_WATCHDOG_MODULE_OUTS,
     }),
     pre_defconfig_fragments = ["arch/arm64/configs/db845c_gki.fragment"],
-    strip_modules = True,
+    strip_modules = select({
+        "//build/kernel/kleaf:debug_is_true": False,
+        "//conditions:default": True,
+    }),
 )
 
 kernel_modules_install(
