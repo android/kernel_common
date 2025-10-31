@@ -44,11 +44,15 @@
  * Worker macros, don't use these, use the ones without a leading '_'
  */
 
+#if defined(BUILD_VDSO) || defined(__DISABLE_EXPORTS)
+#define __ANDROID_KABI_RULE(hint, target, value)
+#else
 #define __ANDROID_KABI_RULE(hint, target, value)			 \
 	static const char CONCATENATE(__gendwarfksyms_rule_,		 \
 				      __COUNTER__)[] __used __aligned(1) \
 		__section(".discard.gendwarfksyms.kabi_rules") =	 \
 			"1\0" #hint "\0" target "\0" value
+#endif
 
 #define _ANDROID_KABI_RULE(hint, target, value) \
 	__ANDROID_KABI_RULE(hint, #target, #value)
@@ -68,6 +72,9 @@
 				__stringify(_new));			\
 	}
 
+#if defined(BUILD_VDSO) || defined(__DISABLE_EXPORTS)
+#define _ANDROID_KABI_REPLACE(_orig, _new)	_new
+#else
 #define _ANDROID_KABI_REPLACE(_orig, _new)		      \
 	union {						      \
 		_new;					      \
@@ -76,6 +83,7 @@
 		};					      \
 		_ANDROID_KABI_NORMAL_SIZE_ALIGN(_orig, _new); \
 	}
+#endif
 
 
 /*
