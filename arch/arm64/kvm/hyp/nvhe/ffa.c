@@ -785,6 +785,7 @@ static int ffa_guest_share_ranges(struct ffa_mem_region_addr_range *ranges,
 	int i, j, ret;
 	u32 mem_region_idx = 0;
 	u64 ipa, pa, offset;
+	struct kvm_hyp_req *req;
 
 	for (i = 0; i < nranges; i++) {
 		range = &ranges[i];
@@ -801,6 +802,19 @@ static int ffa_guest_share_ranges(struct ffa_mem_region_addr_range *ranges,
 			}
 
 			ret = __pkvm_guest_share_ffa_page(vcpu, ipa, &pa);
+			if (ret == -EFAULT) {
+				req = pkvm_hyp_req_reserve(vcpu, KVM_HYP_REQ_TYPE_MAP);
+				if (!req) {
+					ret = -ENOSPC;
+					goto unshare;
+				}
+
+				req->map.guest_ipa = ipa;
+				req->map.size = PAGE_SIZE;
+				goto unshare;
+			}
+
+			/* Any other uncaught error ? abort */
 			if (ret)
 				goto unshare;
 
