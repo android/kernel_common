@@ -18,7 +18,7 @@ struct pkvm_module_ops;
 
 struct pkvm_el2_sym {
 	char			*name;
-	__le32 			*rela_pos;
+	__le32			*rela_pos;
 	struct list_head	node;
 };
 
