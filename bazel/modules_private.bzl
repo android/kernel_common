@@ -114,7 +114,6 @@ _X86_GKI_MODULES_LIST = [
 _X86_64_GKI_MODULES_LIST = [
     # keep sorted
     "drivers/acpi/fan.ko",
-    "drivers/acpi/platform_profile.ko",
     "drivers/powercap/intel_rapl_common.ko",
     "drivers/ptp/ptp_kvm.ko",
     "drivers/thermal/intel/int340x_thermal/acpi_thermal_rel.ko",
@@ -131,7 +130,6 @@ _X86_64_GKI_MODULES_LIST = [
     "drivers/thermal/intel/int340x_thermal/processor_thermal_power_floor.ko",
     "drivers/thermal/intel/int340x_thermal/processor_thermal_rapl.ko",
     "drivers/thermal/intel/int340x_thermal/processor_thermal_rfim.ko",
-    "drivers/thermal/intel/int340x_thermal/processor_thermal_soc_slider.ko",
     "drivers/thermal/intel/int340x_thermal/processor_thermal_wt_hint.ko",
     "drivers/thermal/intel/int340x_thermal/processor_thermal_wt_req.ko",
     "drivers/thermal/intel/intel_soc_dts_iosf.ko",
