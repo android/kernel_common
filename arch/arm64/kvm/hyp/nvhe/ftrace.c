@@ -251,7 +251,7 @@ end:
 
 phys_addr_t __get_phys(unsigned long addr)
 {
-	if (addr >= (unsigned long)__hyp_text_start)
+	if (addr >= (unsigned long)__hyp_text_start && addr < (unsigned long)__hyp_text_end)
 		return __hyp_pa(addr);
 
 	return __pkvm_private_range_pa((void *)addr);
