@@ -19,11 +19,9 @@ load("//build/kernel/kleaf:constants.bzl", "COMMON_KCFLAGS", "DEFAULT_GKI_OUTS",
 load("//build/kernel/kleaf:fail.bzl", "fail_rule")
 load(
     "//build/kernel/kleaf:kernel.bzl",
-    "boot_image",
     "checkpatch",
     "ddk_headers",
     "ddk_headers_archive",
-    "dtb_image",
     "initramfs",
     "kernel_build",
     "kernel_compile_commands",
@@ -1278,117 +1276,6 @@ kernel_build(
     visibility = ["//visibility:private"],
 )
 
-_RAVIOLE_UPSTREAM_MODULES = [
-    # keep sorted
-    "drivers/clk/clk-s2mps11.ko",
-    "drivers/firmware/samsung/acpm-protocol.ko",
-    "drivers/gpio/gpio-max77759.ko",
-    "drivers/i2c/busses/i2c-exynos5.ko",
-    "drivers/mailbox/exynos-mailbox.ko",
-    "drivers/mfd/max77759.ko",
-    "drivers/mfd/sec-acpm.ko",
-    "drivers/mfd/sec-core.ko",
-    "drivers/misc/eeprom/at24.ko",
-    "drivers/nvmem/nvmem-max77759.ko",
-    "drivers/perf/arm_dsu_pmu.ko",
-    "drivers/phy/samsung/phy-exynos-ufs.ko",
-    "drivers/phy/samsung/phy-exynos5-usbdrd.ko",
-    "drivers/rtc/rtc-s5m.ko",
-    "drivers/soc/samsung/exynos-usi.ko",
-    "drivers/soc/samsung/exynos_chipid.ko",
-    "drivers/ufs/host/ufs-exynos.ko",
-    "drivers/usb/dwc3/dwc3-exynos.ko",
-    "drivers/usb/typec/tcpm/tcpci_maxim.ko",
-    "drivers/video/fbdev/simplefb.ko",
-    "drivers/watchdog/s3c2410_wdt.ko",
-]
-
-kernel_build(
-    name = "raviole_upstream",
-    srcs = [":kernel_aarch64_sources"],
-    outs = [
-        "Image.lz4",
-        "System.map",
-        "arch/arm64/boot/dts/exynos/google/gs101-oriole.dtb",
-        "modules.builtin",
-        "modules.builtin.modinfo",
-        "vmlinux",
-        "vmlinux.symvers",
-    ],
-    arch = "arm64",
-    defconfig = "arch/arm64/configs/gki_defconfig",
-    make_goals = [
-        "Image.lz4",
-        "modules",
-        "exynos/google/gs101-oriole.dtb",
-    ],
-    makefile = ":Makefile",
-    module_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64") + _RAVIOLE_UPSTREAM_MODULES,
-    pre_defconfig_fragments = ["arch/arm64/configs/raviole_gki.fragment"],
-    strip_modules = True,
-)
-
-# TODO(b/452633937): Move to GKI and drop this boot_image rule once we can
-# enable ARCH_EXYNOS in the gki_defconfig.
-boot_image(
-    name = "raviole_upstream_boot",
-    outs = [
-        "boot.img",
-    ],
-    avb_boot_algorithm = "SHA256_RSA4096",
-    avb_boot_key = "@avb_test//:data/testkey_rsa4096.pem",
-    avb_boot_partition_name = "boot",
-    avb_boot_partition_size = 0x04000000,
-    avb_sign_boot_img = True,
-    header_version = 4,
-    kernel_binary = ":raviole_upstream/Image.lz4",
-    kernel_build = ":raviole_upstream",
-)
-
-kernel_modules_install(
-    name = "raviole_upstream_modules_install",
-    kernel_build = ":raviole_upstream",
-)
-
-write_file(
-    name = "raviole_upstream_vendor_boot_modules_list",
-    out = "raviole_upstream_vendor_boot_modules",
-    content = _RAVIOLE_UPSTREAM_MODULES,
-)
-
-dtb_image(
-    name = "raviole_upstream_dtb",
-    srcs = [":raviole_upstream/arch/arm64/boot/dts/exynos/google/gs101-oriole.dtb"],
-    out = "dtb.img",
-)
-
-initramfs(
-    name = "raviole_upstream_initramfs",
-    kernel_modules_install = ":raviole_upstream_modules_install",
-    modules_list = ":raviole_upstream_vendor_boot_modules_list",
-    ramdisk_compression = "lz4",
-    trim_unused_modules = True,
-)
-
-pkg_files(
-    name = "raviole_upstream_dist_files",
-    srcs = [
-        ":raviole_upstream",
-        ":raviole_upstream_boot",
-        ":raviole_upstream_dtb",
-        ":raviole_upstream_initramfs",
-        ":raviole_upstream_modules_install",
-    ],
-    strip_prefix = strip_prefix.files_only(),
-    visibility = ["//visibility:private"],
-)
-
-pkg_install(
-    name = "raviole_upstream_dist",
-    srcs = [":raviole_upstream_dist_files"],
-    destdir = "out/raviole_upstream/dist",
-)
-
 # KUnit test targets
 _KUNIT_DIR = "testcases/kunit"
 
@@ -1740,6 +1627,17 @@ alias(
     name = "dtc_includes_x86_64",
     actual = ":dt-bindings",
     visibility = ["//visibility:public"],
+)
+
+devicetree_library(
+    name = "all_exynos_google_dtsi",
+    hdrs = glob([
+        "arch/arm64/boot/dts/exynos/google/**/*.dtsi",
+        "arch/arm64/boot/dts/exynos/google/**/*.h",
+    ]),
+    includes = ["arch/arm64/boot/dts/exynos/google"],
+    visibility = ["//devices/google:__subpackages__"],
+    deps = ["//common:dtc_includes_aarch64"],
 )
 
 _KSELFTEST_DIR = "testcases/selftests"
