@@ -1726,14 +1726,8 @@ bool kvm_guest_ffa_handler(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
 
 	DECLARE_REG(u64, func_id, ctxt, 0);
 
-	if (!is_ffa_call(func_id)) {
+	if (!is_ffa_call(func_id) || !VM_FFA_SUPPORTED(vcpu)) {
 		smccc_set_retval(vcpu, SMCCC_RET_NOT_SUPPORTED, 0, 0, 0);
-		return true;
-	}
-
-	if (!VM_FFA_SUPPORTED(vcpu)) {
-		ffa_to_smccc_error(&res, FFA_RET_NOT_SUPPORTED);
-		ffa_set_retval(ctxt, &res);
 		return true;
 	}
 
