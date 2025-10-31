@@ -13,7 +13,7 @@ struct iommu_iotlb_gather;
 struct kvm_hyp_iommu_domain;
 struct pkvm_device;
 
-#ifdef CONFIG_MODULES
+#if defined(CONFIG_MODULES) && defined(CONFIG_KVM)
 enum pkvm_psci_notification {
 	PKVM_PSCI_CPU_SUSPEND,
 	PKVM_PSCI_SYSTEM_SUSPEND,
@@ -341,6 +341,15 @@ int __pkvm_register_el2_call(unsigned long hfn_hyp_va);
 
 unsigned long pkvm_el2_mod_kern_va(unsigned long addr);
 
+static inline unsigned long __pkvm_el2_mod_va(struct pkvm_el2_module *mod, void *kern_va)
+{
+	unsigned long offset = (unsigned long)(kern_va - mod->sections.start);
+
+	WARN_ON(kern_va < mod->sections.start || kern_va >= mod->sections.end);
+
+	return (unsigned long)mod->hyp_va + offset;
+}
+
 void pkvm_el2_mod_frob_sections(Elf_Ehdr *ehdr, Elf_Shdr *sechdrs, char *secstrings);
 #else
 static inline int __pkvm_load_el2_module(struct module *this,
@@ -358,23 +367,24 @@ static inline unsigned long pkvm_el2_mod_kern_va(unsigned long addr)
 {
 	return 0;
 }
-#endif /* CONFIG_MODULES */
+
+static inline unsigned long __pkvm_el2_mod_va(void *mod, void *kern_va)
+{
+	WARN_ON(1);
+	return 0;
+}
+#endif /* CONFIG_MODULES && KVM */
 
 int pkvm_load_early_modules(void);
 
 #ifdef MODULE
+
+/* TODO: With the introduction of pkvm_el2_module::hyp_va token is redundant */
+
 /*
  * Convert an EL2 module addr from the kernel VA to the hyp VA
  */
-#define pkvm_el2_mod_va(kern_va, token)					\
-({									\
-	unsigned long hyp_mod_kern_va =				\
-		(unsigned long)THIS_MODULE->arch.hyp.sections.start;	\
-	unsigned long offset;						\
-									\
-	offset = (unsigned long)kern_va - hyp_mod_kern_va;		\
-	token + offset;							\
-})
+#define pkvm_el2_mod_va(kern_va, token) __pkvm_el2_mod_va(&THIS_MODULE->arch.hyp, kern_va)
 
 #define pkvm_load_el2_module(init_fn, token)				\
 ({									\
