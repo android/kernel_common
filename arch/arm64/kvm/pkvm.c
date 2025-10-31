@@ -1493,15 +1493,13 @@ int __pkvm_load_el2_module(struct module *this, unsigned long *token)
 	if (token)
 		*token = (unsigned long)hyp_va;
 
-	mod->sections.start = start;
-	mod->sections.end = end;
-
-	endrel = (void *)mod->relocs + mod->nr_relocs * sizeof(*endrel);
-	kvm_apply_hyp_module_relocations(mod, mod->relocs, endrel);
-
+	/* Relies on kvm_apply_hyp_module_relocations() sync_icache_aliases */
 	ret = pkvm_reloc_imported_symbols(mod);
 	if (ret)
 		return ret;
+
+	endrel = (void *)mod->relocs + mod->nr_relocs * sizeof(*endrel);
+	kvm_apply_hyp_module_relocations(mod, mod->relocs, endrel);
 
 	pkvm_module_kmemleak(this, secs_map, ARRAY_SIZE(secs_map));
 
