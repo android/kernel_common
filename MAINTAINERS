@@ -12882,6 +12882,16 @@ S:	Maintained
 F:	Documentation/admin-guide/pm/intel_uncore_frequency_scaling.rst
 F:	drivers/platform/x86/intel/uncore-frequency/
 
+INTEL USBIO USB I/O EXPANDER DRIVERS
+M:	Israel Cepeda <israel.a.cepeda.lopez@intel.com>
+M:	Hans de Goede <hansg@kernel.org>
+R:	Sakari Ailus <sakari.ailus@linux.intel.com>
+S:	Maintained
+F:	drivers/gpio/gpio-usbio.c
+F:	drivers/i2c/busses/i2c-usbio.c
+F:	drivers/usb/misc/usbio.c
+F:	include/linux/usb/usbio.h
+
 INTEL VENDOR SPECIFIC EXTENDED CAPABILITIES DRIVER
 M:	David E. Box <david.e.box@linux.intel.com>
 S:	Supported
@@ -17248,7 +17258,7 @@ F:	Documentation/devicetree/bindings/*/loongson,ls1*.yaml
 F:	arch/mips/include/asm/mach-loongson32/
 F:	arch/mips/loongson32/
 F:	drivers/*/*loongson1*
-F:	drivers/mtd/nand/raw/loongson1-nand-controller.c
+F:	drivers/mtd/nand/raw/loongson-nand-controller.c
 F:	drivers/net/ethernet/stmicro/stmmac/dwmac-loongson1.c
 F:	sound/soc/loongson/loongson1_ac97.c
 
@@ -25499,7 +25509,6 @@ F:	drivers/thunderbolt/dma_test.c
 
 THUNDERBOLT DRIVER
 M:	Andreas Noever <andreas.noever@gmail.com>
-M:	Michael Jamet <michael.jamet@intel.com>
 M:	Mika Westerberg <westeri@kernel.org>
 M:	Yehezkel Bernat <YehezkelShB@gmail.com>
 L:	linux-usb@vger.kernel.org
@@ -25510,7 +25519,6 @@ F:	drivers/thunderbolt/
 F:	include/linux/thunderbolt.h
 
 THUNDERBOLT NETWORK DRIVER
-M:	Michael Jamet <michael.jamet@intel.com>
 M:	Mika Westerberg <westeri@kernel.org>
 M:	Yehezkel Bernat <YehezkelShB@gmail.com>
 L:	netdev@vger.kernel.org
