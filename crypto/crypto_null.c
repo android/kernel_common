@@ -18,9 +18,6 @@
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/spinlock.h>
-// CRC fix for e307c54ac819 ("crypto: null - Use spin lock instead of mutex") requires us to put
-// back mm.h to preserve a bunch of structure types in the crc generation logic
-#include <linux/mm.h>
 #include <linux/string.h>
 
 static DEFINE_SPINLOCK(crypto_default_null_skcipher_lock);

@@ -562,7 +562,15 @@ struct sched_entity {
 	u64				sum_exec_runtime;
 	u64				prev_sum_exec_runtime;
 	u64				vruntime;
-	s64				vlag;
+	union {
+		/*
+		 * When !@on_rq this field is vlag.
+		 * When cfs_rq->curr == se (which implies @on_rq)
+		 * this field is vprot. See protect_slice().
+		 */
+		s64                     vlag;
+		u64                     vprot;
+	};
 	u64				slice;
 
 	u64				nr_migrations;
@@ -728,34 +736,6 @@ struct sched_dl_entity {
 	struct sched_dl_entity *pi_se;
 #endif
 };
-
-ANDROID_KABI_TYPE_STRING("s#sched_dl_entity", "structure_type sched_dl_entity "
-	"{ member s#rb_node rb_node data_member_location(0) , member t#u64 "
-	"dl_runtime data_member_location(24) , member t#u64 dl_deadline "
-	"data_member_location(32) , member t#u64 dl_period data_member_location(40) "
-	", member t#u64 dl_bw data_member_location(48) , member t#u64 dl_density "
-	"data_member_location(56) , member t#s64 runtime data_member_location(64) , "
-	"member t#u64 deadline data_member_location(72) , member base_type unsigned "
-	"int byte_size(4) encoding(7) flags data_member_location(80) , member base_type "
-	"unsigned int byte_size(4) encoding(7) dl_throttled bit_size(1) "
-	"data_bit_offset(672) , member base_type unsigned int byte_size(4) encoding(7) "
-	"dl_yielded bit_size(1) data_bit_offset(673) , member base_type unsigned int "
-	"byte_size(4) encoding(7) dl_non_contending bit_size(1) data_bit_offset(674) , "
-	"member base_type unsigned int byte_size(4) encoding(7) dl_overrun bit_size(1) "
-	"data_bit_offset(675) , member base_type unsigned int byte_size(4) encoding(7) "
-	"dl_server bit_size(1) data_bit_offset(676) , member base_type unsigned int "
-	"byte_size(4) encoding(7) dl_server_active bit_size(1) data_bit_offset(677) , "
-	"member base_type unsigned int byte_size(4) encoding(7) dl_defer bit_size(1) "
-	"data_bit_offset(678) , member base_type unsigned int byte_size(4) encoding(7) "
-	"dl_defer_armed bit_size(1) data_bit_offset(679) , member base_type unsigned "
-	"int byte_size(4) encoding(7) dl_defer_running bit_size(1) "
-	"data_bit_offset(680) , member s#hrtimer dl_timer data_member_location(88) , "
-	"member s#hrtimer inactive_timer data_member_location(152) , member "
-	"pointer_type { s#rq } rq data_member_location(216) , member "
-	"t#dl_server_has_tasks_f server_has_tasks data_member_location(224) , member "
-	"t#dl_server_pick_f server_pick_task data_member_location(232) , member "
-	"pointer_type { s#sched_dl_entity } pi_se data_member_location(240) } "
-	"byte_size(248)");
 
 #ifdef CONFIG_UCLAMP_TASK
 /* Number of utilization clamp buckets (shorter alias) */

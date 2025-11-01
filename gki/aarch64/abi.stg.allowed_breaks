@@ -1,33 +1,16 @@
 # How to use this file: http://go/approve-abi-break
-# ABI freeze commit: 0690b3438b4acb24f7ecfd946cf9a9ac5954ef20
 
-type 'enum prs_errcode' changed
-  enumerator 'PERR_REMOTE' (10) was added
+type 'struct cfs_rq' changed
+  member 'unsigned int h_nr_queued' was removed
+  member 'union { struct { union { unsigned int h_nr_queued; unsigned int h_nr_running; }; }; struct { unsigned int __kabi_renamedh_nr_queued; }; union { }; }' was added
 
-type 'struct sched_dl_entity' changed
-  member 'unsigned int dl_server_idle:1' was added
+2 function symbol(s) removed
+  'int __traceiter_android_vh_f2fs_printk(void*, struct f2fs_sb_info*, struct va_format*, int, bool)'
+  'int __traceiter_f2fs_submit_folio_write(void*, struct folio*, struct f2fs_io_info*)'
 
-type 'struct f2fs_sb_info' changed
-  member 'union { unsigned int reserved_pin_section; unsigned char __kabi_ignored0; }' was added
-
-type 'enum gunyah_rm_vm_status' changed
-  enumerator 'GUNYAH_RM_VM_STATUS_RESET_FAILED' (12) was added
-
-6 function symbol(s) removed
-  'int __traceiter_f2fs_gc_begin(void*, struct super_block*, int, bool, unsigned int, long long, long long, long long, unsigned int, unsigned int, int, unsigned int)'
-  'int __traceiter_f2fs_gc_end(void*, struct super_block*, int, int, int, long long, long long, long long, unsigned int, unsigned int, int, unsigned int)'
-  'int __traceiter_f2fs_sync_file_enter(void*, struct inode*)'
-  'int __traceiter_f2fs_sync_file_exit(void*, struct inode*, int, int, int)'
-  'int __traceiter_f2fs_write_checkpoint(void*, struct super_block*, int, const char*)'
-  'int __traceiter_ufshcd_command(void*, struct scsi_device*, struct ufs_hba*, enum ufs_trace_str_t, unsigned int, u32, u32, int, u32, u64, u8, u8)'
-
-6 variable symbol(s) removed
-  'struct tracepoint __tracepoint_f2fs_gc_begin'
-  'struct tracepoint __tracepoint_f2fs_gc_end'
-  'struct tracepoint __tracepoint_f2fs_sync_file_enter'
-  'struct tracepoint __tracepoint_f2fs_sync_file_exit'
-  'struct tracepoint __tracepoint_f2fs_write_checkpoint'
-  'struct tracepoint __tracepoint_ufshcd_command'
+2 variable symbol(s) removed
+  'struct tracepoint __tracepoint_android_vh_f2fs_printk'
+  'struct tracepoint __tracepoint_f2fs_submit_folio_write'
 
 type 'struct drm_bridge' changed
   member 'union { bool support_hdcp; unsigned char __kabi_ignored0; }' was added

@@ -37,11 +37,6 @@
 
 #include "ttm_module.h"
 
-#include <linux/android_kabi.h>
-ANDROID_KABI_DECLONLY(dma_buf);
-ANDROID_KABI_DECLONLY(dma_buf_attachment);
-ANDROID_KABI_DECLONLY(sg_table);
-
 /*
  * ttm_global_mutex - protecting the global state
  */

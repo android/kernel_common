@@ -8,7 +8,6 @@
 #include <linux/gunyah.h>
 #include <linux/notifier.h>
 #include <linux/types.h>
-#include <linux/android_kabi.h>
 
 #define GUNYAH_VMID_INVAL U16_MAX
 #define GUNYAH_MEM_HANDLE_INVAL U32_MAX
@@ -52,7 +51,6 @@ enum gunyah_rm_vm_status {
 	GUNYAH_RM_VM_STATUS_RESET_FAILED	= 12,
 	/* clang-format on */
 };
-ANDROID_KABI_ENUMERATOR_IGNORE(gunyah_rm_vm_status, GUNYAH_RM_VM_STATUS_RESET_FAILED);
 
 struct gunyah_rm_vm_status_payload {
 	__le16 vmid;
