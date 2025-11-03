@@ -199,6 +199,7 @@ static int scmi_limit_notify_cb(struct notifier_block *nb, unsigned long event, 
 	if (done)
 		return NOTIFY_OK;
 
+	ret = freq_qos_update_request(&priv->limits_freq_req, limit_freq_khz);
 	if (ret < 0)
 		pr_warn("failed to update freq constraint: %d\n", ret);
 
