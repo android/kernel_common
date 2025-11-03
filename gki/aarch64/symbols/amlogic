@@ -2439,6 +2439,7 @@
   __traceiter_android_vh_kmalloc_large_node_bypass
   __traceiter_android_vh_ksize
   __traceiter_android_vh_look_around_migrate_folio
+  __traceiter_android_vh_may_unmap_folio
   __traceiter_android_vh_poison_kmalloc_large_redzone
   __traceiter_android_vh_printk_caller
   __traceiter_android_vh_printk_caller_id
@@ -2482,6 +2483,7 @@
   __tracepoint_android_vh_kmalloc_large_node_bypass
   __tracepoint_android_vh_ksize
   __tracepoint_android_vh_look_around_migrate_folio
+  __tracepoint_android_vh_may_unmap_folio
   __tracepoint_android_vh_poison_kmalloc_large_redzone
   __tracepoint_android_vh_printk_caller
   __tracepoint_android_vh_printk_caller_id
