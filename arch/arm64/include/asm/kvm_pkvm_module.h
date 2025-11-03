@@ -309,11 +309,9 @@ struct pkvm_module_ops {
 				     int (*cb)(void *cookie, bool host_to_guest));
 	ANDROID_KABI_USE(1, int (*register_guest_trng_ops)(
 				    const struct pkvm_module_trng_ops *ops));
-	int (*map_module_pages)(u64 pfn, void *va, u64 nr_pages,
-				    enum kvm_pgtable_prot prot, bool is_protected);
-	int (*unmap_module_pages)(u64 pfn, void *va, u64 nr_pages);
-	ANDROID_KABI_RESERVE(2);
-	ANDROID_KABI_RESERVE(3);
+	ANDROID_KABI_USE(2, int (*map_module_pages)(u64 pfn, void *va, u64 nr_pages,
+				    enum kvm_pgtable_prot prot, bool is_protected));
+	ANDROID_KABI_USE(3, int (*unmap_module_pages)(u64 pfn, void *va, u64 nr_pages));
 	ANDROID_KABI_RESERVE(4);
 	ANDROID_KABI_RESERVE(5);
 	ANDROID_KABI_RESERVE(6);

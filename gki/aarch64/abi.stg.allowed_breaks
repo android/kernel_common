@@ -61,3 +61,9 @@ type 'struct io_kiocb' changed
   member 'struct hlist_node hash_node' was removed
   member 'union { struct hlist_node hash_node; struct callback_head callback_head; }' was added
 
+type 'struct pkvm_module_ops' changed
+  member 'u64 __kabi_reserved2' was removed
+  member 'u64 __kabi_reserved3' was removed
+  member 'union { int(* map_module_pages)(u64, void*, u64, enum kvm_pgtable_prot, bool); struct { u64 __kabi_reserved2; }; union { }; }' was added
+  member 'union { int(* unmap_module_pages)(u64, void*, u64); struct { u64 __kabi_reserved3; }; union { }; }' was added
+
