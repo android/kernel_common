@@ -5,6 +5,7 @@
  */
 
 #include <linux/kvm_host.h>
+#include <linux/overflow.h>
 #include <asm/kvm_hyp.h>
 #include <asm/kvm_mmu.h>
 #include <asm/kvm_pgtable.h>
@@ -124,7 +125,7 @@ static void update_mod_range(unsigned long addr, size_t size)
 	hyp_spin_unlock(&mod_range_lock);
 }
 
-void assert_in_mod_range(unsigned long addr)
+void assert_in_mod_range(unsigned long addr, size_t size)
 {
 	/*
 	 * This is not entirely watertight if there are private range
@@ -132,7 +133,7 @@ void assert_in_mod_range(unsigned long addr)
 	 * probably going to be allocation initiated by the modules themselves.
 	 */
 	hyp_spin_lock(&mod_range_lock);
-	WARN_ON(addr < mod_range_start || mod_range_end <= addr);
+	WARN_ON(addr < mod_range_start || mod_range_end < (addr + size));
 	hyp_spin_unlock(&mod_range_lock);
 }
 #else
@@ -150,30 +151,55 @@ void *__pkvm_alloc_module_va(u64 nr_pages)
 	return (void *)addr;
 }
 
-int __pkvm_map_module_page(u64 pfn, void *va, enum kvm_pgtable_prot prot, bool is_protected)
+int __pkvm_map_module_pages(u64 pfn, void *va, u64 nr_pages, enum kvm_pgtable_prot prot,
+			    bool is_protected)
 {
+	phys_addr_t phys = hyp_pfn_to_phys(pfn);
 	unsigned long addr = (unsigned long)va;
+	size_t size;
 	int ret;
 
-	assert_in_mod_range(addr);
+	if (check_mul_overflow(nr_pages, PAGE_SIZE, &size))
+		return -EINVAL;
+
+	if (phys >= phys + size || va >= va + size)
+		return -EINVAL;
+
+	if (!PAGE_ALIGNED(va))
+		return -EINVAL;
+
+	assert_in_mod_range(addr, size);
 
 	if (!is_protected) {
-		ret = __pkvm_host_donate_hyp(pfn, 1);
+		ret = __pkvm_host_donate_hyp(pfn, nr_pages);
 		if (ret)
 			return ret;
 	}
 
-	ret = __pkvm_create_mappings(addr, PAGE_SIZE, hyp_pfn_to_phys(pfn), prot);
+	ret = __pkvm_create_mappings(addr, size, phys, prot);
 	if (ret && !is_protected)
-		WARN_ON(__pkvm_hyp_donate_host(pfn, 1));
+		WARN_ON(__pkvm_hyp_donate_host(pfn, nr_pages));
 
 	return ret;
 }
 
-void __pkvm_unmap_module_page(u64 pfn, void *va)
+int __pkvm_unmap_module_pages(u64 pfn, void *va, u64 nr_pages)
 {
-	WARN_ON(__pkvm_hyp_donate_host(pfn, 1));
-	pkvm_remove_mappings(va, va + PAGE_SIZE);
+	phys_addr_t phys = hyp_pfn_to_phys(pfn);
+	size_t size;
+
+	if (check_mul_overflow(nr_pages, PAGE_SIZE, &size))
+		return -EINVAL;
+
+	if (phys >= phys + size || va >= va + size)
+		return -EINVAL;
+
+	if (!PAGE_ALIGNED(va))
+		return -EINVAL;
+
+	pkvm_remove_mappings(va, va + size);
+
+	return 0;
 }
 
 int __hyp_allocator_map(unsigned long va, phys_addr_t phys)

@@ -56,6 +56,13 @@ struct pkvm_module_trng_ops {
  * @map_module_page:		Used in conjunction with @alloc_module_va. When
  *				@is_protected is not set, the page is also
  *				unmapped from the host stage-2.
+ * @map_module_pages:		Used in conjunction with @alloc_module_va. When
+ *				@is_protected is not set, the page is also
+ *				unmapped from the host stage-2.
+ * @unmap_module_pages:		Unmap pages previously allocated with
+ *				@map_module_pages. Does not restore the host
+ *				stage-2 mapping, use @hyp_donate_host for that
+ *				purpose.
  * @register_serial_driver:	Register a driver for a serial interface. The
  *				framework only needs a single callback
  *				@hyp_putc_cb which is expected to print a single
@@ -302,6 +309,9 @@ struct pkvm_module_ops {
 				     int (*cb)(void *cookie, bool host_to_guest));
 	ANDROID_KABI_USE(1, int (*register_guest_trng_ops)(
 				    const struct pkvm_module_trng_ops *ops));
+	int (*map_module_pages)(u64 pfn, void *va, u64 nr_pages,
+				    enum kvm_pgtable_prot prot, bool is_protected);
+	int (*unmap_module_pages)(u64 pfn, void *va, u64 nr_pages);
 	ANDROID_KABI_RESERVE(2);
 	ANDROID_KABI_RESERVE(3);
 	ANDROID_KABI_RESERVE(4);

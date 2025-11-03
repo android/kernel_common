@@ -37,14 +37,15 @@ unsigned long pkvm_remove_mappings_locked(void *from, void *to);
 phys_addr_t __pkvm_private_range_pa(void *va);
 int __hyp_allocator_map(unsigned long start, phys_addr_t phys);
 
-int __pkvm_map_module_page(u64 pfn, void *va, enum kvm_pgtable_prot prot, bool is_protected);
-void __pkvm_unmap_module_page(u64 pfn, void *va);
+int __pkvm_map_module_pages(u64 pfn, void *va, u64 nr_pages, enum kvm_pgtable_prot prot,
+			    bool is_protected);
+int __pkvm_unmap_module_pages(u64 pfn, void *va, u64 nr_pages);
 void *__pkvm_alloc_module_va(u64 nr_pages);
 int pkvm_remap_range(void *va, int nr_pages, bool nc);
 #ifdef CONFIG_PKVM_STRICT_CHECKS
-void assert_in_mod_range(unsigned long addr);
+void assert_in_mod_range(unsigned long addr, size_t size);
 #else
-static inline void assert_in_mod_range(unsigned long addr) { }
+static inline void assert_in_mod_range(unsigned long addr, size_t size) { }
 #endif /* CONFIG_PKVM_STRICT_CHECKS */
 void *admit_host_page(void *arg, unsigned long order);
 #endif /* __KVM_HYP_MM_H */
