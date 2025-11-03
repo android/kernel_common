@@ -244,4 +244,32 @@ int __pkvm_host_share_hyp(u64 phys, u64 size);
  */
 int __pkvm_host_unshare_hyp(u64 phys, u64 size);
 
+/**
+ * __pkvm_pin_shared_mem() - Pin share pages by incrementing refcount.
+ *
+ * @phys:	Start physical address of the shared pages, must be continuous.
+ * @size:	The size of memory to be pinned.
+ *
+ * The pinned range is the minimum PAGE_SIZE-aligned range covering [@phys,
+ * @phys + @size). Only pages in PAGE_SHARED_OWNED can be pinned by incrementing
+ * the refcount of the corresponding hyp_page, which can prevent shared pages
+ * from being unshared without unpin.
+ *
+ * Return: 0 on success, negative value on failure.
+ */
+int __pkvm_pin_shared_mem(u64 phys, u64 size);
+
+/**
+ * __pkvm_unpin_shared_mem() - Unpin share pages by decrementing refcount.
+ *
+ * @phys:	Start physical address of the shared pages, must be continuous.
+ * @size:	The size of memory to be unpinned.
+ *
+ * The unpinned range is the minimum PAGE_SIZE-aligned range covering [@phys,
+ * @phys + @size). Only pages in PAGE_SHARED_OWNED can be unpinned by
+ * decrementing the refcount of the corresponding hyp_page, to allow shared
+ * pages being unshared if the refcount become to 0.
+ */
+void __pkvm_unpin_shared_mem(u64 phys, u64 size);
+
 #endif

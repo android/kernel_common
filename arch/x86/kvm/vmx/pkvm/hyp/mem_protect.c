@@ -138,6 +138,34 @@ static int __host_check_page_state_range(struct pkvm_pgtable *pgt_override, u64 
 	return check_page_state_range(host_ept, addr, size, &state, 1);
 }
 
+static int pin_unpin_shared_mem_range(u64 phys, u64 size, bool pin)
+{
+	u64 cur, start = PAGE_ALIGN_DOWN(phys);
+	u64 end = PAGE_ALIGN(phys + size);
+	int ret;
+
+	/*
+	 * Only allow to pin/unpin normal memory pages which are tracked in the
+	 * hyp vmemmap.
+	 */
+	if (!is_mem_range(start, end - start))
+		return -EPERM;
+
+	ret = __host_check_page_state_range(NULL, start, end - start,
+					    PKVM_PAGE_SHARED_OWNED);
+	if (ret)
+		return ret;
+
+	for (cur = start; cur < end; cur += PAGE_SIZE) {
+		if (pin)
+			hyp_page_ref_inc(hyp_phys_to_page(cur));
+		else
+			hyp_page_ref_dec(hyp_phys_to_page(cur));
+	}
+
+	return 0;
+}
+
 static pkvm_id pkvm_guest_id(struct pkvm_pgtable *pgt)
 {
 	return pgt_to_kvm(pgt)->arch.pkvm.pkvm_vm_handle;
@@ -801,11 +829,22 @@ static int guest_request_unshare(const struct pkvm_mem_transition *tx)
 
 static int hyp_ack_unshare(const struct pkvm_mem_transition *tx)
 {
+	u64 cur, start = tx->completer.hyp.addr;
+	u64 end = start + tx->size;
+
 	/*
 	 * Only allow host to unshare normal memory pages with the pKVM
 	 * hypervisor, not MMIO pages.
 	 */
-	return is_mem_range(tx->completer.hyp.addr, tx->size) ? 0 : -EPERM;
+	if (!is_mem_range(start, tx->size))
+		return -EPERM;
+
+	for (cur = start; cur < end; cur += PAGE_SIZE) {
+		if (hyp_page_count(__pkvm_va(cur)))
+			return -EBUSY;
+	}
+
+	return 0;
 }
 
 static int host_ack_unshare(const struct pkvm_mem_transition *tx)
@@ -1102,4 +1141,22 @@ int __pkvm_host_unshare_hyp(u64 phys, u64 size)
 	host_ept_unlock();
 
 	return ret;
+}
+
+int __pkvm_pin_shared_mem(u64 phys, u64 size)
+{
+	int ret;
+
+	host_ept_lock();
+	ret = pin_unpin_shared_mem_range(phys, size, true);
+	host_ept_unlock();
+
+	return ret;
+}
+
+void __pkvm_unpin_shared_mem(u64 phys, u64 size)
+{
+	host_ept_lock();
+	WARN_ON(pin_unpin_shared_mem_range(phys, size, false));
+	host_ept_unlock();
 }
