@@ -835,6 +835,9 @@ struct kvm_protected_vcpu {
 
 	/* Pages to be donated to pKVM-Low if it runs out */
 	struct pkvm_memcache guest_mmu_memcache;
+
+	/* Used for passing additional parameters in requests from pKVM to host */
+	int req_param;
 };
 #endif /* CONFIG_PKVM_INTEL */
 
