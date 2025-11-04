@@ -1774,6 +1774,7 @@ static unsigned long isolate_lru_folios(unsigned long nr_to_scan,
 	unsigned long scan, total_scan, nr_pages;
 	LIST_HEAD(folios_skipped);
 	unsigned long nr_scanned_before = *nr_scanned;
+	bool bypass = false;
 
 	trace_android_vh_mm_isolate_priv_lru(nr_to_scan, lruvec, lru, dst, sc->reclaim_idx,
 					     sc->may_unmap, nr_scanned, &nr_taken);
@@ -1810,6 +1811,11 @@ static unsigned long isolate_lru_folios(unsigned long nr_to_scan,
 
 		if (!folio_test_lru(folio))
 			goto move;
+
+		trace_android_vh_may_unmap_folio(lru, sc, folio, &bypass);
+		if (bypass)
+			goto move;
+
 		if (!sc->may_unmap && folio_mapped(folio))
 			goto move;
 
