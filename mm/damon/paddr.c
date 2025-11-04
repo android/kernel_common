@@ -40,22 +40,17 @@ static void damon_folio_mkold(struct folio *folio)
 		.rmap_one = damon_folio_mkold_one,
 		.anon_lock = folio_lock_anon_vma_read,
 	};
-	bool need_lock;
 
 	if (!folio_mapped(folio) || !folio_raw_mapping(folio)) {
 		folio_set_idle(folio);
 		return;
 	}
 
-	need_lock = !folio_test_anon(folio) || folio_test_ksm(folio);
-	if (need_lock && !folio_trylock(folio))
+	if (!folio_trylock(folio))
 		return;
 
 	rmap_walk(folio, &rwc);
-
-	if (need_lock)
-		folio_unlock(folio);
-
+	folio_unlock(folio);
 }
 
 static void damon_pa_mkold(unsigned long paddr)
@@ -127,7 +122,6 @@ static bool damon_folio_young(struct folio *folio)
 		.rmap_one = damon_folio_young_one,
 		.anon_lock = folio_lock_anon_vma_read,
 	};
-	bool need_lock;
 
 	if (!folio_mapped(folio) || !folio_raw_mapping(folio)) {
 		if (folio_test_idle(folio))
@@ -136,14 +130,11 @@ static bool damon_folio_young(struct folio *folio)
 			return true;
 	}
 
-	need_lock = !folio_test_anon(folio) || folio_test_ksm(folio);
-	if (need_lock && !folio_trylock(folio))
+	if (!folio_trylock(folio))
 		return false;
 
 	rmap_walk(folio, &rwc);
-
-	if (need_lock)
-		folio_unlock(folio);
+	folio_unlock(folio);
 
 	return accessed;
 }
