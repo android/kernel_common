@@ -101,9 +101,9 @@ static void print_summary(struct seq_file *m, struct perf_data *summary)
 
 static struct perf_data *dump_host_vcpu_perf_data(struct seq_file *m,
 						  struct perf_data *dump,
+						  struct perf_data *summary,
 						  unsigned long *size)
 {
-	struct perf_data summary = { 0 };
 	struct perf_data *perf = dump;
 	int cpu;
 
@@ -111,58 +111,61 @@ static struct perf_data *dump_host_vcpu_perf_data(struct seq_file *m,
 	if (perf->vm_handle)
 		return perf;
 
+	memset(summary, 0, sizeof(struct perf_data));
+
 	for (cpu = 0;
 	     cpu < num_possible_cpus() && *size >= sizeof(struct perf_data);
 	     cpu++, *size -= sizeof(struct perf_data), perf++)
-		dump_perf_data(m, perf, &summary);
+		dump_perf_data(m, perf, summary);
 
-	print_summary(m, &summary);
+	print_summary(m, summary);
 
 	return perf;
 }
 
 static void dump_guest_vcpu_perf_data(struct seq_file *m, struct perf_data *dump,
-				      unsigned long size)
+				      struct perf_data *summary, unsigned long size)
 {
-	struct perf_data summary = { 0 };
 	struct perf_data *perf;
 
 	if (size < sizeof(struct perf_data))
 		return;
 
-	for (perf = dump, summary.vm_handle = perf->vm_handle;
+	memset(summary, 0, sizeof(struct perf_data));
+
+	for (perf = dump, summary->vm_handle = perf->vm_handle;
 	     size >= sizeof(struct perf_data);
 	     size -= sizeof(struct perf_data), perf++) {
 		/* Should have no host vcpu perf data already */
 		if (WARN_ON_ONCE(perf->vm_handle == 0))
 			continue;
 
-		if (summary.vm_handle != perf->vm_handle) {
+		if (summary->vm_handle != perf->vm_handle) {
 			/* Start to dump another VM, print summary */
-			print_summary(m, &summary);
-			memset(&summary, 0, sizeof(struct perf_data));
-			summary.vm_handle = perf->vm_handle;
+			print_summary(m, summary);
+			memset(summary, 0, sizeof(struct perf_data));
+			summary->vm_handle = perf->vm_handle;
 		}
 
-		dump_perf_data(m, perf, &summary);
+		dump_perf_data(m, perf, summary);
 	}
 
-	print_summary(m, &summary);
+	print_summary(m, summary);
 }
 
 static void pkvm_dump_vmexit_trace(struct seq_file *m, struct perf_data *dump,
-				   unsigned long size)
+				   struct perf_data *summary, unsigned long size)
 {
 	/* Try to dump host vcpu perf as this is first copied by the pkvm */
-	struct perf_data *guest_perf = dump_host_vcpu_perf_data(m, dump, &size);
+	struct perf_data *guest_perf = dump_host_vcpu_perf_data(m, dump, summary, &size);
 
-	dump_guest_vcpu_perf_data(m, guest_perf, size);
+	dump_guest_vcpu_perf_data(m, guest_perf, summary, size);
 }
 
 static int vmexit_trace_show(struct seq_file *m, void *unused)
 {
 	struct kvm *kvm = (struct kvm *)m->private;
-	struct perf_data *perf;
+	struct perf_data *perf, *summary;
 	unsigned long size;
 	int vm_handle = 0;
 
@@ -185,14 +188,22 @@ static int vmexit_trace_show(struct seq_file *m, void *unused)
 		return -ENOMEM;
 	}
 
+	summary = kmalloc(sizeof(struct perf_data), GFP_KERNEL_ACCOUNT);
+	if (!summary) {
+		pr_err("Failed to allocate perf summary buffer\n");
+		free_pages_exact(perf, size);
+		return -ENOMEM;
+	}
+
 	/*TODO: Share perf memory with the pkvm hypervisor */
 
 	pkvm_hypercall(dump_vmexit_trace, vm_handle, __pa(perf), size);
 
 	/*TODO: Unshare perf memory with the pkvm hypervisor */
 
-	pkvm_dump_vmexit_trace(m, perf, size);
+	pkvm_dump_vmexit_trace(m, perf, summary, size);
 
+	kfree(summary);
 	free_pages_exact(perf, size);
 
 	return 0;
