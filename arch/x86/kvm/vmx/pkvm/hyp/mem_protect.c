@@ -138,9 +138,22 @@ static int __host_check_page_state_range(struct pkvm_pgtable *pgt_override, u64 
 	return check_page_state_range(host_ept, addr, size, &state, 1);
 }
 
-static int pin_unpin_shared_mem_range(u64 phys, u64 size, bool pin)
+static void pin_unpin_mem_pages(u64 phys, u64 size, bool pin)
 {
 	u64 cur, start = PAGE_ALIGN_DOWN(phys);
+	u64 end = PAGE_ALIGN(phys + size);
+
+	for (cur = start; cur < end; cur += PAGE_SIZE) {
+		if (pin)
+			hyp_page_ref_inc(hyp_phys_to_page(cur));
+		else
+			hyp_page_ref_dec(hyp_phys_to_page(cur));
+	}
+}
+
+static int pin_unpin_shared_mem_range(u64 phys, u64 size, bool pin)
+{
+	u64 start = PAGE_ALIGN_DOWN(phys);
 	u64 end = PAGE_ALIGN(phys + size);
 	int ret;
 
@@ -156,14 +169,23 @@ static int pin_unpin_shared_mem_range(u64 phys, u64 size, bool pin)
 	if (ret)
 		return ret;
 
-	for (cur = start; cur < end; cur += PAGE_SIZE) {
-		if (pin)
-			hyp_page_ref_inc(hyp_phys_to_page(cur));
-		else
-			hyp_page_ref_dec(hyp_phys_to_page(cur));
-	}
+	pin_unpin_mem_pages(phys, size, pin);
 
 	return 0;
+}
+
+static void pin_shared_mem_pages(u64 phys, u64 size)
+{
+	u64 cur, start = PAGE_ALIGN_DOWN(phys);
+	u64 end = PAGE_ALIGN(phys + size);
+
+	for (cur = start; cur < end; cur += PAGE_SIZE) {
+		if (__host_check_page_state_range(NULL, cur, PAGE_SIZE,
+						  PKVM_PAGE_SHARED_OWNED))
+			continue;
+
+		hyp_page_ref_inc(hyp_phys_to_page(cur));
+	}
 }
 
 static pkvm_id pkvm_guest_id(struct pkvm_pgtable *pgt)
@@ -626,8 +648,35 @@ static int host_initiate_share(const struct pkvm_mem_transition *tx)
 	u64 addr = tx->initiator.host.addr;
 	u64 size = tx->size;
 	u64 prot = pkvm_mkstate(tx->initiator.prot, PKVM_PAGE_SHARED_OWNED);
+	int ret;
 
-	return host_ept_create_idmap_locked(tx->initiator.host.pgt_override, addr, size, 0, prot);
+	ret = host_ept_create_idmap_locked(tx->initiator.host.pgt_override, addr, size, 0, prot);
+	/*
+	 * If these guest shared-owned pages are normal memory, pin to prevent
+	 * them from being unshared via __pkvm_host_unshare_hyp(). It is not
+	 * necessary to pin the guest shared-owned MMIO pages(e.g., the host
+	 * pass through a device to an npVM, which may be supported in the
+	 * future), as the __pkvm_host_unshare_hyp() only unshares normal memory
+	 * pages.
+	 */
+	if (tx->completer.id == PKVM_ID_GUEST && is_mem_range(addr, size)) {
+		if (!ret) {
+			/*
+			 * Directly pin all memory pages as they are all
+			 * PKVM_PAGE_SHARED_OWNED.
+			 */
+			pin_unpin_mem_pages(addr, size, true);
+		} else {
+			/*
+			 * It is possible not all the pages become to
+			 * PKVM_PAGE_SHARED_OWNED. Only pin the pages which are
+			 * in this state.
+			 */
+			pin_shared_mem_pages(addr, size);
+		}
+	}
+
+	return ret;
 }
 
 static int guest_initiate_share(const struct pkvm_mem_transition *tx, struct pkvm_memcache *mc)
@@ -905,8 +954,36 @@ static int host_initiate_unshare(const struct pkvm_mem_transition *tx)
 	u64 addr = tx->initiator.host.addr;
 	u64 size = tx->size;
 	u64 prot = pkvm_mkstate(tx->initiator.prot, PKVM_PAGE_OWNED);
+	int ret;
 
-	return host_ept_create_idmap_locked(tx->initiator.host.pgt_override, addr, size, 0, prot);
+	if (tx->completer.id == PKVM_ID_GUEST) {
+		bool is_mem = is_mem_range(addr, size);
+
+		/*
+		 * Unpin the guest shared-owned pages if they are normal memory.
+		 * No need to check the host page state before pinning as the
+		 * host is initiator of the unsharing and host_request_unshare()
+		 * has checked the page state. And also no need to unpin the
+		 * guest shared-owned MMIO pages as they were not pinned when
+		 * they were shared by the host.
+		 */
+		if (is_mem)
+			pin_unpin_mem_pages(addr, size, false);
+
+		ret = host_ept_create_idmap_locked(tx->initiator.host.pgt_override,
+						   addr, size, 0, prot);
+		/*
+		 * Re-pin the remaining shared-owned pages if not all the memory
+		 * pages transfer to PKVM_PAGE_OWNED.
+		 */
+		if (ret && is_mem)
+			pin_shared_mem_pages(addr, size);
+	} else {
+		ret = host_ept_create_idmap_locked(tx->initiator.host.pgt_override,
+						   addr, size, 0, prot);
+	}
+
+	return ret;
 }
 
 static int guest_initiate_unshare(const struct pkvm_mem_transition *tx)
