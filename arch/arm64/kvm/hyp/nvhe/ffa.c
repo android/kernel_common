@@ -1777,6 +1777,12 @@ bool kvm_guest_ffa_handler(struct pkvm_hyp_vcpu *hyp_vcpu, u64 *exit_code)
 		ffa_rx_release(&res);
 		hyp_spin_unlock(&kvm_ffa_hyp_lock);
 		goto out_guest;
+	case FFA_MSG_SEND_DIRECT_REQ2:
+		if (!ffa_call_supported(func_id)) {
+			ret = -EOPNOTSUPP;
+			goto out_guest_with_ret;
+		}
+		fallthrough;
 	case FFA_MSG_SEND_DIRECT_REQ:
 	case FFA_FN64_MSG_SEND_DIRECT_REQ:
 		do_ffa_direct_msg(&res, ctxt, hyp_vcpu_to_ffa_handle(hyp_vcpu));
