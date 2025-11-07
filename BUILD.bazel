@@ -232,7 +232,6 @@ common_kernel(
     # kmi_symbol_list = None,
     # additional_kmi_symbol_lists = [],
     # kmi_symbol_list_strict_mode = False,
-    # protected_exports_list = None,
     # protected_modules_list = None,
     # trim_nonlisted_kmi = False,
 
