@@ -1706,6 +1706,59 @@ cc_binary_with_abi(
 )
 
 cc_binary_with_abi(
+    name = "kselftest_net_tests_socket",
+    srcs = ["tools/testing/selftests/net/socket.c"],
+    copts = _KSELFTEST_COPTS,
+    path_prefix = _KSELFTEST_DIR,
+    target_compatible_with = ["@platforms//os:android"],
+    visibility = ["//visibility:private"],
+    deps = [":kselftest_headers_lib"],
+)
+
+cc_binary_with_abi(
+    name = "kselftest_net_tests_psock_tpacket",
+    srcs = ["tools/testing/selftests/net/psock_tpacket.c"],
+    copts = _KSELFTEST_COPTS,
+    path_prefix = _KSELFTEST_DIR,
+    target_compatible_with = ["@platforms//os:android"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":kselftest_headers_lib",
+        ":kselftest_psock_lib",
+    ],
+)
+
+cc_library(
+    name = "kselftest_psock_lib",
+    hdrs = ["tools/testing/selftests/net/psock_lib.h"],
+    includes = [
+        "tools/testing/selftests",
+        "tools/testing/selftests/net",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+cc_binary_with_abi(
+    name = "kselftest_net_tests_reuseport_dualstack",
+    srcs = ["tools/testing/selftests/net/reuseport_dualstack.c"],
+    copts = _KSELFTEST_COPTS,
+    path_prefix = _KSELFTEST_DIR,
+    target_compatible_with = ["@platforms//os:android"],
+    visibility = ["//visibility:private"],
+    deps = [":kselftest_headers_lib"],
+)
+
+cc_binary_with_abi(
+    name = "kselftest_net_tests_reuseaddr_conflict",
+    srcs = ["tools/testing/selftests/net/reuseaddr_conflict.c"],
+    copts = _KSELFTEST_COPTS,
+    path_prefix = _KSELFTEST_DIR,
+    target_compatible_with = ["@platforms//os:android"],
+    visibility = ["//visibility:private"],
+    deps = [":kselftest_headers_lib"],
+)
+
+cc_binary_with_abi(
     name = "kselftest_ptrace_peeksiginfo",
     srcs = ["tools/testing/selftests/ptrace/peeksiginfo.c"],
     copts = _KSELFTEST_COPTS,
@@ -2810,6 +2863,12 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_wouldblock_x86_64",
         ":kselftest_futex_futex_wait_x86_64",
         ":kselftest_kcmp_kcmp_test_x86_64",
+        # ":kselftest_net_tests_bpf_x86_64", # Disabled due to test failures
+        # ":kselftest_net_tests_psock_fanout_x86_64", # Disabled due to test failures
+        ":kselftest_net_tests_psock_tpacket_x86_64",
+        ":kselftest_net_tests_reuseaddr_conflict_x86_64",
+        ":kselftest_net_tests_reuseport_dualstack_x86_64",
+        ":kselftest_net_tests_socket_x86_64",
     ],
     visibility = ["//visibility:private"],
 )
@@ -2898,6 +2957,12 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_wouldblock_x86",
         ":kselftest_futex_futex_wait_x86",
         ":kselftest_kcmp_kcmp_test_x86",
+        # ":kselftest_net_tests_bpf_x86", Disabled due to test failures
+        # ":kselftest_net_tests_psock_fanout_x86", Disabled due to test failures
+        ":kselftest_net_tests_psock_tpacket_x86",
+        ":kselftest_net_tests_reuseaddr_conflict_x86",
+        ":kselftest_net_tests_reuseport_dualstack_x86",
+        ":kselftest_net_tests_socket_x86",
     ],
     visibility = ["//visibility:private"],
 )
@@ -2979,6 +3044,12 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_uninitialized_heap_arm",
         ":kselftest_futex_futex_wait_wouldblock_arm",
         ":kselftest_kcmp_kcmp_test_arm",
+        # ":kselftest_net_tests_bpf_arm", Disabled due to test failures
+        # ":kselftest_net_tests_psock_fanout_arm", Disabled due to test failures
+        ":kselftest_net_tests_psock_tpacket_arm",
+        ":kselftest_net_tests_reuseaddr_conflict_arm",
+        ":kselftest_net_tests_reuseport_dualstack_arm",
+        ":kselftest_net_tests_socket_arm",
     ],
     visibility = ["//visibility:private"],
 )
@@ -3062,6 +3133,12 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_uninitialized_heap_arm64",
         ":kselftest_futex_futex_wait_wouldblock_arm64",
         ":kselftest_kcmp_kcmp_test_arm64",
+        # ":kselftest_net_tests_bpf_arm64", Disabled due to test failures
+        # ":kselftest_net_tests_psock_fanout_arm64", Disabled due to test failures
+        ":kselftest_net_tests_psock_tpacket_arm64",
+        ":kselftest_net_tests_reuseaddr_conflict_arm64",
+        ":kselftest_net_tests_reuseport_dualstack_arm64",
+        ":kselftest_net_tests_socket_arm64",
     ],
     visibility = ["//visibility:private"],
 )
