@@ -2861,6 +2861,7 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_wouldblock_x86_64",
         ":kselftest_futex_futex_wait_x86_64",
         ":kselftest_kcmp_kcmp_test_x86_64",
+        ":kselftest_rtc_rtctest_x86_64",
         # ":kselftest_net_tests_bpf_x86_64", # Disabled due to test failures
         # ":kselftest_net_tests_psock_fanout_x86_64", # Disabled due to test failures
         ":kselftest_net_tests_psock_tpacket_x86_64",
@@ -2956,6 +2957,7 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_wouldblock_x86",
         ":kselftest_futex_futex_wait_x86",
         ":kselftest_kcmp_kcmp_test_x86",
+        ":kselftest_rtc_rtctest_x86",
         # ":kselftest_net_tests_bpf_x86", Disabled due to test failures
         # ":kselftest_net_tests_psock_fanout_x86", Disabled due to test failures
         ":kselftest_net_tests_psock_tpacket_x86",
@@ -3044,6 +3046,7 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_uninitialized_heap_arm",
         ":kselftest_futex_futex_wait_wouldblock_arm",
         ":kselftest_kcmp_kcmp_test_arm",
+        ":kselftest_rtc_rtctest_arm",
         # ":kselftest_net_tests_bpf_arm", Disabled due to test failures
         # ":kselftest_net_tests_psock_fanout_arm", Disabled due to test failures
         ":kselftest_net_tests_psock_tpacket_arm",
@@ -3134,6 +3137,7 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_uninitialized_heap_arm64",
         ":kselftest_futex_futex_wait_wouldblock_arm64",
         ":kselftest_kcmp_kcmp_test_arm64",
+        ":kselftest_rtc_rtctest_arm64",
         # ":kselftest_net_tests_bpf_arm64", Disabled due to test failures
         # ":kselftest_net_tests_psock_fanout_arm64", Disabled due to test failures
         ":kselftest_net_tests_psock_tpacket_arm64",
