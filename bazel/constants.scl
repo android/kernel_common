@@ -1,4 +1,5 @@
-BRANCH="android-mainline"
+BRANCH=android17-6.18
+KMI_GENERATION=0
 CLANG_VERSION="r547379"
 RUSTC_VERSION="1.90.0"
 AARCH64_NDK_TRIPLE="aarch64-linux-android31"
