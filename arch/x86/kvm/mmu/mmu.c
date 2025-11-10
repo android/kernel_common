@@ -28,7 +28,6 @@
 #include "page_track.h"
 #include "cpuid.h"
 #include "spte.h"
-#include "vmx/pkvm.h"	//FIXME
 
 #include <linux/kvm_host.h>
 #include <linux/types.h>
@@ -1562,7 +1561,7 @@ static bool pkvm_unmap_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range)
 	if (pkvm_is_protected_vm(kvm))
 		return false;
 
-	err = kvm_call_pkvm(vm_mmu_unmap, kvm->arch.pkvm.pkvm_vm_handle,
+	err = pkvm_hypercall(vm_mmu_unmap, kvm->arch.pkvm.pkvm_vm_handle,
 			    range->start << PAGE_SHIFT,
 			    (range->end - range->start) << PAGE_SHIFT);
 	WARN_ONCE(err, "pkvm unmap gfn[%llx..%llx] failed, err = %d\n",
@@ -1578,7 +1577,7 @@ static bool pkvm_age_gfn_range(struct kvm *kvm, struct kvm_gfn_range *range,
 	if (pkvm_is_protected_vm(kvm))
 		return false;
 
-	return kvm_call_pkvm(vm_mmu_age, kvm->arch.pkvm.pkvm_vm_handle,
+	return pkvm_hypercall(vm_mmu_age, kvm->arch.pkvm.pkvm_vm_handle,
 			     range->start << PAGE_SHIFT,
 			     (range->end - range->start) << PAGE_SHIFT,
 			     mkold);
@@ -4840,7 +4839,7 @@ static int pkvm_page_fault(struct kvm_vcpu *vcpu, struct kvm_page_fault *fault)
 	base_gfn = gfn_round_for_level(fault->gfn, fault->goal_level);
 	nr_pages = KVM_PAGES_PER_HPAGE(fault->goal_level);
 
-	r = kvm_call_pkvm(vm_mmu_map, vcpu,
+	r = pkvm_hypercall(vm_mmu_map, vcpu,
 			  base_gfn << PAGE_SHIFT, fault->pfn << PAGE_SHIFT,
 			  nr_pages << PAGE_SHIFT, fault->map_writable);
 	if (!r) {

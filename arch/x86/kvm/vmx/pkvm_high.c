@@ -85,7 +85,7 @@ static void __pkvm_vcpu_unload(void *arg)
 	struct kvm_vcpu *vcpu = arg;
 	struct vcpu_vmx *vmx;
 
-	kvm_call_pkvm(vcpu_put, vcpu);
+	pkvm_hypercall(vcpu_put, vcpu);
 
 	vmx = to_vmx(vcpu);
 	vmx->loaded_vmcs->cpu = -1;
@@ -672,7 +672,7 @@ unexpected_vmexit:
 
 static int pkvm_check_processor_compat(void)
 {
-	return kvm_call_pkvm(check_processor_compatibility);
+	return pkvm_hypercall(check_processor_compatibility);
 }
 
 static int pkvm_enable_virtualization_cpu(void)
@@ -680,7 +680,7 @@ static int pkvm_enable_virtualization_cpu(void)
 	unsigned long pv_param_pa = __pa(this_cpu_ptr(&pv_param));
 	int r;
 
-	r = kvm_call_pkvm(enable_virtualization_cpu, pv_param_pa);
+	r = pkvm_hypercall(enable_virtualization_cpu, pv_param_pa);
 	if (r)
 		return r;
 
@@ -691,7 +691,7 @@ static int pkvm_enable_virtualization_cpu(void)
 static void pkvm_disable_virtualization_cpu(void)
 {
 	intel_pt_handle_vmx(0);
-	kvm_call_pkvm(disable_virtualization_cpu);
+	pkvm_hypercall(disable_virtualization_cpu);
 }
 
 static void pkvm_emergency_disable_virtualization_cpu(void) { /* TODO */ }
@@ -761,7 +761,7 @@ static int pkvm_vm_init(struct kvm *kvm)
 	if (ret)
 		goto free_pgtable_page;
 
-	ret = kvm_call_pkvm(vm_init, kvm, __pa(pkvm_vm), __pa(vm_init_pool));
+	ret = pkvm_hypercall(vm_init, kvm, __pa(pkvm_vm), __pa(vm_init_pool));
 	if (ret < 0)
 		goto unshare;
 
@@ -788,7 +788,7 @@ static void pkvm_vm_destroy(struct kvm *kvm)
 	struct kvm_pinned_page *ppage, *n;
 	int ret;
 
-	ret = kvm_call_pkvm(vm_destroy, pkvm->pkvm_vm_handle);
+	ret = pkvm_hypercall(vm_destroy, pkvm->pkvm_vm_handle);
 	if (ret)
 		return;
 
@@ -904,7 +904,7 @@ static int pkvm_vcpu_create(struct kvm_vcpu *vcpu)
 	if (ret)
 		goto free_fpu;
 
-	ret = kvm_call_pkvm(vcpu_create, vcpu, __pa(pkvm_vcpu), __pa(fpu));
+	ret = pkvm_hypercall(vcpu_create, vcpu, __pa(pkvm_vcpu), __pa(fpu));
 	if (ret < 0)
 		goto unshare;
 
@@ -936,7 +936,7 @@ static void pkvm_vcpu_free(struct kvm_vcpu *vcpu)
 
 	pkvm_vcpu_unload(vcpu);
 
-	ret = kvm_call_pkvm(vcpu_free, vcpu);
+	ret = pkvm_hypercall(vcpu_free, vcpu);
 	if (ret) {
 		pr_err("pkvm: failed to free pkvm_vcpu, err %d\n", ret);
 		return;
@@ -957,7 +957,7 @@ static void pkvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 
 	if (!vcpu->arch.guest_state_protected)
-		kvm_call_pkvm(vcpu_reset, vcpu, init_event);
+		pkvm_hypercall(vcpu_reset, vcpu, init_event);
 
 	/*
 	 * The host response to inject interrupts to the guest. The pi_desc is
@@ -1005,7 +1005,7 @@ static void pkvm_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 	if (!already_loaded)
 		pkvm_vcpu_unload(vcpu);
 
-	kvm_call_pkvm(vcpu_load, vcpu, cpu);
+	pkvm_hypercall(vcpu_load, vcpu, cpu);
 
 	if (!already_loaded)
 		vmx->loaded_vmcs->cpu = cpu;
@@ -1023,7 +1023,7 @@ static void pkvm_update_exception_bitmap(struct kvm_vcpu *vcpu)
 	if (vcpu->arch.guest_state_protected)
 		return;
 
-	kvm_call_pkvm(update_exception_bitmap, vcpu);
+	pkvm_hypercall(update_exception_bitmap, vcpu);
 }
 
 static int pkvm_get_feature_msr(u32 msr, u64 *data)
@@ -1046,7 +1046,7 @@ static int pkvm_get_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		int ret;
 
 		*msr = *msr_info;
-		ret = kvm_call_pkvm(get_msr, vcpu, msr);
+		ret = pkvm_hypercall(get_msr, vcpu, msr);
 		msr_info->data = msr->data;
 		put_this_pv_param(msr);
 
@@ -1066,7 +1066,7 @@ static int pkvm_set_msr(struct kvm_vcpu *vcpu, struct msr_data *msr_info)
 		int ret;
 
 		*msr = *msr_info;
-		ret = kvm_call_pkvm(set_msr, vcpu, msr);
+		ret = pkvm_hypercall(set_msr, vcpu, msr);
 		put_this_pv_param(msr);
 
 		return ret;
@@ -1086,7 +1086,7 @@ static u64 pkvm_get_segment_base(struct kvm_vcpu *vcpu, int seg)
 	p = &vmx->segment_cache.seg[seg].base;
 
 	if (!pkvm_segment_cache_test(vmx, seg, SEG_FIELD_BASE)) {
-		*p = kvm_call_pkvm(get_segment_base, vcpu, seg);
+		*p = pkvm_hypercall(get_segment_base, vcpu, seg);
 		pkvm_segment_cache_set(vmx, seg, SEG_FIELD_BASE);
 	}
 
@@ -1110,7 +1110,7 @@ static void pkvm_get_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int
 	    !pkvm_segment_cache_test(vmx, seg, SEG_FIELD_AR)) {
 		struct kvm_segment *pkvm_var = get_this_pv_param(seg);
 
-		kvm_call_pkvm(get_segment, vcpu, pkvm_var, seg);
+		pkvm_hypercall(get_segment, vcpu, pkvm_var, seg);
 
 		pkvm_cache_segment(vmx, pkvm_var, seg);
 
@@ -1149,7 +1149,7 @@ static void pkvm_set_segment(struct kvm_vcpu *vcpu, struct kvm_segment *var, int
 
 	pkvm_var = get_this_pv_param(seg);
 	*pkvm_var = *var;
-	kvm_call_pkvm(set_segment, vcpu, pkvm_var, seg);
+	pkvm_hypercall(set_segment, vcpu, pkvm_var, seg);
 	put_this_pv_param(pkvm_var);
 }
 
@@ -1192,7 +1192,7 @@ static bool pkvm_is_valid_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
 static void pkvm_set_cr0(struct kvm_vcpu *vcpu, unsigned long cr0)
 {
 	if (!vcpu->arch.guest_state_protected)
-		kvm_call_pkvm(set_cr0, vcpu, cr0);
+		pkvm_hypercall(set_cr0, vcpu, cr0);
 
 	vcpu->arch.cr0 = cr0;
 }
@@ -1202,7 +1202,7 @@ static void pkvm_post_set_cr3(struct kvm_vcpu *vcpu, unsigned long cr3)
 	if (vcpu->arch.guest_state_protected)
 		return;
 
-	kvm_call_pkvm(post_set_cr3, vcpu, cr3);
+	pkvm_hypercall(post_set_cr3, vcpu, cr3);
 }
 
 static bool pkvm_is_valid_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
@@ -1217,7 +1217,7 @@ static bool pkvm_is_valid_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
 static void pkvm_set_cr4(struct kvm_vcpu *vcpu, unsigned long cr4)
 {
 	if (!vcpu->arch.guest_state_protected)
-		kvm_call_pkvm(set_cr4, vcpu, cr4);
+		pkvm_hypercall(set_cr4, vcpu, cr4);
 
 	vcpu->arch.cr4 = cr4;
 }
@@ -1227,7 +1227,7 @@ static int pkvm_set_efer(struct kvm_vcpu *vcpu, u64 efer)
 	int ret = -EINVAL;
 
 	if (!vcpu->arch.guest_state_protected)
-		ret = kvm_call_pkvm(set_efer, vcpu, efer);
+		ret = pkvm_hypercall(set_efer, vcpu, efer);
 
 	vcpu->arch.efer = efer;
 	return ret;
@@ -1250,14 +1250,14 @@ static void pkvm_access_idt_gdt(struct kvm_vcpu *vcpu, struct desc_ptr *dt,
 		desc->size = dt->size;
 		desc->address = dt->address;
 		if (idt)
-			kvm_call_pkvm(set_idt, vcpu, desc);
+			pkvm_hypercall(set_idt, vcpu, desc);
 		else
-			kvm_call_pkvm(set_gdt, vcpu, desc);
+			pkvm_hypercall(set_gdt, vcpu, desc);
 	} else {
 		if (idt)
-			kvm_call_pkvm(get_idt, vcpu, desc);
+			pkvm_hypercall(get_idt, vcpu, desc);
 		else
-			kvm_call_pkvm(get_gdt, vcpu, desc);
+			pkvm_hypercall(get_gdt, vcpu, desc);
 		dt->size = desc->size;
 		dt->address = desc->address;
 	}
@@ -1290,7 +1290,7 @@ static void pkvm_set_dr7(struct kvm_vcpu *vcpu, unsigned long val)
 	if (vcpu->arch.guest_state_protected)
 		return;
 
-	kvm_call_pkvm(set_dr7, vcpu, val);
+	pkvm_hypercall(set_dr7, vcpu, val);
 }
 
 static void pkvm_sync_dirty_debug_regs(struct kvm_vcpu *vcpu) {}
@@ -1309,7 +1309,7 @@ static void pkvm_cache_reg(struct kvm_vcpu *vcpu, enum kvm_reg reg)
 	case VCPU_EXREG_CR0:
 	case VCPU_EXREG_CR3:
 	case VCPU_EXREG_CR4:
-		kvm_call_pkvm(cache_reg, vcpu, reg);
+		pkvm_hypercall(cache_reg, vcpu, reg);
 		break;
 	default:
 		KVM_BUG_ON(1, vcpu->kvm);
@@ -1326,7 +1326,7 @@ static unsigned long pkvm_get_rflags(struct kvm_vcpu *vcpu)
 		if (vcpu->arch.guest_state_protected)
 			vmx->rflags = 0;
 		else
-			vmx->rflags = kvm_call_pkvm(get_rflags, vcpu);
+			vmx->rflags = pkvm_hypercall(get_rflags, vcpu);
 	}
 
 	return vmx->rflags;
@@ -1338,7 +1338,7 @@ static void pkvm_set_rflags(struct kvm_vcpu *vcpu, unsigned long rflags)
 	to_vmx(vcpu)->rflags = rflags;
 	if (vcpu->arch.guest_state_protected)
 		return;
-	kvm_call_pkvm(set_rflags, vcpu, rflags);
+	pkvm_hypercall(set_rflags, vcpu, rflags);
 }
 
 static bool pkvm_get_if_flag(struct kvm_vcpu *vcpu)
@@ -1348,22 +1348,22 @@ static bool pkvm_get_if_flag(struct kvm_vcpu *vcpu)
 
 static void pkvm_flush_tlb_all(struct kvm_vcpu *vcpu)
 {
-	kvm_call_pkvm(flush_tlb_all, vcpu);
+	pkvm_hypercall(flush_tlb_all, vcpu);
 }
 
 static void pkvm_flush_tlb_current(struct kvm_vcpu *vcpu)
 {
-	kvm_call_pkvm(flush_tlb_current, vcpu);
+	pkvm_hypercall(flush_tlb_current, vcpu);
 }
 
 static void pkvm_flush_tlb_gva(struct kvm_vcpu *vcpu, gva_t addr)
 {
-	kvm_call_pkvm(flush_tlb_gva, vcpu, addr);
+	pkvm_hypercall(flush_tlb_gva, vcpu, addr);
 }
 
 static void pkvm_flush_tlb_guest(struct kvm_vcpu *vcpu)
 {
-	kvm_call_pkvm(flush_tlb_guest, vcpu);
+	pkvm_hypercall(flush_tlb_guest, vcpu);
 }
 
 void vmx_do_nmi_irqoff(void);
@@ -1376,7 +1376,7 @@ static int pkvm_vcpu_pre_run(struct kvm_vcpu *vcpu)
 	if (unlikely(pkvm_is_protected_vcpu(vcpu) && !kvm_vcpu_has_run(vcpu) &&
 		     kvm_vcpu_is_reset_bsp(vcpu))) {
 		mutex_lock(&pkvm->finalized_lock);
-		ret = kvm_call_pkvm(vm_finalize, pkvm->pkvm_vm_handle);
+		ret = pkvm_hypercall(vm_finalize, pkvm->pkvm_vm_handle);
 		mutex_unlock(&pkvm->finalized_lock);
 		if (ret < 0)
 			return ret;
@@ -1411,7 +1411,7 @@ static fastpath_t pkvm_vcpu_run(struct kvm_vcpu *vcpu, u64 run_flags)
 	vmx->fail = 0;
 
 	vcpu->arch.regs_avail &= ~VMX_REGS_LAZY_LOAD_SET;
-	reqs_to_host = kvm_call_pkvm(vcpu_run, vcpu, force_immediate_exit);
+	reqs_to_host = pkvm_hypercall(vcpu_run, vcpu, force_immediate_exit);
 	vcpu->arch.regs_dirty = 0;
 
 	/*
@@ -1540,7 +1540,7 @@ static int pkvm_skip_emulated_instruction(struct kvm_vcpu *vcpu)
 	}
 
 	/* skipping an emulated instruction also counts */
-	kvm_call_pkvm(set_interrupt_shadow, vcpu, 0);
+	pkvm_hypercall(set_interrupt_shadow, vcpu, 0);
 
 	return 1;
 }
@@ -1552,7 +1552,7 @@ static void pkvm_set_interrupt_shadow(struct kvm_vcpu *vcpu, int mask)
 	if (vcpu->arch.guest_state_protected)
 		return;
 
-	kvm_call_pkvm(set_interrupt_shadow, vcpu, mask);
+	pkvm_hypercall(set_interrupt_shadow, vcpu, mask);
 }
 
 static u32 pkvm_get_interrupt_shadow(struct kvm_vcpu *vcpu)
@@ -1560,7 +1560,7 @@ static u32 pkvm_get_interrupt_shadow(struct kvm_vcpu *vcpu)
 	if (vcpu->arch.guest_state_protected)
 		return 0;
 
-	return kvm_call_pkvm(get_interrupt_shadow, vcpu);
+	return pkvm_hypercall(get_interrupt_shadow, vcpu);
 }
 
 static void pkvm_inject_irq(struct kvm_vcpu *vcpu, bool reinjected)
@@ -1570,21 +1570,21 @@ static void pkvm_inject_irq(struct kvm_vcpu *vcpu, bool reinjected)
 
 	++vcpu->stat.irq_injections;
 
-	kvm_call_pkvm(inject_irq, vcpu);
+	pkvm_hypercall(inject_irq, vcpu);
 }
 
 static void pkvm_inject_nmi(struct kvm_vcpu *vcpu)
 {
 	++vcpu->stat.nmi_injections;
 
-	kvm_call_pkvm(inject_nmi, vcpu);
+	pkvm_hypercall(inject_nmi, vcpu);
 }
 
 static void pkvm_inject_exception(struct kvm_vcpu *vcpu)
 {
 	KVM_BUG_ON(pkvm_is_protected_vcpu(vcpu), vcpu->kvm);
 
-	kvm_call_pkvm(inject_exception, vcpu);
+	pkvm_hypercall(inject_exception, vcpu);
 }
 
 static void pkvm_cancel_injection(struct kvm_vcpu *vcpu)
@@ -1593,7 +1593,7 @@ static void pkvm_cancel_injection(struct kvm_vcpu *vcpu)
 	kvm_clear_exception_queue(vcpu);
 	kvm_clear_interrupt_queue(vcpu);
 
-	kvm_call_pkvm(cancel_injection, vcpu);
+	pkvm_hypercall(cancel_injection, vcpu);
 
 	if (vcpu->arch.nmi_injected ||
 	    vcpu->arch.interrupt.injected ||
@@ -1603,17 +1603,17 @@ static void pkvm_cancel_injection(struct kvm_vcpu *vcpu)
 
 static int pkvm_interrupt_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 {
-	return kvm_call_pkvm(interrupt_allowed, vcpu, for_injection);
+	return pkvm_hypercall(interrupt_allowed, vcpu, for_injection);
 }
 
 static int pkvm_nmi_allowed(struct kvm_vcpu *vcpu, bool for_injection)
 {
-	return kvm_call_pkvm(nmi_allowed, vcpu, for_injection);
+	return pkvm_hypercall(nmi_allowed, vcpu, for_injection);
 }
 
 static bool pkvm_get_nmi_mask(struct kvm_vcpu *vcpu)
 {
-	return kvm_call_pkvm(get_nmi_mask, vcpu);
+	return pkvm_hypercall(get_nmi_mask, vcpu);
 }
 
 static void pkvm_set_nmi_mask(struct kvm_vcpu *vcpu, bool masked)
@@ -1621,22 +1621,22 @@ static void pkvm_set_nmi_mask(struct kvm_vcpu *vcpu, bool masked)
 	if (vcpu->arch.guest_state_protected)
 		return;
 
-	kvm_call_pkvm(set_nmi_mask, vcpu, masked);
+	pkvm_hypercall(set_nmi_mask, vcpu, masked);
 }
 
 static void pkvm_enable_nmi_window(struct kvm_vcpu *vcpu)
 {
-	kvm_call_pkvm(enable_nmi_window, vcpu);
+	pkvm_hypercall(enable_nmi_window, vcpu);
 }
 
 static void pkvm_enable_irq_window(struct kvm_vcpu *vcpu)
 {
-	kvm_call_pkvm(enable_irq_window, vcpu);
+	pkvm_hypercall(enable_irq_window, vcpu);
 }
 
 static void pkvm_update_cr8_intercept(struct kvm_vcpu *vcpu, int tpr, int irr)
 {
-	kvm_call_pkvm(update_cr8_intercept, vcpu, tpr, irr);
+	pkvm_hypercall(update_cr8_intercept, vcpu, tpr, irr);
 }
 
 static void pkvm_set_virtual_apic_mode(struct kvm_vcpu *vcpu)
@@ -1644,7 +1644,7 @@ static void pkvm_set_virtual_apic_mode(struct kvm_vcpu *vcpu)
 	if (!lapic_in_kernel(vcpu))
 		return;
 
-	kvm_call_pkvm(set_virtual_apic_mode, vcpu, vcpu->arch.apic_base);
+	pkvm_hypercall(set_virtual_apic_mode, vcpu, vcpu->arch.apic_base);
 }
 
 static void pkvm_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
@@ -1654,7 +1654,7 @@ static void pkvm_set_apic_access_page_addr(struct kvm_vcpu *vcpu)
 
 static void pkvm_refresh_apicv_exec_ctrl(struct kvm_vcpu *vcpu)
 {
-	kvm_call_pkvm(refresh_apicv_exec_ctrl, vcpu);
+	pkvm_hypercall(refresh_apicv_exec_ctrl, vcpu);
 }
 
 static void pkvm_load_eoi_exitmap(struct kvm_vcpu *vcpu, u64 *eoi_exit_bitmap)
@@ -1671,19 +1671,19 @@ static void pkvm_load_eoi_exitmap(struct kvm_vcpu *vcpu, u64 *eoi_exit_bitmap)
 	exitmap[2] = eoi_exit_bitmap[2];
 	exitmap[3] = eoi_exit_bitmap[3];
 
-	kvm_call_pkvm(load_eoi_exitmap, vcpu, exitmap);
+	pkvm_hypercall(load_eoi_exitmap, vcpu, exitmap);
 
 	put_this_pv_param(exitmap);
 }
 
 static void pkvm_hwapic_irr_update(struct kvm_vcpu *vcpu, int max_irr)
 {
-	kvm_call_pkvm(hwapic_irr_update, vcpu, max_irr);
+	pkvm_hypercall(hwapic_irr_update, vcpu, max_irr);
 }
 
 static void pkvm_hwapic_isr_update(struct kvm_vcpu *vcpu, int max_isr)
 {
-	kvm_call_pkvm(hwapic_isr_update, vcpu, max_isr);
+	pkvm_hypercall(hwapic_isr_update, vcpu, max_isr);
 }
 
 static int pkvm_sync_pir_to_irr(struct kvm_vcpu *vcpu)
@@ -1725,7 +1725,7 @@ static int pkvm_sync_pir_to_irr(struct kvm_vcpu *vcpu)
 	 * a VM-Exit and the subsequent entry will call sync_pir_to_irr.
 	 */
 	if (!is_guest_mode(vcpu) && kvm_vcpu_apicv_active(vcpu) && max_irr != -1)
-		kvm_call_pkvm(hwapic_irr_update, vcpu, max_irr);
+		pkvm_hypercall(hwapic_irr_update, vcpu, max_irr);
 	else if (got_posted_interrupt)
 		kvm_make_request(KVM_REQ_EVENT, vcpu);
 
@@ -1765,7 +1765,7 @@ static int pkvm_vcpu_realloc_fpstate(struct kvm_vcpu *vcpu)
 	if (!fps)
 		return -ENOMEM;
 
-	old_fpspa = kvm_call_pkvm(vcpu_add_fpstate, vcpu, __pa(fps), fpsize);
+	old_fpspa = pkvm_hypercall(vcpu_add_fpstate, vcpu, __pa(fps), fpsize);
 	if (old_fpspa == __pa(fps)) {
 		free_pages_exact(fps, fpsize);
 	} else if (VALID_PAGE(old_fpspa)) {
@@ -1821,7 +1821,7 @@ static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 
 	memcpy(entries, (void *)e2, size);
 
-	unused_pa = kvm_call_pkvm(vcpu_after_set_cpuid, vcpu,
+	unused_pa = pkvm_hypercall(vcpu_after_set_cpuid, vcpu,
 				  __pa(entries), nent);
 	if (unused_pa == __pa(entries)) {
 		kvm_err("Failed to set cpuid pages for pkvm vcpu\n");
@@ -1849,7 +1849,7 @@ static void pkvm_write_tsc_offset(struct kvm_vcpu *vcpu)
 	 * TODO: Not to write tsc_offset if the PV interface can be secure
 	 * enforced.
 	 */
-	kvm_call_pkvm(write_tsc_offset, vcpu, vcpu->arch.tsc_offset);
+	pkvm_hypercall(write_tsc_offset, vcpu, vcpu->arch.tsc_offset);
 }
 
 static void pkvm_write_tsc_multiplier(struct kvm_vcpu *vcpu)
@@ -1858,12 +1858,12 @@ static void pkvm_write_tsc_multiplier(struct kvm_vcpu *vcpu)
 	 * TODO: Not to write tsc_multiplier if the PV interface can be secure
 	 * enforced.
 	 */
-	kvm_call_pkvm(write_tsc_multiplier, vcpu, vcpu->arch.tsc_scaling_ratio);
+	pkvm_hypercall(write_tsc_multiplier, vcpu, vcpu->arch.tsc_scaling_ratio);
 }
 
 static void pkvm_load_mmu_pgd(struct kvm_vcpu *vcpu, hpa_t root_hpa, int root_level)
 {
-	kvm_call_pkvm(load_mmu_pgd, vcpu, root_hpa, root_level);
+	pkvm_hypercall(load_mmu_pgd, vcpu, root_hpa, root_level);
 }
 
 static int pkvm_check_intercept(struct kvm_vcpu *vcpu,
@@ -1876,7 +1876,7 @@ static int pkvm_check_intercept(struct kvm_vcpu *vcpu,
 
 static void pkvm_setup_mce(struct kvm_vcpu *vcpu)
 {
-	kvm_call_pkvm(setup_mce, vcpu, vcpu->arch.mcg_cap);
+	pkvm_hypercall(setup_mce, vcpu, vcpu->arch.mcg_cap);
 }
 
 #ifdef CONFIG_KVM_SMM
@@ -1927,14 +1927,14 @@ static void pkvm_msr_filter_changed(struct kvm_vcpu *vcpu) {}
 static int pkvm_complete_emulated_msr(struct kvm_vcpu *vcpu, int err)
 {
 	if (err)
-		return kvm_call_pkvm(complete_emulated_msr, vcpu, err);
+		return pkvm_hypercall(complete_emulated_msr, vcpu, err);
 
 	return pkvm_is_protected_vcpu(vcpu) ? 1 : kvm_skip_emulated_instruction(vcpu);
 }
 
 static void pkvm_update_cpuid_runtime(struct kvm_vcpu *vcpu)
 {
-	kvm_call_pkvm(update_cpuid_runtime, vcpu);
+	pkvm_hypercall(update_cpuid_runtime, vcpu);
 }
 
 #define VMX_REQUIRED_APICV_INHIBITS				\

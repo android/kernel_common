@@ -9,7 +9,6 @@
 #include <linux/sort.h>
 
 #include <asm/kvm_pkvm.h>
-#include "../pkvm.h"
 
 static struct memblock_region *_hyp_memory = pkvm_sym(hyp_memory);
 static unsigned int *hyp_memblock_nr_ptr = &pkvm_sym(hyp_memblock_nr);
@@ -181,7 +180,7 @@ static int share_pfn_hyp(u64 pfn)
 	if (!this)
 		return -ENOMEM;
 
-	ret = kvm_call_pkvm(host_share_hyp, pfn, 1);
+	ret = pkvm_hypercall(host_share_hyp, pfn, 1);
 	if (ret) {
 		kfree(this);
 		return ret;
@@ -211,7 +210,7 @@ static int unshare_pfn_hyp(u64 pfn)
 	if (this->count)
 		return 0;
 
-	ret = kvm_call_pkvm(host_unshare_hyp, pfn, 1);
+	ret = pkvm_hypercall(host_unshare_hyp, pfn, 1);
 	if (ret) {
 		/* Revert back the counter. */
 		this->count++;
