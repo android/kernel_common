@@ -23,6 +23,7 @@ load(
     "ddk_headers",
     "ddk_headers_archive",
     "initramfs",
+    "kernel_abi",
     "kernel_build",
     "kernel_compile_commands",
     "kernel_kythe",
@@ -207,6 +208,7 @@ filegroup(
     name = "aarch64_additional_kmi_symbol_lists",
     srcs = [
         # keep sorted
+        "gki/aarch64/symbols/db845c",
     ],
     visibility = ["//visibility:public"],
 )
@@ -860,8 +862,10 @@ kernel_build(
     arch = "arm64",
     # Enable mixed build.
     base_kernel = ":kernel_aarch64",
+    collect_unstripped_modules = True,
     defconfig = "arch/arm64/configs/gki_defconfig",
     generate_out_targets = False,
+    kmi_symbol_list = "gki/aarch64/symbols/db845c",
     make_goals = [
         "modules",
         "qcom/qrb5165-rb5.dtb",
@@ -884,6 +888,11 @@ kernel_build(
         "//build/kernel/kleaf:debug_is_true": False,
         "//conditions:default": True,
     }),
+)
+
+kernel_abi(
+    name = "db845c_abi",
+    kernel_build = ":db845c",
 )
 
 kernel_modules_install(
