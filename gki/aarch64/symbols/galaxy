@@ -207,3 +207,6 @@
   __tracepoint_android_vh_handle_add_blks_map
   __tracepoint_android_vh_handle_get_b_info
   yield
+  blkcg_root
+  blkcg_activate_policy
+  blkcg_deactivate_policy
