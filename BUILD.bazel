@@ -210,6 +210,7 @@ filegroup(
         # keep sorted
         "gki/aarch64/symbols/db845c",
         "gki/aarch64/symbols/kunit",
+        "gki/aarch64/symbols/virtual_device",
     ],
     visibility = ["//visibility:public"],
 )
