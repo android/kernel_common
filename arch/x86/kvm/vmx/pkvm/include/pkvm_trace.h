@@ -6,13 +6,18 @@
 #define _PKVM_TRACE_H_
 
 #include <asm/pkvm_spinlock.h>
+#include <asm/pkvm.h>
 #include <asm/vmx.h>
 
+struct vmexit_stats {
+	u64 count;
+	u64 cycles;
+};
+
 struct vmexit_data {
-	u64 total_count;
-	u64 total_cycles;
-	u64 reasons[MAX_EXIT_REASONS];
-	u64 cycles[MAX_EXIT_REASONS];
+	struct vmexit_stats reasons[MAX_EXIT_REASONS];
+	struct vmexit_stats hypercalls[MAX_PKVM_HYPERCALLS];
+	struct vmexit_stats total;
 };
 
 struct perf_data {
@@ -25,6 +30,7 @@ struct vmexit_perf {
 	pkvm_spinlock_t lock;
 	struct perf_data data;
 	unsigned long long tsc;
+	unsigned long rax;
 	unsigned int age;
 };
 

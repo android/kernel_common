@@ -26,6 +26,8 @@ struct pkvm_iommu_driver {
 enum pkvm_hc {
 	#define PKVM_HC(f)	TO_PKVM_HC(f),
 	#include <asm/pkvm_hypercalls.h>
+
+	MAX_PKVM_HYPERCALLS
 };
 
 static inline unsigned long __pkvm_hypercall(unsigned long nr, unsigned long p1,

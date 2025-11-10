@@ -47,28 +47,53 @@ static const char *get_vmexit_reason(int index)
 	return NULL;
 }
 
+static const char *pkvm_hypercalls[MAX_PKVM_HYPERCALLS] = {
+	#define PKVM_HC(fn)	[TO_PKVM_HC(fn)] = #fn,
+	#include <asm/pkvm_hypercalls.h>
+};
+
+static void print_vmexit_stats(struct seq_file *m, struct vmexit_stats *st)
+{
+	seq_printf(m, "%lld cycles %lld each-handler-cycle %lld\n",
+		   st->count, st->cycles, st->cycles / st->count);
+}
+
 static void dump_perf_data(struct seq_file *m, struct perf_data *perf,
 			   struct perf_data *summary)
 {
 	int i;
 
 	for (i = 0 ; i < MAX_EXIT_REASONS; i++) {
-		if (!perf->vmexit.reasons[i])
+		if (!perf->vmexit.reasons[i].count)
 			continue;
 
 		if (perf->vm_handle)
-			seq_printf(m, "VM%d-vcpu%d: %s %lld cycles %lld each-handler-cycle %lld\n",
-				   perf->vm_handle, perf->vcpu_id, get_vmexit_reason(i),
-				   perf->vmexit.reasons[i], perf->vmexit.cycles[i],
-				   perf->vmexit.cycles[i] / perf->vmexit.reasons[i]);
+			seq_printf(m, "VM%d-vcpu%d: %s ", perf->vm_handle, perf->vcpu_id,
+				   get_vmexit_reason(i));
 		else
-			seq_printf(m, "Host-vcpu%d: %s %lld cycles %lld each-handler-cycle %lld\n",
-				   perf->vcpu_id, get_vmexit_reason(i), perf->vmexit.reasons[i],
-				   perf->vmexit.cycles[i],
-				   perf->vmexit.cycles[i] / perf->vmexit.reasons[i]);
+			seq_printf(m, "Host-vcpu%d: %s ", perf->vcpu_id, get_vmexit_reason(i));
+		print_vmexit_stats(m, &perf->vmexit.reasons[i]);
 
-		summary->vmexit.reasons[i] += perf->vmexit.reasons[i];
-		summary->vmexit.cycles[i] += perf->vmexit.cycles[i];
+		summary->vmexit.reasons[i].count += perf->vmexit.reasons[i].count;
+		summary->vmexit.reasons[i].cycles += perf->vmexit.reasons[i].cycles;
+
+		if (need_resched())
+			cond_resched();
+	}
+
+	for (i = 0; i < MAX_PKVM_HYPERCALLS; i++) {
+		if (!perf->vmexit.hypercalls[i].count)
+			continue;
+
+		if (perf->vm_handle)
+			seq_printf(m, "VM%d-vcpu%d: %s ", perf->vm_handle, perf->vcpu_id,
+				   pkvm_hypercalls[i]);
+		else
+			seq_printf(m, "Host-vcpu%d: %s ", perf->vcpu_id, pkvm_hypercalls[i]);
+		print_vmexit_stats(m, &perf->vmexit.hypercalls[i]);
+
+		summary->vmexit.hypercalls[i].count += perf->vmexit.hypercalls[i].count;
+		summary->vmexit.hypercalls[i].cycles += perf->vmexit.hypercalls[i].cycles;
 
 		if (need_resched())
 			cond_resched();
@@ -80,19 +105,28 @@ static void print_summary(struct seq_file *m, struct perf_data *summary)
 	int i;
 
 	for (i = 0 ; i < MAX_EXIT_REASONS; i++) {
-		if (!summary->vmexit.reasons[i])
+		if (!summary->vmexit.reasons[i].count)
 			continue;
 
 		if (summary->vm_handle)
-			seq_printf(m, "VM%d: %s %lld cycles %lld each-handler-cycle %lld\n",
-				   summary->vm_handle, get_vmexit_reason(i),
-				   summary->vmexit.reasons[i], summary->vmexit.cycles[i],
-				   summary->vmexit.cycles[i] / summary->vmexit.reasons[i]);
+			seq_printf(m, "VM%d: %s ", summary->vm_handle, get_vmexit_reason(i));
 		else
-			seq_printf(m, "Host: %s %lld cycles %lld each-handler-cycle %lld\n",
-				   get_vmexit_reason(i), summary->vmexit.reasons[i],
-				   summary->vmexit.cycles[i],
-				   summary->vmexit.cycles[i] / summary->vmexit.reasons[i]);
+			seq_printf(m, "Host: %s ", get_vmexit_reason(i));
+		print_vmexit_stats(m, &summary->vmexit.reasons[i]);
+
+		if (need_resched())
+			cond_resched();
+	}
+
+	for (i = 0; i < MAX_PKVM_HYPERCALLS; i++) {
+		if (!summary->vmexit.hypercalls[i].count)
+			continue;
+
+		if (summary->vm_handle)
+			seq_printf(m, "VM%d: %s ", summary->vm_handle, pkvm_hypercalls[i]);
+		else
+			seq_printf(m, "Host: %s ", pkvm_hypercalls[i]);
+		print_vmexit_stats(m, &summary->vmexit.hypercalls[i]);
 
 		if (need_resched())
 			cond_resched();
