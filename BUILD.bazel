@@ -203,9 +203,18 @@ write_file(
     visibility = ["//visibility:private"],
 )
 
+filegroup(
+    name = "aarch64_additional_kmi_symbol_lists",
+    srcs = [
+        # keep sorted
+    ],
+    visibility = ["//visibility:public"],
+)
+
 common_kernel(
     name = "kernel_aarch64",
     outs = DEFAULT_GKI_OUTS,
+    additional_kmi_symbol_lists = [":aarch64_additional_kmi_symbol_lists"],
     arch = "arm64",
     build_gki_artifacts = True,
     ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
@@ -219,18 +228,16 @@ common_kernel(
     gki_boot_img_sizes = _GKI_AARCH64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
     kcflags = COMMON_KCFLAGS,
+    kmi_symbol_list = "gki/aarch64/symbols/base",
+    kmi_symbol_list_strict_mode = True,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
     modules_superset = get_gki_modules_superset("arm64") + get_kunit_modules_superset("arm64"),
     protected_module_names_list = ":gki_aarch64_protected_module_names",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
+    trim_nonlisted_kmi = False,
     visibility = ["//visibility:public"],
-
-    # kmi_symbol_list = None,
-    # additional_kmi_symbol_lists = [],
-    # kmi_symbol_list_strict_mode = False,
-    # trim_nonlisted_kmi = False,
 
     # ABI
     # abi_definition_stg = None,
@@ -240,6 +247,7 @@ common_kernel(
 common_kernel(
     name = "kernel_aarch64_16k",
     outs = DEFAULT_GKI_OUTS,
+    additional_kmi_symbol_lists = [":aarch64_additional_kmi_symbol_lists"],
     arch = "arm64",
     build_gki_artifacts = True,
     ddk_headers_archive = ":kernel_aarch64_ddk_headers_archive",
@@ -253,6 +261,8 @@ common_kernel(
     gki_boot_img_sizes = _GKI_AARCH64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_arm64",
     kcflags = COMMON_KCFLAGS,
+    kmi_symbol_list = "gki/aarch64/symbols/base",
+    kmi_symbol_list_strict_mode = True,
     make_goals = _GKI_AARCH64_MAKE_GOALS,
     makefile = ":Makefile",
     module_implicit_outs = get_gki_modules_list("arm64") + get_kunit_modules_list("arm64"),
@@ -260,6 +270,7 @@ common_kernel(
     page_size = "16k",
     protected_module_names_list = ":gki_aarch64_protected_module_names",
     system_dlkm_extra_archive_files = [":generate_gki_module_info_arm64"],
+    trim_nonlisted_kmi = False,
     visibility = ["//visibility:public"],
 )
 
