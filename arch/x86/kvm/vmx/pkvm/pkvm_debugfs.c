@@ -18,7 +18,7 @@ static void set_vmexit_trace_func(void *data)
 		return;
 
 	val = *(u64 *)data;
-	kvm_hypercall1(PKVM_HC_SET_VMEXIT_TRACE, val);
+	pkvm_hypercall(set_vmexit_trace, val);
 }
 
 static int set_vmexit_trace(void *data, u64 val)
@@ -187,7 +187,7 @@ static int vmexit_trace_show(struct seq_file *m, void *unused)
 
 	/*TODO: Share perf memory with the pkvm hypervisor */
 
-	kvm_hypercall3(PKVM_HC_DUMP_VMEXIT_TRACE, vm_handle, __pa(perf), size);
+	pkvm_hypercall(dump_vmexit_trace, vm_handle, __pa(perf), size);
 
 	/*TODO: Unshare perf memory with the pkvm hypervisor */
 

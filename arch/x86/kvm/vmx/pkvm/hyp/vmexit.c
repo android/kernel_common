@@ -81,7 +81,7 @@ static void handle_cr(struct kvm_vcpu *vcpu)
 
 static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 {
-	u64 nr, a0, a1, a2, a3, a4, a5;
+	u64 nr, a0, a1, a2, a3, a4;
 	unsigned long ret = 0;
 
 	nr = vcpu->arch.regs[VCPU_REGS_RAX];
@@ -90,43 +90,32 @@ static unsigned long handle_vmcall(struct kvm_vcpu *vcpu)
 	a2 = vcpu->arch.regs[VCPU_REGS_RDX];
 	a3 = vcpu->arch.regs[VCPU_REGS_RSI];
 	a4 = vcpu->arch.regs[VCPU_REGS_RDI];
-	a5 = vcpu->arch.regs[VCPU_REGS_R8];
 
 	switch (nr) {
-	case PKVM_HC_SET_VMEXIT_TRACE:
-		pkvm_handle_set_vmexit_trace(a0);
-		break;
-	case PKVM_HC_DUMP_VMEXIT_TRACE:
-		pkvm_handle_dump_vmexit_trace(a0, a1, a2);
-		break;
-	case PKVM_HC_MMIO_ACCESS:
-		ret = pkvm_access_iommu(a0, a1, a2, a3);
-		break;
-	case PKVM_HC_ADD_PTDEV:
-		ret = pkvm_add_ptdev(a0, a1, a2);
-		break;
-	case PKVM_HC_KVM_CALL:
-		ret = handle_kvm_call(a0, a1, a2, a3, a4, a5);
-		break;
-
-	/*
-	 * Following hypercalls are special that they are intended to be used
-	 * only during(soon after) pkvm initialization phase. Disabled explicitly
-	 * after pkvm has been initialized successfully and returns -EPERM if
-	 * invoked after pkvm initialization.
-	 */
-	case PKVM_HC_INIT_FINALISE:
+	case __pkvm__init_finalize:
 		ret = __pkvm_init_finalise(vcpu, (struct pkvm_section *)a0, a1);
 		break;
-	case __PKVM_HC_COMMIT_FINALISE:
+	case __pkvm__commit_finalize:
 		ret = pkvm_commit_finalise(a0);
 		break;
-	case __PKVM_HC_REPRIVILEGE_VCPU:
+	case __pkvm__reprivilege_cpu:
 		ret = pkvm_reprivilege_vcpu(vcpu);
 		/* Reach here only if reprivilege fails. */
 		break;
+	case __pkvm__set_vmexit_trace:
+		pkvm_handle_set_vmexit_trace(a0);
+		break;
+	case __pkvm__dump_vmexit_trace:
+		pkvm_handle_dump_vmexit_trace(a0, a1, a2);
+		break;
+	case __pkvm__iommu_mmio_access:
+		ret = pkvm_access_iommu(a0, a1, a2, a3);
+		break;
+	case __pkvm__add_ptdev:
+		ret = pkvm_add_ptdev(a0, a1, a2);
+		break;
 	default:
-		ret = -EINVAL;
+		ret = handle_kvm_call(nr, a0, a1, a2, a3, a4);
 	}
 
 	return ret;

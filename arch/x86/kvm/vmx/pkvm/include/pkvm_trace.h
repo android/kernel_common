@@ -28,7 +28,4 @@ struct vmexit_perf {
 	unsigned int age;
 };
 
-#define PKVM_HC_SET_VMEXIT_TRACE	0xabcd0001
-#define PKVM_HC_DUMP_VMEXIT_TRACE	0xabcd0002
-
 #endif

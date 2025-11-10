@@ -9,27 +9,6 @@
 #include <asm/io.h>
 #include <asm/coco.h>
 
-/* PKVM Hypercalls */
-#define PKVM_HC_KVM_CALL		0
-#define PKVM_HC_INIT_FINALISE		1
-#define PKVM_HC_MMIO_ACCESS		7
-#define PKVM_HC_ADD_PTDEV		10
-
-/*
- * Internal hypercall to commit the pkvm initialization
- * status to success or failure. This is to make internal
- * hypercalls to be unavailable for general use after
- * successful pkvm initialization and to rollback pkvm
- * initialization actions on failure.
- */
-#define __PKVM_HC_COMMIT_FINALISE	100
-
-/*
- * Internal hypercall to reprivilege cpus on pkvm
- * initialization failure.
- */
-#define __PKVM_HC_REPRIVILEGE_VCPU	101
-
 /*
  * 15bits for PASID, DO NOT change it, based on it,
  * the size of PASID DIR table can kept as one page
@@ -43,15 +22,18 @@ struct pkvm_iommu_driver {
 };
 
 enum pkvm_hc {
+	/* Hypercalls used only during pKVM initialization */
+	__pkvm__init_finalize,
+	__pkvm__commit_finalize,
+	__pkvm__reprivilege_cpu,
+
+	/* KVM ops */
 	__pkvm__enable_virtualization_cpu,
 	__pkvm__disable_virtualization_cpu,
 	__pkvm__check_processor_compatibility,
 	__pkvm__vm_init,
 	__pkvm__vm_finalize,
 	__pkvm__vm_destroy,
-	__pkvm__vm_mmu_map,
-	__pkvm__vm_mmu_unmap,
-	__pkvm__vm_mmu_age,
 	__pkvm__vcpu_create,
 	__pkvm__vcpu_free,
 	__pkvm__vcpu_reset,
@@ -108,56 +90,69 @@ enum pkvm_hc {
 	__pkvm__vcpu_add_fpstate,
 	__pkvm__host_share_hyp,
 	__pkvm__host_unshare_hyp,
+
+	/* KVM MMU hypercalls */
+	__pkvm__vm_mmu_map,
+	__pkvm__vm_mmu_unmap,
+	__pkvm__vm_mmu_age,
+
+	/* IOMMU driver hypercalls */
+	__pkvm__iommu_mmio_access,
+
+	/* pKVM vmexit tracing/profiling */
+	__pkvm__set_vmexit_trace,
+	__pkvm__dump_vmexit_trace,
+
+	/* Deprecated */
+	__pkvm__add_ptdev,
 };
 
 static inline unsigned long __pkvm_hypercall(unsigned long nr, unsigned long p1,
 					     unsigned long p2, unsigned long p3,
-					     unsigned long p4, unsigned long p5,
-					     unsigned long p6)
+					     unsigned long p4, unsigned long p5)
 {
-	register unsigned long r8 asm("r8") = p6;
 	unsigned long ret;
 
 	asm volatile(KVM_HYPERCALL
 		     : "=a"(ret)
-		     : "a"(nr), "b"(p1), "c"(p2), "d"(p3), "S"(p4), "D"(p5), "r"(r8)
+		     : "a"(nr), "b"(p1), "c"(p2), "d"(p3), "S"(p4), "D"(p5)
 		     : "memory");
 	return ret;
 }
 
 #define CALL_PKVM(f)		CONCATENATE(__pkvm__, f)
 
-#define __pkvm_hypercall_0(f)	__pkvm_hypercall(PKVM_HC_KVM_CALL, f, 0, 0, 0, 0, 0)
+#define __pkvm_hypercall_0(f)	__pkvm_hypercall(f, 0, 0, 0, 0, 0)
 
 #define __pkvm_hypercall_1(f, a1)							\
 	({										\
-		__pkvm_hypercall(PKVM_HC_KVM_CALL, f,					\
+		__pkvm_hypercall(f,							\
 			(unsigned long)(a1), 0, 0, 0, 0);				\
 	})
 
 #define __pkvm_hypercall_2(f, a1, a2)							\
 	({										\
-		__pkvm_hypercall(PKVM_HC_KVM_CALL, f,					\
+		__pkvm_hypercall(f,							\
 			(unsigned long)(a1), (unsigned long)(a2), 0, 0, 0);		\
 	})
 
 #define __pkvm_hypercall_3(f, a1, a2, a3)						\
 	({										\
-		__pkvm_hypercall(PKVM_HC_KVM_CALL, f,					\
+		__pkvm_hypercall(f,							\
 			(unsigned long)(a1), (unsigned long)(a2),			\
 			(unsigned long)(a3), 0, 0);					\
 	})
 
 #define __pkvm_hypercall_4(f, a1, a2, a3, a4)						\
 	({										\
-		__pkvm_hypercall(PKVM_HC_KVM_CALL, f,					\
+		__pkvm_hypercall(f,							\
 			(unsigned long)(a1), (unsigned long)(a2),			\
 			(unsigned long)(a3), (unsigned long)(a4), 0);			\
 	})
 
 #define __pkvm_hypercall_5(f, a1, a2, a3, a4, a5)					\
 	({										\
-		__pkvm_hypercall(PKVM_HC_KVM_CALL, f,					\
+		__pkvm_hypercall(f,							\
 			(unsigned long)(a1), (unsigned long)(a2),			\
 			(unsigned long)(a3), (unsigned long)(a4),			\
 			(unsigned long)(a5));						\
@@ -188,7 +183,7 @@ static inline u64 pkvm_readq(void __iomem *reg, unsigned long reg_phys,
 			     unsigned long offset)
 {
 	if (pkvm_enabled())
-		return (u64)kvm_hypercall3(PKVM_HC_MMIO_ACCESS, true,
+		return (u64)pkvm_hypercall(iommu_mmio_access, true,
 					   sizeof(u64), reg_phys + offset);
 	else
 		return readq(reg + offset);
@@ -198,7 +193,7 @@ static inline u32 pkvm_readl(void __iomem *reg, unsigned long reg_phys,
 			     unsigned long offset)
 {
 	if (pkvm_enabled())
-		return (u32)kvm_hypercall3(PKVM_HC_MMIO_ACCESS, true,
+		return (u32)pkvm_hypercall(iommu_mmio_access, true,
 					   sizeof(u32), reg_phys + offset);
 	else
 		return readl(reg + offset);
@@ -208,7 +203,7 @@ static inline void pkvm_writeq(void __iomem *reg, unsigned long reg_phys,
 			       unsigned long offset, u64 val)
 {
 	if (pkvm_enabled())
-		kvm_hypercall4(PKVM_HC_MMIO_ACCESS, false, sizeof(u64),
+		pkvm_hypercall(iommu_mmio_access, false, sizeof(u64),
 			       reg_phys + offset, val);
 	else
 		writeq(val, reg + offset);
@@ -218,7 +213,7 @@ static inline void pkvm_writel(void __iomem *reg, unsigned long reg_phys,
 			       unsigned long offset, u32 val)
 {
 	if (pkvm_enabled())
-		kvm_hypercall4(PKVM_HC_MMIO_ACCESS, false, sizeof(u32),
+		pkvm_hypercall(iommu_mmio_access, false, sizeof(u32),
 			       reg_phys + offset, (u64)val);
 	else
 		writel(val, reg + offset);

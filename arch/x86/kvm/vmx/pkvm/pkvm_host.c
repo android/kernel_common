@@ -988,7 +988,7 @@ static __init void pkvm_host_reprivilege_cpu(void *data)
 		"vmcall\n"
 		"endbr64\n"
 		:
-		: "a"(__PKVM_HC_REPRIVILEGE_VCPU)
+		: "a"(__pkvm__reprivilege_cpu)
 		: "memory");
 
 	/*
@@ -1075,7 +1075,7 @@ static __init int pkvm_host_deprivilege_cpus(struct pkvm_hyp *pkvm)
  */
 static int __this_cpu_do_finalise_hc(struct pkvm_section *sections, unsigned long size)
 {
-	return kvm_hypercall2(PKVM_HC_INIT_FINALISE, (unsigned long)sections, size);
+	return pkvm_hypercall(init_finalize, (unsigned long)sections, size);
 }
 
 /* Called with preemption disabled but interrupts enabled. */
@@ -1220,7 +1220,7 @@ static int add_device_to_pkvm(struct device *dev, void *data)
 	pdev = to_pci_dev(dev);
 	devid = PCI_DEVID(pdev->bus->number, pdev->devfn);
 
-	return kvm_hypercall3(PKVM_HC_ADD_PTDEV, pkvm->pkvm_vm_handle, devid, 0);
+	return pkvm_hypercall(add_ptdev, pkvm->pkvm_vm_handle, devid, 0);
 }
 
 int kvm_arch_add_device_to_pkvm(struct kvm *kvm, struct iommu_group *grp)
@@ -1440,7 +1440,7 @@ static void __init pkvm_init_rollback(void)
 	 * host can rollback pkvm initialization successfully.
 	 */
 	if (pkvm_finalise_started)
-		kvm_hypercall1(__PKVM_HC_COMMIT_FINALISE, false);
+		pkvm_hypercall(commit_finalize, false);
 
 	/*
 	 * Host now has access to hypervisor memory and clear the
@@ -1480,7 +1480,7 @@ static void __init pkvm_init_commit(void)
 	if (WARN_ON(!pkvm_finalise_started))
 		return;
 
-	kvm_hypercall1(__PKVM_HC_COMMIT_FINALISE, true);
+	pkvm_hypercall(commit_finalize, true);
 }
 
 static bool mitigate_spectre_v2(struct cpuinfo_x86 *c)
