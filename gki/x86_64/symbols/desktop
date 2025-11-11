@@ -3201,10 +3201,15 @@
   tso_build_data
   tso_build_hdr
   tso_start
+  ttm_backup_bytes_avail
   ttm_bo_eviction_valuable
   ttm_bo_init_reserved
   ttm_bo_kmap
   ttm_bo_kunmap
+  ttm_bo_lru_cursor_fini
+  ttm_bo_lru_cursor_first
+  ttm_bo_lru_cursor_init
+  ttm_bo_lru_cursor_next
   ttm_bo_mem_space
   ttm_bo_mmap_obj
   ttm_bo_move_accel_cleanup
@@ -3212,8 +3217,12 @@
   ttm_bo_move_sync_cleanup
   ttm_bo_move_to_lru_tail
   ttm_bo_pin
+  ttm_bo_populate
   ttm_bo_put
   ttm_bo_set_bulk_move
+  ttm_bo_shrink
+  ttm_bo_shrink_avoid_wait
+  ttm_bo_shrink_suitable
   ttm_bo_unmap_virtual
   ttm_bo_unpin
   ttm_bo_validate
@@ -3247,6 +3256,8 @@
   ttm_tt_fini
   ttm_tt_init
   ttm_tt_populate
+  ttm_tt_restore
+  ttm_tt_setup_backup
   tty_encode_baud_rate
   tty_flip_buffer_push
   tty_get_char_size
