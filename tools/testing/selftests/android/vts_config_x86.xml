@@ -26,6 +26,7 @@ SPDX-License-Identifier: GPL-2.0 OR Apache-2.0
         <option name="skip-binary-check" value="true" />
         <option name="ktap-result-parser-resolution" value="INDIVIDUAL_LEAVES" />
         <option name="test-command-line" key="kselftest_binderfs_binderfs_test" value="cd &ktest_dir;; ./kselftest_binderfs_binderfs_test" />
+        <option name="test-command-line" key="kselftest_breakpoints_breakpoint_test" value="cd &ktest_dir;; ./kselftest_breakpoints_breakpoint_test" />
         <option name="test-command-line" key="kselftest_capabilities_test_execve" value="cd &ktest_dir;; ./kselftest_capabilities_test_execve" />
         <option name="test-command-line" key="kselftest_capabilities_validate_cap" value="cd &ktest_dir;; ./validate_cap 1 1 0 0" />
         <option name="test-command-line" key="kselftest_futex_futex_requeue_pi_mismatched_ops" value="cd &ktest_dir;; ./futex_requeue_pi_mismatched_ops" />
@@ -38,5 +39,10 @@ SPDX-License-Identifier: GPL-2.0 OR Apache-2.0
         <option name="test-command-line" key="kselftest_futex_futex_wait_wouldblock" value="cd &ktest_dir;; ./futex_wait_wouldblock" />
         <option name="test-command-line" key="kselftest_futex_futex_wait" value="cd &ktest_dir;; ./futex_wait" />
         <option name="test-command-line" key="kselftest_kcmp_kcmp_test" value="cd &ktest_dir;; ./kselftest_kcmp_kcmp_test" />
+        <option name="test-command-line" key="kselftest_rtc_rtctest" value="cd &ktest_dir;; ./kselftest_rtc_rtctest" />
+        <option name="test-command-line" key="kselftest_net_tests_socket" value="cd &ktest_dir;; ./kselftest_net_tests_socket" />
+        <option name="test-command-line" key="kselftest_net_tests_psock_tpacket" value="cd &ktest_dir;; ./kselftest_net_tests_psock_tpacket" />
+        <option name="test-command-line" key="kselftest_net_tests_reuseport_dualstack" value="cd &ktest_dir;; ./kselftest_net_tests_reuseport_dualstack" />
+        <option name="test-command-line" key="kselftest_net_tests_reuseaddr_conflict" value="cd &ktest_dir;; ./kselftest_net_tests_reuseaddr_conflict" />
     </test>
 </configuration>

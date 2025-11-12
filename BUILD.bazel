@@ -110,7 +110,6 @@ write_file(
     ],
 )
 
-# Not enforced in android-mainline.
 common_kernel_protected_module_names(
     name = "gki_aarch64_protected_module_names",
     out = "gki/aarch64/protected_module_names",
@@ -128,7 +127,6 @@ write_file(
     ],
 )
 
-# Not enforced in android-mainline.
 common_kernel_protected_module_names(
     name = "gki_x86_64_protected_module_names",
     out = "gki/x86_64/protected_module_names",
@@ -232,7 +230,6 @@ common_kernel(
     # kmi_symbol_list = None,
     # additional_kmi_symbol_lists = [],
     # kmi_symbol_list_strict_mode = False,
-    # protected_exports_list = None,
     # protected_modules_list = None,
     # trim_nonlisted_kmi = False,
 
@@ -1706,6 +1703,59 @@ cc_binary_with_abi(
 )
 
 cc_binary_with_abi(
+    name = "kselftest_net_tests_socket",
+    srcs = ["tools/testing/selftests/net/socket.c"],
+    copts = _KSELFTEST_COPTS,
+    path_prefix = _KSELFTEST_DIR,
+    target_compatible_with = ["@platforms//os:android"],
+    visibility = ["//visibility:private"],
+    deps = [":kselftest_headers_lib"],
+)
+
+cc_binary_with_abi(
+    name = "kselftest_net_tests_psock_tpacket",
+    srcs = ["tools/testing/selftests/net/psock_tpacket.c"],
+    copts = _KSELFTEST_COPTS,
+    path_prefix = _KSELFTEST_DIR,
+    target_compatible_with = ["@platforms//os:android"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":kselftest_headers_lib",
+        ":kselftest_psock_lib",
+    ],
+)
+
+cc_library(
+    name = "kselftest_psock_lib",
+    hdrs = ["tools/testing/selftests/net/psock_lib.h"],
+    includes = [
+        "tools/testing/selftests",
+        "tools/testing/selftests/net",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+cc_binary_with_abi(
+    name = "kselftest_net_tests_reuseport_dualstack",
+    srcs = ["tools/testing/selftests/net/reuseport_dualstack.c"],
+    copts = _KSELFTEST_COPTS,
+    path_prefix = _KSELFTEST_DIR,
+    target_compatible_with = ["@platforms//os:android"],
+    visibility = ["//visibility:private"],
+    deps = [":kselftest_headers_lib"],
+)
+
+cc_binary_with_abi(
+    name = "kselftest_net_tests_reuseaddr_conflict",
+    srcs = ["tools/testing/selftests/net/reuseaddr_conflict.c"],
+    copts = _KSELFTEST_COPTS,
+    path_prefix = _KSELFTEST_DIR,
+    target_compatible_with = ["@platforms//os:android"],
+    visibility = ["//visibility:private"],
+    deps = [":kselftest_headers_lib"],
+)
+
+cc_binary_with_abi(
     name = "kselftest_ptrace_peeksiginfo",
     srcs = ["tools/testing/selftests/ptrace/peeksiginfo.c"],
     copts = _KSELFTEST_COPTS,
@@ -2798,6 +2848,7 @@ pkg_filegroup(
     name = "vts_kselftest_tests_x86_64",
     srcs = [
         ":kselftest_binderfs_binderfs_test_x86_64",
+        ":kselftest_breakpoints_breakpoint_test_x86_64",
         ":kselftest_capabilities_test_execve_x86_64",
         ":kselftest_capabilities_validate_cap_x86_64",
         ":kselftest_futex_futex_requeue_pi_mismatched_ops_x86_64",
@@ -2810,6 +2861,13 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_wouldblock_x86_64",
         ":kselftest_futex_futex_wait_x86_64",
         ":kselftest_kcmp_kcmp_test_x86_64",
+        ":kselftest_rtc_rtctest_x86_64",
+        # ":kselftest_net_tests_bpf_x86_64", # Disabled due to test failures
+        # ":kselftest_net_tests_psock_fanout_x86_64", # Disabled due to test failures
+        ":kselftest_net_tests_psock_tpacket_x86_64",
+        ":kselftest_net_tests_reuseaddr_conflict_x86_64",
+        ":kselftest_net_tests_reuseport_dualstack_x86_64",
+        ":kselftest_net_tests_socket_x86_64",
     ],
     visibility = ["//visibility:private"],
 )
@@ -2886,6 +2944,7 @@ pkg_filegroup(
     name = "vts_kselftest_tests_x86",
     srcs = [
         ":kselftest_binderfs_binderfs_test_x86",
+        ":kselftest_breakpoints_breakpoint_test_x86",
         ":kselftest_capabilities_test_execve_x86",
         ":kselftest_capabilities_validate_cap_x86",
         ":kselftest_futex_futex_requeue_pi_mismatched_ops_x86",
@@ -2898,6 +2957,13 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_wouldblock_x86",
         ":kselftest_futex_futex_wait_x86",
         ":kselftest_kcmp_kcmp_test_x86",
+        ":kselftest_rtc_rtctest_x86",
+        # ":kselftest_net_tests_bpf_x86", Disabled due to test failures
+        # ":kselftest_net_tests_psock_fanout_x86", Disabled due to test failures
+        ":kselftest_net_tests_psock_tpacket_x86",
+        ":kselftest_net_tests_reuseaddr_conflict_x86",
+        ":kselftest_net_tests_reuseport_dualstack_x86",
+        ":kselftest_net_tests_socket_x86",
     ],
     visibility = ["//visibility:private"],
 )
@@ -2967,6 +3033,7 @@ pkg_filegroup(
     name = "vts_kselftest_tests_arm",
     srcs = [
         ":kselftest_binderfs_binderfs_test_arm",
+        # ":kselftest_breakpoints_breakpoint_test_arm", Disabled due to not supported for this architecture
         ":kselftest_capabilities_test_execve_arm",
         ":kselftest_capabilities_validate_cap_arm",
         ":kselftest_futex_futex_requeue_arm",
@@ -2979,6 +3046,13 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_uninitialized_heap_arm",
         ":kselftest_futex_futex_wait_wouldblock_arm",
         ":kselftest_kcmp_kcmp_test_arm",
+        ":kselftest_rtc_rtctest_arm",
+        # ":kselftest_net_tests_bpf_arm", Disabled due to test failures
+        # ":kselftest_net_tests_psock_fanout_arm", Disabled due to test failures
+        ":kselftest_net_tests_psock_tpacket_arm",
+        ":kselftest_net_tests_reuseaddr_conflict_arm",
+        ":kselftest_net_tests_reuseport_dualstack_arm",
+        ":kselftest_net_tests_socket_arm",
     ],
     visibility = ["//visibility:private"],
 )
@@ -3050,6 +3124,7 @@ pkg_filegroup(
     name = "vts_kselftest_tests_arm64",
     srcs = [
         ":kselftest_binderfs_binderfs_test_arm64",
+        ":kselftest_breakpoints_breakpoint_test_arm64",
         ":kselftest_capabilities_test_execve_arm64",
         ":kselftest_capabilities_validate_cap_arm64",
         ":kselftest_futex_futex_requeue_arm64",
@@ -3062,6 +3137,13 @@ pkg_filegroup(
         ":kselftest_futex_futex_wait_uninitialized_heap_arm64",
         ":kselftest_futex_futex_wait_wouldblock_arm64",
         ":kselftest_kcmp_kcmp_test_arm64",
+        ":kselftest_rtc_rtctest_arm64",
+        # ":kselftest_net_tests_bpf_arm64", Disabled due to test failures
+        # ":kselftest_net_tests_psock_fanout_arm64", Disabled due to test failures
+        ":kselftest_net_tests_psock_tpacket_arm64",
+        ":kselftest_net_tests_reuseaddr_conflict_arm64",
+        ":kselftest_net_tests_reuseport_dualstack_arm64",
+        ":kselftest_net_tests_socket_arm64",
     ],
     visibility = ["//visibility:private"],
 )
