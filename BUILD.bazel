@@ -307,6 +307,7 @@ filegroup(
 common_kernel(
     name = "kernel_x86_64",
     outs = X86_64_OUTS,
+    abi_definition_stg = "gki/x86_64/abi.stg",
     additional_kmi_symbol_lists = [":x86_64_additional_kmi_symbol_lists"],
     arch = "x86_64",
     build_gki_artifacts = True,
@@ -320,6 +321,7 @@ common_kernel(
     gki_boot_img_sizes = _GKI_X86_64_BOOT_IMAGE_SIZES,
     gki_system_dlkm_modules = ":gki_system_dlkm_modules_x86_64",
     kcflags = COMMON_KCFLAGS,
+    kmi_enforced = True,
     kmi_symbol_list = "gki/x86_64/symbols/base",
     kmi_symbol_list_strict_mode = True,
     make_goals = _GKI_X86_64_MAKE_GOALS,
