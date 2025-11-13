@@ -1170,17 +1170,19 @@ static unsigned long pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immed
 
 static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu,
 					       unsigned long gpa,
-					       size_t size)
+					       int new_nent)
 {
 	struct kvm_cpuid_entry2 *new, *old;
-	int new_nent, old_nent;
 	struct kvm_vcpu *vcpu;
+	int old_nent;
+	size_t size;
 	void *free;
 
 	if (WARN_ON_ONCE(!pkvm_vcpu))
 		return gpa;
 
-	free = new = donate_host_memory(gpa, size, false);
+	size = new_nent * sizeof(struct kvm_cpuid_entry2);
+	free = new = donate_host_memory(gpa, PAGE_ALIGN(size), false);
 	if (!new)
 		return gpa;
 
@@ -1188,7 +1190,6 @@ static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu,
 	old = vcpu->arch.cpuid_entries;
 	old_nent = vcpu->arch.cpuid_nent;
 
-	new_nent = size / sizeof(struct kvm_cpuid_entry2);
 	if (!kvm_set_cpuid(vcpu, new, new_nent) && (vcpu->arch.cpuid_entries == new)) {
 		/*
 		 * New physical page is consumed. Tear down the old cpuid
@@ -1875,7 +1876,7 @@ static unsigned long pkvm_vcpu_handle_kvm_call(unsigned long fn,
 		ret = pkvm_vcpu_run(pkvm_vcpu, (bool)p2);
 		break;
 	case __pkvm__vcpu_after_set_cpuid:
-		ret = pkvm_vcpu_after_set_cpuid(pkvm_vcpu, p2, (size_t)p3);
+		ret = pkvm_vcpu_after_set_cpuid(pkvm_vcpu, p2, (int)p3);
 		break;
 	case __pkvm__vcpu_reset:
 		pkvm_reset_vcpu(pkvm_vcpu, (bool)p2);

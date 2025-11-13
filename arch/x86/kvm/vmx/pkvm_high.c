@@ -1822,7 +1822,7 @@ static void pkvm_vcpu_after_set_cpuid(struct kvm_vcpu *vcpu)
 	memcpy(entries, (void *)e2, size);
 
 	unused_pa = kvm_call_pkvm(vcpu_after_set_cpuid, vcpu,
-				  __pa(entries), PAGE_ALIGN(size));
+				  __pa(entries), nent);
 	if (unused_pa == __pa(entries)) {
 		kvm_err("Failed to set cpuid pages for pkvm vcpu\n");
 		free_pages_exact(entries, size);
