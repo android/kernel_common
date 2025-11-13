@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 #include <asm/processor.h>
+#include <asm/perf_event.h>
 #include <asm/kvm_pkvm.h>
 #include "x86.h"
 #include "pkvm.h"
@@ -19,6 +20,11 @@
  * hypervisor, define the tdp_enabled here to simplify.
  */
 bool tdp_enabled = true;
+/*
+ * similarly pmu.c is not compiled. define kvm_mmu_cap here for the use
+ * in cpuid.c
+ */
+struct x86_pmu_capability __read_mostly kvm_pmu_cap = {0};
 DEFINE_PER_CPU(struct kvm_vcpu *, host_vcpu);
 /*
  * In the pkvm hypervisor, the kvm_rebooting is never to be set as there is no
@@ -1190,6 +1196,9 @@ static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu,
 	old = vcpu->arch.cpuid_entries;
 	old_nent = vcpu->arch.cpuid_nent;
 
+	if (pkvm_is_protected_vcpu(vcpu) && pkvm_enforce_cpuid(new, new_nent))
+		goto out_free;
+
 	if (!kvm_set_cpuid(vcpu, new, new_nent) && (vcpu->arch.cpuid_entries == new)) {
 		/*
 		 * New physical page is consumed. Tear down the old cpuid
@@ -1209,6 +1218,7 @@ static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu,
 		}
 	}
 
+out_free:
 	/*
 	 * Undonate the physical pages which are going to be freed by the host.
 	 * There is no need to clear these pages for npVM. For pVM, it is also

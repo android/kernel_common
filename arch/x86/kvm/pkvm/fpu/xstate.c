@@ -288,6 +288,12 @@ int __xfd_enable_feature(u64 xfd_err, struct fpu_guest *guest_fpu)
 }
 #endif
 
+u64 xstate_get_guest_group_perm(void)
+{
+	return xstate_get_group_perm(true);
+}
+EXPORT_SYMBOL_GPL(xstate_get_guest_group_perm);
+
 #ifdef __PKVM_HYP__
 void pkvm_setup_xstate_cache(void)
 {

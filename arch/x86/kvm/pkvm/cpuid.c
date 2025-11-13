@@ -2,13 +2,16 @@
 #include <linux/array_size.h>
 #include <reverse_cpuid.h>
 #include <asm/kvm_pkvm.h>
+#include <asm/sgx.h>
 #include <asm/cpuid.h>
 #include <pkvm/cpuid.h>
 #include <mmu.h>
+#include <pkvm/mmu.h>
 #include <pmu.h>
 #include <hyperv.h>
 #include <xen.h>
 #include <trace.h>
+#include <vmx/pkvm/hyp/pkvm_hyp.h>
 
 /*
  * Unlike "struct cpuinfo_x86.x86_capability", kvm_cpu_caps doesn't need to be
@@ -771,6 +774,624 @@ void kvm_set_cpu_caps(void)
 	}
 }
 EXPORT_SYMBOL_GPL(kvm_set_cpu_caps);
+
+struct kvm_cpuid_array {
+	struct kvm_cpuid_entry2 *entries;
+	int maxnent;
+	int nent;
+};
+
+static struct kvm_cpuid_entry2 *get_next_cpuid(struct kvm_cpuid_array *array)
+{
+	if (array->nent >= array->maxnent)
+		return NULL;
+
+	return &array->entries[array->nent++];
+}
+
+static struct kvm_cpuid_entry2 *do_host_cpuid(struct kvm_cpuid_array *array,
+					      u32 function, u32 index)
+{
+	struct kvm_cpuid_entry2 *entry = get_next_cpuid(array);
+
+	if (!entry)
+		return NULL;
+
+	memset(entry, 0, sizeof(*entry));
+	entry->function = function;
+	entry->index = index;
+	switch (function & 0xC0000000) {
+	case 0x40000000:
+		/* Hypervisor leaves are always synthesized by __do_cpuid_func.  */
+		return entry;
+
+	case 0x80000000:
+		/*
+		 * 0x80000021 is sometimes synthesized by __do_cpuid_func, which
+		 * would result in out-of-bounds calls to do_host_cpuid.
+		 */
+		{
+			static int max_cpuid_80000000;
+			if (!READ_ONCE(max_cpuid_80000000))
+				WRITE_ONCE(max_cpuid_80000000, cpuid_eax(0x80000000));
+			if (function > READ_ONCE(max_cpuid_80000000))
+				return entry;
+		}
+		break;
+
+	default:
+		break;
+	}
+
+	cpuid_count(entry->function, entry->index,
+		    &entry->eax, &entry->ebx, &entry->ecx, &entry->edx);
+
+	if (cpuid_function_is_indexed(function))
+		entry->flags |= KVM_CPUID_FLAG_SIGNIFCANT_INDEX;
+
+	return entry;
+}
+
+static inline int __do_cpuid_func(struct kvm_cpuid_array *array, u32 function)
+{
+	struct kvm_cpuid_entry2 *entry;
+	int r, i, max_idx;
+
+	/* all calls to cpuid_count() should be made on the same cpu */
+	get_cpu();
+
+	r = -E2BIG;
+
+	entry = do_host_cpuid(array, function, 0);
+	if (!entry)
+		goto out;
+
+	switch (function) {
+	case 0:
+		/* Limited to the highest leaf implemented in KVM. */
+		entry->eax = min(entry->eax, 0x24U);
+		break;
+	case 1:
+		cpuid_entry_override(entry, CPUID_1_EDX);
+		cpuid_entry_override(entry, CPUID_1_ECX);
+		break;
+	case 2:
+		/*
+		 * On ancient CPUs, function 2 entries are STATEFUL.  That is,
+		 * CPUID(function=2, index=0) may return different results each
+		 * time, with the least-significant byte in EAX enumerating the
+		 * number of times software should do CPUID(2, 0).
+		 *
+		 * Modern CPUs, i.e. every CPU KVM has *ever* run on are less
+		 * idiotic.  Intel's SDM states that EAX & 0xff "will always
+		 * return 01H. Software should ignore this value and not
+		 * interpret it as an informational descriptor", while AMD's
+		 * APM states that CPUID(2) is reserved.
+		 *
+		 * WARN if a frankenstein CPU that supports virtualization and
+		 * a stateful CPUID.0x2 is encountered.
+		 */
+		WARN_ON_ONCE((entry->eax & 0xff) > 1);
+		break;
+	/* functions 4 and 0x8000001d have additional index. */
+	case 4:
+	case 0x8000001d:
+		/*
+		 * Read entries until the cache type in the previous entry is
+		 * zero, i.e. indicates an invalid entry.
+		 */
+		for (i = 1; entry->eax & 0x1f; ++i) {
+			entry = do_host_cpuid(array, function, i);
+			if (!entry)
+				goto out;
+		}
+		break;
+	case 6: /* Thermal management */
+		entry->eax = 0x4; /* allow ARAT */
+		entry->ebx = 0;
+		entry->ecx = 0;
+		entry->edx = 0;
+		break;
+	/* function 7 has additional index. */
+	case 7:
+		max_idx = entry->eax = min(entry->eax, 2u);
+		cpuid_entry_override(entry, CPUID_7_0_EBX);
+		cpuid_entry_override(entry, CPUID_7_ECX);
+		cpuid_entry_override(entry, CPUID_7_EDX);
+
+		/* KVM only supports up to 0x7.2, capped above via min(). */
+		if (max_idx >= 1) {
+			entry = do_host_cpuid(array, function, 1);
+			if (!entry)
+				goto out;
+
+			cpuid_entry_override(entry, CPUID_7_1_EAX);
+			cpuid_entry_override(entry, CPUID_7_1_EDX);
+			entry->ebx = 0;
+			entry->ecx = 0;
+		}
+		if (max_idx >= 2) {
+			entry = do_host_cpuid(array, function, 2);
+			if (!entry)
+				goto out;
+
+			cpuid_entry_override(entry, CPUID_7_2_EDX);
+			entry->ecx = 0;
+			entry->ebx = 0;
+			entry->eax = 0;
+		}
+		break;
+	case 0xa: { /* Architectural Performance Monitoring */
+		union cpuid10_eax eax;
+		union cpuid10_edx edx;
+
+		if (!enable_pmu || !static_cpu_has(X86_FEATURE_ARCH_PERFMON)) {
+			entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+			break;
+		}
+
+		eax.split.version_id = kvm_pmu_cap.version;
+		eax.split.num_counters = kvm_pmu_cap.num_counters_gp;
+		eax.split.bit_width = kvm_pmu_cap.bit_width_gp;
+		eax.split.mask_length = kvm_pmu_cap.events_mask_len;
+		edx.split.num_counters_fixed = kvm_pmu_cap.num_counters_fixed;
+		edx.split.bit_width_fixed = kvm_pmu_cap.bit_width_fixed;
+
+		if (kvm_pmu_cap.version)
+			edx.split.anythread_deprecated = 1;
+		edx.split.reserved1 = 0;
+		edx.split.reserved2 = 0;
+
+		entry->eax = eax.full;
+		entry->ebx = kvm_pmu_cap.events_mask;
+		entry->ecx = 0;
+		entry->edx = edx.full;
+		break;
+	}
+	case 0x1f:
+	case 0xb:
+		/*
+		 * No topology; a valid topology is indicated by the presence
+		 * of subleaf 1.
+		 */
+		entry->eax = entry->ebx = entry->ecx = 0;
+		break;
+	case 0xd: {
+		u64 permitted_xcr0 = kvm_get_filtered_xcr0();
+		u64 permitted_xss = kvm_caps.supported_xss;
+
+		entry->eax &= permitted_xcr0;
+		entry->ebx = xstate_required_size(permitted_xcr0, false);
+		entry->ecx = entry->ebx;
+		entry->edx &= permitted_xcr0 >> 32;
+		if (!permitted_xcr0)
+			break;
+
+		entry = do_host_cpuid(array, function, 1);
+		if (!entry)
+			goto out;
+
+		cpuid_entry_override(entry, CPUID_D_1_EAX);
+		if (entry->eax & (F(XSAVES)|F(XSAVEC)))
+			entry->ebx = xstate_required_size(permitted_xcr0 | permitted_xss,
+							  true);
+		else {
+			WARN_ON_ONCE(permitted_xss != 0);
+			entry->ebx = 0;
+		}
+		entry->ecx &= permitted_xss;
+		entry->edx &= permitted_xss >> 32;
+
+		for (i = 2; i < 64; ++i) {
+			bool s_state;
+			if (permitted_xcr0 & BIT_ULL(i))
+				s_state = false;
+			else if (permitted_xss & BIT_ULL(i))
+				s_state = true;
+			else
+				continue;
+
+			entry = do_host_cpuid(array, function, i);
+			if (!entry)
+				goto out;
+
+			/*
+			 * The supported check above should have filtered out
+			 * invalid sub-leafs.  Only valid sub-leafs should
+			 * reach this point, and they should have a non-zero
+			 * save state size.  Furthermore, check whether the
+			 * processor agrees with permitted_xcr0/permitted_xss
+			 * on whether this is an XCR0- or IA32_XSS-managed area.
+			 */
+			if (WARN_ON_ONCE(!entry->eax || (entry->ecx & 0x1) != s_state)) {
+				--array->nent;
+				continue;
+			}
+
+			if (!kvm_cpu_cap_has(X86_FEATURE_XFD))
+				entry->ecx &= ~BIT_ULL(2);
+			entry->edx = 0;
+		}
+		break;
+	}
+	case 0x12:
+		/* Intel SGX */
+		if (!kvm_cpu_cap_has(X86_FEATURE_SGX)) {
+			entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+			break;
+		}
+
+		/*
+		 * Index 0: Sub-features, MISCSELECT (a.k.a extended features)
+		 * and max enclave sizes.   The SGX sub-features and MISCSELECT
+		 * are restricted by kernel and KVM capabilities (like most
+		 * feature flags), while enclave size is unrestricted.
+		 */
+		cpuid_entry_override(entry, CPUID_12_EAX);
+		entry->ebx &= SGX_MISC_EXINFO;
+
+		entry = do_host_cpuid(array, function, 1);
+		if (!entry)
+			goto out;
+
+		/*
+		 * Index 1: SECS.ATTRIBUTES.  ATTRIBUTES are restricted a la
+		 * feature flags.  Advertise all supported flags, including
+		 * privileged attributes that require explicit opt-in from
+		 * userspace.  ATTRIBUTES.XFRM is not adjusted as userspace is
+		 * expected to derive it from supported XCR0.
+		 */
+		entry->eax &= SGX_ATTR_PRIV_MASK | SGX_ATTR_UNPRIV_MASK;
+		entry->ebx &= 0;
+		break;
+	/* Intel PT */
+	case 0x14:
+		if (!kvm_cpu_cap_has(X86_FEATURE_INTEL_PT)) {
+			entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+			break;
+		}
+
+		for (i = 1, max_idx = entry->eax; i <= max_idx; ++i) {
+			if (!do_host_cpuid(array, function, i))
+				goto out;
+		}
+		break;
+	/* Intel AMX TILE */
+	case 0x1d:
+		if (!kvm_cpu_cap_has(X86_FEATURE_AMX_TILE)) {
+			entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+			break;
+		}
+
+		for (i = 1, max_idx = entry->eax; i <= max_idx; ++i) {
+			if (!do_host_cpuid(array, function, i))
+				goto out;
+		}
+		break;
+	case 0x1e: /* TMUL information */
+		if (!kvm_cpu_cap_has(X86_FEATURE_AMX_TILE)) {
+			entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+			break;
+		}
+		break;
+	case 0x24: {
+		u8 avx10_version;
+
+		if (!kvm_cpu_cap_has(X86_FEATURE_AVX10)) {
+			entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+			break;
+		}
+
+		/*
+		 * The AVX10 version is encoded in EBX[7:0].  Note, the version
+		 * is guaranteed to be >=1 if AVX10 is supported.  Note #2, the
+		 * version needs to be captured before overriding EBX features!
+		 */
+		avx10_version = min_t(u8, entry->ebx & 0xff, 1);
+		cpuid_entry_override(entry, CPUID_24_0_EBX);
+		entry->ebx |= avx10_version;
+
+		entry->eax = 0;
+		entry->ecx = 0;
+		entry->edx = 0;
+		break;
+	}
+	case KVM_CPUID_SIGNATURE: {
+		const u32 *sigptr = (const u32 *)KVM_SIGNATURE;
+		entry->eax = KVM_CPUID_FEATURES;
+		entry->ebx = sigptr[0];
+		entry->ecx = sigptr[1];
+		entry->edx = sigptr[2];
+		break;
+	}
+	case KVM_CPUID_FEATURES:
+		entry->eax = (1 << KVM_FEATURE_CLOCKSOURCE) |
+			     (1 << KVM_FEATURE_NOP_IO_DELAY) |
+			     (1 << KVM_FEATURE_CLOCKSOURCE2) |
+			     (1 << KVM_FEATURE_ASYNC_PF) |
+			     (1 << KVM_FEATURE_PV_EOI) |
+			     (1 << KVM_FEATURE_CLOCKSOURCE_STABLE_BIT) |
+			     (1 << KVM_FEATURE_PV_UNHALT) |
+			     (1 << KVM_FEATURE_PV_TLB_FLUSH) |
+			     (1 << KVM_FEATURE_ASYNC_PF_VMEXIT) |
+			     (1 << KVM_FEATURE_PV_SEND_IPI) |
+			     (1 << KVM_FEATURE_POLL_CONTROL) |
+			     (1 << KVM_FEATURE_PV_SCHED_YIELD) |
+			     (1 << KVM_FEATURE_ASYNC_PF_INT);
+
+		if (sched_info_on())
+			entry->eax |= (1 << KVM_FEATURE_STEAL_TIME);
+
+		entry->ebx = 0;
+		entry->ecx = 0;
+		entry->edx = 0;
+		break;
+	case 0x80000000:
+		entry->eax = min(entry->eax, 0x80000022);
+		/*
+		 * Serializing LFENCE is reported in a multitude of ways, and
+		 * NullSegClearsBase is not reported in CPUID on Zen2; help
+		 * userspace by providing the CPUID leaf ourselves.
+		 *
+		 * However, only do it if the host has CPUID leaf 0x8000001d.
+		 * QEMU thinks that it can query the host blindly for that
+		 * CPUID leaf if KVM reports that it supports 0x8000001d or
+		 * above.  The processor merrily returns values from the
+		 * highest Intel leaf which QEMU tries to use as the guest's
+		 * 0x8000001d.  Even worse, this can result in an infinite
+		 * loop if said highest leaf has no subleaves indexed by ECX.
+		 */
+		if (entry->eax >= 0x8000001d &&
+		    (static_cpu_has(X86_FEATURE_LFENCE_RDTSC)
+		     || !static_cpu_has_bug(X86_BUG_NULL_SEG)))
+			entry->eax = max(entry->eax, 0x80000021);
+		break;
+	case 0x80000001:
+		entry->ebx &= ~GENMASK(27, 16);
+		cpuid_entry_override(entry, CPUID_8000_0001_EDX);
+		cpuid_entry_override(entry, CPUID_8000_0001_ECX);
+		break;
+	case 0x80000005:
+		/*  Pass host L1 cache and TLB info. */
+		break;
+	case 0x80000006:
+		/* Drop reserved bits, pass host L2 cache and TLB info. */
+		entry->edx &= ~GENMASK(17, 16);
+		break;
+	case 0x80000007: /* Advanced power management */
+		cpuid_entry_override(entry, CPUID_8000_0007_EDX);
+
+		/* mask against host */
+		entry->edx &= boot_cpu_data.x86_power;
+		entry->eax = entry->ebx = entry->ecx = 0;
+		break;
+	case 0x80000008: {
+		/*
+		 * GuestPhysAddrSize (EAX[23:16]) is intended for software
+		 * use.
+		 *
+		 * KVM's ABI is to report the effective MAXPHYADDR for the
+		 * guest in PhysAddrSize (phys_as), and the maximum
+		 * *addressable* GPA in GuestPhysAddrSize (g_phys_as).
+		 *
+		 * GuestPhysAddrSize is valid if and only if TDP is enabled,
+		 * in which case the max GPA that can be addressed by KVM may
+		 * be less than the max GPA that can be legally generated by
+		 * the guest, e.g. if MAXPHYADDR>48 but the CPU doesn't
+		 * support 5-level TDP.
+		 */
+		unsigned int virt_as = max((entry->eax >> 8) & 0xff, 48U);
+		unsigned int phys_as, g_phys_as;
+
+		/*
+		 * If TDP (NPT) is disabled use the adjusted host MAXPHYADDR as
+		 * the guest operates in the same PA space as the host, i.e.
+		 * reductions in MAXPHYADDR for memory encryption affect shadow
+		 * paging, too.
+		 *
+		 * If TDP is enabled, use the raw bare metal MAXPHYADDR as
+		 * reductions to the HPAs do not affect GPAs.  The max
+		 * addressable GPA is the same as the max effective GPA, except
+		 * that it's capped at 48 bits if 5-level TDP isn't supported
+		 * (hardware processes bits 51:48 only when walking the fifth
+		 * level page table).
+		 */
+		if (!tdp_enabled) {
+			phys_as = boot_cpu_data.x86_phys_bits;
+			g_phys_as = 0;
+		} else {
+			phys_as = entry->eax & 0xff;
+			g_phys_as = phys_as;
+#ifdef __PKVM_HYP__
+			if (guest_mmu_pgt_cap.level < 5)
+#else
+			if (kvm_mmu_get_max_tdp_level() < 5)
+#endif
+				g_phys_as = min(g_phys_as, 48);
+		}
+
+		entry->eax = phys_as | (virt_as << 8) | (g_phys_as << 16);
+		entry->ecx &= ~(GENMASK(31, 16) | GENMASK(11, 8));
+		entry->edx = 0;
+		cpuid_entry_override(entry, CPUID_8000_0008_EBX);
+		break;
+	}
+	case 0x8000000A:
+		if (!kvm_cpu_cap_has(X86_FEATURE_SVM)) {
+			entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+			break;
+		}
+		entry->eax = 1; /* SVM revision 1 */
+		entry->ebx = 8; /* Lets support 8 ASIDs in case we add proper
+				   ASID emulation to nested SVM */
+		entry->ecx = 0; /* Reserved */
+		cpuid_entry_override(entry, CPUID_8000_000A_EDX);
+		break;
+	case 0x80000019:
+		entry->ecx = entry->edx = 0;
+		break;
+	case 0x8000001a:
+		entry->eax &= GENMASK(2, 0);
+		entry->ebx = entry->ecx = entry->edx = 0;
+		break;
+	case 0x8000001e:
+		/* Do not return host topology information.  */
+		entry->eax = entry->ebx = entry->ecx = 0;
+		entry->edx = 0; /* reserved */
+		break;
+	case 0x8000001F:
+		if (!kvm_cpu_cap_has(X86_FEATURE_SEV)) {
+			entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+		} else {
+			cpuid_entry_override(entry, CPUID_8000_001F_EAX);
+			/* Clear NumVMPL since KVM does not support VMPL.  */
+			entry->ebx &= ~GENMASK(31, 12);
+			/*
+			 * Enumerate '0' for "PA bits reduction", the adjusted
+			 * MAXPHYADDR is enumerated directly (see 0x80000008).
+			 */
+			entry->ebx &= ~GENMASK(11, 6);
+		}
+		break;
+	case 0x80000020:
+		entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+		break;
+	case 0x80000021:
+		entry->ebx = entry->ecx = entry->edx = 0;
+		cpuid_entry_override(entry, CPUID_8000_0021_EAX);
+		break;
+	/* AMD Extended Performance Monitoring and Debug */
+	case 0x80000022: {
+		union cpuid_0x80000022_ebx ebx;
+
+		entry->ecx = entry->edx = 0;
+		if (!enable_pmu || !kvm_cpu_cap_has(X86_FEATURE_PERFMON_V2)) {
+			entry->eax = entry->ebx;
+			break;
+		}
+
+		cpuid_entry_override(entry, CPUID_8000_0022_EAX);
+
+		if (kvm_cpu_cap_has(X86_FEATURE_PERFMON_V2))
+			ebx.split.num_core_pmc = kvm_pmu_cap.num_counters_gp;
+		else if (kvm_cpu_cap_has(X86_FEATURE_PERFCTR_CORE))
+			ebx.split.num_core_pmc = AMD64_NUM_COUNTERS_CORE;
+		else
+			ebx.split.num_core_pmc = AMD64_NUM_COUNTERS;
+
+		entry->ebx = ebx.full;
+		break;
+	}
+	/*Add support for Centaur's CPUID instruction*/
+	case 0xC0000000:
+		/*Just support up to 0xC0000004 now*/
+		entry->eax = min(entry->eax, 0xC0000004);
+		break;
+	case 0xC0000001:
+		cpuid_entry_override(entry, CPUID_C000_0001_EDX);
+		break;
+	case 3: /* Processor serial number */
+	case 5: /* MONITOR/MWAIT */
+	case 0xC0000002:
+	case 0xC0000003:
+	case 0xC0000004:
+	default:
+		entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+		break;
+	}
+
+	r = 0;
+
+out:
+	put_cpu();
+
+	return r;
+}
+
+static int do_cpuid_func(struct kvm_cpuid_array *array, u32 func,
+			 unsigned int type)
+{
+#ifndef __PKVM_HYP__
+	if (type == KVM_GET_EMULATED_CPUID)
+		return __do_cpuid_func_emulated(array, func);
+#endif
+
+	return __do_cpuid_func(array, func);
+}
+
+#define CENTAUR_CPUID_SIGNATURE 0xC0000000
+
+static int get_cpuid_func(struct kvm_cpuid_array *array, u32 func,
+			  unsigned int type)
+{
+	u32 limit;
+	int r;
+
+	if (func == CENTAUR_CPUID_SIGNATURE &&
+	    boot_cpu_data.x86_vendor != X86_VENDOR_CENTAUR)
+		return 0;
+
+	r = do_cpuid_func(array, func, type);
+	if (r)
+		return r;
+
+	limit = array->entries[array->nent - 1].eax;
+	for (func = func + 1; func <= limit; ++func) {
+		r = do_cpuid_func(array, func, type);
+		if (r)
+			break;
+	}
+
+	return r;
+}
+
+static int pkvm_get_cpuid(struct kvm_cpuid_entry2 *entries, int *nent)
+{
+	static const u32 funcs[] = {
+		0, 0x80000000, KVM_CPUID_SIGNATURE,
+	};
+
+	struct kvm_cpuid_array array = {
+		.entries = entries,
+		.nent = 0,
+		.maxnent = *nent,
+	};
+	int r, i;
+
+	if (*nent < 1)
+		return -E2BIG;
+	if (*nent > KVM_MAX_CPUID_ENTRIES)
+		*nent = KVM_MAX_CPUID_ENTRIES;
+
+	for (i = 0; i < ARRAY_SIZE(funcs); i++) {
+		r = get_cpuid_func(&array, funcs[i], KVM_GET_SUPPORTED_CPUID);
+		if (r)
+			goto out;
+	}
+
+	*nent = array.nent;
+out:
+	return r;
+}
+
+int pkvm_enforce_cpuid(struct kvm_cpuid_entry2 *e2, int nent)
+{
+	int cpu = raw_smp_processor_id();
+	struct kvm_cpuid_entry2 *de2;
+	struct pkvm_pcpu *pcpu;
+	int def_nent, r;
+
+	pcpu = pkvm_hyp->pcpus[cpu];
+	de2 = pcpu->cpuid_def;
+	memset(de2, 0, KVM_MAX_CPUID_ENTRIES * sizeof(struct kvm_cpuid_entry2));
+
+	def_nent = KVM_MAX_CPUID_ENTRIES;
+	r = pkvm_get_cpuid(de2, &def_nent);
+	if (r)
+		return r;
+
+	return 0;
+}
 
 struct kvm_cpuid_entry2 *kvm_find_cpuid_entry_index(struct kvm_vcpu *vcpu,
 						    u32 function, u32 index)

@@ -34,6 +34,7 @@ struct pkvm_pcpu {
 	struct idt_page idt_page;
 	struct tss_struct tss;
 	void *lapic;
+	struct kvm_cpuid_entry2 cpuid_def[KVM_MAX_CPUID_ENTRIES];
 };
 
 struct pkvm_host_vcpu {
