@@ -924,16 +924,18 @@ static void pkvm_vcpu_pvmfw_entry_init(struct kvm_vcpu *vcpu)
 {
 	struct kvm_segment seg;
 	struct desc_ptr dt;
-	unsigned long cr0;
 
 	/* pvmfw entry point is at the beginning of the pvmfw image. */
 	kvm_rip_write(vcpu, vcpu->kvm->arch.pkvm.pvmfw_load_addr);
 
 	/* pvmfw starts in 32-bit protected mode with paging disabled. */
-	cr0 = kvm_read_cr0(vcpu);
-	cr0 |= X86_CR0_PE;
-	cr0 &= ~X86_CR0_PG;
-	kvm_x86_call(set_cr0)(vcpu, cr0);
+	kvm_x86_call(set_cr0)(vcpu, X86_CR0_PE | X86_CR0_ET);
+	kvm_x86_call(set_efer)(vcpu, 0);
+
+	/* Ensure starting in a predictable state. */
+	kvm_x86_call(set_rflags)(vcpu, X86_EFLAGS_FIXED);
+	/* Ensure starting with fancy features (e.g. FRED) disabled. */
+	kvm_x86_call(set_cr4)(vcpu, 0);
 
 	/* Set up flat 4GB segments. */
 	memset(&seg, 0, sizeof(seg));
