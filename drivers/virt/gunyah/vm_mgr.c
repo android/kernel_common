@@ -800,7 +800,7 @@ out:
 
 static int gunyah_vm_start(struct gunyah_vm *ghvm)
 {
-	struct gunyah_rm_hyp_resources *resources;
+	struct gunyah_rm_hyp_resources *resources = NULL;
 	struct gunyah_resource *ghrsc;
 	int ret, i, n;
 	u16 vmid = 0;
@@ -923,6 +923,7 @@ static int gunyah_vm_start(struct gunyah_vm *ghvm)
 
 	ghvm->vm_status = GUNYAH_RM_VM_STATUS_RUNNING;
 	up_write(&ghvm->status_lock);
+	kfree(resources);
 	return ret;
 err_dealloc_vmid:
 	ret = gunyah_rm_dealloc_vmid(ghvm->rm, ghvm->vmid);
@@ -935,6 +936,7 @@ err:
 	/* gunyah_vm_free will handle releasing resources and reclaiming memory */
 	gunyah_vm_start_fail(ghvm);
 	up_write(&ghvm->status_lock);
+	kfree(resources);
 	return ret;
 }
 
