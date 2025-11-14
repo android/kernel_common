@@ -248,6 +248,12 @@ static int pkvm_vcpu_init_traps(struct pkvm_hyp_vcpu *hyp_vcpu)
  */
 #define HANDLE_OFFSET 0x1000
 
+/*
+ * Marks an invalid (deliberately leaked) entry in the VM table.
+ * This type of entry can never be recovered.
+ */
+#define LEAKED_ENTRY ((void *)0xdeadbeef)
+
 static unsigned int vm_handle_to_idx(pkvm_handle_t handle)
 {
 	return handle - HANDLE_OFFSET;
@@ -317,11 +323,14 @@ static void unmap_donated_memory_noclear(void *va, size_t size)
 static struct pkvm_hyp_vm *get_vm_by_handle(pkvm_handle_t handle)
 {
 	unsigned int idx = vm_handle_to_idx(handle);
+	struct pkvm_hyp_vm *hyp_vm;
 
 	if (unlikely(idx >= KVM_MAX_PVMS))
 		return NULL;
 
-	return vm_table[idx];
+	hyp_vm = vm_table[idx];
+
+	return hyp_vm == LEAKED_ENTRY ? NULL : hyp_vm;
 }
 
 struct pkvm_hyp_vm *get_pkvm_hyp_vm(pkvm_handle_t handle)
@@ -788,18 +797,16 @@ static void remove_vm_table_entry(pkvm_handle_t handle)
 	hyp_assert_write_lock_held(&vm_table_lock);
 	hyp_vm = vm_table[vm_handle_to_idx(handle)];
 
+	vm_table[vm_handle_to_idx(handle)] = NULL;
+
 	/*
 	 * If we didn't send the destruction message leak the vmid to
 	 * prevent others from using it.
 	 */
 	if (hyp_vm->kvm.arch.pkvm.ffa_support &&
-	    hyp_vm->ffa_buf.vm_avail_bitmap) {
-		vm_table[vm_handle_to_idx(handle)] = (void *)0xdeadbeef;
-		list_del(&hyp_vm->vm_list);
-		return;
-	}
+	    hyp_vm->ffa_buf.vm_avail_bitmap)
+		vm_table[vm_handle_to_idx(handle)] = LEAKED_ENTRY;
 
-	vm_table[vm_handle_to_idx(handle)] = NULL;
 	list_del(&hyp_vm->vm_list);
 }
 
