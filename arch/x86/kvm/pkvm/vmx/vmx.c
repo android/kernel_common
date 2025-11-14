@@ -4749,6 +4749,9 @@ static int handle_triple_fault(struct kvm_vcpu *vcpu)
 #ifndef __PKVM_HYP__
 	vcpu->run->exit_reason = KVM_EXIT_SHUTDOWN;
 	vcpu->mmio_needed = 0;
+#else
+	if (pkvm_is_protected_vcpu(vcpu))
+		vcpu->arch.mp_state = KVM_MP_STATE_STOPPED;
 #endif
 	return 0;
 }

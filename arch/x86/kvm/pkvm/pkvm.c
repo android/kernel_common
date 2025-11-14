@@ -1135,31 +1135,33 @@ static unsigned long pkvm_vcpu_run(struct pkvm_vcpu *pkvm_vcpu, bool force_immed
 
 	vcpu = to_kvm_vcpu(pkvm_vcpu);
 
-	if (unlikely(pkvm_is_protected_vcpu(vcpu) && !kvm_vcpu_has_run(vcpu))) {
+	if (pkvm_is_protected_vcpu(vcpu)) {
 		if (READ_ONCE(vcpu->arch.mp_state) != KVM_MP_STATE_RUNNABLE)
 			return 0;
 
-		/*
-		 * Ensure that pvmfw_load_addr and bsp_vcpu_id (for primary vCPU)
-		 * or sipi_vector (for secondary vCPU) are read after mp_state,
-		 * so they are read with up-to-date values. Paired with smp_wmb()
-		 * in pkvm_vm_finalize() and in pkvm_start_secondary_vcpu().
-		 */
-		smp_rmb();
+		if (unlikely(!kvm_vcpu_has_run(vcpu))) {
+			/*
+			 * Ensure that pvmfw_load_addr and bsp_vcpu_id (for primary vCPU)
+			 * or sipi_vector (for secondary vCPU) are read after mp_state,
+			 * so they are read with up-to-date values. Paired with smp_wmb()
+			 * in pkvm_vm_finalize() and in pkvm_start_secondary_vcpu().
+			 */
+			smp_rmb();
 
-		if (pkvm_vcpu_is_pvmfw_bsp(vcpu))
-			pkvm_vcpu_pvmfw_entry_init(vcpu);
-		else if (!kvm_vcpu_is_reset_bsp(vcpu))
-			pkvm_vcpu_ap_entry_init(vcpu);
+			if (pkvm_vcpu_is_pvmfw_bsp(vcpu))
+				pkvm_vcpu_pvmfw_entry_init(vcpu);
+			else if (!kvm_vcpu_is_reset_bsp(vcpu))
+				pkvm_vcpu_ap_entry_init(vcpu);
+		}
+
+		/*
+		 * Flush predictor when switching from host VM to pVM to prevent host VM
+		 * from attacking pVM. This is not needed if switch from host VM to npVM
+		 * as host VM is in npVM's trust boundary.
+		 */
+		indirect_branch_prediction_barrier();
 	}
 
-	/*
-	 * Flush predictor when switching from host VM to pVM to prevent host VM
-	 * from attacking pVM. This is not needed if switch from host VM to npVM
-	 * as host VM is in npVM's trust boundary.
-	 */
-	if (pkvm_is_protected_vcpu(vcpu))
-		indirect_branch_prediction_barrier();
 
 	pkvm_vcpu_update_state_from_host(pkvm_vcpu);
 
