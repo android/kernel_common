@@ -1378,7 +1378,7 @@ static int smmu_detach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 	struct hyp_arm_smmu_v3_device *smmu = to_smmu(iommu);
 	struct hyp_arm_smmu_v3_domain *smmu_domain = domain->priv;
 	u32 pasid_bits = 0;
-	u64 *cd_table, *cd;
+	u64 *cd_table = NULL, *cd;
 	u32 domain_id, ste_cfg;
 
 	hyp_write_lock(&smmu_domain->list_lock);
@@ -1429,7 +1429,6 @@ static int smmu_detach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 				ret = -EACCES;
 				goto out_unlock;
 			}
-			smmu_free_cd(cd_table, pasid_bits);
 		} else {
 			cd = smmu_get_cd_ptr(cd_table, pasid);
 			if (!(cd[0] & CTXDESC_CD_0_V)) {
@@ -1469,6 +1468,8 @@ static int smmu_detach_dev(struct kvm_hyp_iommu *iommu, struct kvm_hyp_iommu_dom
 
 	ret = smmu_sync_ste(smmu, sid);
 
+	if (cd_table)
+		smmu_free_cd(cd_table, pasid_bits);
 	smmu_put_ref_domain(smmu, smmu_domain);
 out_unlock:
 	kvm_iommu_unlock(iommu);
