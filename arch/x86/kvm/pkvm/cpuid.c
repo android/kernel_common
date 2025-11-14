@@ -1374,12 +1374,148 @@ out:
 	return r;
 }
 
-int pkvm_enforce_cpuid(struct kvm_cpuid_entry2 *e2, int nent)
+static bool pkvm_cpuid_entry_host_owned(struct kvm_cpuid_entry2 *e2)
+{
+	switch (e2->function) {
+	case 0xb: /* topology */
+	case 0x1f: /* topology */
+	case 0x80000002: /* Processor Brand String */
+	case 0x80000003: /* Processor Brand String */
+	case 0x80000004: /* Processor Brand String */
+		return true;
+	}
+
+	return false;
+}
+
+#define CPUID_4_EAX_VALID_MASK		GENMASK(4, 0)
+#define CPUID_4_EBX_COH_LINE_SIZE_MASK	GENMASK(11, 0)
+#define CPUID_7_0_EDX_HYBRID		(1 << 15)
+static void pkvm_fixup_cpuid_entry(struct kvm_cpuid_entry2 *entry)
+{
+	switch (entry->function) {
+	case 4:
+		/*
+		 * Deterministic cache parameters.
+		 *
+		 * Fix the coherency line size to 64 bytes following TDX.
+		 */
+		if (entry->eax & CPUID_4_EAX_VALID_MASK) {
+			entry->ebx &= ~CPUID_4_EBX_COH_LINE_SIZE_MASK;
+			entry->ebx |= 0x3F;
+		}
+		break;
+	case 7: /* Extended features */
+		if (entry->index)
+			break;
+
+		/* No support of hybrid */
+		entry->edx &= ~CPUID_7_0_EDX_HYBRID;
+		break;
+	case 0x1a:
+		/*
+		 * Native model ID.
+		 *
+		 * Clear the entry due to no support of hybrid. This leaf is
+		 * not controlled by the host and __do_cpuid_func() already
+		 * clears it. But in case __do_cpuid_func() may change its
+		 * policy later, force clearing it here explicitly.
+		 */
+		entry->eax = entry->ebx = entry->ecx = entry->edx = 0;
+		break;
+	default:
+		break;
+	}
+}
+
+#define CPUID_1_EBX_ID_MASK		GENMASK(31, 16)
+#define CPUID_1_ECX_TSC_DLTIMER		(1 << 24)
+#define CPUID_1_ECX_HYP			(1 << 31)
+#define CPUID_1_EDX_HTT			(1 << 28)
+static void pkvm_enforce_cpuid_entry(struct kvm_cpuid_entry2 *entry,
+				     struct kvm_cpuid_entry2 *def)
+{
+	struct kvm_cpuid_entry2 tmp = *def;
+
+#define COPY_BITS(reg1, reg2, mask) {	\
+	(reg1) &= ~(mask);		\
+	(reg1) |= (reg2) & (mask);	\
+}
+	switch (entry->function) {
+	case 1:
+		COPY_BITS(tmp.ecx, entry->ecx,
+			  CPUID_1_ECX_TSC_DLTIMER | CPUID_1_ECX_HYP);
+		COPY_BITS(tmp.ebx, entry->ebx, CPUID_1_EBX_ID_MASK);
+		COPY_BITS(tmp.edx, entry->edx, CPUID_1_EDX_HTT);
+		break;
+	default:
+		break;
+	}
+
+	*entry = tmp;
+}
+
+static bool cpuid_entry_is_empty(struct kvm_cpuid_entry2 *e2)
+{
+	return !e2->function && !e2->eax;
+}
+
+static struct kvm_cpuid_entry2 *find_cpuid_entry(struct kvm_cpuid_entry2 *buf,
+	      int nent,	struct kvm_cpuid_entry2 *e2)
+{
+	int i;
+
+	for (i = 0; i < nent; i++) {
+		if (cpuid_entry_is_empty(&buf[i]))
+			continue;
+
+		if ((buf[i].function == e2->function) &&
+		    (buf[i].index == e2->index) &&
+		    (buf[i].flags == e2->flags))
+			return &buf[i];
+	}
+
+	return NULL;
+}
+
+/*
+ * pKVM enforces a simple CPUID policy (similar to QEMU '--cpu host') for
+ * pVM, by using the pKVM supported bits as the base plus a small set
+ * allowing the host to manage. This saves a lot of effort of defining/
+ * maintaining a bit-wise complex policy as TDX does.
+ *
+ * As crosvm is the main VMM targeted in the pKVM project, the allowed set
+ * is currently scrutinized/defined based on the bits mangled by crosvm.
+ * It is not flexible but good for security/simplicity. The allowed set
+ * could be extended case-by-case when seeing new demand for the host
+ * to set.
+ *
+ * The enforcement includes:
+ *   - if an entry is fully host-controlled, leave it intact.
+ *
+ *   - if an entry is func#4 (cache parameters), it's configured by the host
+ *     but certain fields will be overridden with fixed values. If none of
+ *     func4 entries exist, pKVM will insert the default cache parameters
+ *     as failsafe.
+ *
+ *   - for remaining entries, there must be a matching one in the default
+ *     set, otherwise the original entry is cleared. If matched, the entry
+ *     is fully/partially overridden based on the default value.
+ *
+ *   - Append a default entry to the buffer if it's not included by
+ *     the host, to prevent the host attack by hiding cpuid leaves which
+ *     may affect pVM security
+ *
+ *   - Fixed values are enforced in the last step
+ */
+int pkvm_enforce_cpuid(struct kvm_cpuid_entry2 *e2, int *nent, int max_nent)
 {
 	int cpu = raw_smp_processor_id();
 	struct kvm_cpuid_entry2 *de2;
 	struct pkvm_pcpu *pcpu;
-	int def_nent, r;
+	int def_nent, r, i, n;
+	int orig_nent = *nent;
+	bool has_func4 = false;
 
 	pcpu = pkvm_hyp->pcpus[cpu];
 	de2 = pcpu->cpuid_def;
@@ -1389,6 +1525,68 @@ int pkvm_enforce_cpuid(struct kvm_cpuid_entry2 *e2, int nent)
 	r = pkvm_get_cpuid(de2, &def_nent);
 	if (r)
 		return r;
+
+	/* Enforce cpuid leaves according to the default set */
+	for (i = 0; i < orig_nent; i++) {
+		struct kvm_cpuid_entry2 *tmp;
+
+		if (cpuid_entry_is_empty(&e2[i]) ||
+		    pkvm_cpuid_entry_host_owned(&e2[i]))
+			continue;
+
+		if (e2[i].function == 4) {
+			has_func4 = true;
+			continue;
+		}
+
+		tmp = find_cpuid_entry(de2, def_nent, &e2[i]);
+		if (tmp)
+			pkvm_enforce_cpuid_entry(&e2[i], tmp);
+		else
+			memset(&e2[i], 0, sizeof(struct kvm_cpuid_entry2));
+	}
+
+	/* Insert default cpuid leaves if missing in the host buffer */
+	n = 0;
+	for (i = 0; i < def_nent; i++) {
+		if (pkvm_cpuid_entry_host_owned(&de2[i]))
+			continue;
+
+		/*
+		 * If the host already provides cache parameters,
+		 * skip all func4 entries in the default set. Simply
+		 * comparing func/index doesn't work as the default set
+		 * may contain more entries than host provides (due to
+		 * different number of levels of cache on different
+		 * physical CPUs on a hybrid system).
+		 */
+		if ((de2[i].function == 4) && has_func4)
+			continue;
+
+		if (find_cpuid_entry(e2, orig_nent, &de2[i]))
+			continue;
+
+		/* find an empty slot */
+		while (n < max_nent && !cpuid_entry_is_empty(&e2[n]))
+			n++;
+
+		if (n == max_nent)
+			return -ENOSPC;
+
+		e2[n++] = de2[i];
+	}
+
+	if (n > orig_nent)
+		*nent = n;
+
+	/* Apply fixed values to the final set of entries */
+	for (i = 0; i < *nent; i++) {
+		if (cpuid_entry_is_empty(&e2[i]) ||
+		    pkvm_cpuid_entry_host_owned(&e2[i]))
+			continue;
+
+		pkvm_fixup_cpuid_entry(&e2[i]);
+	}
 
 	return 0;
 }

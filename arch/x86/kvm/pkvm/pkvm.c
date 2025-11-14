@@ -1181,14 +1181,15 @@ static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu,
 	struct kvm_cpuid_entry2 *new, *old;
 	struct kvm_vcpu *vcpu;
 	int old_nent;
-	size_t size;
+	size_t size, aligned_size;
 	void *free;
 
 	if (WARN_ON_ONCE(!pkvm_vcpu))
 		return gpa;
 
 	size = new_nent * sizeof(struct kvm_cpuid_entry2);
-	free = new = donate_host_memory(gpa, PAGE_ALIGN(size), false);
+	aligned_size = PAGE_ALIGN(size);
+	free = new = donate_host_memory(gpa, aligned_size, false);
 	if (!new)
 		return gpa;
 
@@ -1196,8 +1197,21 @@ static unsigned long pkvm_vcpu_after_set_cpuid(struct pkvm_vcpu *pkvm_vcpu,
 	old = vcpu->arch.cpuid_entries;
 	old_nent = vcpu->arch.cpuid_nent;
 
-	if (pkvm_is_protected_vcpu(vcpu) && pkvm_enforce_cpuid(new, new_nent))
-		goto out_free;
+	if (pkvm_is_protected_vcpu(vcpu)) {
+		/*
+		 * Donation is page-granule, so the host must ensure that
+		 * the cpuid buffer size is page aligned though the actual
+		 * nent only records valid entries.
+		 *
+		 * Clear the trailing space after nent so it can be used
+		 * to hold missing cpuid entries enforced by pkvm.
+		 */
+		memset((void *)new + size, 0, aligned_size - size);
+
+		if (pkvm_enforce_cpuid(new, &new_nent,
+			aligned_size / sizeof(struct kvm_cpuid_entry2)))
+			goto out_free;
+	}
 
 	if (!kvm_set_cpuid(vcpu, new, new_nent) && (vcpu->arch.cpuid_entries == new)) {
 		/*
