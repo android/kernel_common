@@ -178,6 +178,8 @@
   clk_bulk_put_all
   clk_bulk_unprepare
   __clk_determine_rate
+  clkdev_add
+  clkdev_drop
   clk_disable
   clk_divider_ops
   clk_enable
@@ -227,6 +229,7 @@
   clk_set_rate
   clk_set_rate_range
   clk_unprepare
+  clk_unregister
   clockevents_config_and_register
   clocks_calc_mult_shift
   close_fd
@@ -512,6 +515,7 @@
   devm_devfreq_register_notifier
   devm_devfreq_remove_device
   devm_devfreq_unregister_notifier
+  devm_devfreq_unregister_opp_notifier
   devm_extcon_dev_allocate
   devm_extcon_dev_register
   devm_extcon_register_notifier
