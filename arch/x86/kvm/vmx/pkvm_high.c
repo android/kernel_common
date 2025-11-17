@@ -956,7 +956,7 @@ static void pkvm_vcpu_reset(struct kvm_vcpu *vcpu, bool init_event)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
 
-	if (!vcpu->arch.guest_state_protected)
+	if (!vcpu->arch.guest_state_protected && init_event)
 		pkvm_hypercall(vcpu_reset, vcpu, init_event);
 
 	/*

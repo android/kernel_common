@@ -3022,10 +3022,24 @@ static void kvm_put_guest_fpu(struct kvm_vcpu *vcpu)
 	trace_kvm_fpu(0);
 }
 
+#ifdef __PKVM_HYP__
+static void __pkvm_vcpu_reset(struct kvm_vcpu *vcpu)
+{
+	pkvm_x86_call(switch_to_guest_vcpu)(vcpu);
+	kvm_x86_call(vcpu_load)(vcpu, raw_smp_processor_id());
+
+	kvm_vcpu_reset(vcpu, false);
+
+	kvm_x86_call(vcpu_put)(vcpu);
+	pkvm_x86_call(switch_to_host_vcpu)(this_cpu_read(host_vcpu));
+}
+#endif
+
 int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 {
 #ifdef __PKVM_HYP__
 	struct pkvm_vm *pkvm_vm = to_pkvm(vcpu->kvm);
+	int r;
 
 	vcpu->arch.last_vmentry_cpu = -1;
 	vcpu->arch.regs_avail = ~0;
@@ -3047,7 +3061,12 @@ int kvm_arch_vcpu_create(struct kvm_vcpu *vcpu)
 	if (pkvm_is_protected_vcpu(vcpu))
 		fpstate_set_confidential(&vcpu->arch.guest_fpu);
 
-	return kvm_x86_call(vcpu_create)(vcpu);
+	r = kvm_x86_call(vcpu_create)(vcpu);
+	if (r)
+		return r;
+
+	__pkvm_vcpu_reset(vcpu);
+	return 0;
 #else
 	struct page *page;
 	int r;
