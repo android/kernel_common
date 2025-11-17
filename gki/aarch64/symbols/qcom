@@ -2207,6 +2207,7 @@
   of_root
   of_translate_address
   of_translate_dma_region
+  of_update_property
   on_each_cpu_cond_mask
   oops_in_progress
   open_candev
