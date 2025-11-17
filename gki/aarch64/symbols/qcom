@@ -712,6 +712,7 @@
   dev_pm_opp_enable
   dev_pm_opp_find_freq_ceil
   dev_pm_opp_find_freq_exact
+  dev_pm_opp_find_freq_exact_indexed
   dev_pm_opp_find_freq_floor
   dev_pm_opp_get_opp_count
   dev_pm_opp_get_voltage
