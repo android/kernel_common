@@ -63,6 +63,7 @@
   acpi_install_address_space_handler
   acpi_install_notify_handler
   acpi_is_video_device
+  acpi_kobj
   acpi_lpat_free_conversion_table
   acpi_lpat_get_conversion_table
   acpi_lpat_raw_to_temp
@@ -101,6 +102,7 @@
   add_device_randomness
   add_taint
   add_timer
+  add_timer_on
   add_uevent_var
   add_wait_queue
   aes_encrypt
@@ -349,8 +351,10 @@
   cpufreq_generic_frequency_table_verify
   cpufreq_get_current_driver
   cpufreq_register_driver
+  cpufreq_register_notifier
   cpufreq_show_cpus
   cpufreq_unregister_driver
+  cpufreq_unregister_notifier
   __cpuhp_remove_state
   __cpuhp_setup_state
   __cpuhp_state_add_instance
@@ -363,6 +367,7 @@
   cpu_latency_qos_update_request
   __cpu_online_mask
   __cpu_possible_mask
+  __cpu_present_mask
   cpu_sibling_map
   cpus_read_lock
   cpus_read_unlock
@@ -739,6 +744,7 @@
   down_write
   down_write_killable
   d_parent_ino
+  d_path
   dpcm_end_walk_at_be
   dput
   dql_completed
@@ -1151,10 +1157,12 @@
   _find_first_bit
   _find_first_zero_bit
   find_font
+  find_get_pid
   find_iova
   _find_next_bit
   _find_next_or_bit
   _find_next_zero_bit
+  find_pid_ns
   find_vma
   finish_open
   finish_wait
@@ -1178,6 +1186,7 @@
   __folio_put
   folio_unlock
   folio_wait_stable
+  for_each_kernel_tracepoint
   for_each_thermal_trip
   __fortify_panic
   fput
@@ -1274,6 +1283,7 @@
   gen_pool_add_owner
   gen_pool_alloc_algo_owner
   gen_pool_free_owner
+  get_cpu_entry_area
   get_device
   get_device_system_crosststamp
   get_file_active
@@ -1290,6 +1300,7 @@
   get_random_u8
   get_state_synchronize_rcu
   __get_task_comm
+  get_task_mm
   get_task_pid
   get_tree_bdev
   get_unused_fd_flags
@@ -1299,6 +1310,7 @@
   __get_user_8
   __get_user_nocheck_1
   __get_user_nocheck_8
+  get_user_pages_fast_only
   get_zeroed_page_noprof
   gpiochip_add_data_with_key
   gpiochip_add_pin_range
@@ -1504,10 +1516,12 @@
   inet_csk_get_port
   init_iova_domain
   init_net
+  init_pid_ns
   __init_rwsem
   init_special_inode
   init_srcu_struct
   __init_swait_queue_head
+  init_task
   init_timer_key
   init_uts_ns
   init_wait_entry
@@ -1656,6 +1670,7 @@
   irq_set_chip_and_handler_name
   irq_set_chip_data
   irq_set_irq_wake
+  irq_stat
   irq_work_queue
   irq_work_sync
   is_acpi_data_node
@@ -2131,6 +2146,7 @@
   pci_enable_wake
   pcie_print_link_status
   pcie_set_readrq
+  pci_find_bus
   pci_find_capability
   pci_find_ext_capability
   pci_find_next_ext_capability
@@ -2347,6 +2363,7 @@
   print_hex_dump
   _printk
   __printk_ratelimit
+  proc_create
   proc_create_single_data
   proc_dointvec
   proc_dointvec_minmax
@@ -2388,8 +2405,10 @@
   ___ratelimit
   _raw_read_lock
   _raw_read_lock_bh
+  _raw_read_lock_irqsave
   _raw_read_unlock
   _raw_read_unlock_bh
+  _raw_read_unlock_irqrestore
   _raw_spin_lock
   _raw_spin_lock_bh
   _raw_spin_lock_irq
@@ -2446,9 +2465,11 @@
   register_filesystem
   register_inet6addr_notifier
   register_inetaddr_notifier
+  register_kprobe
   register_netdev
   register_netdevice
   register_netdevice_notifier
+  __register_nmi_handler
   register_oom_notifier
   register_pernet_device
   register_pernet_subsys
@@ -2545,6 +2566,7 @@
   sb_min_blocksize
   sb_set_blocksize
   sched_clock
+  sched_clock_cpu
   sched_set_fifo
   sched_set_fifo_low
   schedule
@@ -2738,6 +2760,7 @@
   sk_free
   skip_spaces
   sk_skb_reason_drop
+  smp_call_function
   smp_call_function_any
   smp_call_function_many
   smp_call_function_single
@@ -3018,6 +3041,7 @@
   spi_unregister_controller
   split_page
   sprintf
+  sprint_symbol
   __srcu_read_lock
   __srcu_read_unlock
   sscanf
@@ -3087,6 +3111,7 @@
   sysfs_remove_link
   sysfs_streq
   sysfs_unmerge_group
+  sysfs_update_group
   system_freezable_wq
   system_highpri_wq
   system_long_wq
@@ -3185,6 +3210,8 @@
   __tracepoint_mmap_lock_acquire_returned
   __tracepoint_mmap_lock_released
   __tracepoint_mmap_lock_start_locking
+  tracepoint_probe_register
+  tracepoint_probe_unregister
   __tracepoint_read_msr
   __tracepoint_write_msr
   __tracepoint_xdp_exception
@@ -3371,10 +3398,12 @@
   unregister_filesystem
   unregister_inet6addr_notifier
   unregister_inetaddr_notifier
+  unregister_kprobe
   unregister_netdev
   unregister_netdevice_many
   unregister_netdevice_notifier
   unregister_netdevice_queue
+  unregister_nmi_handler
   unregister_oom_notifier
   unregister_pernet_device
   unregister_pernet_subsys
@@ -3695,6 +3724,7 @@
   wake_up_bit
   __wake_up_locked
   wake_up_process
+  __wake_up_sync
   __wake_up_sync_key
   wake_up_var
   __warn_printk
