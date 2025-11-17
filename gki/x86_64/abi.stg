@@ -33060,6 +33060,20 @@ member {
   offset: 7232
 }
 member {
+  id: 0x559a7e1a
+  name: "aspm_l0s_support"
+  type_id: 0x4585663f
+  offset: 1536
+  bitsize: 1
+}
+member {
+  id: 0x9d65ec2f
+  name: "aspm_l1_support"
+  type_id: 0x4585663f
+  offset: 1537
+  bitsize: 1
+}
+member {
   id: 0xcf8b020f
   name: "assoc_num"
   type_id: 0x5d8155a5
@@ -54173,10 +54187,10 @@ member {
   offset: 64
 }
 member {
-  id: 0x79689ab3
+  id: 0x7968950c
   name: "eetlp_prefix_max"
   type_id: 0x4585663f
-  offset: 1538
+  offset: 1540
   bitsize: 3
 }
 member {
@@ -81937,10 +81951,10 @@ member {
   offset: 192
 }
 member {
-  id: 0xe5cc3197
+  id: 0xe5cc3feb
   name: "ltr_path"
   type_id: 0x4585663f
-  offset: 1536
+  offset: 1538
   bitsize: 1
 }
 member {
@@ -100363,10 +100377,10 @@ member {
   offset: 20736
 }
 member {
-  id: 0xc1becb6e
+  id: 0xc1becd87
   name: "pasid_no_tlp"
   type_id: 0x4585663f
-  offset: 1537
+  offset: 1539
   bitsize: 1
 }
 member {
@@ -173722,9 +173736,11 @@ struct_union {
     member_id: 0xfb07fbfc
     member_id: 0x655ea2ee
     member_id: 0x46f09190
-    member_id: 0xe5cc3197
-    member_id: 0xc1becb6e
-    member_id: 0x79689ab3
+    member_id: 0x559a7e1a
+    member_id: 0x9d65ec2f
+    member_id: 0xe5cc3feb
+    member_id: 0xc1becd87
+    member_id: 0x7968950c
     member_id: 0x4404e39e
     member_id: 0xce1ac8f1
     member_id: 0x01e5f8a7
@@ -219387,7 +219403,7 @@ elf_symbol {
   name: "__pci_register_driver"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x98b389c6
+  crc: 0xfe573443
   type_id: 0x97374fe9
   full_name: "__pci_register_driver"
 }
@@ -225913,7 +225929,7 @@ elf_symbol {
   name: "pci_dev_put"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x1a64e8ad
+  crc: 0xdae697b8
   type_id: 0x14e1f000
   full_name: "pci_dev_put"
 }
@@ -225922,7 +225938,7 @@ elf_symbol {
   name: "pci_disable_device"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x546ed116
+  crc: 0x8e0a9fd2
   type_id: 0x14e1f000
   full_name: "pci_disable_device"
 }
@@ -225931,7 +225947,7 @@ elf_symbol {
   name: "pci_disable_link_state"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0xa8c2cb1d
+  crc: 0xd1662491
   type_id: 0x9865c1f0
   full_name: "pci_disable_link_state"
 }
@@ -225940,7 +225956,7 @@ elf_symbol {
   name: "pci_enable_device"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x325217fa
+  crc: 0x8a7846a7
   type_id: 0x99f942bc
   full_name: "pci_enable_device"
 }
@@ -225949,7 +225965,7 @@ elf_symbol {
   name: "pci_get_device"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0xd560a15a
+  crc: 0x1941924a
   type_id: 0x972bd7f2
   full_name: "pci_get_device"
 }
@@ -225958,7 +225974,7 @@ elf_symbol {
   name: "pci_read_config_byte"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x09f65f54
+  crc: 0x6400481a
   type_id: 0x92ce2ae7
   full_name: "pci_read_config_byte"
 }
@@ -225967,7 +225983,7 @@ elf_symbol {
   name: "pci_release_region"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x7c07095c
+  crc: 0x999c8139
   type_id: 0x157d734c
   full_name: "pci_release_region"
 }
@@ -225976,7 +225992,7 @@ elf_symbol {
   name: "pci_request_region"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x5072e5b6
+  crc: 0x3facc792
   type_id: 0x986a45dd
   full_name: "pci_request_region"
 }
@@ -225985,7 +226001,7 @@ elf_symbol {
   name: "pci_unregister_driver"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x5c750084
+  crc: 0xb7d0be2c
   type_id: 0x1a0ce609
   full_name: "pci_unregister_driver"
 }
@@ -225994,7 +226010,7 @@ elf_symbol {
   name: "pcie_capability_clear_and_set_word_locked"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x7a30cb1a
+  crc: 0xfb1ef64d
   type_id: 0x9843d7a9
   full_name: "pcie_capability_clear_and_set_word_locked"
 }
@@ -226003,7 +226019,7 @@ elf_symbol {
   name: "pcie_capability_read_word"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0xedb1a630
+  crc: 0x36d5f3d1
   type_id: 0x986e7125
   full_name: "pcie_capability_read_word"
 }
@@ -226411,7 +226427,7 @@ elf_symbol {
   name: "remap_pfn_range"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x1533de4d
+  crc: 0xbd432980
   type_id: 0x9fc5d15c
   full_name: "remap_pfn_range"
 }
@@ -228697,7 +228713,7 @@ elf_symbol {
   name: "vga_get"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x9ace6991
+  crc: 0xee0aa378
   type_id: 0x98f69f10
   full_name: "vga_get"
 }
@@ -228706,7 +228722,7 @@ elf_symbol {
   name: "vga_put"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0x49a1de5e
+  crc: 0x9e1386f4
   type_id: 0x15f7e598
   full_name: "vga_put"
 }
@@ -229111,7 +229127,7 @@ elf_symbol {
   name: "vm_insert_page"
   is_defined: true
   symbol_type: FUNCTION
-  crc: 0xcc7bb03d
+  crc: 0xf7bee3e9
   type_id: 0x9fc8463b
   full_name: "vm_insert_page"
 }

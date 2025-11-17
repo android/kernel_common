@@ -2075,7 +2075,11 @@ static inline void mark_objexts_empty(struct slabobj_ext *obj_exts)
 	if (slab_exts) {
 		unsigned int offs = obj_to_index(obj_exts_slab->slab_cache,
 						 obj_exts_slab, obj_exts);
-		/* codetag should be NULL */
+
+		if (unlikely(is_codetag_empty(&slab_exts[offs].ref)))
+			return;
+
+		/* codetag should be NULL here */
 		WARN_ON(slab_exts[offs].ref.ct);
 		set_codetag_empty(&slab_exts[offs].ref);
 	}
@@ -6361,8 +6365,6 @@ next_remote_batch:
 
 		if (unlikely(!slab_free_hook(s, p[i], init, false))) {
 			p[i] = p[--size];
-			if (!size)
-				goto flush_remote;
 			continue;
 		}
 
@@ -6376,6 +6378,9 @@ next_remote_batch:
 
 		i++;
 	}
+
+	if (!size)
+		goto flush_remote;
 
 next_batch:
 	if (!local_trylock(&s->cpu_sheaves->lock))
@@ -6430,6 +6435,9 @@ do_free:
 		size -= batch;
 		goto next_batch;
 	}
+
+	if (remote_nr)
+		goto flush_remote;
 
 	return;
 
