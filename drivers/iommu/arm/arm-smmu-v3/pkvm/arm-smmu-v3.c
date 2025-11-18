@@ -1671,7 +1671,7 @@ static bool smmu_dabt_handler(struct user_pt_regs *regs, u64 esr, u64 addr)
 	return false;
 }
 
-int smmu_suspend(struct kvm_hyp_iommu *iommu)
+static int smmu_suspend(struct kvm_hyp_iommu *iommu)
 {
 	struct hyp_arm_smmu_v3_device *smmu = to_smmu(iommu);
 
@@ -1684,7 +1684,7 @@ int smmu_suspend(struct kvm_hyp_iommu *iommu)
 	return 0;
 }
 
-int smmu_resume(struct kvm_hyp_iommu *iommu)
+static int smmu_resume(struct kvm_hyp_iommu *iommu)
 {
 	struct hyp_arm_smmu_v3_device *smmu = to_smmu(iommu);
 

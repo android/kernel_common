@@ -1368,7 +1368,7 @@ static int kvm_arm_smmu_v3_device_id(struct device *dev, u32 idx,
 	return 0;
 }
 
-struct kvm_iommu_driver kvm_smmu_v3_ops = {
+static struct kvm_iommu_driver kvm_smmu_v3_ops = {
 	.init_driver = kvm_arm_smmu_v3_init_drv,
 	.remove_driver = kvm_arm_smmu_v3_remove_drv,
 	.get_iommu_id_by_of = kvm_arm_v3_id_by_of,
