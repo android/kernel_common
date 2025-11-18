@@ -45,4 +45,6 @@ enum kvm_arm_smmu_domain_type {
 	KVM_ARM_SMMU_DOMAIN_MAX,
 };
 
+extern struct kvm_iommu_ops smmu_ops;
+
 #endif /* __KVM_ARM_SMMU_V3_H */
